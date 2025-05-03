@@ -438,8 +438,8 @@ MERMAID DIAGRAM INSTRUCTIONS:
       const requestBody: Record<string, any> = {
         repo_url: repoUrl,
         messages: [{
-            role: 'user',
-            content: `Analyze this GitHub repository ${owner}/${repo} and create a wiki structure for it.
+          role: 'user',
+          content: `Analyze this GitHub repository ${owner}/${repo} and create a wiki structure for it.
 
 1. The complete file tree of the project:
 <file_tree>
@@ -496,24 +496,24 @@ IMPORTANT:
 2. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
 3. The relevant_files should be actual files from the repository that would be used to generate that page
 4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
-          }]
-        };
+        }]
+      };
 
-        // Add tokens if available
-        if (githubToken && repoInfo.type === 'github') {
-          requestBody.github_token = githubToken;
-        }
-        if (gitlabToken && repoInfo.type === 'gitlab') {
-          requestBody.gitlab_token = gitlabToken;
-        }
+      // Add tokens if available
+      if (githubToken && repoInfo.type === 'github') {
+        requestBody.github_token = githubToken;
+      }
+      if (gitlabToken && repoInfo.type === 'gitlab') {
+        requestBody.gitlab_token = gitlabToken;
+      }
 
-        const response = await fetch('http://localhost:8001/chat/completions/stream', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody)
-        });
+      const response = await fetch('http://localhost:8001/chat/completions/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
 
       if (!response.ok) {
         throw new Error(`Error determining wiki structure: ${response.status}`);
@@ -573,7 +573,7 @@ IMPORTANT:
         const title = titleEl ? titleEl.textContent || '' : '';
         const importance = importanceEl ?
           (importanceEl.textContent === 'high' ? 'high' :
-           importanceEl.textContent === 'medium' ? 'medium' : 'low') : 'medium';
+            importanceEl.textContent === 'medium' ? 'medium' : 'low') : 'medium';
 
         const filePaths: string[] = [];
         filePathEls.forEach(el => {
@@ -654,9 +654,9 @@ IMPORTANT:
           if (queue.length === 0 && activeRequests === 0 && pages.length > 0 && pagesInProgress.size === 0) {
             // This handles the case where the queue might finish before the finally blocks fully update activeRequests
             // or if the initial queue was processed very quickly
-             console.log("Queue empty and no active requests after loop, ensuring loading is false.");
-             setIsLoading(false);
-             setLoadingMessage(undefined);
+            console.log("Queue empty and no active requests after loop, ensuring loading is false.");
+            setIsLoading(false);
+            setLoadingMessage(undefined);
           } else if (pages.length === 0) {
             // Handle case where there were no pages to begin with
             setIsLoading(false);
@@ -793,35 +793,51 @@ IMPORTANT:
         let filesData = null;
         let apiErrorDetails = '';
 
-        for (const branch of ['main', 'master']) {
-          const apiUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/tree?recursive=true&ref=${branch}&per_page=100`;
-          const headers: HeadersInit = {
-            'Content-Type': 'application/json',
-          };
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
 
-          // Add GitLab token if available
-          if (gitlabToken) {
-            headers['PRIVATE-TOKEN'] = gitlabToken;
-          }
+        // Add GitLab token if available
+        if (gitlabToken) {
+          headers['PRIVATE-TOKEN'] = gitlabToken;
+        }
 
-          console.log(`Fetching GitLab repository structure from branch: ${branch}`);
-          try {
-            const response = await fetch(apiUrl, {
-              headers
-            });
+        // First get project info to determine default branch
+        const projectInfoUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}`;
+        console.log(`Fetching GitLab project info: ${projectInfoUrl}`);
+        try {
+          const response = await fetch(projectInfoUrl, { headers });
 
-            if (response.ok) {
-              filesData = await response.json();
-              console.log('Successfully fetched GitLab repository structure');
-              break;
-            } else {
-              const errorData = await response.text();
-              apiErrorDetails = `Status: ${response.status}, Response: ${errorData}`;
-              console.error(`Error fetching GitLab repository structure: ${apiErrorDetails}`);
+          if (response.ok) {
+            const projectData = await response.json();
+            const defaultBranch = projectData.default_branch;
+            console.log(`Found default branch: ${defaultBranch}`);
+
+            console.log(`Fetching GitLab repository structure from branch: ${defaultBranch}`);
+            const apiUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/tree?recursive=true&ref=${defaultBranch}&per_page=100`;
+            try {
+              const response = await fetch(apiUrl, {
+                headers
+              });
+
+              if (response.ok) {
+                filesData = await response.json();
+                console.log('Successfully fetched GitLab repository structure');
+              } else {
+                const errorData = await response.text();
+                apiErrorDetails = `Status: ${response.status}, Response: ${errorData}`;
+                console.error(`Error fetching GitLab repository structure: ${apiErrorDetails}`);
+              }
+            } catch (err) {
+              console.error(`Network error fetching GitLab branch ${defaultBranch}:`, err);
             }
-          } catch (err) {
-            console.error(`Network error fetching GitLab branch ${branch}:`, err);
+          } else {
+            const errorData = await response.text();
+            apiErrorDetails = `Status: ${response.status}, Response: ${errorData}`;
+            console.error(`Error fetching GitLab project info: ${apiErrorDetails}`);
           }
+        } catch (err) {
+          console.error("Network error fetching GitLab project info:", err);
         }
 
         if (!filesData || !Array.isArray(filesData) || filesData.length === 0) {
@@ -1165,11 +1181,10 @@ IMPORTANT:
                 {wikiStructure.pages.map(page => (
                   <li key={page.id}>
                     <button
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                        currentPageId === page.id
+                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${currentPageId === page.id
                           ? 'bg-purple-700/50 text-white'
                           : 'text-gray-700 dark:text-gray-300 hover:bg-purple-700/30'
-                      }`}
+                        }`}
                       onClick={() => {
                         if (currentPageId != page.id) {
                           setCurrentPageId(page.id)
@@ -1177,10 +1192,9 @@ IMPORTANT:
                       }}
                     >
                       <div className="flex items-center">
-                        <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
-                          page.importance === 'high' ? 'bg-green-500' :
-                          page.importance === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'
-                        }`}></div>
+                        <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${page.importance === 'high' ? 'bg-green-500' :
+                            page.importance === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'
+                          }`}></div>
                         <span className="truncate">{page.title}</span>
                       </div>
                     </button>
