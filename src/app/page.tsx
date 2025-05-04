@@ -426,17 +426,12 @@ MERMAID DIAGRAM INSTRUCTIONS:
     }
 
     try {
-      setLoadingMessage('Determining wiki structure...');
-
-      // Determine which token to use based on the repository type
-      const repoUrl = repoInfo.type === 'github'
-        ? `https://github.com/${owner}/${repo}`
-        : `https://gitlab.com/${owner}/${repo}`;
+      setLoadingMessage('Determining wiki structure...');        
 
       // Prepare request body
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const requestBody: Record<string, any> = {
-        repo_url: repoUrl,
+        repo_url: repositoryInput,
         messages: [{
           role: 'user',
           content: `Analyze this GitHub repository ${owner}/${repo} and create a wiki structure for it.
