@@ -792,6 +792,7 @@ IMPORTANT:
         // Try to get the file tree for common branch names
         let filesData = null;
         let apiErrorDetails = '';
+        let defaultBranch = null;
 
         const headers: HeadersInit = {
           'Content-Type': 'application/json',
@@ -810,7 +811,7 @@ IMPORTANT:
 
           if (response.ok) {
             const projectData = await response.json();
-            const defaultBranch = projectData.default_branch;
+            defaultBranch = projectData.default_branch;
             console.log(`Found default branch: ${defaultBranch}`);
 
             console.log(`Fetching GitLab repository structure from branch: ${defaultBranch}`);
@@ -856,30 +857,27 @@ IMPORTANT:
 
         // Try to fetch README.md content
         try {
-          for (const branch of ['main', 'master']) {
-            const readmeUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/files/README.md/raw?ref=${branch}`;
-            const headers: HeadersInit = {};
+          const readmeUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/files/README.md/raw?ref=${defaultBranch}`;
+          const headers: HeadersInit = {};
 
-            // Add GitLab token if available
-            if (gitlabToken) {
-              headers['PRIVATE-TOKEN'] = gitlabToken;
+          // Add GitLab token if available
+          if (gitlabToken) {
+            headers['PRIVATE-TOKEN'] = gitlabToken;
+          }
+
+          try {
+            const readmeResponse = await fetch(readmeUrl, {
+              headers
+            });
+
+            if (readmeResponse.ok) {
+              readmeContent = await readmeResponse.text();
+              console.log('Successfully fetched GitLab README.md');
+            } else {
+              console.warn(`Could not fetch GitLab README.md for branch ${defaultBranch}, status: ${readmeResponse.status}`);
             }
-
-            try {
-              const readmeResponse = await fetch(readmeUrl, {
-                headers
-              });
-
-              if (readmeResponse.ok) {
-                readmeContent = await readmeResponse.text();
-                console.log('Successfully fetched GitLab README.md');
-                break;
-              } else {
-                console.warn(`Could not fetch GitLab README.md for branch ${branch}, status: ${readmeResponse.status}`);
-              }
-            } catch (err) {
-              console.warn(`Error fetching GitLab README.md for branch ${branch}:`, err);
-            }
+          } catch (err) {
+            console.warn(`Error fetching GitLab README.md for branch ${defaultBranch}:`, err);
           }
         } catch (err) {
           console.warn('Could not fetch GitLab README.md, continuing with empty README', err);
@@ -1182,8 +1180,8 @@ IMPORTANT:
                   <li key={page.id}>
                     <button
                       className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${currentPageId === page.id
-                          ? 'bg-purple-700/50 text-white'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-purple-700/30'
+                        ? 'bg-purple-700/50 text-white'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-purple-700/30'
                         }`}
                       onClick={() => {
                         if (currentPageId != page.id) {
@@ -1193,7 +1191,7 @@ IMPORTANT:
                     >
                       <div className="flex items-center">
                         <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${page.importance === 'high' ? 'bg-green-500' :
-                            page.importance === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'
+                          page.importance === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'
                           }`}></div>
                         <span className="truncate">{page.title}</span>
                       </div>
