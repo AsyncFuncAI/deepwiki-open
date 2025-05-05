@@ -33,7 +33,7 @@ configs = {
     "generator_ollama": {
         "model_client": OllamaClient,
         "model_kwargs": {
-            "model": "qwen3:8b",
+            "model": "qwen3:1.7b",
             "options": {
                 "temperature": 0.7,
                 "top_p": 0.8,

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FaWikipediaW, FaGithub, FaGitlab } from 'react-icons/fa';
+import { FaWikipediaW, FaGithub, FaGitlab, FaBitbucket } from 'react-icons/fa';
 import ThemeToggle from '@/components/theme-toggle';
 import Mermaid from '../components/Mermaid';
 
@@ -39,8 +39,9 @@ export default function Home() {
   const router = useRouter();
   const [repositoryInput, setRepositoryInput] = useState('https://github.com/AsyncFuncAI/deepwiki-open');
   const [showTokenInputs, setShowTokenInputs] = useState(false);
-  const [githubToken, setGithubToken] = useState('');
-  const [gitlabToken, setGitlabToken] = useState('');
+  const [localOllama, setLocalOllama] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>('github');
+  const [accessToken, setAccessToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -71,6 +72,13 @@ export default function Home() {
         // For GitLab, we also need to keep track of the full path for API calls
         fullPath = parts.join('/');
       }
+    }
+    // Handle Bitbucket URL format
+    else if (input.startsWith('https://bitbucket.org/')) {
+      type = 'bitbucket';
+      const parts = input.replace('https://bitbucket.org/', '').split('/');
+      owner = parts[0] || '';
+      repo = parts[1] || '';
     }
     // Handle owner/repo format (assume GitHub by default)
     else {
@@ -110,7 +118,7 @@ export default function Home() {
     const parsedRepo = parseRepositoryInput(repositoryInput);
     
     if (!parsedRepo) {
-      setError('Invalid repository format. Use "owner/repo", "https://github.com/owner/repo", or "https://gitlab.com/owner/repo" format.');
+      setError('Invalid repository format. Use "owner/repo", "https://github.com/owner/repo", "https://gitlab.com/owner/repo", or "https://bitbucket.org/owner/repo" format.');
       setIsSubmitting(false);
       return;
     }
@@ -119,15 +127,20 @@ export default function Home() {
     
     // Store tokens in query params if they exist
     const params = new URLSearchParams();
-    if (githubToken && type === 'github') {
-      params.append('github_token', githubToken);
-    }
-    if (gitlabToken && type === 'gitlab') {
-      params.append('gitlab_token', gitlabToken);
+    if (accessToken) {
+      if (selectedPlatform === 'github') {
+        params.append('github_token', accessToken);
+      } else if (selectedPlatform === 'gitlab') {
+        params.append('gitlab_token', accessToken);
+      } else if (selectedPlatform === 'bitbucket') {
+        params.append('bitbucket_token', accessToken);
+      }
     }
     if (type !== 'github') {
       params.append('type', type);
     }
+    // Add local_ollama parameter
+    params.append('local_ollama', localOllama.toString());
     
     const queryString = params.toString() ? `?${params.toString()}` : '';
     
@@ -150,13 +163,19 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  {repositoryInput.includes('gitlab.com') ? <FaGitlab className="text-gray-400" /> : <FaGithub className="text-gray-400" />}
+                  {
+                    repositoryInput.includes('gitlab.com') 
+                    ? <FaGitlab className="text-gray-400" /> 
+                    : repositoryInput.includes('bitbucket.org') 
+                    ? <FaBitbucket className="text-gray-400" /> 
+                    : <FaGithub className="text-gray-400" />
+                  }
                 </div>
                 <input
                   type="text"
                   value={repositoryInput}
                   onChange={(e) => setRepositoryInput(e.target.value)}
-                  placeholder="owner/repo or GitHub/GitLab URL"
+                  placeholder="owner/repo or GitHub/GitLab/Bitbucket URL"
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
                 {error && (
@@ -173,8 +192,21 @@ export default function Home() {
                 {isSubmitting ? 'Processing...' : 'Generate Wiki'}
               </button>
             </div>
-
-            <div className="flex items-center">
+            <div className="flex flex-col w-full space-y-2">
+              <div className="flex items-center">
+                <input
+                  id="local-ollama"
+                  type="checkbox"
+                  checked={localOllama}
+                  onChange={(e) => setLocalOllama(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <label htmlFor="local-ollama" className="ml-2 text-xs text-gray-700 dark:text-gray-300">
+                  Local Ollama Model (Experimental)
+                </label>
+              </div>
+            </div>
+            <div className="flex items-center relative">
               <button
                 type="button"
                 onClick={() => setShowTokenInputs(!showTokenInputs)}
@@ -182,44 +214,88 @@ export default function Home() {
               >
                 {showTokenInputs ? '- Hide access tokens' : '+ Add access tokens for private repositories'}
               </button>
+              {showTokenInputs && (
+                <>
+                  <div className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40" onClick={() => setShowTokenInputs(false)} />
+                  <div className="absolute left-0 right-0 top-full mt-2 z-50">
+                    <div className="flex flex-col gap-2 p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700 shadow-lg">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Access Token</h3>
+                        <button
+                          type="button"
+                          onClick={() => setShowTokenInputs(false)}
+                          className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                        >
+                          <span className="sr-only">Close</span>
+                          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Select Platform
+                        </label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPlatform('github')}
+                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border ${
+                              selectedPlatform === 'github'
+                                ? 'bg-gray-200 dark:bg-gray-700 border-purple-500 text-purple-600 dark:text-purple-400'
+                                : 'border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            <FaGithub className="text-lg" />
+                            <span className="text-xs">GitHub</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPlatform('gitlab')}
+                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border ${
+                              selectedPlatform === 'gitlab'
+                                ? 'bg-gray-200 dark:bg-gray-700 border-purple-500 text-purple-600 dark:text-purple-400'
+                                : 'border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            <FaGitlab className="text-lg" />
+                            <span className="text-xs">GitLab</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPlatform('bitbucket')}
+                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border ${
+                              selectedPlatform === 'bitbucket'
+                                ? 'bg-gray-200 dark:bg-gray-700 border-purple-500 text-purple-600 dark:text-purple-400'
+                                : 'border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            <FaBitbucket className="text-lg" />
+                            <span className="text-xs">Bitbucket</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label htmlFor="access-token" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          {selectedPlatform.charAt(0).toUpperCase() + selectedPlatform.slice(1)} Token (for private repositories)
+                        </label>
+                        <input
+                          id="access-token"
+                          type="password"
+                          value={accessToken}
+                          onChange={(e) => setAccessToken(e.target.value)}
+                          placeholder={`${selectedPlatform.charAt(0).toUpperCase() + selectedPlatform.slice(1)} personal access token`}
+                          className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Token is stored in memory only and never persisted.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
-
-            {showTokenInputs && (
-              <div className="flex flex-col sm:flex-row gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-                <div className="flex-1">
-                  <label htmlFor="github-token" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    GitHub Token (for private repos)
-                  </label>
-                  <input
-                    id="github-token"
-                    type="password"
-                    value={githubToken}
-                    onChange={(e) => setGithubToken(e.target.value)}
-                    placeholder="GitHub personal access token"
-                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Token is stored in memory only and never persisted.
-                  </p>
-                </div>
-                <div className="flex-1">
-                  <label htmlFor="gitlab-token" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    GitLab Token (for private repos)
-                  </label>
-                  <input
-                    id="gitlab-token"
-                    type="password"
-                    value={gitlabToken}
-                    onChange={(e) => setGitlabToken(e.target.value)}
-                    placeholder="GitLab personal access token"
-                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Token is stored in memory only and never persisted.
-                  </p>
-                </div>
-              </div>
-            )}
           </form>
         </div>
       </header>
@@ -229,7 +305,7 @@ export default function Home() {
           <FaWikipediaW className="text-5xl text-purple-500 mb-4" />
           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">Welcome to DeepWiki (Open Source)</h2>
           <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
-            Enter a GitHub or GitLab repository to generate a comprehensive wiki based on its structure.
+            Enter a GitHub or GitLab or Bitbucket repository to generate a comprehensive wiki based on its structure.
           </p>
           <div className="text-gray-500 dark:text-gray-500 text-sm text-center mb-6">
             <p className="mb-2">You can enter a repository in these formats:</p>
@@ -237,6 +313,7 @@ export default function Home() {
               <li>https://github.com/AsyncFuncAI/deepwiki-open</li>
               <li>https://github.com/openai/codex</li>
               <li>https://gitlab.com/gitlab-org/gitlab</li>
+              <li>https://bitbucket.org/atlassian/atlaskit</li>
             </ul>
           </div>
 
@@ -261,7 +338,7 @@ export default function Home() {
 
       <footer className="max-w-6xl mx-auto mt-8 flex flex-col gap-4 w-full">
         <div className="flex justify-between items-center gap-4 text-center text-gray-500 dark:text-gray-400 text-sm h-fit w-full">
-          <p className="flex-1">DeepWiki - Generate Wiki from GitHub/Gitlab repositories</p>
+          <p className="flex-1">DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories</p>
           <ThemeToggle />
         </div>
       </footer>

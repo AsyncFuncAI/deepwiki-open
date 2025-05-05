@@ -206,7 +206,7 @@ class RAG(adal.Component):
     """RAG with one repo.
     If you want to load a new repos, call prepare_retriever(repo_url_or_path) first."""
 
-    def __init__(self, use_s3: bool = False, local_ollama: bool = True):  # noqa: F841 - use_s3 is kept for compatibility
+    def __init__(self, use_s3: bool = False, local_ollama: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
         """
         Initialize the RAG component.
 
@@ -283,7 +283,7 @@ IMPORTANT FORMATTING RULES:
         self.db_manager = DatabaseManager()
         self.transformed_docs = []
 
-    def prepare_retriever(self, repo_url_or_path: str, access_token: str = None, local_ollama: bool = True):
+    def prepare_retriever(self, repo_url_or_path: str, access_token: str = None, local_ollama: bool = False):
         """
         Prepare the retriever for a repository.
         Will load database from local storage if available.
@@ -295,7 +295,7 @@ IMPORTANT FORMATTING RULES:
         """
         self.initialize_db_manager()
         self.repo_url_or_path = repo_url_or_path
-        self.transformed_docs = self.db_manager.prepare_database(repo_url_or_path, access_token)
+        self.transformed_docs = self.db_manager.prepare_database(repo_url_or_path, access_token, local_ollama=local_ollama)
         logger.info(f"Loaded {len(self.transformed_docs)} documents for retrieval")
 
         retreive_embedder = self.query_embedder if local_ollama else self.embedder

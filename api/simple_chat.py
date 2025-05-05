@@ -58,9 +58,8 @@ class ChatCompletionRequest(BaseModel):
     filePath: Optional[str] = Field(None, description="Optional path to a file in the repository to include in the prompt")
     github_token: Optional[str] = Field(None, description="GitHub personal access token for private repositories")
     gitlab_token: Optional[str] = Field(None, description="GitLab personal access token for private repositories")
-
-    # TODO: Read this flag from the FE
-    local_ollama: Optional[bool] = Field(True, description="Use locally run Ollama model for embedding and generation")
+    local_ollama: Optional[bool] = Field(False, description="Use locally run Ollama model for embedding and generation")
+    bitbucket_token: Optional[str] = Field(None, description="Bitbucket personal access token for private repositories")
 
 @app.post("/chat/completions/stream")
 async def chat_completions_stream(request: ChatCompletionRequest):
@@ -90,6 +89,9 @@ async def chat_completions_stream(request: ChatCompletionRequest):
             elif "gitlab.com" in request.repo_url and request.gitlab_token:
                 access_token = request.gitlab_token
                 logger.info("Using GitLab token for authentication")
+            elif "bitbucket.org" in request.repo_url and request.bitbucket_token:
+                access_token = request.bitbucket_token
+                logger.info("Using Bitbucket token for authentication")
 
             request_rag.prepare_retriever(request.repo_url, access_token, request.local_ollama)
             logger.info(f"Retriever prepared for {request.repo_url}")
@@ -193,6 +195,8 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         repo_type = "GitHub"
         if "gitlab.com" in repo_url:
             repo_type = "GitLab"
+        elif "bitbucket.org" in repo_url:
+            repo_type = "Bitbucket"
 
         # Create system prompt
         if is_deep_research:
@@ -323,6 +327,7 @@ This file contains...
 - Think step by step and structure your answer logically
 - Start with the most relevant information that directly addresses the user's query
 - Be precise and technical when discussing code
+- Your response language should be in the same language as the user's query 
 </guidelines>
 
 <style>
@@ -342,6 +347,8 @@ This file contains...
                     access_token = request.github_token
                 elif "gitlab.com" in request.repo_url and request.gitlab_token:
                     access_token = request.gitlab_token
+                elif "bitbucket.org" in request.repo_url and request.bitbucket_token:
+                    access_token = request.bitbucket_token
 
                 file_content = get_file_content(request.repo_url, request.filePath, access_token)
                 logger.info(f"Successfully retrieved content for file: {request.filePath}")
@@ -377,6 +384,8 @@ This file contains...
         prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
         
         if request.local_ollama:
+            prompt += " /no_think"
+            
             model = OllamaClient()
             model_kwargs = {
                 "model": configs["generator_ollama"]["model_kwargs"]["model"],
@@ -386,12 +395,12 @@ This file contains...
                     "top_p": configs["generator_ollama"]["model_kwargs"]["options"]["top_p"]
                 }
             }
+            
             api_kwargs = model.convert_inputs_to_api_kwargs(
                 input=prompt,
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM
             )
-
         else:
             # Initialize Google Generative AI model
             model = genai.GenerativeModel(
@@ -408,7 +417,7 @@ This file contains...
             try:
 
                 if request.local_ollama:
-                    # Get the response and handle it properly
+                    # Get the response and handle it properly using the previously created api_kwargs
                     response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
                     # Handle streaming response from Ollama
                     async for chunk in response:
@@ -433,7 +442,7 @@ This file contains...
                     logger.warning("Token limit exceeded, retrying without context")
                     try:
                         # Create a simplified prompt without context
-                        simplified_prompt = f"{system_prompt}\n\n"
+                        simplified_prompt = f"/no_think {system_prompt}\n\n"
                         if conversation_history:
                             simplified_prompt += f"<conversation_history>\n{conversation_history}</conversation_history>\n\n"
 
@@ -446,8 +455,18 @@ This file contains...
 
 
                         if request.local_ollama:
-                            # Get the response and handle it properly
-                            fallback_response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                            simplified_prompt += " /no_think"
+                            
+                            # Create new api_kwargs with the simplified prompt
+                            fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
+                                input=simplified_prompt,
+                                model_kwargs=model_kwargs,
+                                model_type=ModelType.LLM
+                            )
+                            
+                            # Get the response using the simplified prompt
+                            fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
+                            
                             # Handle streaming fallback_response from Ollama
                             async for chunk in fallback_response:
                                 text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)

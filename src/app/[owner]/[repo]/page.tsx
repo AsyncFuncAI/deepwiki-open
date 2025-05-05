@@ -3,7 +3,7 @@
 
 import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub, FaGitlab, FaDownload, FaFileExport, FaHome } from 'react-icons/fa';
+import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome } from 'react-icons/fa';
 import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
@@ -26,6 +26,8 @@ interface WikiStructure {
   pages: WikiPage[];
 }
 
+const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
+
 // Add CSS styles for wiki
 const wikiStyles = `
   .prose code {
@@ -41,7 +43,9 @@ const wikiStyles = `
 const getRepoUrl = (owner: string, repo: string, repoType: string): string => {
   return repoType === 'github'
     ? `https://github.com/${owner}/${repo}`
-    : `https://gitlab.com/${owner}/${repo}`;
+    : repoType === 'gitlab'
+    ? `https://gitlab.com/${owner}/${repo}`
+    : `https://bitbucket.org/${owner}/${repo}`;
 };
 
  
@@ -50,7 +54,9 @@ const addTokensToRequestBody = (
   requestBody: Record<string, any>,
   githubToken: string,
   gitlabToken: string,
-  repoType: string
+  bitbucketToken: string,
+  repoType: string,
+  localOllama: boolean = false,
 ): void => {
   if (githubToken && repoType === 'github') {
     requestBody.github_token = githubToken;
@@ -58,6 +64,10 @@ const addTokensToRequestBody = (
   if (gitlabToken && repoType === 'gitlab') {
     requestBody.gitlab_token = gitlabToken;
   }
+  if (bitbucketToken && repoType === 'bitbucket') {
+    requestBody.bitbucket_token = bitbucketToken;
+  }
+  requestBody.local_ollama = localOllama;
 };
 
 const createGithubHeaders = (githubToken: string): HeadersInit => {
@@ -84,6 +94,19 @@ const createGitlabHeaders = (gitlabToken: string): HeadersInit => {
   return headers;
 };
 
+const createBitbucketHeaders = (bitbucketToken: string): HeadersInit => {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (bitbucketToken) {
+    headers['Authorization'] = `Bearer ${bitbucketToken}`;
+  }
+
+  return headers;
+};
+
+
 export default function RepoWikiPage() {
   // Get route parameters and search params
   const params = useParams();
@@ -96,7 +119,9 @@ export default function RepoWikiPage() {
   // Extract tokens from search params
   const githubToken = searchParams.get('github_token') || '';
   const gitlabToken = searchParams.get('gitlab_token') || '';
+  const bitbucketToken = searchParams.get('bitbucket_token') || '';
   const repoType = searchParams.get('type') || 'github';
+  const localOllama = searchParams.get('local_ollama') === 'true';
 
   // Initialize repo info
   const repoInfo = useMemo(() => ({
@@ -249,9 +274,9 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
         };
 
         // Add tokens if available
-        addTokensToRequestBody(requestBody, githubToken, gitlabToken, repoInfo.type);
+        addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama);
 
-        const response = await fetch('http://localhost:8001/chat/completions/stream', {
+        const response = await fetch(`${SERVER_BASE_URL}/chat/completions/stream`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -325,7 +350,7 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [generatedPages, githubToken, gitlabToken, repoInfo.type]);
+  }, [generatedPages, githubToken, gitlabToken, bitbucketToken, repoInfo.type]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -415,9 +440,9 @@ IMPORTANT:
       };
 
       // Add tokens if available
-      addTokensToRequestBody(requestBody, githubToken, gitlabToken, repoInfo.type);
+      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama);
 
-      const response = await fetch('http://localhost:8001/chat/completions/stream', {
+      const response = await fetch(`${SERVER_BASE_URL}/chat/completions/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -592,7 +617,7 @@ IMPORTANT:
     } finally {
       setStructureRequestInProgress(false);
     }
-  }, [generatePageContent, githubToken, gitlabToken, repoInfo.type, pagesInProgress.size, structureRequestInProgress]);
+  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, pagesInProgress.size, structureRequestInProgress]);
 
   // Fetch repository structure using GitHub or GitLab API
   const fetchRepositoryStructure = useCallback(async () => {
@@ -768,6 +793,84 @@ IMPORTANT:
           console.warn('Could not fetch GitLab README.md, continuing with empty README', err);
         }
       }
+      else if (repoInfo.type === 'bitbucket') {
+        // Bitbucket API approach
+        const repoPath = `${owner}/${repo}`;
+        const encodedRepoPath = encodeURIComponent(repoPath);
+
+        // Try to get the file tree for common branch names
+        let filesData = null;
+        let apiErrorDetails = '';
+        let defaultBranch = '';
+        const headers = createBitbucketHeaders(bitbucketToken);
+
+        // First get project info to determine default branch
+        const projectInfoUrl = `https://api.bitbucket.org/2.0/repositories/${encodedRepoPath}`;
+        try {
+          const response = await fetch(projectInfoUrl, { headers });
+          
+          const responseText = await response.text();
+
+          if (response.ok) {
+            const projectData = JSON.parse(responseText);
+            defaultBranch = projectData.mainbranch.name;
+
+            const apiUrl = `https://api.bitbucket.org/2.0/repositories/${encodedRepoPath}/src/${defaultBranch}/?recursive=true&per_page=100`;
+            try {
+              const response = await fetch(apiUrl, {
+                headers
+              });
+
+              const structureResponseText = await response.text();
+
+              if (response.ok) {
+                filesData = JSON.parse(structureResponseText);
+              } else {
+                const errorData = structureResponseText;
+                apiErrorDetails = `Status: ${response.status}, Response: ${errorData}`;
+              }
+            } catch (err) {
+              console.error(`Network error fetching Bitbucket branch ${defaultBranch}:`, err);
+            }
+          } else {
+            const errorData = responseText;
+            apiErrorDetails = `Status: ${response.status}, Response: ${errorData}`;
+          }
+        } catch (err) {
+          console.error("Network error fetching Bitbucket project info:", err);
+        }
+
+        if (!filesData || !Array.isArray(filesData.values) || filesData.values.length === 0) {
+          if (apiErrorDetails) {
+            throw new Error(`Could not fetch repository structure. Bitbucket API Error: ${apiErrorDetails}`);
+          } else {
+            throw new Error('Could not fetch repository structure. Repository might not exist, be empty or private.');
+          }
+        }
+
+        // Convert files data to a string representation
+        fileTreeData = filesData.values
+          .filter((item: { type: string; path: string }) => item.type === 'commit_file')
+          .map((item: { type: string; path: string }) => item.path)
+          .join('\n');
+
+        // Try to fetch README.md content
+        try {
+          const headers = createBitbucketHeaders(bitbucketToken);
+
+          const readmeResponse = await fetch(`https://api.bitbucket.org/2.0/repositories/${encodedRepoPath}/src/${defaultBranch}/README.md`, {
+            headers
+          });
+
+          if (readmeResponse.ok) {
+            readmeContent = await readmeResponse.text();
+          } else {
+            console.warn(`Could not fetch Bitbucket README.md, status: ${readmeResponse.status}`);
+          }
+        } catch (err) {
+          console.warn('Could not fetch Bitbucket README.md, continuing with empty README', err);
+        }
+      }
 
       // Now determine the wiki structure
       await determineWikiStructure(fileTreeData, readmeContent, owner, repo);
@@ -781,7 +884,7 @@ IMPORTANT:
       // Reset the request in progress flag
       setRequestInProgress(false);
     }
-  }, [owner, repo, determineWikiStructure, githubToken, gitlabToken, repoInfo.type, requestInProgress]);
+  }, [owner, repo, determineWikiStructure, githubToken, gitlabToken, bitbucketToken, repoInfo.type, requestInProgress]);
 
   // Function to export wiki content
   const exportWiki = useCallback(async (format: 'markdown' | 'json') => {
@@ -809,7 +912,7 @@ IMPORTANT:
       const repoUrl = getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type);
 
       // Make API call to export wiki
-      const response = await fetch('http://localhost:8001/export/wiki', {
+      const response = await fetch(`${SERVER_BASE_URL}/export/wiki`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -848,7 +951,6 @@ IMPORTANT:
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      console.log(`Wiki exported successfully as ${format}`);
     } catch (err) {
       console.error('Error exporting wiki:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error during export';
@@ -946,7 +1048,7 @@ IMPORTANT:
             </div>
             <p className="text-red-800 dark:text-red-300 text-sm mb-2">{error}</p>
             <p className="text-red-700 dark:text-red-300 text-xs">
-              Please check that your repository exists and is public. Valid formats are &ldquo;owner/repo&rdquo;, &ldquo;https://github.com/owner/repo&rdquo;, or &ldquo;https://gitlab.com/owner/repo&rdquo;.
+              Please check that your repository exists and is public. Valid formats are &ldquo;owner/repo&rdquo;, &ldquo;https://github.com/owner/repo&rdquo;, &ldquo;https://gitlab.com/owner/repo&rdquo;, or &ldquo;https://bitbucket.org/owner/repo&rdquo;.
             </p>
             <div className="mt-4">
               <Link
@@ -968,13 +1070,17 @@ IMPORTANT:
               <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex items-center">
                 {repoInfo.type === 'github' ? (
                   <FaGithub className="mr-1" />
-                ) : (
+                ) : repoInfo.type === 'gitlab' ? (
                   <FaGitlab className="mr-1" />
+                ) : (
+                  <FaBitbucket className="mr-1" />
                 )}
                 <a
                   href={repoInfo.type === 'github'
                     ? `https://github.com/${repoInfo.owner}/${repoInfo.repo}`
-                    : `https://gitlab.com/${repoInfo.owner}/${repoInfo.repo}`
+                    : repoInfo.type === 'gitlab'
+                    ? `https://gitlab.com/${repoInfo.owner}/${repoInfo.repo}`
+                    : `https://bitbucket.org/${repoInfo.owner}/${repoInfo.repo}`
                   }
                   target="_blank"
                   rel="noopener noreferrer"
@@ -1113,11 +1219,13 @@ IMPORTANT:
               }
               githubToken={githubToken}
               gitlabToken={gitlabToken}
+              bitbucketToken={bitbucketToken}
+              localOllama={localOllama}
             />
           </div>
         )}
         <div className="flex justify-between items-center gap-4 text-center text-gray-500 dark:text-gray-400 text-sm h-fit w-full">
-          <p className="flex-1">DeepWiki - Generate Wiki from GitHub/Gitlab repositories</p>
+          <p className="flex-1">DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories</p>
           <ThemeToggle />
         </div>
       </footer>

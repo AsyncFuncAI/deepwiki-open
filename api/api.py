@@ -40,21 +40,6 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Models for the API
-class ChatMessage(BaseModel):
-    role: str  # 'user' or 'assistant'
-    content: str
-
-class ChatCompletionRequest(BaseModel):
-    """
-    Model for requesting a chat completion.
-    """
-    repo_url: str = Field(..., description="URL of the repository to query")
-    messages: List[ChatMessage] = Field(..., description="List of chat messages")
-    filePath: Optional[str] = Field(None, description="Optional path to a file in the repository to include in the prompt")
-    github_token: Optional[str] = Field(None, description="GitHub personal access token for private repositories")
-    gitlab_token: Optional[str] = Field(None, description="GitLab personal access token for private repositories")
-
 class WikiPage(BaseModel):
     """
     Model for a wiki page.
