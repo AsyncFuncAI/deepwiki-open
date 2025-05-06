@@ -1,5 +1,6 @@
 from adalflow import GoogleGenAIClient, OllamaClient
 from adalflow.components.model_client.openai_client import OpenAIClient
+from adalflow.components.model_client.openrouter_client import OpenRouterClient
 import os
 
 # Configuration for the isolated API
@@ -90,3 +91,16 @@ if OPENAI_API_KEY:
     os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 if GOOGLE_API_KEY:
     os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
+
+# Add OpenRouter API Key
+def get_openrouter_api_key():
+    return os.environ.get('OPENROUTER_API_KEY')
+
+# Example configuration for OpenRouter
+configs["openrouter"] = {
+    "model_client": OpenRouterClient,
+    "model_kwargs": {
+        "api_key": get_openrouter_api_key(),
+        "base_url": "https://api.openrouter.ai/v1",
+    },
+}

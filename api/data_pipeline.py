@@ -258,6 +258,15 @@ def prepare_data_pipeline(local_ollama: bool = False):
         embedder_transformer = ToEmbeddings(
             embedder=embedder, batch_size=configs["embedder"]["batch_size"]
         )
+    else:
+        # Use OpenRouter embedder
+        embedder = adal.Embedder(
+            model_client=configs["openrouter"]["model_client"](),
+            model_kwargs=configs["openrouter"]["model_kwargs"],
+        )
+        embedder_transformer = ToEmbeddings(
+            embedder=embedder, batch_size=configs["embedder"]["batch_size"]
+        )
     
     data_transformer = adal.Sequential(
         splitter, embedder_transformer

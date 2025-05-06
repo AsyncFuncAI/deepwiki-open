@@ -41,6 +41,7 @@ export default function Home() {
   const [showTokenInputs, setShowTokenInputs] = useState(false);
   const [localOllama, setLocalOllama] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>('github');
+  const [selectedProvider, setSelectedProvider] = useState<'openai' | 'google' | 'openrouter'>('openai');
   const [accessToken, setAccessToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,27 +106,24 @@ export default function Home() {
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Prevent multiple submissions
+
     if (isSubmitting) {
       console.log('Form submission already in progress, ignoring duplicate click');
       return;
     }
-    
+
     setIsSubmitting(true);
-    
-    // Parse repository input
+
     const parsedRepo = parseRepositoryInput(repositoryInput);
-    
+
     if (!parsedRepo) {
       setError('Invalid repository format. Use "owner/repo", "https://github.com/owner/repo", "https://gitlab.com/owner/repo", or "https://bitbucket.org/owner/repo" format.');
       setIsSubmitting(false);
       return;
     }
-    
+
     const { owner, repo, type } = parsedRepo;
-    
-    // Store tokens in query params if they exist
+
     const params = new URLSearchParams();
     if (accessToken) {
       if (selectedPlatform === 'github') {
@@ -139,15 +137,12 @@ export default function Home() {
     if (type !== 'github') {
       params.append('type', type);
     }
-    // Add local_ollama parameter
     params.append('local_ollama', localOllama.toString());
-    
+    params.append('provider', selectedProvider);
+
     const queryString = params.toString() ? `?${params.toString()}` : '';
-    
-    // Navigate to the dynamic route
+
     router.push(`/${owner}/${repo}${queryString}`);
-    
-    // The isSubmitting state will be reset when the component unmounts during navigation
   };
 
   return (
@@ -295,6 +290,23 @@ export default function Home() {
                   </div>
                 </>
               )}
+            </div>
+            <div className="flex flex-col w-full space-y-2">
+              <div className="flex items-center">
+                <label htmlFor="provider" className="mr-2 text-xs text-gray-700 dark:text-gray-300">
+                  Select AI Provider:
+                </label>
+                <select
+                  id="provider"
+                  value={selectedProvider}
+                  onChange={(e) => setSelectedProvider(e.target.value as 'openai' | 'google' | 'openrouter')}
+                  className="h-8 px-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="openai">OpenAI</option>
+                  <option value="google">Google Generative AI</option>
+                  <option value="openrouter">OpenRouter</option>
+                </select>
+              </div>
             </div>
           </form>
         </div>
