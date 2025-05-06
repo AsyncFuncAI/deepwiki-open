@@ -24,19 +24,23 @@ logger = logging.getLogger(__name__)
 # Maximum token limit for OpenAI embedding models
 MAX_EMBEDDING_TOKENS = 8192
 
-def count_tokens(text: str, model: str = "nomic-embed-text") -> int:
+def count_tokens(text: str, local_ollama: bool = False) -> int:
     """
     Count the number of tokens in a text string using tiktoken.
 
     Args:
         text (str): The text to count tokens for.
-        model (str): The model to use for tokenization.
+        local_ollama (bool, optional): Whether using local Ollama embeddings. Default is False.
 
     Returns:
         int: The number of tokens in the text.
     """
     try:
-        encoding = tiktoken.encoding_for_model(model)
+        if local_ollama:
+            encoding = tiktoken.get_encoding("cl100k_base")
+        else:
+            encoding = tiktoken.encoding_for_model("text-embedding-3-small")
+            
         return len(encoding.encode(text))
     except Exception as e:
         # Fallback to a simple approximation if tiktoken fails
@@ -115,12 +119,13 @@ def download_repo(repo_url: str, local_path: str, access_token: str = None):
 # Alias for backward compatibility
 download_github_repo = download_repo
 
-def read_all_documents(path: str):
+def read_all_documents(path: str, local_ollama: bool = False):
     """
     Recursively reads all documents in a directory and its subdirectories.
 
     Args:
         path (str): The root directory path.
+        local_ollama (bool): Whether to use local Ollama for token counting. Default is False.
 
     Returns:
         list: A list of Document objects with metadata.
@@ -163,7 +168,7 @@ def read_all_documents(path: str):
                     )
 
                     # Check token count
-                    token_count = count_tokens(content)
+                    token_count = count_tokens(content, local_ollama)
                     if token_count > MAX_EMBEDDING_TOKENS:
                         logger.warning(f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit")
                         continue
@@ -202,7 +207,7 @@ def read_all_documents(path: str):
                     relative_path = os.path.relpath(file_path, path)
 
                     # Check token count
-                    token_count = count_tokens(content)
+                    token_count = count_tokens(content, local_ollama)
                     if token_count > MAX_EMBEDDING_TOKENS:
                         logger.warning(f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit")
                         continue
@@ -664,7 +669,7 @@ class DatabaseManager:
 
         # prepare the database
         logger.info("Creating new database...")
-        documents = read_all_documents(self.repo_paths["save_repo_dir"])
+        documents = read_all_documents(self.repo_paths["save_repo_dir"], local_ollama=local_ollama)
         self.db = transform_documents_and_save_to_db(
             documents, self.repo_paths["save_db_file"], local_ollama=local_ollama
         )
