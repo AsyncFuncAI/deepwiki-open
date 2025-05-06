@@ -1,6 +1,5 @@
 from adalflow import GoogleGenAIClient, OllamaClient
 from adalflow.components.model_client.openai_client import OpenAIClient
-from adalflow.components.model_client.openrouter_client import OpenRouterClient
 import os
 
 # Configuration for the isolated API
