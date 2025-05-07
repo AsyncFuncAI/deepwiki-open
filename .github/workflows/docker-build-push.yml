@@ -39,14 +39,12 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
             type=ref,event=branch
             type=ref,event=pr
-            type=raw,value=latest,enable={{is_default_branch}}
-          labels: |
-            org.opencontainers.image.title=DeepWiki Open
-            org.opencontainers.image.description=AI-Powered Wiki Generator for GitHub/GitLab/Bitbucket Repositories
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            latest
 
       - name: Create empty .env file for build
         run: touch .env
@@ -83,3 +81,4 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             "/orgs/$OWNER/packages/container/$PACKAGE_NAME/visibility" \
             -f visibility=public
+
