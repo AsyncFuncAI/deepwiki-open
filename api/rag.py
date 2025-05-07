@@ -207,25 +207,33 @@ class RAG(adal.Component):
     """RAG with one repo.
     If you want to load a new repos, call prepare_retriever(repo_url_or_path) first."""
 
-    def __init__(self, use_s3: bool = False, local_ollama: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
+    def __init__(self, use_s3: bool = False, local_ollama: bool = False, use_openrouter: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
         """
         Initialize the RAG component.
 
         Args:
             use_s3: Whether to use S3 for database storage (default: False)
             local_ollama: Whether to use local Ollama for embedding (default: False)
+            use_openrouter: Whether to use OpenRouter for generation (default: False)
         """
         super().__init__()
 
         self.local_ollama = local_ollama
+        self.use_openrouter = use_openrouter
 
         # Initialize components
         self.memory = Memory()
 
+        # Select the appropriate embedder and generator configs based on the provider
         if self.local_ollama:
             embedder_config = configs["embedder_ollama"]
             generator_config = configs["generator_ollama"]
+        elif self.use_openrouter:
+            # For OpenRouter, we still use OpenAI for embeddings
+            embedder_config = configs["embedder"]
+            generator_config = configs["generator_openrouter"]
         else:
+            # Default to OpenAI for embeddings and Google for generation
             embedder_config = configs["embedder"]
             generator_config = configs["generator"]
 
@@ -284,7 +292,7 @@ IMPORTANT FORMATTING RULES:
         self.db_manager = DatabaseManager()
         self.transformed_docs = []
 
-    def prepare_retriever(self, repo_url_or_path: str, access_token: str = None, local_ollama: bool = False):
+    def prepare_retriever(self, repo_url_or_path: str, access_token: str = None, local_ollama: bool = None):
         """
         Prepare the retriever for a repository.
         Will load database from local storage if available.
@@ -292,14 +300,18 @@ IMPORTANT FORMATTING RULES:
         Args:
             repo_url_or_path: URL or local path to the repository
             access_token: Optional access token for private repositories
-            local_ollama: Optional flag to use local Ollama for embedding
+            local_ollama: Optional flag to use local Ollama for embedding (overrides the instance setting if provided)
         """
         self.initialize_db_manager()
         self.repo_url_or_path = repo_url_or_path
-        self.transformed_docs = self.db_manager.prepare_database(repo_url_or_path, access_token, local_ollama=local_ollama)
+
+        # Use the parameter value if provided, otherwise use the instance attribute
+        use_local_ollama = local_ollama if local_ollama is not None else self.local_ollama
+
+        self.transformed_docs = self.db_manager.prepare_database(repo_url_or_path, access_token, local_ollama=use_local_ollama)
         logger.info(f"Loaded {len(self.transformed_docs)} documents for retrieval")
 
-        retreive_embedder = self.query_embedder if local_ollama else self.embedder
+        retreive_embedder = self.query_embedder if use_local_ollama else self.embedder
         self.retriever = FAISSRetriever(
             **configs["retriever"],
             embedder=retreive_embedder,

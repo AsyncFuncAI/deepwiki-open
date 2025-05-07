@@ -82,8 +82,11 @@ async def chat_completions_stream(request: ChatCompletionRequest):
 
         # Create a new RAG instance for this request
         try:
-            # Pass the local_ollama flag during initialization
-            request_rag = RAG(local_ollama=request.local_ollama)
+            # Pass the provider flags during initialization
+            request_rag = RAG(
+                local_ollama=request.local_ollama,
+                use_openrouter=request.use_openrouter
+            )
 
             # Determine which access token to use based on the repository URL
             access_token = None
@@ -442,7 +445,7 @@ This file contains...
         else:
             # Initialize Google Generative AI model
             model = genai.GenerativeModel(
-                model_name="gemini-2.0-flash",
+                model_name="gemini-2.5-pro-preview-05-06",
                 generation_config={
                     "temperature": 0.7,
                     "top_p": 0.8,
