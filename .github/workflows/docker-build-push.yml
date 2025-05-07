@@ -76,12 +76,8 @@ jobs:
           PACKAGE_NAME=$(echo "$REPO" | tr '[:upper:]' '[:lower:]')
 
           # Use GitHub CLI to set package visibility to public
-          echo "Setting package visibility to public..."
-          gh api \
-            --method PATCH \
-            -H "Accept: application/vnd.github+json" \
-            "/user/packages/container/$PACKAGE_NAME/visibility" \
-            -f visibility=public || \
+          echo "Setting package (${PACKAGE_NAME}) visibility to public..."
+
           gh api \
             --method PATCH \
             -H "Accept: application/vnd.github+json" \
