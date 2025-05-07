@@ -61,7 +61,7 @@ jobs:
 
       # Make package public when merged to main branch
       - name: Make package public
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        # if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
