@@ -445,7 +445,7 @@ This file contains...
         else:
             # Initialize Google Generative AI model
             model = genai.GenerativeModel(
-                model_name="gemini-2.5-pro-preview-05-06",
+                model_name="gemini-2.0-flash",
                 generation_config={
                     "temperature": 0.7,
                     "top_p": 0.8,
