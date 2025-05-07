@@ -18,12 +18,14 @@ logger = logging.getLogger(__name__)
 
 # Get API keys from environment variables
 google_api_key = os.environ.get('GOOGLE_API_KEY')
+openrouter_api_key = os.environ.get('OPENROUTER_API_KEY')
 
-# Configure Google Generative AI
+# Configure Google Generative AI if needed
+# Skip warning if OpenRouter is available as an alternative
 if google_api_key:
     genai.configure(api_key=google_api_key)
-else:
-    logger.warning("GOOGLE_API_KEY not found in environment variables")
+elif not openrouter_api_key:
+    logger.warning("GOOGLE_API_KEY not found in environment variables and no OPENROUTER_API_KEY provided as alternative")
 
 # Initialize FastAPI app
 app = FastAPI(

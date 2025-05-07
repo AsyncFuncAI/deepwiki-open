@@ -207,7 +207,7 @@ deepwiki/
 ## ❓ 故障排除
 
 ### API密钥问题
-- **"缺少环境变量"**：确保您的`.env`文件位于项目根目录并包含所需的API密钥
+- **"缺少环境变量"**：确保您的`.env`文件位于项目根目录并包含所需的API密钥（GOOGLE_API_KEY和OPENAI_API_KEY，或者OPENROUTER_API_KEY）
 - **"API密钥无效"**：检查您是否正确复制了完整密钥，没有多余空格
 - **"OpenRouter API错误"**：验证您的OpenRouter API密钥有效且有足够的额度
 

@@ -115,7 +115,7 @@ class OpenRouterClient(ModelClient):
 
         # Check if API key is set
         if not self.async_client.get("api_key"):
-            error_msg = "OPENROUTER_API_KEY not found in environment variables. Please set this environment variable to use OpenRouter."
+            error_msg = "OPENROUTER_API_KEY not found in environment variables. Please set this environment variable to use OpenRouter. Note: When using OpenRouter, you don't need to provide GOOGLE_API_KEY or OPENAI_API_KEY."
             log.error(error_msg)
             # Instead of raising an exception, return a generator that yields the error message
             # This allows the error to be displayed to the user in the streaming response

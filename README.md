@@ -168,9 +168,9 @@ deepwiki/
 
 | Variable | Description | Required | Note |
 |----------|-------------|----------|------|
-| `GOOGLE_API_KEY` | Google Gemini API key for AI generation | Yes |
-| `OPENAI_API_KEY` | OpenAI API key for embeddings | Yes |
-| `OPENROUTER_API_KEY` | OpenRouter API key for alternative models | No | Required only if you want to use OpenRouter models |
+| `GOOGLE_API_KEY` | Google Gemini API key for AI generation | Yes* | *Not required if OPENROUTER_API_KEY is provided |
+| `OPENAI_API_KEY` | OpenAI API key for embeddings | Yes* | *Not required if OPENROUTER_API_KEY is provided |
+| `OPENROUTER_API_KEY` | OpenRouter API key for alternative models | No** | **Required if GOOGLE_API_KEY and OPENAI_API_KEY are not provided |
 | `PORT` | Port for the API server (default: 8001) | No | If you host API and frontend on the same machine, make sure change port of `NEXT_PUBLIC_SERVER_BASE_URL` accordingly |
 | `NEXT_PUBLIC_SERVER_BASE_URL` | Base URL for the API server (default: http://localhost:8001) | No |
 

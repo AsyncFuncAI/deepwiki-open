@@ -207,7 +207,7 @@ Para usar Investigación Profunda, simplemente activa el interruptor "Investigac
 ## ❓ Solución de Problemas
 
 ### Problemas con Claves API
-- **"Faltan variables de entorno"**: Asegúrate de que tu archivo `.env` esté en la raíz del proyecto y contenga las claves API requeridas
+- **"Faltan variables de entorno"**: Asegúrate de que tu archivo `.env` esté en la raíz del proyecto y contenga las claves API requeridas (GOOGLE_API_KEY y OPENAI_API_KEY, o OPENROUTER_API_KEY)
 - **"Clave API no válida"**: Verifica que hayas copiado la clave completa correctamente sin espacios adicionales
 - **"Error de API OpenRouter"**: Verifica que tu clave API de OpenRouter sea válida y tenga créditos suficientes
 

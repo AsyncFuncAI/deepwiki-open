@@ -18,7 +18,13 @@ logger = logging.getLogger(__name__)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Check for required environment variables
-required_env_vars = ['GOOGLE_API_KEY', 'OPENAI_API_KEY']
+# If OPENROUTER_API_KEY is provided, GOOGLE_API_KEY and OPENAI_API_KEY are optional
+if os.environ.get('OPENROUTER_API_KEY'):
+    logger.info("OPENROUTER_API_KEY found, making GOOGLE_API_KEY and OPENAI_API_KEY optional")
+    required_env_vars = []
+else:
+    required_env_vars = ['GOOGLE_API_KEY', 'OPENAI_API_KEY']
+
 missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
 if missing_vars:
     logger.warning(f"Missing environment variables: {', '.join(missing_vars)}")
