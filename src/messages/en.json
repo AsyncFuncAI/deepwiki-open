@@ -1,0 +1,59 @@
+{
+  "common": {
+    "appName": "DeepWiki-Open",
+    "tagline": "AI-powered documentation",
+    "generateWiki": "Generate Wiki",
+    "processing": "Processing...",
+    "error": "Error",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "close": "Close",
+    "loading": "Loading..."
+  },
+  "loading": {
+    "initializing": "Initializing wiki generation...",
+    "fetchingStructure": "Fetching repository structure...",
+    "determiningStructure": "Determining wiki structure...",
+    "preparingDownload": "Please wait while we prepare your download..."
+  },
+  "home": {
+    "welcome": "Welcome to DeepWiki-Open",
+    "welcomeTagline": "AI-powered documentation for your code repositories",
+    "description": "Generate comprehensive documentation from GitHub, GitLab, or Bitbucket repositories with just a few clicks.",
+    "quickStart": "Quick Start",
+    "enterRepoUrl": "Enter a repository URL in one of these formats:",
+    "advancedVisualization": "Advanced Visualization with Mermaid Diagrams",
+    "diagramDescription": "DeepWiki automatically generates interactive diagrams to help you understand code structure and relationships:",
+    "flowDiagram": "Flow Diagram",
+    "sequenceDiagram": "Sequence Diagram"
+  },
+  "form": {
+    "repoPlaceholder": "owner/repo or GitHub/GitLab/Bitbucket URL",
+    "wikiLanguage": "Wiki Language",
+    "modelOptions": "Model Options",
+    "localOllama": "Local Ollama Model",
+    "experimental": "Experimental",
+    "useOpenRouter": "Use OpenRouter API",
+    "openRouterModel": "OpenRouter Model",
+    "addTokens": "+ Add access tokens for private repositories",
+    "hideTokens": "- Hide access tokens",
+    "accessToken": "Access Token for Private Repositories",
+    "selectPlatform": "Select Platform",
+    "personalAccessToken": "{platform} Personal Access Token",
+    "tokenPlaceholder": "Enter your {platform} token",
+    "tokenSecurityNote": "Token is stored in memory only and never persisted."
+  },
+  "footer": {
+    "copyright": "DeepWiki - AI-powered documentation for code repositories"
+  },
+  "ask": {
+    "placeholder": "Ask a question about this repository...",
+    "askButton": "Ask",
+    "deepResearch": "Deep Research",
+    "researchInProgress": "Research in progress...",
+    "continueResearch": "Continue Research",
+    "viewPlan": "View Plan",
+    "viewUpdates": "View Updates",
+    "viewConclusion": "View Conclusion"
+  }
+}

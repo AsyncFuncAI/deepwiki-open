@@ -63,6 +63,7 @@ class ChatCompletionRequest(BaseModel):
     use_openrouter: Optional[bool] = Field(False, description="Use OpenRouter API for generation")
     openrouter_model: Optional[str] = Field("openai/gpt-4o", description="OpenRouter model to use (e.g., 'openai/gpt-4o', 'anthropic/claude-3-opus')")
     bitbucket_token: Optional[str] = Field(None, description="Bitbucket personal access token for private repositories")
+    language: Optional[str] = Field("en", description="Language for content generation (e.g., 'en', 'ja', 'zh', 'es')")
 
 @app.post("/chat/completions/stream")
 async def chat_completions_stream(request: ChatCompletionRequest):
@@ -174,7 +175,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 # Try to perform RAG retrieval
                 try:
                     # This will use the actual RAG implementation
-                    response, retrieved_documents = request_rag(rag_query)
+                    response, retrieved_documents = request_rag(rag_query, language=request.language)
 
                     if retrieved_documents and retrieved_documents[0].documents:
                         # Format context for the prompt
@@ -201,6 +202,15 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         elif "bitbucket.org" in repo_url:
             repo_type = "Bitbucket"
 
+        # Get language information
+        language_code = request.language or "en"
+        language_name = {
+            "en": "English",
+            "ja": "Japanese (日本語)",
+            "zh": "Mandarin Chinese (中文)",
+            "es": "Spanish (Español)"
+        }.get(language_code, "English")
+
         # Create system prompt
         if is_deep_research:
             # Check if this is the first iteration
@@ -214,6 +224,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
 You are an expert code analyst examining the {repo_type} repository: {repo_url} ({repo_name}).
 You are conducting a multi-turn Deep Research process to thoroughly investigate the specific topic in the user's query.
 Your goal is to provide detailed, focused information EXCLUSIVELY about this topic.
+IMPORTANT:You MUST respond in {language_name} language.
 </role>
 
 <guidelines>
@@ -244,6 +255,7 @@ Your goal is to provide detailed, focused information EXCLUSIVELY about this top
 You are an expert code analyst examining the {repo_type} repository: {repo_url} ({repo_name}).
 You are in the final iteration of a Deep Research process focused EXCLUSIVELY on the latest user query.
 Your goal is to synthesize all previous findings and provide a comprehensive conclusion that directly addresses this specific topic and ONLY this topic.
+IMPORTANT:You MUST respond in {language_name} language.
 </role>
 
 <guidelines>
@@ -275,6 +287,7 @@ Your goal is to synthesize all previous findings and provide a comprehensive con
 You are an expert code analyst examining the {repo_type} repository: {repo_url} ({repo_name}).
 You are currently in iteration {research_iteration} of a Deep Research process focused EXCLUSIVELY on the latest user query.
 Your goal is to build upon previous research iterations and go deeper into this specific topic without deviating from it.
+IMPORTANT:You MUST respond in {language_name} language.
 </role>
 
 <guidelines>
@@ -305,6 +318,7 @@ Your goal is to build upon previous research iterations and go deeper into this 
 You are an expert code analyst examining the {repo_type} repository: {repo_url} ({repo_name}).
 You provide direct, concise, and accurate information about code repositories.
 You NEVER start responses with markdown headers or code fences.
+IMPORTANT:You MUST respond in {language_name} language.
 </role>
 
 <guidelines>

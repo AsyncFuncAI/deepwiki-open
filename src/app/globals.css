@@ -1,18 +1,32 @@
 @import "tailwindcss";
 
-/* Defines a custom variant for dark mode */
-@custom-variant dark (&:where(.dark, .dark *));
+/* Define dark mode variant */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --shadow-color: rgba(0, 0, 0, 0.1);
+  /* Japanese aesthetic color palette - light mode */
+  --background: #f8f4e6; /* Warm off-white like washi paper */
+  --foreground: #333333; /* Soft black for text */
+  --shadow-color: rgba(0, 0, 0, 0.05);
+  --accent-primary: #9b7cb9; /* Soft purple (Fuji) */
+  --accent-secondary: #d7c4bb; /* Soft beige (Kinari) */
+  --border-color: #e0d8c8; /* Soft beige border */
+  --card-bg: #fffaf0; /* Slightly warmer than background */
+  --highlight: #e8927c; /* Soft coral (Akane) */
+  --muted: #a59e8c; /* Soft gray-brown (Nezumi) */
 }
 
-[data-theme='dark'] {
-  --background: #171717;
-  --foreground: #ffffff;
-  --shadow-color: rgba(255, 255, 255, 0.1);
+html[data-theme='dark'] {
+  /* Japanese aesthetic color palette - dark mode */
+  --background: #1a1a1a; /* Deep charcoal */
+  --foreground: #f0f0f0; /* Soft white */
+  --shadow-color: rgba(0, 0, 0, 0.2);
+  --accent-primary: #9370db; /* Soft lavender */
+  --accent-secondary: #5d4037; /* Warm brown */
+  --border-color: #2c2c2c; /* Dark border */
+  --card-bg: #222222; /* Slightly lighter than background */
+  --highlight: #e57373; /* Soft red */
+  --muted: #8c8c8c; /* Muted gray */
 }
 
 @theme inline {
@@ -25,10 +39,81 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), sans-serif;
 }
 
-/* Custom shadow styles */
+/* Custom shadow styles - more subtle for Japanese aesthetic */
 .shadow-custom {
-  box-shadow: 0 10px 15px -3px var(--shadow-color), 0 4px 6px -2px var(--shadow-color);
+  box-shadow: 0 4px 8px -2px var(--shadow-color);
+}
+
+/* Paper texture background */
+.paper-texture {
+  background-color: var(--card-bg);
+  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23e0d8c8' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+/* Dark mode paper texture */
+html[data-theme='dark'] .paper-texture {
+  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23333333' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+/* Japanese-style buttons */
+.btn-japanese {
+  background-color: var(--accent-primary);
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  padding: 0.5rem 1.5rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-japanese:hover {
+  background-color: var(--highlight);
+}
+
+.btn-japanese:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.2);
+  transition: width 0.3s ease;
+}
+
+.btn-japanese:hover:before {
+  width: 100%;
+}
+
+/* Japanese-style inputs */
+.input-japanese {
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 0.25rem;
+  padding: 0.5rem 1rem;
+  transition: all 0.3s ease;
+}
+
+.input-japanese:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(155, 124, 185, 0.2);
+  outline: none;
+}
+
+/* Japanese-style cards */
+.card-japanese {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.card-japanese:hover {
+  box-shadow: 0 4px 12px var(--shadow-color);
 }

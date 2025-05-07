@@ -1,0 +1,59 @@
+{
+  "common": {
+    "appName": "DeepWiki-Open",
+    "tagline": "Documentación impulsada por IA",
+    "generateWiki": "Generar Wiki",
+    "processing": "Procesando...",
+    "error": "Error",
+    "submit": "Enviar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "loading": "Cargando..."
+  },
+  "loading": {
+    "initializing": "Inicializando generación de wiki...",
+    "fetchingStructure": "Obteniendo estructura del repositorio...",
+    "determiningStructure": "Determinando estructura del wiki...",
+    "preparingDownload": "Por favor espere mientras preparamos su descarga..."
+  },
+  "home": {
+    "welcome": "Bienvenido a DeepWiki",
+    "welcomeTagline": "Documentación impulsada por IA para tus repositorios de código",
+    "description": "Genera documentación completa de repositorios GitHub, GitLab o Bitbucket con solo unos clics.",
+    "quickStart": "Inicio Rápido",
+    "enterRepoUrl": "Ingresa una URL de repositorio en uno de estos formatos:",
+    "advancedVisualization": "Visualización Avanzada con Diagramas Mermaid",
+    "diagramDescription": "DeepWiki genera automáticamente diagramas interactivos para ayudarte a entender la estructura y relaciones del código:",
+    "flowDiagram": "Diagrama de Flujo",
+    "sequenceDiagram": "Diagrama de Secuencia"
+  },
+  "form": {
+    "repoPlaceholder": "propietario/repositorio o URL de GitHub/GitLab/Bitbucket",
+    "wikiLanguage": "Idioma del Wiki",
+    "modelOptions": "Opciones de Modelo",
+    "localOllama": "Modelo Ollama Local",
+    "experimental": "Experimental",
+    "useOpenRouter": "Usar API de OpenRouter",
+    "openRouterModel": "Modelo OpenRouter",
+    "addTokens": "+ Agregar tokens de acceso para repositorios privados",
+    "hideTokens": "- Ocultar tokens de acceso",
+    "accessToken": "Token de Acceso para Repositorios Privados",
+    "selectPlatform": "Seleccionar Plataforma",
+    "personalAccessToken": "Token de Acceso Personal de {platform}",
+    "tokenPlaceholder": "Ingresa tu token de {platform}",
+    "tokenSecurityNote": "El token solo se almacena en memoria y nunca se persiste."
+  },
+  "footer": {
+    "copyright": "DeepWiki - Documentación impulsada por IA para repositorios de código"
+  },
+  "ask": {
+    "placeholder": "Haz una pregunta sobre este repositorio...",
+    "askButton": "Preguntar",
+    "deepResearch": "Investigación Profunda",
+    "researchInProgress": "Investigación en progreso...",
+    "continueResearch": "Continuar Investigación",
+    "viewPlan": "Ver Plan",
+    "viewUpdates": "Ver Actualizaciones",
+    "viewConclusion": "Ver Conclusión"
+  }
+}

@@ -146,6 +146,7 @@ You will receive user query, relevant context, and past conversation history.
 LANGUAGE DETECTION AND RESPONSE:
 - Detect the language of the user's query
 - Respond in the SAME language as the user's query
+- IMPORTANT:If a specific language is requested in the prompt, prioritize that language over the query language
 
 FORMAT YOUR RESPONSE USING MARKDOWN:
 - Use proper markdown syntax for all formatting
@@ -243,7 +244,7 @@ class RAG(adal.Component):
                 query = query[0]
             return self.embedder(input=query)
         self.query_embedder = single_string_embedder
-        
+
         self.initialize_db_manager()
 
         # Set up the output parser
@@ -306,12 +307,13 @@ IMPORTANT FORMATTING RULES:
             document_map_func=lambda doc: doc.vector,
         )
 
-    def call(self, query: str) -> Tuple[Any, List]:
+    def call(self, query: str, language: str = "en") -> Tuple[Any, List]:
         """
         Process a query using RAG.
 
         Args:
             query: The user's query
+            language: Language code for response (e.g., 'en', 'ja', 'zh', 'es')
 
         Returns:
             Tuple of (RAGAnswer, retrieved_documents)
@@ -325,9 +327,17 @@ IMPORTANT FORMATTING RULES:
                 for doc_index in retrieved_documents[0].doc_indices
             ]
 
+            # Get language name for the prompt
+            language_name = {
+                "en": "English",
+                "ja": "Japanese (日本語)",
+                "zh": "Mandarin Chinese (中文)",
+                "es": "Spanish (Español)"
+            }.get(language, "English")
+
             # Prepare generation parameters
             prompt_kwargs = {
-                "input_str": query,
+                "input_str": f"[RESPOND IN {language_name.upper()}] {query}",
                 "contexts": retrieved_documents[0].documents,
                 "conversation_history": self.memory(),
             }

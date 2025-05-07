@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
 // We'll use dynamic import for svg-pan-zoom
 
-// Initialize mermaid with defaults
+// Initialize mermaid with defaults - Japanese aesthetic
 mermaid.initialize({
   startOnLoad: true,
   theme: 'neutral',
@@ -14,56 +14,56 @@ mermaid.initialize({
   flowchart: {
     htmlLabels: true,
     curve: 'basis',
-    nodeSpacing: 50,
-    rankSpacing: 50,
-    padding: 15,
+    nodeSpacing: 60,
+    rankSpacing: 60,
+    padding: 20,
   },
   themeCSS: `
-    /* General styles for all diagrams */
+    /* Japanese aesthetic styles for all diagrams */
     .node rect, .node circle, .node ellipse, .node polygon, .node path {
-      fill: #f4f4f4;
-      stroke: #999;
+      fill: #f8f4e6;
+      stroke: #d7c4bb;
       stroke-width: 1px;
     }
     .edgePath .path {
-      stroke: #666;
+      stroke: #9b7cb9;
       stroke-width: 1.5px;
     }
     .edgeLabel {
       background-color: transparent;
-      color: #000;
+      color: #333333;
       p {
         background-color: transparent !important;
       }
     }
     .label {
-      color: #fff;
+      color: #333333;
     }
     .cluster rect {
-      fill: #f4f4f4;
-      stroke: #999;
+      fill: #f8f4e6;
+      stroke: #d7c4bb;
       stroke-width: 1px;
     }
 
     /* Sequence diagram specific styles */
     .actor {
-      fill: #f4f4f4;
-      stroke: #999;
+      fill: #f8f4e6;
+      stroke: #d7c4bb;
       stroke-width: 1px;
     }
     text.actor {
-      fill: #fff;
+      fill: #333333;
       stroke: none;
     }
     .messageText {
-      fill: #fff;
+      fill: #333333;
       stroke: none;
     }
     .messageLine0, .messageLine1 {
-      stroke: #666;
+      stroke: #9b7cb9;
     }
     .noteText {
-      fill: #fff;
+      fill: #333333;
     }
 
     /* Dark mode overrides - will be applied with data-theme="dark" */
@@ -72,91 +72,100 @@ mermaid.initialize({
     [data-theme="dark"] .node ellipse,
     [data-theme="dark"] .node polygon,
     [data-theme="dark"] .node path {
-      fill: #2d3748;
-      stroke: #4a5568;
+      fill: #222222;
+      stroke: #5d4037;
     }
     [data-theme="dark"] .edgePath .path {
-      stroke: #a0aec0;
+      stroke: #9370db;
     }
     [data-theme="dark"] .edgeLabel {
-      background-color: #1a202c;
-      color: #e2e8f0;
+      background-color: transparent;
+      color: #f0f0f0;
     }
     [data-theme="dark"] .label {
-      color: #e2e8f0;
+      color: #f0f0f0;
     }
     [data-theme="dark"] .cluster rect {
-      fill: #2d3748;
-      stroke: #4a5568;
+      fill: #222222;
+      stroke: #5d4037;
     }
     [data-theme="dark"] .flowchart-link {
-      stroke: #a0aec0;
+      stroke: #9370db;
     }
 
     /* Dark mode sequence diagram overrides */
     [data-theme="dark"] .actor {
-      fill: #2d3748;
-      stroke: #4a5568;
+      fill: #222222;
+      stroke: #5d4037;
     }
     [data-theme="dark"] text.actor {
-      fill: #e2e8f0;
+      fill: #f0f0f0;
       stroke: none;
     }
     [data-theme="dark"] .messageText {
-      fill: #ffffff;
+      fill: #f0f0f0;
       stroke: none;
       font-weight: 500;
     }
     [data-theme="dark"] .messageLine0, [data-theme="dark"] .messageLine1 {
-      stroke: #a0aec0;
+      stroke: #9370db;
       stroke-width: 1.5px;
     }
     [data-theme="dark"] .noteText {
-      fill: #e2e8f0;
+      fill: #f0f0f0;
     }
     /* Additional styles for sequence diagram text */
     [data-theme="dark"] #sequenceNumber {
-      fill: #ffffff;
+      fill: #f0f0f0;
     }
     [data-theme="dark"] text.sequenceText {
-      fill: #ffffff;
+      fill: #f0f0f0;
       font-weight: 500;
     }
     [data-theme="dark"] text.loopText, [data-theme="dark"] text.loopText tspan {
-      fill: #ffffff;
+      fill: #f0f0f0;
     }
     /* Add a subtle background to message text for better readability */
     [data-theme="dark"] .messageText, [data-theme="dark"] text.sequenceText {
       paint-order: stroke;
-      stroke: #1a202c;
+      stroke: #1a1a1a;
       stroke-width: 2px;
       stroke-linecap: round;
       stroke-linejoin: round;
     }
 
-    /* Force all text elements to be white */
+    /* Force text elements to be properly colored */
     text[text-anchor][dominant-baseline],
     text[text-anchor][alignment-baseline],
     .nodeLabel,
     .edgeLabel,
     .label,
     text {
-      fill: #fff !important;
+      fill: #333333 !important;
     }
 
-    /* Add clickable element styles */
+    [data-theme="dark"] text[text-anchor][dominant-baseline],
+    [data-theme="dark"] text[text-anchor][alignment-baseline],
+    [data-theme="dark"] .nodeLabel,
+    [data-theme="dark"] .edgeLabel,
+    [data-theme="dark"] .label,
+    [data-theme="dark"] text {
+      fill: #f0f0f0 !important;
+    }
+
+    /* Add clickable element styles with subtle transitions */
     .clickable {
-      transition: transform 0.2s ease;
+      transition: all 0.3s ease;
     }
     .clickable:hover {
-      transform: scale(1.05);
+      transform: scale(1.03);
       cursor: pointer;
     }
     .clickable:hover > * {
-      filter: brightness(0.85);
+      filter: brightness(0.95);
     }
   `,
-  fontFamily: 'system-ui, -apple-system, sans-serif',
+  fontFamily: 'var(--font-geist-sans), var(--font-serif-jp), sans-serif',
   fontSize: 12,
 });
 
@@ -222,16 +231,16 @@ const FullScreenModal: React.FC<{
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
       <div
         ref={modalRef}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-5xl max-h-[90vh] w-full overflow-hidden flex flex-col"
+        className="bg-[var(--card-bg)] rounded-lg shadow-custom max-w-5xl max-h-[90vh] w-full overflow-hidden flex flex-col card-japanese"
       >
         {/* Modal header with controls */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="font-medium text-gray-700 dark:text-gray-300">Diagram View</div>
+        <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]">
+          <div className="font-medium text-[var(--foreground)] font-serif">図表表示</div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setZoom(Math.max(0.5, zoom - 0.1))}
-                className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded"
+                className="text-[var(--foreground)] hover:bg-[var(--accent-primary)]/10 p-2 rounded-md border border-[var(--border-color)] transition-colors"
                 aria-label="Zoom out"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -240,10 +249,10 @@ const FullScreenModal: React.FC<{
                   <line x1="8" y1="11" x2="14" y2="11"></line>
                 </svg>
               </button>
-              <span className="text-sm text-gray-600 dark:text-gray-400">{Math.round(zoom * 100)}%</span>
+              <span className="text-sm text-[var(--muted)]">{Math.round(zoom * 100)}%</span>
               <button
                 onClick={() => setZoom(Math.min(2, zoom + 0.1))}
-                className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded"
+                className="text-[var(--foreground)] hover:bg-[var(--accent-primary)]/10 p-2 rounded-md border border-[var(--border-color)] transition-colors"
                 aria-label="Zoom in"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -255,7 +264,7 @@ const FullScreenModal: React.FC<{
               </button>
               <button
                 onClick={() => setZoom(1)}
-                className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded"
+                className="text-[var(--foreground)] hover:bg-[var(--accent-primary)]/10 p-2 rounded-md border border-[var(--border-color)] transition-colors"
                 aria-label="Reset zoom"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -266,7 +275,7 @@ const FullScreenModal: React.FC<{
             </div>
             <button
               onClick={onClose}
-              className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded"
+              className="text-[var(--foreground)] hover:bg-[var(--accent-primary)]/10 p-2 rounded-md border border-[var(--border-color)] transition-colors"
               aria-label="Close"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -278,12 +287,12 @@ const FullScreenModal: React.FC<{
         </div>
 
         {/* Modal content with zoom */}
-        <div className="overflow-auto p-4 flex-1 flex items-center justify-center">
+        <div className="overflow-auto p-6 flex-1 flex items-center justify-center bg-[var(--background)]/50">
           <div
             style={{
               transform: `scale(${zoom})`,
               transformOrigin: 'center center',
-              transition: 'transform 0.2s ease-out'
+              transition: 'transform 0.3s ease-out'
             }}
           >
             {children}
@@ -405,18 +414,18 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled
 
   if (error) {
     return (
-      <div className={`border border-red-300 dark:border-red-800 rounded-md p-3 ${className}`}>
-        <div className="flex items-center mb-2">
-          <div className="text-red-500 dark:text-red-400 text-xs font-medium flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className={`border border-[var(--highlight)]/30 rounded-md p-4 bg-[var(--highlight)]/5 ${className}`}>
+        <div className="flex items-center mb-3">
+          <div className="text-[var(--highlight)] text-xs font-medium flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            Diagram rendering error
+            図表レンダリングエラー
           </div>
         </div>
         <div ref={mermaidRef} className="text-xs overflow-auto"></div>
-        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          The diagram contains syntax errors and cannot be rendered.
+        <div className="mt-3 text-xs text-[var(--muted)] font-serif">
+          図表に構文エラーがあり、レンダリングできません。
         </div>
       </div>
     );
@@ -425,7 +434,12 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled
   if (!svg) {
     return (
       <div className={`flex justify-center items-center p-4 ${className}`}>
-        <div className="animate-pulse text-gray-400 dark:text-gray-600 text-xs">Rendering diagram...</div>
+        <div className="flex items-center space-x-2">
+          <div className="w-2 h-2 bg-[var(--accent-primary)]/70 rounded-full animate-pulse"></div>
+          <div className="w-2 h-2 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-75"></div>
+          <div className="w-2 h-2 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-150"></div>
+          <span className="text-[var(--muted)] text-xs ml-2 font-serif">図表を描画中...</span>
+        </div>
       </div>
     );
   }

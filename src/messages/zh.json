@@ -1,0 +1,59 @@
+{
+  "common": {
+    "appName": "DeepWiki-Open",
+    "tagline": "AI驱动的文档",
+    "generateWiki": "生成Wiki",
+    "processing": "处理中...",
+    "error": "错误",
+    "submit": "提交",
+    "cancel": "取消",
+    "close": "关闭",
+    "loading": "加载中..."
+  },
+  "loading": {
+    "initializing": "初始化Wiki生成...",
+    "fetchingStructure": "获取仓库结构...",
+    "determiningStructure": "验证Wiki结构...",
+    "preparingDownload": "请等待，我们正在准备您的下载..."
+  },
+  "home": {
+    "welcome": "欢迎使用DeepWiki",
+    "welcomeTagline": "为代码仓库提供AI驱动的文档",
+    "description": "只需一次点击，即可从GitHub、GitLab或Bitbucket仓库生成全面的文档。",
+    "quickStart": "快速开始",
+    "enterRepoUrl": "请以下列格式之一输入仓库URL：",
+    "advancedVisualization": "使用Mermaid图表进行高级可视化",
+    "diagramDescription": "DeepWiki自动生成交互式图表，帮助您理解代码结构和关系：",
+    "flowDiagram": "流程图",
+    "sequenceDiagram": "序列图"
+  },
+  "form": {
+    "repoPlaceholder": "所有者/仓库或GitHub/GitLab/Bitbucket URL",
+    "wikiLanguage": "Wiki语言",
+    "modelOptions": "模型选项",
+    "localOllama": "本地Ollama模型",
+    "experimental": "实验性",
+    "useOpenRouter": "使用OpenRouter API",
+    "openRouterModel": "OpenRouter模型",
+    "addTokens": "+ 添加私有仓库访问令牌",
+    "hideTokens": "- 隐藏访问令牌",
+    "accessToken": "私有仓库访问令牌",
+    "selectPlatform": "选择平台",
+    "personalAccessToken": "{platform}个人访问令牌",
+    "tokenPlaceholder": "输入您的{platform}令牌",
+    "tokenSecurityNote": "令牌仅存储在内存中，从不持久化。"
+  },
+  "footer": {
+    "copyright": "DeepWiki - 为代码仓库提供AI驱动的文档"
+  },
+  "ask": {
+    "placeholder": "询问关于此仓库的问题...",
+    "askButton": "提问",
+    "deepResearch": "深度研究",
+    "researchInProgress": "研究进行中...",
+    "continueResearch": "继续研究",
+    "viewPlan": "查看计划",
+    "viewUpdates": "查看更新",
+    "viewConclusion": "查看结论"
+  }
+}
