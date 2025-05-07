@@ -124,9 +124,9 @@ export default function Home() {
       setIsSubmitting(false);
       return;
     }
-
-    const { owner, repo, type } = parsedRepo;
-
+    
+    const { owner, repo, type, fullPath } = parsedRepo;
+    
     // Store tokens in query params if they exist
     const params = new URLSearchParams();
     if (accessToken) {
@@ -151,8 +151,16 @@ export default function Home() {
     const queryString = params.toString() ? `?${params.toString()}` : '';
 
     // Navigate to the dynamic route
-    router.push(`/${owner}/${repo}${queryString}`);
-
+    if (type === 'gitlab' && fullPath) {
+      // For GitLab, use the fullPath in the URL
+      const parts = fullPath.split('/');
+      const owner = parts[0];
+      const repo = parts.slice(1).join('~');
+      router.push(`/${owner}/${repo}${queryString}`);
+    } else {
+      router.push(`/${owner}/${repo}${queryString}`);
+    }
+    
     // The isSubmitting state will be reset when the component unmounts during navigation
   };
 

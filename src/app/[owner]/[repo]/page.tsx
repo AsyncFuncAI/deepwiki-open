@@ -119,7 +119,7 @@ export default function RepoWikiPage() {
 
   // Extract owner and repo from route params
   const owner = params.owner as string;
-  const repo = params.repo as string;
+  const repo = (params.repo as string).replace(/~/g, '/');
 
   // Extract tokens from search params
   const githubToken = searchParams.get('github_token') || '';
