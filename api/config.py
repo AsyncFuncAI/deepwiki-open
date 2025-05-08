@@ -1,71 +1,23 @@
-from adalflow import GoogleGenAIClient, OllamaClient
 import os
+from pathlib import Path
 
-from api.openai_client import OpenAIClient
-from api.openrouter_client import OpenRouterClient
+from api.model_config import ModelConfig, load_model_configs
+import logging
 
-# Configuration for the isolated API
-configs = {
-    "embedder": {
-        "batch_size": 500,
-        "model_client": OpenAIClient,
-        "model_kwargs": {
-            "model": "text-embedding-3-small",
-            "dimensions": 256,
-            "encoding_format": "float",
-        },
-    },
+# Directory containing configuration files
+CONFIG_DIR = Path(__file__).parent / "config"
+
+# Load all model configurations
+embedders, generators = load_model_configs(CONFIG_DIR)
+
+# Set default model providers and running modes
+DEFAULT_EMBEDDER_NAME = "openai"
+DEFAULT_GENERATOR_NAME = "google"
+
+# Non-model related configurations
+app_configs = {
     "retriever": {
         "top_k": 20,
-    },
-    "generator": {
-        "model_client": GoogleGenAIClient,
-        "model_kwargs": {
-            "model": "gemini-2.0-flash",
-            "temperature": 0.7,
-            "top_p": 0.8,
-            "top_k": 40
-        },
-    },
-    # "generator": {
-    #     "model_client": OpenAIClient,
-    #     "model_kwargs": {
-    #         "model": "o4-mini",
-    #         "temperature": 0.7,
-    #         "top_p": 0.8
-    #     },
-    # },
-    "embedder_ollama": {
-        "model_client": OllamaClient,
-        "model_kwargs": {
-            "model": "nomic-embed-text"
-        },
-    },
-    "generator_ollama": {
-        "model_client": OllamaClient,
-        "model_kwargs": {
-            "model": "qwen3:1.7b",
-            "options": {
-                "temperature": 0.7,
-                "top_p": 0.8,
-            }
-        },
-    },
-    "generator_openrouter": {
-        "model_client": OpenRouterClient,
-        "model_kwargs": {
-            "model": "openai/gpt-4o",
-            "temperature": 0.7,
-            "top_p": 0.8,
-        },
-    },
-    "generator_openai": {
-        "model_client": OpenAIClient,
-        "model_kwargs": {
-            "model": "o4-mini",
-            "temperature": 0.7,
-            "top_p": 0.8,
-        },
     },
     "text_splitter": {
         "split_by": "word",
@@ -108,15 +60,59 @@ configs = {
     },
 }
 
-# Get API keys from environment variables
+def get_embedder_config(model_name: str = DEFAULT_EMBEDDER_NAME) -> ModelConfig:
+    """
+    Get the embedding model configuration object for the specified name.
+    
+    Args:
+        model_type: generator type, openai by default
+        
+    Returns:
+        ModelConfig: model config object
+    
+    Raises:
+        KeyError: if the specified type does not exist
+    """
+    if model_name not in embedders:
+        raise KeyError(f"Embedding model '{model_name}' does not exist")
+    return embedders[model_name]
+
+def get_generator_config(model_name: str = DEFAULT_GENERATOR_NAME) -> ModelConfig:
+    """
+    Get the generator model configuration object for the specified name.
+    
+    Args:
+        model_type: generator type, google by default
+        
+    Returns:
+        ModelConfig: model config object
+    
+    Raises:
+        KeyError: if the specified type does not exist
+    """
+        
+    if model_name not in generators:
+        raise KeyError(f"Generator model '{model_name}' does not exist")
+    return generators[model_name]
+
+
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
 OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
+EMBEDDER_NAME = os.environ.get('EMBEDDER_NAME', DEFAULT_EMBEDDER_NAME)
+GENERATOR_NAME = os.environ.get('GENERATOR_NAME', DEFAULT_GENERATOR_NAME)
 
-# Set keys in environment (in case they're needed elsewhere in the code)
 if OPENAI_API_KEY:
     os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 if GOOGLE_API_KEY:
     os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
 if OPENROUTER_API_KEY:
     os.environ["OPENROUTER_API_KEY"] = OPENROUTER_API_KEY
+if EMBEDDER_NAME:
+    os.environ["EMBEDDER_NAME"] = EMBEDDER_NAME
+if GENERATOR_NAME:
+    os.environ["GENERATOR_NAME"] = GENERATOR_NAME
+
+embedder_config = get_embedder_config(EMBEDDER_NAME)
+generator_config = get_generator_config(GENERATOR_NAME)
+

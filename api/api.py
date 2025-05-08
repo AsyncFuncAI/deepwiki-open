@@ -22,6 +22,10 @@ if google_api_key:
 else:
     logger.warning("GOOGLE_API_KEY not found in environment variables")
 
+embedder_name = os.environ.get('EMBEDDER_NAME', 'default_embedder')
+generator_name = os.environ.get('GENERATOR_NAME', 'default_generator')
+logger.info(f"Using embedder: {embedder_name}, generator: {generator_name}")
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Streaming API",

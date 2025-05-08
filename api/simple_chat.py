@@ -9,7 +9,7 @@ import google.generativeai as genai
 
 from api.data_pipeline import count_tokens, get_file_content
 from api.rag import RAG
-from api.config import configs
+from api.config import app_configs, generator_config, embedder_config
 from adalflow.components.model_client.ollama_client import OllamaClient
 from api.openrouter_client import OpenRouterClient
 from api.openai_client import OpenAIClient
@@ -77,7 +77,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         if request.messages and len(request.messages) > 0:
             last_message = request.messages[-1]
             if hasattr(last_message, 'content') and last_message.content:
-                tokens = count_tokens(last_message.content, local_ollama=request.local_ollama)
+                tokens = count_tokens(last_message.content)
                 logger.info(f"Request size: {tokens} tokens")
                 if tokens > 8000:
                     logger.warning(f"Request exceeds recommended token limit ({tokens} > 7500)")
@@ -85,8 +85,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
 
         # Create a new RAG instance for this request
         try:
-            # Pass the local_ollama flag during initialization
-            request_rag = RAG(local_ollama=request.local_ollama)
+            request_rag = RAG()
 
             # Determine which access token to use based on the repository URL
             access_token = None
@@ -100,7 +99,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 access_token = request.bitbucket_token
                 logger.info("Using Bitbucket token for authentication")
 
-            request_rag.prepare_retriever(request.repo_url, access_token, request.local_ollama)
+            request_rag.prepare_retriever(request.repo_url, access_token)
             logger.info(f"Retriever prepared for {request.repo_url}")
         except Exception as e:
             logger.error(f"Error preparing retriever: {str(e)}")
@@ -409,11 +408,11 @@ This file contains...
 
             model = OllamaClient()
             model_kwargs = {
-                "model": configs["generator_ollama"]["model_kwargs"]["model"],
+                "model": generator_config.model_kwargs["model"],
                 "stream": True,
                 "options": {
-                    "temperature": configs["generator_ollama"]["model_kwargs"]["options"]["temperature"],
-                    "top_p": configs["generator_ollama"]["model_kwargs"]["options"]["top_p"]
+                    "temperature": generator_config.model_kwargs["options"]["temperature"],
+                    "top_p": generator_config.model_kwargs["options"]["top_p"]
                 }
             }
 
@@ -434,30 +433,8 @@ This file contains...
             model_kwargs = {
                 "model": request.openrouter_model,
                 "stream": True,
-                "temperature": configs["generator_openrouter"]["model_kwargs"]["temperature"],
-                "top_p": configs["generator_openrouter"]["model_kwargs"]["top_p"]
-            }
-
-            api_kwargs = model.convert_inputs_to_api_kwargs(
-                input=prompt,
-                model_kwargs=model_kwargs,
-                model_type=ModelType.LLM
-            )
-        elif request.use_openai:
-            logger.info(f"Using Openai protocol with model: {request.openai_model}")
-
-            # Check if an API key is set for Openai
-            if not os.environ.get("OPENAI_API_KEY"):
-                logger.warning("OPENAI_API_KEY environment variable is not set, but continuing with request")
-                # We'll let the OpenAIClient handle this and return an error message
-
-            # Initialize Openai client
-            model = OpenAIClient()
-            model_kwargs = {
-                "model": request.openai_model,
-                "stream": True,
-                "temperature": configs["generator_openai"]["model_kwargs"]["temperature"],
-                "top_p": configs["generator_openai"]["model_kwargs"]["temperature"]
+                "temperature": generator_config.model_kwargs["temperature"],
+                "top_p": generator_config.model_kwargs["top_p"]
             }
 
             api_kwargs = model.convert_inputs_to_api_kwargs(
@@ -468,11 +445,11 @@ This file contains...
         else:
             # Initialize Google Generative AI model
             model = genai.GenerativeModel(
-                model_name=configs["generator"]["model_kwargs"]["model"],
+                model_name=generator_config.model_kwargs["model"],
                 generation_config={
-                    "temperature": configs["generator"]["model_kwargs"]["temperature"],
-                    "top_p": configs["generator"]["model_kwargs"]["top_p"],
-                    "top_k": configs["generator"]["model_kwargs"]["top_k"]
+                    "temperature": generator_config.model_kwargs["temperature"] if "temperature" in generator_config.model_kwargs else 0.7,
+                    "top_p": generator_config.model_kwargs["top_p"] if "top_p" in generator_config.model_kwargs else 0.8,
+                    "top_k": generator_config.model_kwargs["top_k"] if "top_k" in generator_config.model_kwargs else 40
                 }
             )
 
