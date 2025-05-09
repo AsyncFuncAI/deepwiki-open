@@ -171,6 +171,8 @@ deepwiki/
 | `GOOGLE_API_KEY` | Google Gemini API key for AI generation | Yes |
 | `OPENAI_API_KEY` | OpenAI API key for embeddings | Yes |
 | `OPENROUTER_API_KEY` | OpenRouter API key for alternative models | No | Required only if you want to use OpenRouter models |
+| `EMBEDDER_NAME` | The embedding model to use (default: "openai") | No | Options: "openai", "ollama", or custom models you define |
+| `GENERATOR_NAME` | The generation model to use (default: "google") | No | Options: "google", "ollama", "openrouter", or custom models you define |
 | `PORT` | Port for the API server (default: 8001) | No | If you host API and frontend on the same machine, make sure change port of `NEXT_PUBLIC_SERVER_BASE_URL` accordingly |
 | `NEXT_PUBLIC_SERVER_BASE_URL` | Base URL for the API server (default: http://localhost:8001) | No |
 
@@ -259,6 +261,85 @@ The API server provides:
 - Streaming chat completions
 
 For more details, see the [API README](./api/README.md).
+
+### Custom Models
+
+DeepWiki allows you to add custom embedding and generator models in the `api/config` directory. Here's how to customize them:
+
+#### Adding a Custom Embedding Model
+
+Edit the `api/config/embedders.json` file to add your own embedding model:
+
+```json
+{
+  "openai": {
+    "model_type": "openai",
+    "batch_size": 500,
+    "model_kwargs": {
+      "model": "text-embedding-3-small",
+      "dimensions": 256,
+      "encoding_format": "float"
+    }
+  },
+  "ollama": {
+    "model_type": "ollama",
+    "model_kwargs": {
+      "model": "nomic-embed-text"
+    }
+  },
+  "your-custom-embedder": {
+    "model_type": "openai",  // The provider (openai, ollama, etc.)
+    "batch_size": 500,       // Optional batch size for embeddings
+    "model_kwargs": {
+      "model": "your-model-name",
+      // Any other required parameters
+    }
+  }
+}
+```
+
+#### Adding a Custom Generator Model
+
+Edit the `api/config/generators.json` file to add your own generator model:
+
+```json
+{
+  "google": {
+    "model_type": "google",
+    "model_kwargs": {
+      "model": "gemini-2.5-flash-preview-04-17",
+      "temperature": 0.7,
+      "top_p": 0.8
+    }
+  },
+  // Add your custom generator here
+  "your-custom-generator": {
+    "model_type": "openai",   // The provider (google, openai, ollama, openrouter)
+    "model_kwargs": {
+      "model": "your-model-name",
+      "temperature": 0.7,
+      "top_p": 0.8
+      // Any other model-specific options
+    }
+  }
+}
+```
+
+#### Using Your Custom Models
+
+Once you've added custom models, you can use them by setting these environment variables:
+
+```bash
+# In your .env file
+EMBEDDER_NAME=your-custom-embedder
+GENERATOR_NAME=your-custom-generator
+```
+
+Currently supported model types include:
+- `openai`: OpenAI's API
+- `google`: Google Gemini API
+- `ollama`: Local Ollama models
+- `openrouter`: Models from OpenRouter
 
 ## 🔌 OpenRouter Integration
 
