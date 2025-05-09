@@ -115,13 +115,17 @@ def download_repo(repo_url: str, local_path: str, access_token: str = None):
 # Alias for backward compatibility
 download_github_repo = download_repo
 
-def read_all_documents(path: str, local_ollama: bool = False):
+def read_all_documents(path: str, local_ollama: bool = False, excluded_dirs: List[str] = None, excluded_files: List[str] = None):
     """
     Recursively reads all documents in a directory and its subdirectories.
 
     Args:
         path (str): The root directory path.
         local_ollama (bool): Whether to use local Ollama for token counting. Default is False.
+        excluded_dirs (List[str], optional): List of directories to exclude from processing. 
+            Overrides the default configuration if provided.
+        excluded_files (List[str], optional): List of file patterns to exclude from processing.
+            Overrides the default configuration if provided.
 
     Returns:
         list: A list of Document objects with metadata.
@@ -129,12 +133,19 @@ def read_all_documents(path: str, local_ollama: bool = False):
     documents = []
     # File extensions to look for, prioritizing code files
     code_extensions = [".py", ".js", ".ts", ".java", ".cpp", ".c", ".go", ".rs",
-                      ".jsx", ".tsx", ".html", ".css", ".php", ".swift", ".cs"]
+                       ".jsx", ".tsx", ".html", ".css", ".php", ".swift", ".cs"]
     doc_extensions = [".md", ".txt", ".rst", ".json", ".yaml", ".yml"]
 
-    # Get excluded files and directories from config
-    excluded_dirs = configs.get("file_filters", {}).get("excluded_dirs", [".venv", "node_modules"])
-    excluded_files = configs.get("file_filters", {}).get("excluded_files", ["package-lock.json"])
+    # Get excluded files and directories from config or use provided values
+    default_excluded_dirs = configs.get("file_filters", {}).get("excluded_dirs", [".venv", "node_modules"])
+    default_excluded_files = configs.get("file_filters", {}).get("excluded_files", ["package-lock.json"])
+    
+    # Use custom exclusions if provided, otherwise use defaults
+    excluded_dirs = excluded_dirs if excluded_dirs is not None else default_excluded_dirs
+    excluded_files = excluded_files if excluded_files is not None else default_excluded_files
+    
+    logger.info(f"Using excluded directories: {excluded_dirs}")
+    logger.info(f"Using excluded files: {excluded_files}")
 
     logger.info(f"Reading documents from {path}")
 
@@ -555,7 +566,8 @@ class DatabaseManager:
         self.repo_url_or_path = None
         self.repo_paths = None
 
-    def prepare_database(self, repo_url_or_path: str, access_token: str = None, local_ollama: bool = False) -> List[Document]:
+    def prepare_database(self, repo_url_or_path: str, access_token: str = None, local_ollama: bool = False, 
+                       excluded_dirs: List[str] = None, excluded_files: List[str] = None) -> List[Document]:
         """
         Create a new database from the repository.
 
@@ -563,13 +575,15 @@ class DatabaseManager:
             repo_url_or_path (str): The URL or local path of the repository
             access_token (str, optional): Access token for private repositories
             local_ollama (bool): Whether to use local Ollama for embedding (default: False)
+            excluded_dirs (List[str], optional): List of directories to exclude from processing
+            excluded_files (List[str], optional): List of file patterns to exclude from processing
 
         Returns:
             List[Document]: List of Document objects
         """
         self.reset_database()
         self._create_repo(repo_url_or_path, access_token)
-        return self.prepare_db_index(local_ollama=local_ollama)
+        return self.prepare_db_index(local_ollama=local_ollama, excluded_dirs=excluded_dirs, excluded_files=excluded_files)
 
     def reset_database(self):
         """
@@ -640,12 +654,14 @@ class DatabaseManager:
             logger.error(f"Failed to create repository structure: {e}")
             raise
 
-    def prepare_db_index(self, local_ollama: bool = False) -> List[Document]:
+    def prepare_db_index(self, local_ollama: bool = False, excluded_dirs: List[str] = None, excluded_files: List[str] = None) -> List[Document]:
         """
         Prepare the indexed database for the repository.
         
         Args:
             local_ollama (bool): Whether to use local Ollama for embedding (default: False)
+            excluded_dirs (List[str], optional): List of directories to exclude from processing
+            excluded_files (List[str], optional): List of file patterns to exclude from processing
             
         Returns:
             List[Document]: List of Document objects
@@ -665,7 +681,12 @@ class DatabaseManager:
 
         # prepare the database
         logger.info("Creating new database...")
-        documents = read_all_documents(self.repo_paths["save_repo_dir"], local_ollama=local_ollama)
+        documents = read_all_documents(
+            self.repo_paths["save_repo_dir"], 
+            local_ollama=local_ollama,
+            excluded_dirs=excluded_dirs,
+            excluded_files=excluded_files
+        )
         self.db = transform_documents_and_save_to_db(
             documents, self.repo_paths["save_db_file"], local_ollama=local_ollama
         )

@@ -45,7 +45,20 @@
     "selectPlatform": "选择平台",
     "personalAccessToken": "{platform}个人访问令牌",
     "tokenPlaceholder": "输入您的{platform}令牌",
-    "tokenSecurityNote": "令牌仅存储在内存中，从不持久化。"
+    "tokenSecurityNote": "令牌仅存储在内存中，从不持久化。",
+    "defaultFiltersInfo": "默认过滤器包括node_modules、.git和常见的构建文件。",
+    "fileFilterTitle": "文件过滤配置",
+    "viewDefaults": "查看默认过滤",
+    "showFilters": "显示过滤器",
+    "hideFilters": "隐藏过滤器",
+    "excludedDirs": "要排除的目录",
+    "excludedDirsHelp": "每行一个目录路径。以./开头表示相对于仓库根目录的路径。",
+    "excludedFiles": "要排除的文件",
+    "excludedFilesHelp": "每行一个文件名。支持通配符(*)。",
+    "defaultFilters": "默认排除的文件和目录",
+    "directories": "目录",
+    "files": "文件",
+    "scrollToViewMore": "可滑动查看更多"
   },
   "footer": {
     "copyright": "DeepWiki - 为代码仓库提供AI驱动的文档"

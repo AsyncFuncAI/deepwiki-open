@@ -101,6 +101,8 @@ const addTokensToRequestBody = (
   openRouterModel: string = 'openai/gpt-4o',
   openaiModel: string = 'gpt-4o',
   language: string = 'en',
+  excludedDirs?: string,
+  excludedFiles?: string,
 ): void => {
   if (githubToken && repoType === 'github') {
     requestBody.github_token = githubToken;
@@ -121,6 +123,14 @@ const addTokensToRequestBody = (
     requestBody.openai_model = openaiModel;
   }
   requestBody.language = language;
+  
+  // Add file filter parameters
+  if (excludedDirs) {
+    requestBody.excluded_dirs = excludedDirs;
+  }
+  if (excludedFiles) {
+    requestBody.excluded_files = excludedFiles;
+  }
 };
 
 const createGithubHeaders = (githubToken: string): HeadersInit => {
@@ -217,6 +227,10 @@ export default function RepoWikiPage() {
   const [isCustomModelOpenaiModel, setIsCustomModelOpenaiModel] = useState(false);
   const [customModelOpenaiModel, setCustomModelOpenaiModel] = useState('');
   const [showModelOptions, setShowModelOptions] = useState(false); // 控制是否显示模型选项
+  const excludedDirs = searchParams.get('excluded_dirs') || '';
+  const excludedFiles = searchParams.get('excluded_files') || '';
+  const [modelExcludedDirs, setModelExcludedDirs] = useState(excludedDirs);
+  const [modelExcludedFiles, setModelExcludedFiles] = useState(excludedFiles);
   // Using useRef for activeContentRequests to maintain a single instance across renders
   // This map tracks which pages are currently being processed to prevent duplicate requests
   // Note: In a multi-threaded environment, additional synchronization would be needed,
@@ -361,7 +375,7 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
         };
 
         // Add tokens if available
-        addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language);
+        addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language, modelExcludedDirs, modelExcludedFiles);
 
         const response = await fetch(`/api/chat/stream`, {
           method: 'POST',
@@ -529,11 +543,11 @@ IMPORTANT:
 2. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
 3. The relevant_files should be actual files from the repository that would be used to generate that page
 4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
-        }]
+        }] 
       };
 
       // Add tokens if available
-      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language);
+      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language, modelExcludedDirs, modelExcludedFiles);
 
       const response = await fetch(`/api/chat/stream`, {
         method: 'POST',
@@ -1093,7 +1107,6 @@ IMPORTANT:
     setShowModelOptions(true);
   }, []);
 
-  // 处理模型确认并刷新wiki
   const confirmRefresh = useCallback(async () => {
     setShowModelOptions(false);
     setLoadingMessage(messages.loading?.clearingCache || 'Clearing server cache...');
@@ -1120,6 +1133,15 @@ IMPORTANT:
         } else {
           params.append('openai_model', modelOpenaiModel);
         }
+      }
+      
+      // Add file filters configuration
+      if (modelExcludedDirs) {
+        console.log(modelExcludedDirs)
+        params.append('excluded_dirs', modelExcludedDirs);
+      }
+      if (modelExcludedFiles) {
+        params.append('excluded_files', modelExcludedFiles);
       }
       const response = await fetch(`/api/wiki_cache?${params.toString()}`, {
         method: 'DELETE',
@@ -1459,6 +1481,11 @@ IMPORTANT:
                       setIsCustomOpenaiModel={setIsCustomModelOpenaiModel}
                       customOpenaiModel={customModelOpenaiModel}
                       setCustomOpenaiModel={setCustomModelOpenaiModel}
+                      showFileFilters={true}
+                      excludedDirs={modelExcludedDirs}
+                      setExcludedDirs={setModelExcludedDirs}
+                      excludedFiles={modelExcludedFiles}
+                      setExcludedFiles={setModelExcludedFiles}
                     />
                     <div className="flex justify-between mt-3">
                       <button

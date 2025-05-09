@@ -80,6 +80,8 @@ export default function Home() {
   const [openaiModel, setOpenaiModel] = useState('gpt-4o');
   const [isCustomOpenaiModel, setIsCustomOpenaiModel] = useState(false);
   const [customOpenaiModel, setCustomOpenaiModel] = useState('');
+  const [excludedDirs, setExcludedDirs] = useState('');
+  const [excludedFiles, setExcludedFiles] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>('github');
   const [accessToken, setAccessToken] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -212,7 +214,19 @@ export default function Home() {
       params.append('openrouter_model', openRouterModel);
     }
     if (useOpenai) {
-      params.append('openai_model', openaiModel);
+      if (isCustomOpenaiModel && customOpenaiModel) {
+        params.append('openai_model', customOpenaiModel);
+      } else {
+        params.append('openai_model', openaiModel);
+      }
+    }
+    
+    // Add file filters configuration
+    if (excludedDirs) {
+      params.append('excluded_dirs', excludedDirs);
+    }
+    if (excludedFiles) {
+      params.append('excluded_files', excludedFiles);
     }
 
     // Add language parameter
@@ -312,6 +326,11 @@ export default function Home() {
                   setIsCustomOpenaiModel={setIsCustomOpenaiModel}
                   customOpenaiModel={customOpenaiModel}
                   setCustomOpenaiModel={setCustomOpenaiModel}
+                  showFileFilters={true}
+                  excludedDirs={excludedDirs}
+                  setExcludedDirs={setExcludedDirs}
+                  excludedFiles={excludedFiles}
+                  setExcludedFiles={setExcludedFiles}
                 />
               </div>
             </div>

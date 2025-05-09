@@ -45,7 +45,20 @@
     "selectPlatform": "プラットフォームを選択",
     "personalAccessToken": "{platform}個人アクセストークン",
     "tokenPlaceholder": "{platform}トークンを入力してください",
-    "tokenSecurityNote": "トークンはメモリ内にのみ保存され、永続化されることはありません。"
+    "tokenSecurityNote": "トークンはメモリ内にのみ保存され、永続化されることはありません。",
+    "defaultFiltersInfo": "デフォルトのフィルターは、node_modules、.git、および一般的なビルドアーティファクトファイルのような一般的なディレクトリを含みます。",
+    "fileFilterTitle": "ファイルフィルター設定",
+    "viewDefaults": "デフォルトフィルターを表示",
+    "showFilters": "フィルターを表示",
+    "hideFilters": "フィルターを非表示",
+    "excludedDirs": "除外するディレクトリ",
+    "excludedDirsHelp": "一行につき一つのディレクトリパス。./で始まるパスはリポジトリルートからの相対パスです。",
+    "excludedFiles": "除外するファイル",
+    "excludedFilesHelp": "一行につき一つのファイル名。ワイルドカード(*)が使用可能です。",
+    "defaultFilters": "デフォルトで除外されるファイルとディレクトリ",
+    "directories": "ディレクトリ",
+    "files": "ファイル",
+    "scrollToViewMore": "スクロールしてさらに表示"
   },
   "footer": {
     "copyright": "DeepWiki - コードリポジトリのためのAI駆動ドキュメンテーション"

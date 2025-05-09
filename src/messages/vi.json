@@ -42,7 +42,20 @@
     "selectPlatform": "Chọn nền tảng",
     "personalAccessToken": "Token truy cập cá nhân {platform}",
     "tokenPlaceholder": "Nhập token {platform} của bạn",
-    "tokenSecurityNote": "Token chỉ được lưu trong bộ nhớ và không bao giờ được lưu trữ vĩnh viễn."
+    "tokenSecurityNote": "Token chỉ được lưu trong bộ nhớ và không bao giờ được lưu trữ vĩnh viễn.",
+    "defaultFiltersInfo": "Lọc mặc định bao gồm các thư mục thông thường như node_modules, .git và các tệp tài liệu xây dựng thông thường.",
+    "fileFilterTitle": "Cấu hình Lọc Tệp",
+    "viewDefaults": "Xem Lọc Mặc định",
+    "showFilters": "Hiển thị Lọc",
+    "hideFilters": "Ẩn Lọc",
+    "excludedDirs": "Thư mục để Loại trừ",
+    "excludedDirsHelp": "Một đường dẫn thư mục trên một dòng. Đường dẫn bắt đầu bằng ./ là tương đối so với gốc kho lưu trữ.",
+    "excludedFiles": "Tệp để Loại trừ",
+    "excludedFilesHelp": "Một tên tệp trên một dòng. Hỗ trợ ký tự đại diện (*).",
+    "defaultFilters": "Tệp và Thư mục Loại trừ Mặc định",
+    "directories": "Thư mục",
+    "files": "Tệp",
+    "scrollToViewMore": "Dịch chuyển để xem thêm"
   },
   "footer": {
     "copyright": "DeepWiki - Tài liệu hỗ trợ bởi AI cho repository"

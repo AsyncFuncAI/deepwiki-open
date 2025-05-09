@@ -45,7 +45,20 @@
       "selectPlatform": "플랫폼 선택",
       "personalAccessToken": "{platform} 개인 액세스 토큰",
       "tokenPlaceholder": "{platform} 토큰을 입력하세요",
-      "tokenSecurityNote": "토큰은 메모리에만 저장되며, 영구적으로 보존되지 않습니다."
+      "tokenSecurityNote": "토큰은 메모리에만 저장되며, 영구적으로 보존되지 않습니다.",
+      "defaultFiltersInfo": "기본 필터에는 node_modules,.git 및 일반적인 빌드 파일이 포함됩니다.",
+      "fileFilterTitle": "파일 필터 구성",
+      "viewDefaults": "기본 필터 보기",
+      "showFilters": "필터 표시",
+      "hideFilters": "필터 숨기기",
+      "excludedDirs": "제외할 디렉토리",
+      "excludedDirsHelp": "한 줄에 하나의 디렉토리 경로. ./로 시작하는 경로는 저장소 루트에서의 상대 경로입니다.",
+      "excludedFiles": "제외할 파일",
+      "excludedFilesHelp": "한 줄에 하나의 파일 이름. 와일드카드(*)가 지원됩니다.",
+      "defaultFilters": "기본적으로 제외되는 파일 및 디렉토리",
+      "directories": "디렉토리",
+      "files": "파일",
+      "scrollToViewMore": "더 보려면 스크롤하세요"
     },
     "footer": {
       "copyright": "DeepWiki - 코드 저장소를 위한 AI 기반 문서화"

@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+
 
 interface ModelSelectorProps {
   localOllama: boolean;
@@ -18,6 +19,13 @@ interface ModelSelectorProps {
   setIsCustomOpenaiModel?: (value: boolean) => void;
   customOpenaiModel?: string;
   setCustomOpenaiModel?: (value: string) => void;
+  
+  // File filter configuration
+  showFileFilters?: boolean;
+  excludedDirs?: string;
+  setExcludedDirs?: (value: string) => void;
+  excludedFiles?: string;
+  setExcludedFiles?: (value: string) => void;
 }
 
 export default function UserSelector({
@@ -35,8 +43,146 @@ export default function UserSelector({
   setIsCustomOpenaiModel,
   customOpenaiModel,
   setCustomOpenaiModel,
+  
+  // File filter configuration
+  showFileFilters = false,
+  excludedDirs = '',
+  setExcludedDirs,
+  excludedFiles = '',
+  setExcludedFiles,
+
 }: ModelSelectorProps) {
+  // State to manage the visibility of the filters modal and filter section
+  const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
+  const [isFilterSectionOpen, setIsFilterSectionOpen] = useState(false);
   const { messages: t } = useLanguage();
+  
+  // Default excluded directories from config.py
+  const defaultExcludedDirs = 
+`./.venv/
+./venv/
+./env/
+./virtualenv/
+./node_modules/
+./bower_components/
+./jspm_packages/
+./.git/
+./.svn/
+./.hg/
+./.bzr/
+./__pycache__/
+./.pytest_cache/
+./.mypy_cache/
+./.ruff_cache/
+./.coverage/
+./dist/
+./build/
+./out/
+./target/
+./bin/
+./obj/
+./docs/
+./_docs/
+./site-docs/
+./_site/
+./.idea/
+./.vscode/
+./.vs/
+./.eclipse/
+./.settings/
+./logs/
+./log/
+./tmp/
+./temp/
+./.eng`;
+
+  // Default excluded files from config.py
+  const defaultExcludedFiles = 
+`package-lock.json
+yarn.lock
+pnpm-lock.yaml
+npm-shrinkwrap.json
+poetry.lock
+Pipfile.lock
+requirements.txt.lock
+Cargo.lock
+composer.lock
+.lock
+.DS_Store
+Thumbs.db
+desktop.ini
+*.lnk
+.env
+.env.*
+*.env
+*.cfg
+*.ini
+.flaskenv
+.gitignore
+.gitattributes
+.gitmodules
+.github
+.gitlab-ci.yml
+.prettierrc
+.eslintrc
+.eslintignore
+.stylelintrc
+.editorconfig
+.jshintrc
+.pylintrc
+.flake8
+mypy.ini
+pyproject.toml
+tsconfig.json
+webpack.config.js
+babel.config.js
+rollup.config.js
+jest.config.js
+karma.conf.js
+vite.config.js
+next.config.js
+*.min.js
+*.min.css
+*.bundle.js
+*.bundle.css
+*.map
+*.gz
+*.zip
+*.tar
+*.tgz
+*.rar
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dll
+*.class
+*.exe
+*.o
+*.a
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.ico
+*.svg
+*.webp
+*.mp3
+*.mp4
+*.wav
+*.avi
+*.mov
+*.webm
+*.csv
+*.tsv
+*.xls
+*.xlsx
+*.db
+*.sqlite
+*.sqlite3
+*.pdf
+*.docx
+*.pptx`;
 
   return (
     <div className="flex flex-col gap-2">
@@ -187,6 +333,162 @@ export default function UserSelector({
               </label>
             </div>
           </div>
+        </div>
+      )}
+      
+      {/* File filtering configuration - only shown when enabled */}
+      {showFileFilters && (
+        <div className="w-full mt-4">
+          <div className="border border-[var(--border-color)] rounded-md p-3 bg-[var(--card-bg)]">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-medium">{t.form?.fileFilterTitle || 'File Filter Configuration'}</h3>
+              
+              <div className="flex gap-3">
+                {/* Button to toggle filter section visibility */}
+                <button 
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsFilterSectionOpen(!isFilterSectionOpen);
+                  }}
+                  className="text-xs text-[var(--accent-primary)] hover:text-[var(--highlight)] transition-colors flex items-center"
+                >
+                  {isFilterSectionOpen ? t.form?.hideFilters : t.form?.showFilters}
+                </button>
+
+                {/* View default filters button - opens modal */}
+                <button 
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    // Use React state to show modal with default filters
+                    setIsFiltersModalOpen(true);
+                  }}
+                  className="text-xs text-[var(--accent-primary)] hover:text-[var(--highlight)] transition-colors"
+                >
+                  {t.form?.viewDefaults}
+                </button>
+              </div>
+            </div>
+            
+            {/* Information about current default filters - always visible */}
+            <p className="text-xs text-[var(--muted)] mt-1">
+              {t.form?.defaultFiltersInfo}
+            </p>
+
+            {/* Custom filters input section - only visible when expanded */}
+            {isFilterSectionOpen && (
+              <div className="space-y-3 mt-3 pt-3 border-t border-[var(--border-color)] mt-3">
+                <div>
+                  <label htmlFor="excluded-dirs" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
+                    {t.form?.excludedDirs}
+                  </label>
+                  <textarea
+                    id="excluded-dirs"
+                    value={excludedDirs}
+                    onChange={(e) => setExcludedDirs?.(e.target.value)}
+                    placeholder="./node_modules/
+./dist/
+./.git/"
+                    className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)] border border-[var(--border-color)] min-h-[80px]"
+                  />
+                  <p className="text-xs text-[var(--muted)] mt-1">
+                    {t.form?.excludedDirsHelp}
+                  </p>
+                </div>
+                
+                <div>
+                  <label htmlFor="excluded-files" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
+                    {t.form?.excludedFiles}
+                  </label>
+                  <textarea
+                    id="excluded-files"
+                    value={excludedFiles}
+                    onChange={(e) => setExcludedFiles?.(e.target.value)}
+                    placeholder="package-lock.json
+yarn.lock
+*.min.js"
+                    className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)] border border-[var(--border-color)] min-h-[80px]"
+                  />
+                  <p className="text-xs text-[var(--muted)] mt-1">
+                    {t.form?.excludedFilesHelp}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Modal for displaying default filters from config.py */}
+          {isFiltersModalOpen && (
+            <div 
+              className="fixed inset-0 z-50 overflow-auto bg-black/50 flex items-center justify-center p-4"
+              onClick={(e) => {
+                // Only close if clicking directly on the backdrop
+                if (e.target === e.currentTarget) {
+                  e.preventDefault();
+                  setIsFiltersModalOpen(false);
+                }
+              }}
+            >
+              <div 
+                className="bg-[var(--card-bg)] max-w-2xl w-full max-h-[80vh] overflow-auto rounded-md shadow-lg border border-[var(--border-color)]"
+                onClick={(e) => e.stopPropagation()} // Prevent closing the modal when clicking inside
+              >
+                <div className="flex justify-between items-center border-b border-[var(--border-color)] p-4">
+                  <h3 className="text-base font-medium">{t.form?.defaultFilters}</h3>
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsFiltersModalOpen(false);
+                    }}
+                    className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                    aria-label="Close"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
+                
+                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">{t.form?.directories}</h4>
+                    <div>
+                      <pre className="bg-[var(--background)]/80 p-3 rounded-md text-xs overflow-auto max-h-[300px] whitespace-pre-wrap">
+                        {defaultExcludedDirs}
+                      </pre>
+                      <p className="text-xs text-[var(--muted)] mt-1 italic text-center">{t.form?.scrollToViewMore}</p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">{t.form?.files}</h4>
+                    <div>
+                      <pre className="bg-[var(--background)]/80 p-3 rounded-md text-xs overflow-auto max-h-[300px] whitespace-pre-wrap">
+                        {defaultExcludedFiles}
+                      </pre>
+                      <p className="text-xs text-[var(--muted)] mt-1 italic text-center">{t.form?.scrollToViewMore}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border-t border-[var(--border-color)] p-4 flex justify-end">
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsFiltersModalOpen(false);
+                    }}
+                    className="px-4 py-2 text-sm bg-[var(--button-secondary-bg)] text-[var(--button-secondary-text)] rounded-md hover:bg-[var(--button-secondary-bg-hover)]"
+                  >
+                    {t.common?.close}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

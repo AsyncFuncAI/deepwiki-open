@@ -45,7 +45,20 @@
     "selectPlatform": "Seleccionar Plataforma",
     "personalAccessToken": "Token de Acceso Personal de {platform}",
     "tokenPlaceholder": "Ingresa tu token de {platform}",
-    "tokenSecurityNote": "El token solo se almacena en memoria y nunca se persiste."
+    "tokenSecurityNote": "El token solo se almacena en memoria y nunca se persiste.",
+    "defaultFiltersInfo": "Los filtros predeterminados incluyen directorios comunes como node_modules, .git y archivos de artefactos de construcción comunes.",
+    "fileFilterTitle": "Configuración de Filtros de Archivos",
+    "viewDefaults": "Ver Filtros Predeterminados",
+    "showFilters": "Mostrar Filtros",
+    "hideFilters": "Ocultar Filtros",
+    "excludedDirs": "Directorios a Excluir",
+    "excludedDirsHelp": "Una ruta de directorio por línea. Las rutas que comienzan con ./ son relativas a la raíz del repositorio.",
+    "excludedFiles": "Archivos a Excluir",
+    "excludedFilesHelp": "Un nombre de archivo por línea. Se admiten comodines (*).",
+    "defaultFilters": "Archivos y Directorios Excluidos por Defecto",
+    "directories": "Directorios",
+    "files": "Archivos",
+    "scrollToViewMore": "Desplazar para ver más"
   },
   "footer": {
     "copyright": "DeepWiki - Documentación impulsada por IA para repositorios de código"
