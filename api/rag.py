@@ -43,7 +43,7 @@ from api.data_pipeline import DatabaseManager
 logger = logging.getLogger(__name__)
 
 # Maximum token limit for embedding models
-MAX_INPUT_TOKENS = 7500  # Safe threshold below 8192 token limit
+MAX_INPUT_TOKENS = 3400  # Adjusted for embedding model with 4096 token limit
 
 class Memory(adal.core.component.DataComponent):
     """Simple conversation management with a list of dialog turns."""
@@ -230,7 +230,10 @@ class RAG(adal.Component):
         # --- Initialize Embedder ---
         self.embedder = adal.Embedder(
             model_client=embedder_config["model_client"](),
-            model_kwargs=embedder_config["model_kwargs"],
+            model_kwargs={
+                **embedder_config["model_kwargs"],
+                "max_input_tokens": MAX_INPUT_TOKENS,  # Use the configured token limit
+            },
         )
 
         # Patch: ensure query embedding is always single string for Ollama
