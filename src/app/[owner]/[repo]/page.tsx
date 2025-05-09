@@ -1137,7 +1137,6 @@ IMPORTANT:
       
       // Add file filters configuration
       if (modelExcludedDirs) {
-        console.log(modelExcludedDirs)
         params.append('excluded_dirs', modelExcludedDirs);
       }
       if (modelExcludedFiles) {
