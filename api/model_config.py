@@ -22,7 +22,7 @@ class ModelConfig:
             model_class: Model client class reference
             role: Role of the model
         """
-        self._model_type = config_dict.get("model_type")
+        self.model_type = config_dict.get("model_type")
         self.model_kwargs = config_dict.get("model_kwargs", {})
         self.batch_size = config_dict.get("batch_size", 500)
         self.model_class = model_class
@@ -30,7 +30,7 @@ class ModelConfig:
         self.model = None
 
     def is_local(self) -> bool:
-        return self._model_type == "ollama"
+        return self.model_type == "ollama"
     
     def get_client(self) -> ModelClient:
         # TODO: some params in kwargs can be passed to the model class
@@ -44,8 +44,8 @@ class ModelConfig:
             Dict[str, Any]: Configuration dictionary
         """
         result = {}
-        if self._model_type:
-            result["model_type"] = self._model_type
+        if self.model_type:
+            result["model_type"] = self.model_type
         if self.model_kwargs:
             result["model_kwargs"] = self.model_kwargs
         if self.batch_size:

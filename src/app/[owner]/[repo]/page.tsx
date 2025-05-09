@@ -94,11 +94,7 @@ const addTokensToRequestBody = (
   gitlabToken: string,
   bitbucketToken: string,
   repoType: string,
-  localOllama: boolean = false,
-  useOpenRouter: boolean = false,
-  useOpenai: boolean = false,
-  openRouterModel: string = 'openai/gpt-4o',
-  openaiModel: string = 'gpt-4o',
+  generatorModelName: string,
   language: string = 'en',
 ): void => {
   if (githubToken && repoType === 'github') {
@@ -110,15 +106,7 @@ const addTokensToRequestBody = (
   if (bitbucketToken && repoType === 'bitbucket') {
     requestBody.bitbucket_token = bitbucketToken;
   }
-  requestBody.local_ollama = localOllama;
-  requestBody.use_openrouter = useOpenRouter;
-  requestBody.use_openai = useOpenai;
-  if (useOpenRouter) {
-    requestBody.openrouter_model = openRouterModel;
-  }
-  if (useOpenai) {
-    requestBody.openai_model = openaiModel;
-  }
+  requestBody.generator_model_name = generatorModelName;
   requestBody.language = language;
 };
 
@@ -174,12 +162,8 @@ export default function RepoWikiPage() {
   const bitbucketToken = searchParams.get('bitbucket_token') || '';
   const repoType = searchParams.get('type') || 'github';
   const localPath = searchParams.get('local_path') ? decodeURIComponent(searchParams.get('local_path') || '') : undefined;
-  const localOllama = searchParams.get('local_ollama') === 'true';
-  const useOpenRouter = searchParams.get('use_openrouter') === 'true';
-  const useOpenai = searchParams.get('use_openai') === 'true';
-  const openRouterModel = searchParams.get('openrouter_model') || 'openai/gpt-4o';
-  const openaiModel = searchParams.get('openai_model') || 'gpt-4o';
   const language = searchParams.get('language') || 'en';
+  const generatorModelName = searchParams.get('generator_model_name') || '';
 
   // Import language context for translations
   const { messages } = useLanguage();
@@ -350,7 +334,7 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
         };
 
         // Add tokens if available
-        addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language);
+        addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, generatorModelName, language);
 
         const response = await fetch(`/api/chat/stream`, {
           method: 'POST',
@@ -425,7 +409,7 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
         setLoadingMessage(undefined); // Clear specific loading message
       }
     });
-  }, [generatedPages, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language, activeContentRequests]);
+  }, [generatedPages, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, generatorModelName, language, activeContentRequests]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -522,7 +506,7 @@ IMPORTANT:
       };
 
       // Add tokens if available
-      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language);
+      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, generatorModelName, language);
 
       const response = await fetch(`/api/chat/stream`, {
         method: 'POST',
@@ -718,7 +702,7 @@ IMPORTANT:
     } finally {
       setStructureRequestInProgress(false);
     }
-  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, pagesInProgress.size, structureRequestInProgress, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language, messages.loading]);
+  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, pagesInProgress.size, structureRequestInProgress, generatorModelName, language, messages.loading]);
 
   // Fetch repository structure using GitHub or GitLab API
   const fetchRepositoryStructure = useCallback(async () => {
@@ -1561,11 +1545,7 @@ IMPORTANT:
                 githubToken={githubToken}
                 gitlabToken={gitlabToken}
                 bitbucketToken={bitbucketToken}
-                localOllama={localOllama}
-                useOpenRouter={useOpenRouter}
-                openRouterModel={openRouterModel}
-                useOpenai={useOpenai}
-                openaiModel={openaiModel}
+                generatorModelName={generatorModelName}
                 language={language}
               />
             )}

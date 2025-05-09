@@ -31,6 +31,7 @@
     "repoPlaceholder": "所有者/リポジトリまたはGitHub/GitLab/BitbucketのURL",
     "wikiLanguage": "Wiki言語",
     "modelOptions": "モデルオプション",
+    "modelSelection": "モデル選択",
     "localOllama": "ローカルOllamaモデル",
     "experimental": "実験的",
     "useOpenRouter": "OpenRouter APIを使用",

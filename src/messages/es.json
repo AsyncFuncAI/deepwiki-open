@@ -31,6 +31,7 @@
     "repoPlaceholder": "propietario/repositorio o URL de GitHub/GitLab/Bitbucket",
     "wikiLanguage": "Idioma del Wiki",
     "modelOptions": "Opciones de Modelo",
+    "modelSelection": "Selección de Modelo",
     "localOllama": "Modelo Ollama Local",
     "experimental": "Experimental",
     "useOpenRouter": "Usar API de OpenRouter",
