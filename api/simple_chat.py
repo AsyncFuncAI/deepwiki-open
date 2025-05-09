@@ -403,13 +403,13 @@ This file contains...
         # Create a streaming response
         async def response_stream(prompt=prompt):
             try:
-                # 获取模型配置
+                # Get model configuration
                 model_config = get_generator_config(request.generator_model_name)
                 logger.info(f"Model Name: {request.generator_model_name}")
                 logger.info(f"Using model: {model_config.model_type} - {model_config.model_kwargs['model']}")
-                # 根据模型类型选择相应的模型
+                # Select the appropriate model based on model type
                 if model_config.model_type == "ollama":
-                    # 使用 Ollama 模型
+                    # Use Ollama model
                     model = OllamaClient()
                     model_kwargs = {
                         "model": model_config.model_kwargs["model"],
@@ -428,19 +428,19 @@ This file contains...
                         model_type=ModelType.LLM
                     )
                     
-                    # 获取响应并处理
+                    # Get response and process
                     response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                    # 处理来自 Ollama 的流式响应
+                    # Process streaming response from Ollama
                     async for chunk in response:
                         text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
                         if text and not text.startswith('model=') and not text.startswith('created_at='):
                             yield text
                             
                 elif model_config.model_type == "openrouter":
-                    # 使用 OpenRouter 模型
+                    # Use OpenRouter model
                     logger.info(f"Using OpenRouter with model: {model_config.model_kwargs['model']}")
                     
-                    # 检查 OpenRouter API 密钥
+                    # Check OpenRouter API key
                     if not os.environ.get("OPENROUTER_API_KEY"):
                         logger.warning("OPENROUTER_API_KEY environment variable is not set, but continuing with request")
                         
@@ -459,7 +459,7 @@ This file contains...
                     )
                     
                     try:
-                        # 获取响应并处理
+                        # Get response and process
                         logger.info("Making OpenRouter API call")
                         response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
                         # Handle streaming response from OpenRouter
@@ -486,7 +486,7 @@ This file contains...
                         logger.error(f"Error with Openai API: {str(e_openai)}")
                         yield f"\nError with Openai API: {str(e_openai)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
                 else:
-                    # 默认使用 Google Generative AI 模型
+                    # Default to Google Generative AI model
                     model = genai.GenerativeModel(
                         model_name=model_config.model_kwargs["model"],
                         generation_config={
@@ -496,9 +496,9 @@ This file contains...
                         }
                     )
                     
-                    # 生成流式响应
+                    # Generate streaming response
                     response = model.generate_content(prompt, stream=True)
-                    # 流式返回响应
+                    # Stream back the response
                     for chunk in response:
                         if hasattr(chunk, 'text'):
                             yield chunk.text
