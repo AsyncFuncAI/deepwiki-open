@@ -10,7 +10,7 @@ configs = {
         "batch_size": 500,
         "model_client": OpenAIClient,
         "model_kwargs": {
-            "model": "text-embedding-3-small",
+            "model": "text-embedding-3-large",
             "dimensions": 256,
             "encoding_format": "float",
         },
@@ -18,23 +18,23 @@ configs = {
     "retriever": {
         "top_k": 20,
     },
-    "generator": {
-        "model_client": GoogleGenAIClient,
-        "model_kwargs": {
-            "model": "gemini-2.0-flash",
-            "temperature": 0.7,
-            "top_p": 0.8,
-            "top_k": 40
-        },
-    },
     # "generator": {
-    #     "model_client": OpenAIClient,
+    #     "model_client": GoogleGenAIClient,
     #     "model_kwargs": {
-    #         "model": "o4-mini",
+    #         "model": "gemini-2.0-flash",
     #         "temperature": 0.7,
-    #         "top_p": 0.8
+    #         "top_p": 0.8,
+    #         "top_k": 40
     #     },
     # },
+    "generator": {
+        "model_client": OpenAIClient,
+        "model_kwargs": {
+            "model": "coder-model",
+            "temperature": 0.7,
+            "top_p": 0.8
+        },
+    },
     "embedder_ollama": {
         "model_client": OllamaClient,
         "model_kwargs": {
@@ -62,7 +62,7 @@ configs = {
     "generator_openai": {
         "model_client": OpenAIClient,
         "model_kwargs": {
-            "model": "o4-mini",
+            "model": "coder-model",
             "temperature": 0.7,
             "top_p": 0.8,
         },
