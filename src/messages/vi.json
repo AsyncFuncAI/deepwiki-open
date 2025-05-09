@@ -59,6 +59,8 @@
   },
   "repoPage": {
     "refreshWiki": "Làm mới Wiki",
+    "confirmRefresh": "Xác nhận làm mới",
+    "cancel": "Hủy bỏ",
     "home": "Trang chủ",
     "errorTitle": "Lỗi",
     "errorMessageDefault": "Vui lòng kiểm tra xem repository có tồn tại và công khai hay không. Các định dạng hợp lệ là \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", hoặc các đường dẫn thư mục cục bộ như \"C:\\\\path\\\\to\\\\folder\" hoặc \"/path/to/folder\".",

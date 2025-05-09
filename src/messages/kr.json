@@ -62,6 +62,8 @@
     },
     "repoPage": {
       "refreshWiki": "위키 새로고침",
+      "confirmRefresh": "새로고침 확인",
+      "cancel": "취소",
       "home": "홈",
       "errorTitle": "오류",
       "errorMessageDefault": "저장소가 존재하며 공개 상태인지 확인해 주세요. 유효한 형식은 \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\" 또는 로컬 폴더 경로 \"C:\\\\path\\\\to\\\\folder\" 혹은 \"/path/to/folder\" 입니다.",

@@ -61,19 +61,21 @@
     "viewConclusion": "Ver Conclusión"
   },
   "repoPage": {
-    "refreshWiki": "Refresh Wiki",
-    "home": "Home",
+    "refreshWiki": "Actualizar Wiki",
+    "confirmRefresh": "Confirmar Actualización",
+    "cancel": "Cancelar",
+    "home": "Inicio",
     "errorTitle": "Error",
-    "errorMessageDefault": "Please check that your repository exists and is public. Valid formats are \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", or local folder paths like \"C:\\\\path\\\\to\\\\folder\" or \"/path/to/folder\".",
-    "backToHome": "Back to Home",
-    "exportWiki": "Export Wiki",
-    "exportAsMarkdown": "Export as Markdown",
-    "exportAsJson": "Export as JSON",
-    "pages": "Pages",
-    "relatedFiles": "Related Files:",
-    "relatedPages": "Related Pages:",
-    "selectPagePrompt": "Select a page from the navigation to view its content",
-    "askAboutRepo": "Ask questions about this repository"
+    "errorMessageDefault": "Por favor, compruebe que su repositorio existe y es público. Los formatos válidos son \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", o rutas de carpetas locales como \"C:\\\\path\\\\to\\\\folder\" o \"/path/to/folder\".",
+    "backToHome": "Volver al Inicio",
+    "exportWiki": "Exportar Wiki",
+    "exportAsMarkdown": "Exportar como Markdown",
+    "exportAsJson": "Exportar como JSON",
+    "pages": "Páginas",
+    "relatedFiles": "Archivos Relacionados:",
+    "relatedPages": "Páginas Relacionadas:",
+    "selectPagePrompt": "Seleccione una página de la navegación para ver su contenido",
+    "askAboutRepo": "Hacer preguntas sobre este repositorio"
   },
   "nav": {
     "wikiProjects": "Lista de Proyectos"

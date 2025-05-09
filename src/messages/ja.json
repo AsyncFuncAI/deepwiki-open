@@ -62,6 +62,8 @@
   },
   "repoPage": {
     "refreshWiki": "Wikiを更新",
+    "confirmRefresh": "更新を確認",
+    "cancel": "キャンセル",
     "home": "ホーム",
     "errorTitle": "エラー",
     "errorMessageDefault": "リポジトリが存在し、公開されていることを確認してください。有効な形式は「owner/repo」、「https://github.com/owner/repo」、「https://gitlab.com/owner/repo」、「https://bitbucket.org/owner/repo」、またはローカルフォルダパス（例: 「C:\\\\path\\\\to\\\\folder」、「/path/to/folder」）です。",

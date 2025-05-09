@@ -8,6 +8,7 @@ import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
 import Ask from '@/components/Ask';
+import UserSelector from '@/components/UserSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // Wiki Interfaces
@@ -206,6 +207,16 @@ export default function RepoWikiPage() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [originalMarkdown, setOriginalMarkdown] = useState<Record<string, string>>({});
   const [requestInProgress, setRequestInProgress] = useState(false);
+  
+  // Model selection state variables
+  const [localModelOllama, setLocalModelOllama] = useState(localOllama);
+  const [modelUseOpenRouter, setModelUseOpenRouter] = useState(useOpenRouter);
+  const [modelUseOpenai, setModelUseOpenai] = useState(useOpenai);
+  const [modelOpenRouterModel, setModelOpenRouterModel] = useState(openRouterModel);
+  const [modelOpenaiModel, setModelOpenaiModel] = useState(openaiModel);
+  const [isCustomModelOpenaiModel, setIsCustomModelOpenaiModel] = useState(false);
+  const [customModelOpenaiModel, setCustomModelOpenaiModel] = useState('');
+  const [showModelOptions, setShowModelOptions] = useState(false); // 控制是否显示模型选项
   // Using useRef for activeContentRequests to maintain a single instance across renders
   // This map tracks which pages are currently being processed to prevent duplicate requests
   // Note: In a multi-threaded environment, additional synchronization would be needed,
@@ -1077,8 +1088,14 @@ IMPORTANT:
     }
   }, [wikiStructure, generatedPages, repoInfo, language]);
 
-  // Function to refresh wiki and clear cache
-  const handleRefreshWiki = useCallback(async () => {
+  // 显示模型选项
+  const handleRefreshWiki = useCallback(() => {
+    setShowModelOptions(true);
+  }, []);
+
+  // 处理模型确认并刷新wiki
+  const confirmRefresh = useCallback(async () => {
+    setShowModelOptions(false);
     setLoadingMessage(messages.loading?.clearingCache || 'Clearing server cache...');
     setIsLoading(true); // Show loading indicator immediately
 
@@ -1088,7 +1105,22 @@ IMPORTANT:
         repo: repoInfo.repo,
         repo_type: repoInfo.type,
         language: language,
+        local_ollama: localModelOllama.toString(),
+        use_openrouter: modelUseOpenRouter.toString(),
+        use_openai: modelUseOpenai.toString(),
       });
+      
+      if (modelUseOpenRouter) {
+        params.append('openrouter_model', modelOpenRouterModel);
+      }
+      
+      if (modelUseOpenai) {
+        if (isCustomModelOpenaiModel && customModelOpenaiModel) {
+          params.append('openai_model', customModelOpenaiModel);
+        } else {
+          params.append('openai_model', modelOpenaiModel);
+        }
+      }
       const response = await fetch(`/api/wiki_cache?${params.toString()}`, {
         method: 'DELETE',
       });
@@ -1143,7 +1175,7 @@ IMPORTANT:
     // For now, we rely on the standard loadData flow initiated by resetting effectRan and dependencies.
     // This will re-trigger the main data loading useEffect.
     // No direct call to fetchRepositoryStructure here, let the useEffect handle it based on effectRan.current = false.
-  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, messages.loading, activeContentRequests]);
+  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, messages.loading, activeContentRequests, localModelOllama, modelUseOpenRouter, modelUseOpenai, modelOpenRouterModel, modelOpenaiModel, isCustomModelOpenaiModel, customModelOpenaiModel]);
 
   // Start wiki generation when component mounts
   useEffect(() => {
@@ -1400,14 +1432,50 @@ IMPORTANT:
 
               {/* Refresh Wiki button */}
               <div className="mb-5">
-                <button
-                  onClick={handleRefreshWiki}
-                  disabled={isLoading}
-                  className="flex items-center w-full text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors hover:cursor-pointer"
-                >
-                  <FaSync className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                  {messages.repoPage?.refreshWiki || 'Refresh Wiki'}
-                </button>
+                {!showModelOptions ? (
+                  <button
+                    onClick={handleRefreshWiki}
+                    disabled={isLoading}
+                    className="flex items-center w-full text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors hover:cursor-pointer"
+                  >
+                    <FaSync className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                    {messages.repoPage?.refreshWiki || 'Refresh Wiki'}
+                  </button>
+                ) : (
+                  <div className="bg-[var(--background)]/50 border border-[var(--border-color)] rounded-lg p-3">
+                    <h5 className="text-xs font-medium mb-2 text-[var(--foreground)]">{messages.form?.modelOptions || 'Model Options'}</h5>
+                    <UserSelector
+                      localOllama={localModelOllama}
+                      setLocalOllama={setLocalModelOllama}
+                      useOpenRouter={modelUseOpenRouter}
+                      setUseOpenRouter={setModelUseOpenRouter}
+                      useOpenai={modelUseOpenai}
+                      setUseOpenai={setModelUseOpenai}
+                      openRouterModel={modelOpenRouterModel}
+                      setOpenRouterModel={setModelOpenRouterModel}
+                      openaiModel={modelOpenaiModel}
+                      setOpenaiModel={setModelOpenaiModel}
+                      isCustomOpenaiModel={isCustomModelOpenaiModel}
+                      setIsCustomOpenaiModel={setIsCustomModelOpenaiModel}
+                      customOpenaiModel={customModelOpenaiModel}
+                      setCustomOpenaiModel={setCustomModelOpenaiModel}
+                    />
+                    <div className="flex justify-between mt-3">
+                      <button
+                        onClick={() => setShowModelOptions(false)}
+                        className="text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 border border-[var(--border-color)] transition-colors"
+                      >
+                        {messages.repoPage?.cancel || 'Cancel'}
+                      </button>
+                      <button
+                        onClick={confirmRefresh}
+                        className="text-xs px-3 py-2 bg-[var(--accent-primary)] text-white rounded-md hover:bg-[var(--accent-primary)]/90 transition-colors"
+                      >
+                        {messages.repoPage?.confirmRefresh || 'Confirm Refresh'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Export buttons */}

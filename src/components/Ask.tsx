@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { FaArrowRight, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Markdown from './Markdown';
 import { useLanguage } from '@/contexts/LanguageContext';
+import AskModelSelector from './AskModelSelector';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -39,6 +40,16 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
   const [deepResearch, setDeepResearch] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [hasResponse, setHasResponse] = useState(false);
+  
+  // 模型选择状态
+  const [showModelOptions, setShowModelOptions] = useState(false);
+  const [localModelOllama, setLocalModelOllama] = useState(localOllama);
+  const [modelUseOpenRouter, setModelUseOpenRouter] = useState(useOpenRouter);
+  const [modelUseOpenai, setModelUseOpenai] = useState(useOpenai);
+  const [modelOpenRouterModel, setModelOpenRouterModel] = useState(openRouterModel);
+  const [modelOpenaiModel, setModelOpenaiModel] = useState(openaiModel);
+  const [isCustomModelOpenaiModel, setIsCustomModelOpenaiModel] = useState(false);
+  const [customModelOpenaiModel, setCustomModelOpenaiModel] = useState('');
 
   // Get language context for translations
   const { messages } = useLanguage();
@@ -386,7 +397,14 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
     e.preventDefault();
 
     if (!question.trim() || isLoading) return;
-
+    
+    // 显示模型选择器而不是直接发送请求
+    setShowModelOptions(true);
+  };
+  
+  // 处理确认并发送请求
+  const handleConfirmAsk = async () => {
+    setShowModelOptions(false);
     setIsLoading(true);
     setResponse('');
     setResearchIteration(0);
@@ -407,19 +425,23 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
       const requestBody: Record<string, unknown> = {
         repo_url: repoUrl,
         messages: newHistory,
-        local_ollama: localOllama,
-        use_openrouter: useOpenRouter,
-        use_openai: useOpenai,
+        local_ollama: localModelOllama,
+        use_openrouter: modelUseOpenRouter,
+        use_openai: modelUseOpenai,
         language: language
       };
 
       // Add OpenRouter model if using OpenRouter
-      if (useOpenRouter) {
-        requestBody.openrouter_model = openRouterModel;
+      if (modelUseOpenRouter) {
+        requestBody.openrouter_model = modelOpenRouterModel;
       }
 
-      if(useOpenai) {
-        requestBody.openai_model = openaiModel;
+      if(modelUseOpenai) {
+        if (isCustomModelOpenaiModel && customModelOpenaiModel) {
+          requestBody.openai_model = customModelOpenaiModel;
+        } else {
+          requestBody.openai_model = modelOpenaiModel;
+        }
       }
 
       // Add tokens if available
@@ -505,26 +527,56 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
       <div className="rounded-lg overflow-hidden">
         {/* Input area */}
         <form onSubmit={handleSubmit} className="p-0">
-          <div className="relative">
-            <input
-              ref={inputRef}
-              type="text"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder={messages?.ask?.placeholder || "Ask about this repository..."}
-              className="w-full p-3 pr-12 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              disabled={!question.trim() || isLoading}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 disabled:opacity-50 disabled:hover:text-gray-400"
-              aria-label="Submit question"
-            >
-              <FaArrowRight />
-            </button>
-          </div>
-
+          {!showModelOptions ? (
+            <div className="flex items-center justify-between gap-2 w-full mt-4">
+              <input
+                ref={inputRef}
+                className="w-full px-3 py-2 text-sm rounded-md bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)] border border-[var(--border-color)]"
+                placeholder={messages.ask?.placeholder || 'Ask a question about this repository...'}
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit(e);
+                  }
+                }}
+                disabled={isLoading}
+              />
+              
+              <button
+                type="submit"
+                onClick={handleSubmit}
+                className="px-3 py-2 text-sm font-medium rounded-md bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] hover:bg-[var(--button-primary-bg-hover)]"
+                disabled={isLoading}
+              >
+                {isLoading ? messages.loading?.message || 'Loading...' : messages.ask?.askButton || 'Ask'}
+              </button>
+            </div>
+          ) : (
+            <div className="w-full mt-4">
+              <AskModelSelector 
+                localOllama={localModelOllama}
+                setLocalOllama={setLocalModelOllama}
+                useOpenRouter={modelUseOpenRouter}
+                setUseOpenRouter={setModelUseOpenRouter}
+                useOpenai={modelUseOpenai}
+                setUseOpenai={setModelUseOpenai}
+                openRouterModel={modelOpenRouterModel}
+                setOpenRouterModel={setModelOpenRouterModel}
+                openaiModel={modelOpenaiModel}
+                setOpenaiModel={setModelOpenaiModel}
+                isCustomOpenaiModel={isCustomModelOpenaiModel}
+                setIsCustomOpenaiModel={setIsCustomModelOpenaiModel}
+                customOpenaiModel={customModelOpenaiModel}
+                setCustomOpenaiModel={setCustomModelOpenaiModel}
+                onConfirm={handleConfirmAsk}
+                onCancel={() => setShowModelOptions(false)}
+                deepResearch={deepResearch}
+                setDeepResearch={setDeepResearch}
+              />
+            </div>
+          )}
           <div className="flex items-center mt-2 justify-between">
             <div className="group relative">
               <label className="flex items-center cursor-pointer">
