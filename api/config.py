@@ -10,7 +10,7 @@ configs = {
         "batch_size": 500,
         "model_client": OpenAIClient,
         "model_kwargs": {
-            "model": "text-embedding-3-large",
+            "model": "text-embedding-3-small",
             "dimensions": 256,
             "encoding_format": "float",
         },
@@ -30,7 +30,7 @@ configs = {
     "generator": {
         "model_client": OpenAIClient,
         "model_kwargs": {
-            "model": "coder-model",
+            "model": "deepseek-chat",
             "temperature": 0.7,
             "top_p": 0.8
         },
@@ -62,7 +62,7 @@ configs = {
     "generator_openai": {
         "model_client": OpenAIClient,
         "model_kwargs": {
-            "model": "coder-model",
+            "model": "deepseek-chat",
             "temperature": 0.7,
             "top_p": 0.8,
         },
