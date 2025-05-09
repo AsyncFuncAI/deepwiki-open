@@ -169,6 +169,130 @@ deepwiki/
 └── .env                  # 環境変数（作成する必要あり）
 ```
 
+## 🛠️ 高度な設定
+
+### 環境変数
+
+| 変数                          | 説明                                                            | 必須 | 注意                                                                                                          |
+| ----------------------------- | --------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------- |
+| `GOOGLE_API_KEY`              | AI 生成のための Google Gemini API キー                          | ◯    |                                                                                                               |
+| `OPENAI_API_KEY`              | 埋め込みのための OpenAI API キー                                | ◯    |                                                                                                               |
+| `OPENROUTER_API_KEY`          | 代替モデルのための OpenRouter API キー                          | ✗    | OpenRouter モデルを使用する場合にのみ必須です                                                                 |
+| `PORT`                        | API サーバーのポート（デフォルト：8001）                        | ✗    | API とフロントエンドを同じマシンでホストする場合、`NEXT_PUBLIC_SERVER_BASE_URL`のポートを適宜変更してください |
+| `NEXT_PUBLIC_SERVER_BASE_URL` | API サーバーのベース URL（デフォルト：`http://localhost:8001`） | ✗    |                                                                                                               |
+
+### Docker セットアップ
+
+Docker を使用して DeepWiki を実行できます：
+
+```bash
+# GitHub Container Registryからイメージをプル
+docker pull ghcr.io/asyncfuncai/deepwiki-open:latest
+
+# 環境変数を設定してコンテナを実行
+docker run -p 8001:8001 -p 3000:3000 \
+  -e GOOGLE_API_KEY=your_google_api_key \
+  -e OPENAI_API_KEY=your_openai_api_key \
+  -e OPENROUTER_API_KEY=your_openrouter_api_key \
+  -v ~/.adalflow:/root/.adalflow \
+  ghcr.io/asyncfuncai/deepwiki-open:latest
+```
+
+このコマンドは、ホスト上の ⁠~/.adalflow をコンテナ内の ⁠/root/.adalflow にマウントします。
+このパスは以下のものを保存するために使用されます：
+
+- クローンされたリポジトリ (⁠~/.adalflow/repos/)
+- それらのエンベディングとインデックス (⁠~/.adalflow/databases/)
+- 生成された Wiki のキャッシュ (⁠~/.adalflow/wikicache/)
+
+これにより、コンテナが停止または削除されてもデータが永続化されます。
+または、提供されている ⁠docker-compose.yml ファイルを使用します。
+
+```bash
+# まず.envファイルをAPIキーで編集
+docker-compose up
+```
+
+（⁠docker-compose.yml ファイルは、上記の ⁠docker run コマンドと同様に、データ永続化のために ⁠~/.adalflow をマウントするように事前設定されています。）
+
+#### Docker で.env ファイルを使用する
+
+.env ファイルをコンテナにマウントすることもできます：
+
+```bash
+# APIキーを含む.envファイルを作成
+echo "GOOGLE_API_KEY=your_google_api_key" > .env
+echo "OPENAI_API_KEY=your_openai_api_key" >> .env
+echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
+
+# .envファイルをマウントしてコンテナを実行
+docker run -p 8001:8001 -p 3000:3000 \
+  -v $(pwd)/.env:/app/.env \
+  -v ~/.adalflow:/root/.adalflow \
+  ghcr.io/asyncfuncai/deepwiki-open:latest
+```
+
+このコマンドは、ホスト上の ⁠~/.adalflow をコンテナ内の ⁠/root/.adalflow にマウントします。このパスは以下のものを保存するために使用されます：
+
+- クローンされたリポジトリ (⁠~/.adalflow/repos/)
+- それらのエンベディングとインデックス (⁠~/.adalflow/databases/)
+- 生成された Wiki のキャッシュ (⁠~/.adalflow/wikicache/)
+
+これにより、コンテナが停止または削除されてもデータが永続化されます。
+
+#### Docker イメージをローカルでビルドする
+
+Docker イメージをローカルでビルドしたい場合：
+
+```bash
+# リポジトリをクローン
+git clone https://github.com/AsyncFuncAI/deepwiki-open.git
+cd deepwiki-open
+
+# Dockerイメージをビルド
+docker build -t deepwiki-open .
+
+# コンテナを実行
+docker run -p 8001:8001 -p 3000:3000 \
+  -e GOOGLE_API_KEY=your_google_api_key \
+  -e OPENAI_API_KEY=your_openai_api_key \
+  -e OPENROUTER_API_KEY=your_openrouter_api_key \
+  deepwiki-open
+```
+
+# API サーバー詳細
+
+API サーバーは以下を提供します：
+
+- リポジトリのクローンとインデックス作成
+- RAG（Retrieval Augmented Generation：検索拡張生成）
+- ストリーミングチャット補完
+
+詳細については、API README を参照してください。
+
+## 🔌 OpenRouter 連携
+
+DeepWiki は、モデルプロバイダーとして OpenRouter をサポートするようになり、単一の API を通じて数百の AI モデルにアクセスできるようになりました。
+
+- 複数のモデルオプション: OpenAI、Anthropic、Google、Meta、Mistral などのモデルにアクセス
+- 簡単な設定: OpenRouter API キーを追加し、使用したいモデルを選択するだけ
+- コスト効率: 予算とパフォーマンスのニーズに合ったモデルを選択
+- 簡単な切り替え: コードを変更することなく、異なるモデル間を切り替え可能
+
+### DeepWiki で OpenRouter を使用する方法
+
+1. API キーを取得: OpenRouter でサインアップし、API キーを取得します
+2. 環境に追加: ⁠.env ファイルに ⁠OPENROUTER_API_KEY=your_key を追加します
+3. UI で有効化: ホームページの「OpenRouter API を使用」オプションをチェックします
+4. モデルを選択: GPT-4o、Claude 3.5 Sonnet、Gemini 2.0 などの人気モデルから選択します
+
+OpenRouter は特に以下のような場合に便利です：
+
+- 複数のサービスにサインアップせずに異なるモデルを試したい
+- お住まいの地域で制限されている可能性のあるモデルにアクセスしたい
+- 異なるモデルプロバイダー間でパフォーマンスを比較したい
+- ニーズに基づいてコストとパフォーマンスを最適化したい
+
 ## 🤖 質問と詳細調査機能
 
 ### 質問機能
