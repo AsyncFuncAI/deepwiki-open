@@ -450,7 +450,7 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
         setLoadingMessage(undefined); // Clear specific loading message
       }
     });
-  }, [generatedPages, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language, activeContentRequests]);
+  }, [generatedPages, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -743,7 +743,7 @@ IMPORTANT:
     } finally {
       setStructureRequestInProgress(false);
     }
-  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, pagesInProgress.size, structureRequestInProgress, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language, messages.loading]);
+  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, pagesInProgress.size, structureRequestInProgress, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, modelExcludedDirs, modelExcludedFiles, language, messages.loading]);
 
   // Fetch repository structure using GitHub or GitLab API
   const fetchRepositoryStructure = useCallback(async () => {
@@ -1196,7 +1196,7 @@ IMPORTANT:
     // For now, we rely on the standard loadData flow initiated by resetting effectRan and dependencies.
     // This will re-trigger the main data loading useEffect.
     // No direct call to fetchRepositoryStructure here, let the useEffect handle it based on effectRan.current = false.
-  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, messages.loading, activeContentRequests, localModelOllama, modelUseOpenRouter, modelUseOpenai, modelOpenRouterModel, modelOpenaiModel, isCustomModelOpenaiModel, customModelOpenaiModel]);
+  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, messages.loading, activeContentRequests, localModelOllama, modelUseOpenRouter, modelUseOpenai, modelOpenRouterModel, modelOpenaiModel, isCustomModelOpenaiModel, customModelOpenaiModel, modelExcludedDirs, modelExcludedFiles]);
 
   // Start wiki generation when component mounts
   useEffect(() => {
