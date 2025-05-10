@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Markdown from './Markdown';
 import { useLanguage } from '@/contexts/LanguageContext';
-import AskModelSelector from './AskModelSelector';
+import UserSelector from './UserSelector';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -23,33 +23,36 @@ interface AskProps {
   githubToken?: string;
   gitlabToken?: string;
   bitbucketToken?: string;
-  localOllama?: boolean;
-  useOpenRouter?: boolean;
-  openRouterModel?: string;
-  useOpenai?: boolean;
-  openaiModel?: string;
+  provider?: string;
+  model?: string;
+  isCustomModel?: boolean;
+  customModel?: string;
   language?: string;
 }
 
-
-
-const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketToken, localOllama = false, useOpenRouter = false, openRouterModel = 'openai/gpt-4o', useOpenai = false, openaiModel = 'gpt-4o', language = 'en' }) => {
+const Ask: React.FC<AskProps> = ({ 
+  repoUrl, 
+  githubToken, 
+  gitlabToken, 
+  bitbucketToken, 
+  provider = '',
+  model = '',
+  isCustomModel = false,
+  customModel = '',
+  language = 'en' 
+}) => {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [deepResearch, setDeepResearch] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [hasResponse, setHasResponse] = useState(false);
   
-  // 模型选择状态
+  // Model selection state
+  const [selectedProvider, setSelectedProvider] = useState(provider);
+  const [selectedModel, setSelectedModel] = useState(model);
+  const [isCustomSelectedModel, setIsCustomSelectedModel] = useState(isCustomModel);
+  const [customSelectedModel, setCustomSelectedModel] = useState(customModel);
   const [showModelOptions, setShowModelOptions] = useState(false);
-  const [localModelOllama, setLocalModelOllama] = useState(localOllama);
-  const [modelUseOpenRouter, setModelUseOpenRouter] = useState(useOpenRouter);
-  const [modelUseOpenai, setModelUseOpenai] = useState(useOpenai);
-  const [modelOpenRouterModel, setModelOpenRouterModel] = useState(openRouterModel);
-  const [modelOpenaiModel, setModelOpenaiModel] = useState(openaiModel);
-  const [isCustomModelOpenaiModel, setIsCustomModelOpenaiModel] = useState(false);
-  const [customModelOpenaiModel, setCustomModelOpenaiModel] = useState('');
 
   // Get language context for translations
   const { messages } = useLanguage();
@@ -230,20 +233,10 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
       const requestBody: Record<string, unknown> = {
         repo_url: repoUrl,
         messages: newHistory,
-        local_ollama: localOllama,
-        use_openrouter: useOpenRouter,
-        use_openai: useOpenai,
+        provider: selectedProvider,
+        model: isCustomSelectedModel ? customSelectedModel : selectedModel,
         language: language
       };
-
-      // Add OpenRouter model if using OpenRouter
-      if (useOpenRouter) {
-        requestBody.openrouter_model = openRouterModel;
-      }
-
-      if (useOpenai) {
-        requestBody.openai_model = openaiModel;
-      }
 
       // Add tokens if available
       if (githubToken && repoUrl.includes('github.com')) {
@@ -395,54 +388,37 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!question.trim() || isLoading) return;
     
-    // 显示模型选择器而不是直接发送请求
-    setShowModelOptions(true);
+    // Submit directly instead of showing model selector
+    handleConfirmAsk();
   };
   
-  // 处理确认并发送请求
+  // Handle confirm and send request
   const handleConfirmAsk = async () => {
-    setShowModelOptions(false);
     setIsLoading(true);
-    setResponse('');
-    setResearchIteration(0);
-    setResearchComplete(false);
+    setHasResponse(false);
 
     try {
-      // Create initial message
-      const initialMessage: Message = {
-        role: 'user',
-        content: deepResearch ? `[DEEP RESEARCH] ${question}` : question
-      };
+      // Prepare the conversation history
+      const newHistory: Message[] = [
+        {
+          role: 'user',
+          content: question
+        }
+      ];
 
-      // Set initial conversation history
-      const newHistory: Message[] = [initialMessage];
+      // Update conversation history
       setConversationHistory(newHistory);
 
-      // Prepare request body
+      // Prepare the request body
       const requestBody: Record<string, unknown> = {
         repo_url: repoUrl,
         messages: newHistory,
-        local_ollama: localModelOllama,
-        use_openrouter: modelUseOpenRouter,
-        use_openai: modelUseOpenai,
+        provider: selectedProvider,
+        model: isCustomSelectedModel ? customSelectedModel : selectedModel,
         language: language
       };
-
-      // Add OpenRouter model if using OpenRouter
-      if (modelUseOpenRouter) {
-        requestBody.openrouter_model = modelOpenRouterModel;
-      }
-
-      if(modelUseOpenai) {
-        if (isCustomModelOpenaiModel && customModelOpenaiModel) {
-          requestBody.openai_model = customModelOpenaiModel;
-        } else {
-          requestBody.openai_model = modelOpenaiModel;
-        }
-      }
 
       // Add tokens if available
       if (githubToken && repoUrl.includes('github.com')) {
@@ -455,6 +431,7 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
         requestBody.bitbucket_token = bitbucketToken;
       }
 
+      // Make the API call
       const apiResponse = await fetch(`/api/chat/stream`, {
         method: 'POST',
         headers: {
@@ -475,10 +452,11 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
         throw new Error('Failed to get response reader');
       }
 
+      // Clear previous response
+      setResponse('');
+
       // Read the stream
       let fullResponse = '';
-      setHasResponse(true);
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -486,286 +464,173 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
         const chunk = decoder.decode(value, { stream: true });
         fullResponse += chunk;
         setResponse(fullResponse);
-
-        // Extract research stage if this is a deep research response
-        if (deepResearch) {
-          const stage = extractResearchStage(fullResponse, 1); // First iteration
-          if (stage) {
-            // Add the stage to the research stages
-            setResearchStages([stage]);
-            setCurrentStageIndex(0);
-          }
-        }
       }
 
-      // Set hasResponse to true after successful response
+      // Update state to indicate we have a response
       setHasResponse(true);
-
-      // If deep research is enabled, check if we should continue
-      if (deepResearch) {
-        const isComplete = checkIfResearchComplete(fullResponse);
-        setResearchComplete(isComplete);
-
-        // If not complete, start the research process
-        if (!isComplete) {
-          setResearchIteration(1);
-          // The continueResearch function will be triggered by the useEffect
-        }
-      }
     } catch (error) {
       console.error('Error during API call:', error);
-      setResponse(prev => prev + '\n\nError: Failed to get a response. Please try again.');
-      setHasResponse(true);
-      setResearchComplete(true);
+      setResponse('Error: Failed to get a response. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Render the component
   return (
-    <div className="w-full max-w-full">
-      <div className="rounded-lg overflow-hidden">
-        {/* Input area */}
-        <form onSubmit={handleSubmit} className="p-0">
-          {!showModelOptions ? (
-            <div className="flex items-center justify-between gap-2 w-full mt-4">
-              <input
-                ref={inputRef}
-                className="w-full px-3 py-2 text-sm rounded-md bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)] border border-[var(--border-color)]"
-                placeholder={messages.ask?.placeholder || 'Ask a question about this repository...'}
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit(e);
-                  }
-                }}
-                disabled={isLoading}
-              />
-              
-              <button
-                type="submit"
-                onClick={handleSubmit}
-                className="px-3 py-2 text-sm font-medium rounded-md bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] hover:bg-[var(--button-primary-bg-hover)]"
-                disabled={isLoading}
-              >
-                {isLoading ? messages.loading?.message || 'Loading...' : messages.ask?.askButton || 'Ask'}
-              </button>
+    <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-md overflow-hidden shadow-sm">
+      <div className="p-4">
+        <h2 className="text-xl font-serif mb-4 text-[var(--accent-primary)]">
+          {messages.ask?.title || 'Ask about this repository'}
+        </h2>
+
+        {/* Model options (always available as a collapsible section) */}
+        <div className="mb-4">
+          <button
+            onClick={() => setShowModelOptions(prev => !prev)}
+            className="flex items-center justify-between w-full px-4 py-2.5 rounded-md bg-[var(--card-bg)] border border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--highlight-bg)] transition-colors"
+          >
+            <div className="flex items-center">
+              <span className="text-sm">
+                <span className="font-medium">{messages.form?.modelProvider || 'Provider'}:</span> {selectedProvider}
+                <span className="mx-2">|</span>
+                <span className="font-medium">{messages.form?.modelSelection || 'Model'}:</span> {isCustomSelectedModel ? customSelectedModel : selectedModel}
+              </span>
             </div>
-          ) : (
-            <div className="w-full mt-4">
-              <AskModelSelector 
-                localOllama={localModelOllama}
-                setLocalOllama={setLocalModelOllama}
-                useOpenRouter={modelUseOpenRouter}
-                setUseOpenRouter={setModelUseOpenRouter}
-                useOpenai={modelUseOpenai}
-                setUseOpenai={setModelUseOpenai}
-                openRouterModel={modelOpenRouterModel}
-                setOpenRouterModel={setModelOpenRouterModel}
-                openaiModel={modelOpenaiModel}
-                setOpenaiModel={setModelOpenaiModel}
-                isCustomOpenaiModel={isCustomModelOpenaiModel}
-                setIsCustomOpenaiModel={setIsCustomModelOpenaiModel}
-                customOpenaiModel={customModelOpenaiModel}
-                setCustomOpenaiModel={setCustomModelOpenaiModel}
-                onConfirm={handleConfirmAsk}
-                onCancel={() => setShowModelOptions(false)}
-                deepResearch={deepResearch}
-                setDeepResearch={setDeepResearch}
+            <span className="text-[var(--accent-primary)]">
+              {showModelOptions ? '▲' : '▼'}
+            </span>
+          </button>
+          {showModelOptions && (
+            <div className="mt-2">
+              <UserSelector
+                provider={selectedProvider}
+                setProvider={setSelectedProvider}
+                model={selectedModel}
+                setModel={setSelectedModel}
+                isCustomModel={isCustomSelectedModel}
+                setIsCustomModel={setIsCustomSelectedModel}
+                customModel={customSelectedModel}
+                setCustomModel={setCustomSelectedModel}
+                showFileFilters={false}
               />
             </div>
           )}
-          <div className="flex items-center mt-2 justify-between">
-            <div className="group relative">
-              <label className="flex items-center cursor-pointer">
-                <span className="text-xs text-gray-600 dark:text-gray-400 mr-2">Deep Research</span>
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={deepResearch}
-                    onChange={() => setDeepResearch(!deepResearch)}
-                    className="sr-only"
-                  />
-                  <div className={`w-10 h-5 rounded-full transition-colors ${deepResearch ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
-                  <div className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform transform ${deepResearch ? 'translate-x-5' : ''}`}></div>
-                </div>
-              </label>
-              <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 w-72 z-10">
-                <div className="relative">
-                  <div className="absolute -bottom-2 left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                  <p className="mb-1">Deep Research conducts a multi-turn investigation process:</p>
-                  <ul className="list-disc pl-4 text-xs">
-                    <li><strong>Initial Research:</strong> Creates a research plan and initial findings</li>
-                    <li><strong>Iteration 1:</strong> Explores specific aspects in depth</li>
-                    <li><strong>Iteration 2:</strong> Investigates remaining questions</li>
-                    <li><strong>Iterations 3-4:</strong> Dives deeper into complex areas</li>
-                    <li><strong>Final Conclusion:</strong> Comprehensive answer based on all iterations</li>
-                  </ul>
-                  <p className="mt-1 text-xs italic">The AI automatically continues research until complete (up to 5 iterations)</p>
-                </div>
-              </div>
-            </div>
-            {deepResearch && (
-              <div className="text-xs text-purple-600 dark:text-purple-400">
-                Multi-turn research process enabled
-                {researchIteration > 0 && !researchComplete && ` (iteration ${researchIteration})`}
-                {researchComplete && ` (complete)`}
-              </div>
-            )}
+        </div>
+
+        {/* Question input */}
+        <form onSubmit={handleSubmit} className="mt-4">
+          <div className="relative">
+            <input
+              ref={inputRef}
+              type="text"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder={messages.ask?.placeholder || 'Ask a question about this repo...'}
+              className="block w-full rounded-md border-2 border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-4 py-3 text-base focus:border-[var(--accent-primary)] focus:ring-[var(--accent-primary)] focus:ring-opacity-50 transition-all"
+              disabled={isLoading}
+            />
+            <button
+              type="submit"
+              disabled={isLoading || !question.trim()}
+              className={`absolute right-3 top-1/2 transform -translate-y-1/2 px-3 py-1.5 rounded-md ${
+                isLoading || !question.trim()
+                  ? 'bg-[var(--button-disabled-bg)] text-[var(--button-disabled-text)] cursor-not-allowed'
+                  : 'bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] hover:bg-[var(--button-primary-bg-hover)]'
+              } transition-colors`}
+            >
+              {isLoading ? (
+                <div className="w-4 h-4 rounded-full border-2 border-t-transparent border-[var(--button-primary-text)] animate-spin" />
+              ) : (
+                messages.ask?.askButton || 'Ask'
+              )}
+            </button>
           </div>
         </form>
 
         {/* Response area */}
-        {response && (
-          <div className="border-t border-gray-200 dark:border-gray-700 mt-4">
-            <div
-              ref={responseRef}
-              className="p-4 max-h-[500px] overflow-y-auto"
-            >
-              <Markdown content={response} />
-            </div>
-
-            {/* Research navigation and clear button */}
-            <div className="p-2 flex justify-between items-center border-t border-gray-200 dark:border-gray-700">
-              {/* Research navigation */}
-              {deepResearch && researchStages.length > 1 && (
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => navigateToPreviousStage()}
-                    disabled={currentStageIndex === 0}
-                    className={`p-1 rounded-md ${currentStageIndex === 0 ? 'text-gray-400 dark:text-gray-600' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-                    aria-label="Previous stage"
-                  >
-                    <FaChevronLeft size={12} />
-                  </button>
-
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
-                    {currentStageIndex + 1} / {researchStages.length}
+        {(response || isLoading) && (
+          <div className="mt-6">
+            <div className="border-t border-[var(--border-color)] pt-4">
+              <h3 className="text-lg font-medium mb-2 text-[var(--foreground)]">
+                {messages.ask?.response || 'Response:'}
+              </h3>
+              <div
+                ref={responseRef}
+                className="prose prose-sm max-w-none overflow-auto max-h-[70vh]"
+              >
+                {response ? (
+                  <Markdown content={response} />
+                ) : (
+                  <div className="flex items-center justify-center py-10">
+                    <div className="w-8 h-8 border-4 border-[var(--accent-primary)] border-t-transparent rounded-full animate-spin"></div>
                   </div>
+                )}
+              </div>
 
-                  <button
-                    onClick={() => navigateToNextStage()}
-                    disabled={currentStageIndex === researchStages.length - 1}
-                    className={`p-1 rounded-md ${currentStageIndex === researchStages.length - 1 ? 'text-gray-400 dark:text-gray-600' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-                    aria-label="Next stage"
-                  >
-                    <FaChevronRight size={12} />
-                  </button>
-
-                  <div className="text-xs text-gray-600 dark:text-gray-400 ml-2">
-                    {researchStages[currentStageIndex]?.title || `Stage ${currentStageIndex + 1}`}
+              {/* Research navigation (if deep research is enabled) */}
+              {researchStages.length > 0 && (
+                <div className="mt-6 border-t border-[var(--border-color)] pt-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-lg font-medium text-[var(--foreground)]">
+                      {messages.ask?.researchStages || 'Research Stages:'}
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={navigateToPreviousStage}
+                        disabled={currentStageIndex <= 0}
+                        className={`p-2 rounded-full ${
+                          currentStageIndex <= 0
+                            ? 'text-[var(--muted)] cursor-not-allowed'
+                            : 'text-[var(--accent-primary)] hover:bg-[var(--highlight-bg)] transition-colors'
+                        }`}
+                      >
+                        <FaChevronLeft size={16} />
+                      </button>
+                      <button
+                        onClick={navigateToNextStage}
+                        disabled={currentStageIndex >= researchStages.length - 1}
+                        className={`p-2 rounded-full ${
+                          currentStageIndex >= researchStages.length - 1
+                            ? 'text-[var(--muted)] cursor-not-allowed'
+                            : 'text-[var(--accent-primary)] hover:bg-[var(--highlight-bg)] transition-colors'
+                        }`}
+                      >
+                        <FaChevronRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-2 overflow-x-auto pb-2">
+                    {researchStages.map((stage, index) => (
+                      <button
+                        key={`${stage.type}-${stage.iteration}`}
+                        onClick={() => navigateToStage(index)}
+                        className={`whitespace-nowrap px-3 py-1.5 text-sm rounded-md border ${
+                          currentStageIndex === index
+                            ? 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)]'
+                            : 'bg-[var(--card-bg)] text-[var(--foreground)] border-[var(--border-color)] hover:bg-[var(--highlight-bg)] transition-colors'
+                        }`}
+                      >
+                        {stage.title}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
 
               {/* Clear button */}
-              <button
-                onClick={clearConversation}
-                className="text-xs text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 px-2 py-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
-              >
-                Clear conversation
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Loading indicator */}
-        {isLoading && !response && (
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-2">
-              <div className="animate-pulse flex space-x-1">
-                <div className="h-2 w-2 bg-purple-600 rounded-full"></div>
-                <div className="h-2 w-2 bg-purple-600 rounded-full"></div>
-                <div className="h-2 w-2 bg-purple-600 rounded-full"></div>
-              </div>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {deepResearch
-                  ? (researchIteration === 0
-                      ? "Planning research approach..."
-                      : `Research iteration ${researchIteration} in progress...`)
-                  : "Thinking..."}
-              </span>
-            </div>
-            {deepResearch && (
-              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 pl-5">
-                <div className="flex flex-col space-y-1">
-                  {researchIteration === 0 && (
-                    <>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                        <span>Creating research plan...</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                        <span>Identifying key areas to investigate...</span>
-                      </div>
-                    </>
-                  )}
-                  {researchIteration === 1 && (
-                    <>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                        <span>Exploring first research area in depth...</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                        <span>Analyzing code patterns and structures...</span>
-                      </div>
-                    </>
-                  )}
-                  {researchIteration === 2 && (
-                    <>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-amber-500 rounded-full mr-2"></div>
-                        <span>Investigating remaining questions...</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
-                        <span>Connecting findings from previous iterations...</span>
-                      </div>
-                    </>
-                  )}
-                  {researchIteration === 3 && (
-                    <>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></div>
-                        <span>Exploring deeper connections...</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                        <span>Analyzing complex patterns...</span>
-                      </div>
-                    </>
-                  )}
-                  {researchIteration === 4 && (
-                    <>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-teal-500 rounded-full mr-2"></div>
-                        <span>Refining research conclusions...</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-cyan-500 rounded-full mr-2"></div>
-                        <span>Addressing remaining edge cases...</span>
-                      </div>
-                    </>
-                  )}
-                  {researchIteration >= 5 && (
-                    <>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
-                        <span>Finalizing comprehensive answer...</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                        <span>Synthesizing all research findings...</span>
-                      </div>
-                    </>
-                  )}
+              {response && (
+                <div className="mt-4 flex justify-end">
+                  <button
+                    onClick={clearConversation}
+                    className="px-3 py-1.5 text-sm rounded-md bg-[var(--button-secondary-bg)] text-[var(--button-secondary-text)] hover:bg-[var(--button-secondary-bg-hover)] transition-colors"
+                  >
+                    {messages.ask?.clearButton || 'Clear conversation'}
+                  </button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </div>

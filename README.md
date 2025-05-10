@@ -162,6 +162,74 @@ deepwiki/
 └── .env                  # Environment variables (create this)
 ```
 
+## 🤖 Provider-Based Model Selection System
+
+DeepWiki now implements a flexible provider-based model selection system supporting multiple LLM providers:
+
+### Supported Providers and Models
+
+- **Google**: Default `gemini-2.0-flash`, also supports `gemini-1.5-flash`, `gemini-1.0-pro`, etc.
+- **OpenAI**: Default `gpt-4o`, also supports `o4-mini`, etc.
+- **OpenRouter**: Access to multiple models via a unified API, including Claude, Llama, Mistral, etc.
+- **Ollama**: Support for locally running open-source models like `llama3`
+
+### Environment Variables
+
+Each provider requires its corresponding API key environment variables:
+
+```
+# API Keys
+GOOGLE_API_KEY=your_google_api_key        # Required for Google Gemini models
+OPENAI_API_KEY=your_openai_api_key        # Required for OpenAI models
+OPENROUTER_API_KEY=your_openrouter_api_key # Required for OpenRouter models
+
+# OpenAI API Base URL Configuration
+OPENAI_API_BASE=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
+
+# Configuration Directory
+DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # Optional, for custom config file location
+```
+
+### Configuration Files
+
+DeepWiki uses JSON configuration files to manage various aspects of the system:
+
+1. **`generator.json`**: Configuration for text generation models
+   - Defines available model providers (Google, OpenAI, OpenRouter, Ollama)
+   - Specifies default and available models for each provider
+   - Contains model-specific parameters like temperature and top_p
+
+2. **`embedder.json`**: Configuration for embedding models and text processing
+   - Defines embedding models for vector storage
+   - Contains retriever configuration for RAG
+   - Specifies text splitter settings for document chunking
+
+3. **`repo.json`**: Configuration for repository handling
+   - Contains file filters to exclude certain files and directories
+   - Defines repository size limits and processing rules
+
+By default, these files are located in the `api/config/` directory. You can customize their location using the `DEEPWIKI_CONFIG_DIR` environment variable.
+
+### Custom Model Selection for Service Providers
+
+The custom model selection feature is specifically designed for service providers who need to:
+
+- You can offer multiple AI model choices to users within your organization
+- You can quickly adapt to the rapidly evolving LLM landscape without code changes
+- You can support specialized or fine-tuned models that aren't in the predefined list
+
+Service providers can implement their model offerings by selecting from the predefined options or entering custom model identifiers in the frontend interface.
+
+### Base URL Configuration for Enterprise Private Channels
+
+The OpenAI Client's base_url configuration is designed primarily for enterprise users with private API channels. This feature:
+
+- Enables connection to private or enterprise-specific API endpoints
+- Allows organizations to use their own self-hosted or custom-deployed LLM services
+- Supports integration with third-party OpenAI API-compatible services
+
+**Coming Soon**: In future updates, DeepWiki will support a mode where users need to provide their own API keys in requests. This will allow enterprise customers with private channels to use their existing API arrangements without sharing credentials with the DeepWiki deployment.
+
 ## 🛠️ Advanced Setup
 
 ### Environment Variables

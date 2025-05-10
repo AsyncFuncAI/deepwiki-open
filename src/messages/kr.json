@@ -31,8 +31,14 @@
       "repoPlaceholder": "owner/repo 또는 GitHub/GitLab/Bitbucket URL",
       "wikiLanguage": "위키 언어",
       "modelOptions": "모델 옵션",
+      "modelProvider": "모델 제공자",
+      "modelSelection": "모델 선택",
+      "providerGoogle": "구글",
+      "providerOpenAI": "OpenAI",
+      "providerOpenRouter": "OpenRouter",
+      "providerOllama": "Ollama (로컬)",
       "localOllama": "로컬 Ollama 모델",
-      "experimental": "실험적 기능",
+      "experimental": "실험적",
       "useOpenRouter": "OpenRouter API 사용",
       "openRouterModel": "OpenRouter 모델",
       "useOpenai": "Openai API 사용",
@@ -94,4 +100,3 @@
       "wikiProjects": "프로젝트 목록"
     }
   }
-   

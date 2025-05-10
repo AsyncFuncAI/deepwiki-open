@@ -1,0 +1,104 @@
+{
+  "default_provider": "google",
+  "providers": {
+    "google": {
+      "default_model": "gemini-2.0-flash",
+      "supportsCustomModel": true,
+      "models": {
+        "gemini-2.0-flash": {
+          "temperature": 0.7,
+          "top_p": 0.8,
+          "top_k": 40
+        },
+        "gemini-1.5-flash": {
+          "temperature": 0.7,
+          "top_p": 0.8,
+          "top_k": 40
+        },
+        "gemini-1.0-pro": {
+          "temperature": 0.7,
+          "top_p": 0.8,
+          "top_k": 40
+        }
+      }
+    },
+    "openai": {
+      "default_model": "gpt-4o",
+      "supportsCustomModel": true,
+      "models": {
+        "gpt-4o": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "gpt-4.1": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "o1": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "o3": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "o4-mini": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        }
+      }
+    },
+    "openrouter": {
+      "default_model": "openai/gpt-4o",
+      "supportsCustomModel": true,
+      "models": {
+        "openai/gpt-4o": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "openai/gpt-4.1": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "openai/o1": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "openai/o3": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "openai/o4-mini": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "anthropic/claude-3.7-sonnet": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "anthropic/claude-3.5-sonnet": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        }
+      }
+    },
+    "ollama": {
+      "default_model": "qwen3:1.7b",
+      "supportsCustomModel": true,
+      "models": {
+        "qwen3:1.7b": {
+          "options": {
+            "temperature": 0.7,
+            "top_p": 0.8
+          }
+        },
+        "llama3:8b": {
+          "options": {
+            "temperature": 0.7,
+            "top_p": 0.8
+          }
+        }
+      }
+    }
+  }
+}

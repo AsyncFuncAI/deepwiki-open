@@ -174,6 +174,26 @@ deepwiki/
 | `PORT` | API 서버 포트 (기본값: 8001) | 아니오 | API와 프론트엔드를 같은 머신에서 호스팅 시 `SERVER_BASE_URL`의 포트도 변경 필요 |
 | `SERVER_BASE_URL` | API 서버 기본 URL (기본값: http://localhost:8001) | 아니오 |
  
+### 설정 파일
+
+DeepWiki는 시스템의 다양한 측면을 관리하기 위해 JSON 설정 파일을 사용합니다:
+
+1. **`generator.json`**: 텍스트 생성 모델 설정
+   - 사용 가능한 모델 제공자(Google, OpenAI, OpenRouter, Ollama) 정의
+   - 각 제공자의 기본 및 사용 가능한 모델 지정
+   - temperature와 top_p 같은 모델별 매개변수 포함
+
+2. **`embedder.json`**: 임베딩 모델 및 텍스트 처리 설정
+   - 벡터 저장소용 임베딩 모델 정의
+   - RAG를 위한 검색기 설정 포함
+   - 문서 청킹을 위한 텍스트 분할기 설정 지정
+
+3. **`repo.json`**: 저장소 처리 설정
+   - 특정 파일 및 디렉토리를 제외하는 파일 필터 포함
+   - 저장소 크기 제한 및 처리 규칙 정의
+
+기본적으로 이러한 파일은 `api/config/` 디렉토리에 위치합니다. `DEEPWIKI_CONFIG_DIR` 환경 변수를 사용하여 위치를 사용자 정의할 수 있습니다.
+
 ### Docker 설정
  
 Docker를 사용하여 DeepWiki를 실행할 수 있습니다:
@@ -260,6 +280,51 @@ API 서버는 다음을 제공합니다:
  
 자세한 내용은 [API README](./api/README.md)를 참조하세요.
  
+## 🤖 제공자 기반 모델 선택 시스템
+
+DeepWiki는 이제 여러 LLM 제공자를 지원하는 유연한 제공자 기반 모델 선택 시스템을 구현했습니다:
+
+### 지원되는 제공자 및 모델
+
+- **Google**: 기본값 `gemini-2.0-flash`, 또한 `gemini-1.5-flash`, `gemini-1.0-pro` 등도 지원
+- **OpenAI**: 기본값 `gpt-4o`, 또한 `o4-mini` 등도 지원
+- **OpenRouter**: Claude, Llama, Mistral 등 통합 API를 통해 다양한 모델 접근 가능
+- **Ollama**: `llama3`와 같은 로컬에서 실행되는 오픈소스 모델 지원
+
+### 환경 변수
+
+각 제공자는 해당 API 키 환경 변수가 필요합니다:
+
+```
+# API 키
+GOOGLE_API_KEY=귀하의_구글_API_키        # Google Gemini 모델에 필요
+OPENAI_API_KEY=귀하의_OpenAI_키         # OpenAI 모델에 필요
+OPENROUTER_API_KEY=귀하의_OpenRouter_키 # OpenRouter 모델에 필요
+
+# OpenAI API 기본 URL 구성
+OPENAI_API_BASE=https://사용자정의_API_엔드포인트.com/v1  # 선택 사항, 사용자 정의 OpenAI API 엔드포인트용
+```
+
+### 서비스 제공자를 위한 사용자 정의 모델 선택
+
+사용자 정의 모델 선택 기능은 다음이 필요한 서비스 제공자를 위해 특별히 설계되었습니다:
+
+- 귀하는 조직 내 사용자에게 다양한 AI 모델 선택 옵션을 제공할 수 있습니다
+- 귀하는 코드 변경 없이 빠르게 진화하는 LLM 환경에 신속하게 적응할 수 있습니다
+- 귀하는 사전 정의된 목록에 없는 특수하거나 미세 조정된 모델을 지원할 수 있습니다
+
+서비스 제공자는 사전 정의된 옵션에서 선택하거나 프론트엔드 인터페이스에서 사용자 정의 모델 식별자를 입력하여 모델 제공을 구현할 수 있습니다.
+
+### 기업 전용 채널을 위한 기본 URL 구성
+
+OpenAI 클라이언트의 base_url 구성은 주로 비공개 API 채널이 있는 기업 사용자를 위해 설계되었습니다. 이 기능은:
+
+- 비공개 또는 기업 전용 API 엔드포인트 연결 가능
+- 조직이 자체 호스팅되거나 사용자 정의 배포된 LLM 서비스 사용 가능
+- 서드파티 OpenAI API 호환 서비스와의 통합 지원
+
+**출시 예정**: 향후 업데이트에서 DeepWiki는 사용자가 요청에서 자신의 API 키를 제공해야 하는 모드를 지원할 예정입니다. 이를 통해 비공개 채널이 있는 기업 고객은 DeepWiki 배포와 자격 증명을 공유하지 않고도 기존 API 구성을 사용할 수 있습니다.
+
 ## 🔌 OpenRouter 통합
  
 DeepWiki는 이제 [OpenRouter](https://openrouter.ai/)를 모델 제공자로 지원하여, 단일 API를 통해 수백 개의 AI 모델에 접근할 수 있습니다:

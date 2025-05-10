@@ -247,3 +247,105 @@ deepwiki/
 ## ⭐ 星标历史
 
 [![星标历史图表](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
+
+## 🤖 基于提供者的模型选择系统
+
+DeepWiki 现在实现了灵活的基于提供者的模型选择系统，支持多种 LLM 提供商：
+
+### 支持的提供商和模型
+
+- **Google**: 默认使用 `gemini-2.0-flash`，还支持 `gemini-1.5-flash`、`gemini-1.0-pro` 等
+- **OpenAI**: 默认使用 `gpt-4o`，还支持 `o4-mini` 等
+- **OpenRouter**: 通过统一 API 访问多种模型，包括 Claude、Llama、Mistral 等
+- **Ollama**: 支持本地运行的开源模型，如 `llama3`
+
+### 环境变量
+
+每个提供商需要相应的 API 密钥环境变量：
+
+```
+# API 密钥
+GOOGLE_API_KEY=你的谷歌API密钥        # 使用 Google Gemini 模型必需
+OPENAI_API_KEY=你的OpenAI密钥        # 使用 OpenAI 模型必需
+OPENROUTER_API_KEY=你的OpenRouter密钥 # 使用 OpenRouter 模型必需
+
+# OpenAI API 基础 URL 配置
+OPENAI_API_BASE=https://自定义API端点.com/v1  # 可选，用于自定义 OpenAI API 端点
+```
+
+### 为服务提供者设计的自定义模型选择
+
+自定义模型选择功能专为需要以下功能的服务提供者设计：
+
+- 您可在您的组织内部为用户提供多种 AI 模型选择
+- 您无需代码更改即可快速适应快速发展的 LLM 领域
+- 您可支持预定义列表中没有的专业或微调模型
+
+使用者可以通过从服务提供者预定义选项中选择或在前端界面中输入自定义模型标识符来实现其模型产品。
+
+### 为企业私有渠道设计的基础 URL 配置
+
+OpenAI 客户端的 base_url 配置主要为拥有私有 API 渠道的企业用户设计。此功能：
+
+- 支持连接到私有或企业特定的 API 端点
+- 允许组织使用自己的自托管或自定义部署的 LLM 服务
+- 支持与第三方 OpenAI API 兼容服务的集成
+
+**即将推出**：在未来的更新中，DeepWiki 将支持一种模式，用户需要在请求中提供自己的 API 密钥。这将允许拥有私有渠道的企业客户使用其现有的 API 安排，而不是与 DeepWiki 部署共享凭据。
+
+### 环境变量
+
+每个提供商需要其相应的API密钥环境变量：
+
+```
+# API密钥
+GOOGLE_API_KEY=your_google_api_key        # Google Gemini模型必需
+OPENAI_API_KEY=your_openai_api_key        # OpenAI模型必需
+OPENROUTER_API_KEY=your_openrouter_api_key # OpenRouter模型必需
+
+# OpenAI API基础URL配置
+OPENAI_API_BASE=https://custom-api-endpoint.com/v1  # 可选，用于自定义OpenAI API端点
+
+# 配置目录
+DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # 可选，用于自定义配置文件位置
+```
+
+### 配置文件
+
+DeepWiki使用JSON配置文件管理系统的各个方面：
+
+1. **`generator.json`**：文本生成模型配置
+   - 定义可用的模型提供商（Google、OpenAI、OpenRouter、Ollama）
+   - 指定每个提供商的默认和可用模型
+   - 包含特定模型的参数，如temperature和top_p
+
+2. **`embedder.json`**：嵌入模型和文本处理配置
+   - 定义用于向量存储的嵌入模型
+   - 包含用于RAG的检索器配置
+   - 指定文档分块的文本分割器设置
+
+3. **`repo.json`**：仓库处理配置
+   - 包含排除特定文件和目录的文件过滤器
+   - 定义仓库大小限制和处理规则
+
+默认情况下，这些文件位于`api/config/`目录中。您可以使用`DEEPWIKI_CONFIG_DIR`环境变量自定义它们的位置。
+
+### 面向服务提供商的自定义模型选择
+
+自定义模型选择功能专为需要以下功能的服务提供者设计：
+
+- 您可在您的组织内部为用户提供多种 AI 模型选择
+- 您无需代码更改即可快速适应快速发展的 LLM 领域
+- 您可支持预定义列表中没有的专业或微调模型
+
+使用者可以通过从服务提供者预定义选项中选择或在前端界面中输入自定义模型标识符来实现其模型产品。
+
+### 为企业私有渠道设计的基础 URL 配置
+
+OpenAI 客户端的 base_url 配置主要为拥有私有 API 渠道的企业用户设计。此功能：
+
+- 支持连接到私有或企业特定的 API 端点
+- 允许组织使用自己的自托管或自定义部署的 LLM 服务
+- 支持与第三方 OpenAI API 兼容服务的集成
+
+**即将推出**：在未来的更新中，DeepWiki 将支持一种模式，用户需要在请求中提供自己的 API 密钥。这将允许拥有私有渠道的企业客户使用其现有的 API 安排，而不是与 DeepWiki 部署共享凭据。

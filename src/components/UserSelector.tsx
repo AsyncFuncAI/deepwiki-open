@@ -1,24 +1,35 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
+// Define the interfaces for our model configuration
+interface Model {
+  id: string;
+  name: string;
+}
+
+interface Provider {
+  id: string;
+  name: string;
+  models: Model[];
+  supportsCustomModel?: boolean;
+}
+
+interface ModelConfig {
+  providers: Provider[];
+  defaultProvider: string;
+}
 
 interface ModelSelectorProps {
-  localOllama: boolean;
-  setLocalOllama: (value: boolean) => void;
-  useOpenRouter: boolean;
-  setUseOpenRouter: (value: boolean) => void;
-  useOpenai: boolean;
-  setUseOpenai: (value: boolean) => void;
-  openRouterModel: string;
-  setOpenRouterModel: (value: string) => void;
-  openaiModel: string;
-  setOpenaiModel: (value: string) => void;
-  isCustomOpenaiModel?: boolean;
-  setIsCustomOpenaiModel?: (value: boolean) => void;
-  customOpenaiModel?: string;
-  setCustomOpenaiModel?: (value: string) => void;
+  provider: string;
+  setProvider: (value: string) => void;
+  model: string;
+  setModel: (value: string) => void;
+  isCustomModel: boolean;
+  setIsCustomModel: (value: boolean) => void;
+  customModel: string;
+  setCustomModel: (value: string) => void;
   
   // File filter configuration
   showFileFilters?: boolean;
@@ -29,33 +40,83 @@ interface ModelSelectorProps {
 }
 
 export default function UserSelector({
-  localOllama,
-  setLocalOllama,
-  useOpenRouter,
-  setUseOpenRouter,
-  useOpenai,
-  setUseOpenai,
-  openRouterModel,
-  setOpenRouterModel,
-  openaiModel,
-  setOpenaiModel,
-  isCustomOpenaiModel,
-  setIsCustomOpenaiModel,
-  customOpenaiModel,
-  setCustomOpenaiModel,
+  provider,
+  setProvider,
+  model,
+  setModel,
+  isCustomModel,
+  setIsCustomModel,
+  customModel,
+  setCustomModel,
   
   // File filter configuration
   showFileFilters = false,
   excludedDirs = '',
   setExcludedDirs,
   excludedFiles = '',
-  setExcludedFiles,
-
+  setExcludedFiles
 }: ModelSelectorProps) {
   // State to manage the visibility of the filters modal and filter section
-  const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const [isFilterSectionOpen, setIsFilterSectionOpen] = useState(false);
   const { messages: t } = useLanguage();
+  
+  // State for model configurations from backend
+  const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fetch model configurations from the backend
+  useEffect(() => {
+    const fetchModelConfig = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const response = await fetch('/api/models/config');
+        
+        if (!response.ok) {
+          throw new Error(`Error fetching model configurations: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setModelConfig(data);
+        
+        // Initialize provider and model with defaults from API if not already set
+        if (!provider && data.defaultProvider) {
+          setProvider(data.defaultProvider);
+          
+          // Find the default provider and set its default model
+          const selectedProvider = data.providers.find((p: Provider) => p.id === data.defaultProvider);
+          if (selectedProvider && selectedProvider.models.length > 0) {
+            setModel(selectedProvider.models[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch model configurations:', err);
+        setError('Failed to load model configurations. Using default options.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchModelConfig();
+  }, [provider, setProvider, setModel]);
+  
+  // Handler for changing provider
+  const handleProviderChange = (newProvider: string) => {
+    setProvider(newProvider);
+    
+    // Reset custom model state when changing providers
+    setIsCustomModel(false);
+    
+    // Set default model for the selected provider
+    if (modelConfig) {
+      const selectedProvider = modelConfig.providers.find((p: Provider) => p.id === newProvider);
+      if (selectedProvider && selectedProvider.models.length > 0) {
+        setModel(selectedProvider.models[0].id);
+      }
+    }
+  };
   
   // Default excluded directories from config.py
   const defaultExcludedDirs = 
@@ -184,313 +245,158 @@ next.config.js
 *.docx
 *.pptx`;
 
+  // Display loading state
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="text-sm text-[var(--muted)]">Loading model configurations...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <div className="space-y-2">
-        <div className="flex items-center">
-          <input
-            id="local-ollama"
-            type="checkbox"
-            checked={localOllama}
-            onChange={(e) => {
-              setLocalOllama(e.target.checked);
-              if (e.target.checked) {
-                setUseOpenRouter(false);
-                setUseOpenai(false);
-              }
-            }}
-            className="h-4 w-4 rounded border-[var(--border-color)] text-[var(--accent-primary)] focus:ring-[var(--accent-primary)]"
-          />
-          <label htmlFor="local-ollama" className="ml-2 text-sm text-[var(--foreground)]">
-            {t.form?.localOllama || 'Use Local Ollama'} <span className="text-xs text-[var(--muted)]">({t.form?.experimental || 'Experimental'})</span>
-          </label>
-        </div>
-
-        <div className="flex items-center">
-          <input
-            id="use-openrouter"
-            type="checkbox"
-            checked={useOpenRouter}
-            onChange={(e) => {
-              setUseOpenRouter(e.target.checked);
-              if (e.target.checked) {
-                setLocalOllama(false);
-                setUseOpenai(false);
-              }
-            }}
-            className="h-4 w-4 rounded border-[var(--border-color)] text-[var(--accent-primary)] focus:ring-[var(--accent-primary)]"
-          />
-          <label htmlFor="use-openrouter" className="ml-2 text-sm text-[var(--foreground)]">
-            {t.form?.useOpenRouter || 'Use OpenRouter'}
-          </label>
-        </div>
-
-        <div className="flex items-center">
-          <input
-            id="use-openai"
-            type="checkbox"
-            checked={useOpenai}
-            onChange={(e) => {
-              setUseOpenai(e.target.checked);
-              if (e.target.checked) {
-                setLocalOllama(false);
-                setUseOpenRouter(false);
-              }
-            }}
-            className="h-4 w-4 rounded border-[var(--border-color)] text-[var(--accent-primary)] focus:ring-[var(--accent-primary)]"
-          />
-          <label htmlFor="use-openai" className="ml-2 text-sm text-[var(--foreground)]">
-            {t.form?.useOpenai || 'Use OpenAI'}
-          </label>
-        </div>
-      </div>
-
-      {/* OpenRouter model selection - only shown when OpenRouter is selected */}
-      {useOpenRouter && (
-        <div className="w-full">
-          <label htmlFor="openrouter-model" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
-            {t.form?.openRouterModel || 'OpenRouter Model'}
+        {error && (
+          <div className="text-sm text-red-500 mb-2">{error}</div>
+        )}
+        
+        {/* Provider Selection */}
+        <div className="mb-4">
+          <label htmlFor="provider-dropdown" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+            {t.form?.modelProvider || 'Model Provider'}
           </label>
           <select
-            id="openrouter-model"
-            value={openRouterModel}
-            onChange={(e) => setOpenRouterModel(e.target.value)}
-            className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+            id="provider-dropdown"
+            value={provider}
+            onChange={(e) => handleProviderChange(e.target.value)}
+            className="block w-full rounded-md border-2 border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2.5 text-base focus:border-[var(--accent-primary)] focus:ring-[var(--accent-primary)] focus:ring-opacity-50 transition-all cursor-pointer"
           >
-            <option value="openai/gpt-4o">OpenAI GPT-4.0</option>
-            <option value="openai/gpt-4.1">OpenAI GPT-4.1</option>
-            <option value="openai/o1">OpenAI o1</option>
-            <option value="openai/o1-mini">OpenAI o1-mini</option>
-            <option value="anthropic/claude-3.5-sonnet">Anthropic Claude 3.5 Sonnet</option>
-            <option value="anthropic/claude-3.7-sonnet">Anthropic Claude 3.7 Sonnet</option>
-            <option value="google/gemini-2.0-flash-001">Google Gemini 2.0 Flash</option>
-            <option value="meta-llama/llama-3-70b-instruct">Meta Llama 3 70B Instruct</option>
-            <option value="mistralai/mixtral-8x22b-instruct">Mistral Mixtral 8x22B Instruct</option>
+            <option value="" disabled>{t.form?.selectProvider || 'Select Provider'}</option>
+            {modelConfig?.providers.map((providerOption) => (
+              <option key={providerOption.id} value={providerOption.id}>
+                {t.form?.[`provider${providerOption.id.charAt(0).toUpperCase() + providerOption.id.slice(1)}`] || providerOption.name}
+              </option>
+            ))}
           </select>
         </div>
-      )}
 
-      {/* Openai model selection - only shown when Openai is selected */}
-      {useOpenai && (
-        <div className="w-full">
-          <label htmlFor="openai-model" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
-            {t.form?.openaiModel || 'OpenAI Model'}
+        {/* Model Selection - consistent height regardless of type */}
+        <div className="mb-4">
+          <label htmlFor={isCustomModel ? "custom-model-input" : "model-dropdown"} className="block text-sm font-medium text-[var(--foreground)] mb-2">
+            {t.form?.modelSelection || 'Model Selection'}
           </label>
           
-          <div className="space-y-2">
-            {/* Standard model selection */}
-            {!isCustomOpenaiModel && (
-              <select
-                id="openai-model"
-                value={openaiModel}
-                onChange={(e) => setOpenaiModel(e.target.value)}
-                className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
-              >
-                <option value="gpt-4o">OpenAI GPT-4o</option>
-                <option value="gpt-4.1">OpenAI GPT-4.1</option>
-                <option value="o1">OpenAI o1</option>
-                <option value="o3">OpenAI o3</option>
-                <option value="o4-mini">OpenAI o4-mini</option>
-                <option value="deepseek-reasoner">Deepseek R1</option>
-                <option value="deepseek-chat">Deepseek v3</option>
-                <option value="qwen3-235b-a22b">Qwen3 235b</option>
-                <option value="qwen-max">Qwen Max</option>
-                <option value="qwq-plus">qwq plus</option>
-              </select>
-            )}
-            
-            {/* Custom model input */}
-            {isCustomOpenaiModel && (
+          <div className="h-[50px]"> {/* Fixed height container to prevent layout shift */}
+            {isCustomModel ? (
               <input
+                id="custom-model-input"
                 type="text"
-                id="custom-openai-model"
-                value={customOpenaiModel}
+                value={customModel}
                 onChange={(e) => {
-                  setCustomOpenaiModel?.(e.target.value);
-                  setOpenaiModel(e.target.value);
+                  setCustomModel(e.target.value);
+                  setModel(e.target.value);
                 }}
                 placeholder={t.form?.customModelPlaceholder || 'Enter custom model name'}
-                className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+                className="block w-full rounded-md border-2 border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2.5 text-base focus:border-[var(--accent-primary)] focus:ring-[var(--accent-primary)] focus:ring-opacity-50 transition-all"
               />
+            ) : (
+              <select
+                id="model-dropdown"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="block w-full rounded-md border-2 border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2.5 text-base focus:border-[var(--accent-primary)] focus:ring-[var(--accent-primary)] focus:ring-opacity-50 transition-all cursor-pointer"
+              >
+                {modelConfig?.providers.find((p: Provider) => p.id === provider)?.models.map((modelOption) => (
+                  <option key={modelOption.id} value={modelOption.id}>
+                    {modelOption.name}
+                  </option>
+                ))}
+              </select>
             )}
-            
-            {/* Toggle between predefined and custom */}
-            <div className="flex items-center">
+          </div>
+        </div>
+
+        {/* Custom model toggle - only when provider supports it */}
+        {modelConfig?.providers.find((p: Provider) => p.id === provider)?.supportsCustomModel && (
+          <div className="mb-2">
+            <div className="flex items-center pb-1">
               <input
                 id="use-custom-model"
                 type="checkbox"
-                checked={isCustomOpenaiModel}
+                checked={isCustomModel}
                 onChange={(e) => {
-                  setIsCustomOpenaiModel?.(e.target.checked);
+                  setIsCustomModel(e.target.checked);
                   if (e.target.checked) {
-                    setCustomOpenaiModel?.(openaiModel);
+                    setCustomModel(model);
                   }
                 }}
-                className="h-4 w-4 rounded border-[var(--border-color)] text-[var(--accent-primary)] focus:ring-[var(--accent-primary)]"
+                className="h-5 w-5 border-2 border-[var(--accent-primary)] text-[var(--accent-primary)] focus:ring-[var(--accent-primary)]"
               />
-              <label htmlFor="use-custom-model" className="ml-2 text-xs text-[var(--muted)]">
+              <label htmlFor="use-custom-model" className="ml-2 text-sm font-medium text-[var(--foreground)]">
                 {t.form?.useCustomModel || 'Use custom model'}
               </label>
             </div>
           </div>
-        </div>
-      )}
-      
-      {/* File filtering configuration - only shown when enabled */}
-      {showFileFilters && (
-        <div className="w-full mt-4">
-          <div className="border border-[var(--border-color)] rounded-md p-3 bg-[var(--card-bg)]">
-            <div className="flex justify-between items-center">
-              <h3 className="text-sm font-medium">{t.form?.fileFilterTitle || 'File Filter Configuration'}</h3>
-              
-              <div className="flex gap-3">
-                {/* Button to toggle filter section visibility */}
-                <button 
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setIsFilterSectionOpen(!isFilterSectionOpen);
-                  }}
-                  className="text-xs text-[var(--accent-primary)] hover:text-[var(--highlight)] transition-colors flex items-center"
-                >
-                  {isFilterSectionOpen ? t.form?.hideFilters : t.form?.showFilters}
-                </button>
+        )}
 
-                {/* View default filters button - opens modal */}
-                <button 
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    // Use React state to show modal with default filters
-                    setIsFiltersModalOpen(true);
-                  }}
-                  className="text-xs text-[var(--accent-primary)] hover:text-[var(--highlight)] transition-colors"
-                >
-                  {t.form?.viewDefaults}
-                </button>
-              </div>
-            </div>
+        {showFileFilters && (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setIsFilterSectionOpen(!isFilterSectionOpen)}
+              className="flex items-center text-sm text-[var(--accent-primary)]"
+            >
+              <span className="mr-1">{isFilterSectionOpen ? '▼' : '►'}</span>
+              {t.form?.advancedOptions || 'Advanced Options'}
+            </button>
             
-            {/* Information about current default filters - always visible */}
-            <p className="text-xs text-[var(--muted)] mt-1">
-              {t.form?.defaultFiltersInfo}
-            </p>
-
-            {/* Custom filters input section - only visible when expanded */}
             {isFilterSectionOpen && (
-              <div className="space-y-3 mt-3 pt-3 border-t border-[var(--border-color)] mt-3">
-                <div>
-                  <label htmlFor="excluded-dirs" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
-                    {t.form?.excludedDirs}
+              <div className="mt-2 p-2 border border-[var(--border-color)] rounded-md">
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
+                    {t.form?.excludedDirs || 'Excluded Directories'}
                   </label>
                   <textarea
-                    id="excluded-dirs"
                     value={excludedDirs}
                     onChange={(e) => setExcludedDirs?.(e.target.value)}
-                    placeholder="./node_modules/
-./dist/
-./.git/"
-                    className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)] border border-[var(--border-color)] min-h-[80px]"
+                    rows={4}
+                    className="block w-full rounded-md border-2 border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-sm"
+                    placeholder={t.form?.enterExcludedDirs || 'Enter excluded directories, one per line...'}
                   />
-                  <p className="text-xs text-[var(--muted)] mt-1">
-                    {t.form?.excludedDirsHelp}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setExcludedDirs?.(defaultExcludedDirs)}
+                    className="mt-1 text-xs text-[var(--accent-primary)]"
+                  >
+                    {t.form?.useDefault || 'Use Default'}
+                  </button>
                 </div>
                 
                 <div>
-                  <label htmlFor="excluded-files" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
-                    {t.form?.excludedFiles}
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
+                    {t.form?.excludedFiles || 'Excluded Files'}
                   </label>
                   <textarea
-                    id="excluded-files"
                     value={excludedFiles}
                     onChange={(e) => setExcludedFiles?.(e.target.value)}
-                    placeholder="package-lock.json
-yarn.lock
-*.min.js"
-                    className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)] border border-[var(--border-color)] min-h-[80px]"
+                    rows={4}
+                    className="block w-full rounded-md border-2 border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-sm"
+                    placeholder={t.form?.enterExcludedFiles || 'Enter excluded files, one per line...'}
                   />
-                  <p className="text-xs text-[var(--muted)] mt-1">
-                    {t.form?.excludedFilesHelp}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setExcludedFiles?.(defaultExcludedFiles)}
+                    className="mt-1 text-xs text-[var(--accent-primary)]"
+                  >
+                    {t.form?.useDefault || 'Use Default'}
+                  </button>
                 </div>
               </div>
             )}
           </div>
-          
-          {/* Modal for displaying default filters from config.py */}
-          {isFiltersModalOpen && (
-            <div 
-              className="fixed inset-0 z-50 overflow-auto bg-black/50 flex items-center justify-center p-4"
-              onClick={(e) => {
-                // Only close if clicking directly on the backdrop
-                if (e.target === e.currentTarget) {
-                  e.preventDefault();
-                  setIsFiltersModalOpen(false);
-                }
-              }}
-            >
-              <div 
-                className="bg-[var(--card-bg)] max-w-2xl w-full max-h-[80vh] overflow-auto rounded-md shadow-lg border border-[var(--border-color)]"
-                onClick={(e) => e.stopPropagation()} // Prevent closing the modal when clicking inside
-              >
-                <div className="flex justify-between items-center border-b border-[var(--border-color)] p-4">
-                  <h3 className="text-base font-medium">{t.form?.defaultFilters}</h3>
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setIsFiltersModalOpen(false);
-                    }}
-                    className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-                    aria-label="Close"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                  </button>
-                </div>
-                
-                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="text-sm font-medium mb-2">{t.form?.directories}</h4>
-                    <div>
-                      <pre className="bg-[var(--background)]/80 p-3 rounded-md text-xs overflow-auto max-h-[300px] whitespace-pre-wrap">
-                        {defaultExcludedDirs}
-                      </pre>
-                      <p className="text-xs text-[var(--muted)] mt-1 italic text-center">{t.form?.scrollToViewMore}</p>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h4 className="text-sm font-medium mb-2">{t.form?.files}</h4>
-                    <div>
-                      <pre className="bg-[var(--background)]/80 p-3 rounded-md text-xs overflow-auto max-h-[300px] whitespace-pre-wrap">
-                        {defaultExcludedFiles}
-                      </pre>
-                      <p className="text-xs text-[var(--muted)] mt-1 italic text-center">{t.form?.scrollToViewMore}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="border-t border-[var(--border-color)] p-4 flex justify-end">
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setIsFiltersModalOpen(false);
-                    }}
-                    className="px-4 py-2 text-sm bg-[var(--button-secondary-bg)] text-[var(--button-secondary-text)] rounded-md hover:bg-[var(--button-secondary-bg-hover)]"
-                  >
-                    {t.common?.close}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

@@ -205,27 +205,28 @@ class RAG(adal.Component):
     """RAG with one repo.
     If you want to load a new repos, call prepare_retriever(repo_url_or_path) first."""
 
-    def __init__(self, use_s3: bool = False, local_ollama: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
+    def __init__(self, provider="google", model=None, use_s3: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
         """
         Initialize the RAG component.
 
         Args:
+            provider: Model provider to use (google, openai, openrouter, ollama)
+            model: Model name to use with the provider
             use_s3: Whether to use S3 for database storage (default: False)
-            local_ollama: Whether to use local Ollama for embedding (default: False)
         """
         super().__init__()
 
-        self.local_ollama = local_ollama
+        self.provider = provider
+        self.model = model
+        self.local_ollama = provider == "ollama"
 
         # Initialize components
         self.memory = Memory()
 
         if self.local_ollama:
             embedder_config = configs["embedder_ollama"]
-            generator_config = configs["generator_ollama"]
         else:
             embedder_config = configs["embedder"]
-            generator_config = configs["generator"]
         
         # --- Initialize Embedder ---
         self.embedder = adal.Embedder(
@@ -262,6 +263,10 @@ IMPORTANT FORMATTING RULES:
 8. When listing tags or similar items, write them as plain text without escape characters
 9. For pipe characters (|) in text, write them directly without escaping them"""
 
+        # Get model configuration based on provider and model
+        from api.config import get_model_config
+        generator_config = get_model_config(self.provider, self.model)
+
         # Set up the main generator
         self.generator = adal.Generator(
             template=RAG_TEMPLATE,
@@ -271,8 +276,8 @@ IMPORTANT FORMATTING RULES:
                 "system_prompt": system_prompt,
                 "contexts": None,
             },
-            model_client=generator_config["model_client"](),  # Use selected generator config
-            model_kwargs=generator_config["model_kwargs"],    # Use selected generator config
+            model_client=generator_config["model_client"](),
+            model_kwargs=generator_config["model_kwargs"],
             output_processors=data_parser,
         )
 
@@ -351,7 +356,7 @@ IMPORTANT FORMATTING RULES:
                 "conversation_history": self.memory(),
             }
 
-            # Generate response
+            # Generate response - use the already configured generator with provider and model
             response = self.generator(prompt_kwargs=prompt_kwargs)
 
             final_response = response.data

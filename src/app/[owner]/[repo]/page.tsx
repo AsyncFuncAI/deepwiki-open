@@ -3,7 +3,7 @@
 
 import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown } from 'react-icons/fa';
+import { FaExclamationTriangle, FaBookOpen, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown } from 'react-icons/fa';
 import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
@@ -88,6 +88,7 @@ const getCacheKey = (owner: string, repo: string, repoType: string, language: st
   return `deepwiki_cache_${repoType}_${owner}_${repo}_${language}`;
 };
 
+// Helper function to add tokens and other parameters to request body
 const addTokensToRequestBody = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   requestBody: Record<string, any>,
@@ -95,11 +96,10 @@ const addTokensToRequestBody = (
   gitlabToken: string,
   bitbucketToken: string,
   repoType: string,
-  localOllama: boolean = false,
-  useOpenRouter: boolean = false,
-  useOpenai: boolean = false,
-  openRouterModel: string = 'openai/gpt-4o',
-  openaiModel: string = 'gpt-4o',
+  provider: string = '',
+  model: string = '',
+  isCustomModel: boolean = false,
+  customModel: string = '',
   language: string = 'en',
   excludedDirs?: string,
   excludedFiles?: string,
@@ -113,18 +113,17 @@ const addTokensToRequestBody = (
   if (bitbucketToken && repoType === 'bitbucket') {
     requestBody.bitbucket_token = bitbucketToken;
   }
-  requestBody.local_ollama = localOllama;
-  requestBody.use_openrouter = useOpenRouter;
-  requestBody.use_openai = useOpenai;
-  if (useOpenRouter) {
-    requestBody.openrouter_model = openRouterModel;
+  
+  // Add provider-based model selection parameters
+  requestBody.provider = provider;
+  requestBody.model = model;
+  if (isCustomModel && customModel) {
+    requestBody.custom_model = customModel;
   }
-  if (useOpenai) {
-    requestBody.openai_model = openaiModel;
-  }
+  
   requestBody.language = language;
   
-  // Add file filter parameters
+  // Add file filter parameters if provided
   if (excludedDirs) {
     requestBody.excluded_dirs = excludedDirs;
   }
@@ -185,11 +184,10 @@ export default function RepoWikiPage() {
   const bitbucketToken = searchParams.get('bitbucket_token') || '';
   const repoType = searchParams.get('type') || 'github';
   const localPath = searchParams.get('local_path') ? decodeURIComponent(searchParams.get('local_path') || '') : undefined;
-  const localOllama = searchParams.get('local_ollama') === 'true';
-  const useOpenRouter = searchParams.get('use_openrouter') === 'true';
-  const useOpenai = searchParams.get('use_openai') === 'true';
-  const openRouterModel = searchParams.get('openrouter_model') || 'openai/gpt-4o';
-  const openaiModel = searchParams.get('openai_model') || 'gpt-4o';
+  const providerParam = searchParams.get('provider') || '';
+  const modelParam = searchParams.get('model') || '';
+  const isCustomModelParam = searchParams.get('is_custom_model') === 'true';
+  const customModelParam = searchParams.get('custom_model') || '';
   const language = searchParams.get('language') || 'en';
 
   // Import language context for translations
@@ -219,14 +217,11 @@ export default function RepoWikiPage() {
   const [requestInProgress, setRequestInProgress] = useState(false);
   
   // Model selection state variables
-  const [localModelOllama, setLocalModelOllama] = useState(localOllama);
-  const [modelUseOpenRouter, setModelUseOpenRouter] = useState(useOpenRouter);
-  const [modelUseOpenai, setModelUseOpenai] = useState(useOpenai);
-  const [modelOpenRouterModel, setModelOpenRouterModel] = useState(openRouterModel);
-  const [modelOpenaiModel, setModelOpenaiModel] = useState(openaiModel);
-  const [isCustomModelOpenaiModel, setIsCustomModelOpenaiModel] = useState(false);
-  const [customModelOpenaiModel, setCustomModelOpenaiModel] = useState('');
-  const [showModelOptions, setShowModelOptions] = useState(false); // 控制是否显示模型选项
+  const [selectedProviderState, setSelectedProviderState] = useState(providerParam);
+  const [selectedModelState, setSelectedModelState] = useState(modelParam);
+  const [isCustomSelectedModelState, setIsCustomSelectedModelState] = useState(isCustomModelParam);
+  const [customSelectedModelState, setCustomSelectedModelState] = useState(customModelParam);
+  const [showModelOptions, setShowModelOptions] = useState(false); // Controls whether to show model options
   const excludedDirs = searchParams.get('excluded_dirs') || '';
   const excludedFiles = searchParams.get('excluded_files') || '';
   const [modelExcludedDirs, setModelExcludedDirs] = useState(excludedDirs);
@@ -375,7 +370,7 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
         };
 
         // Add tokens if available
-        addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language, modelExcludedDirs, modelExcludedFiles);
+        addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles);
 
         const response = await fetch(`/api/chat/stream`, {
           method: 'POST',
@@ -450,7 +445,7 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
         setLoadingMessage(undefined); // Clear specific loading message
       }
     });
-  }, [generatedPages, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests]);
+  }, [generatedPages, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -547,7 +542,7 @@ IMPORTANT:
       };
 
       // Add tokens if available
-      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language, modelExcludedDirs, modelExcludedFiles);
+      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles);
 
       const response = await fetch(`/api/chat/stream`, {
         method: 'POST',
@@ -743,7 +738,7 @@ IMPORTANT:
     } finally {
       setStructureRequestInProgress(false);
     }
-  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, pagesInProgress.size, structureRequestInProgress, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, modelExcludedDirs, modelExcludedFiles, language, messages.loading]);
+  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, pagesInProgress.size, structureRequestInProgress, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, messages.loading]);
 
   // Fetch repository structure using GitHub or GitLab API
   const fetchRepositoryStructure = useCallback(async () => {
@@ -856,7 +851,7 @@ IMPORTANT:
         // Try to get the file tree for common branch names
         let filesData = null;
         let apiErrorDetails = '';
-
+        let defaultBranch = '';
         const headers = createGitlabHeaders(gitlabToken);
 
         // First get project info to determine default branch
@@ -867,7 +862,7 @@ IMPORTANT:
 
           if (response.ok) {
             const projectData = await response.json();
-            const defaultBranch = projectData.default_branch;
+            defaultBranch = projectData.default_branch;
 
             const apiUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/tree?recursive=true&ref=${defaultBranch}&per_page=100`;
             try {
@@ -1118,22 +1113,11 @@ IMPORTANT:
         repo: repoInfo.repo,
         repo_type: repoInfo.type,
         language: language,
-        local_ollama: localModelOllama.toString(),
-        use_openrouter: modelUseOpenRouter.toString(),
-        use_openai: modelUseOpenai.toString(),
+        provider: selectedProviderState,
+        model: selectedModelState,
+        is_custom_model: isCustomSelectedModelState.toString(),
+        custom_model: customSelectedModelState,
       });
-      
-      if (modelUseOpenRouter) {
-        params.append('openrouter_model', modelOpenRouterModel);
-      }
-      
-      if (modelUseOpenai) {
-        if (isCustomModelOpenaiModel && customModelOpenaiModel) {
-          params.append('openai_model', customModelOpenaiModel);
-        } else {
-          params.append('openai_model', modelOpenaiModel);
-        }
-      }
       
       // Add file filters configuration
       if (modelExcludedDirs) {
@@ -1196,7 +1180,7 @@ IMPORTANT:
     // For now, we rely on the standard loadData flow initiated by resetting effectRan and dependencies.
     // This will re-trigger the main data loading useEffect.
     // No direct call to fetchRepositoryStructure here, let the useEffect handle it based on effectRan.current = false.
-  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, messages.loading, activeContentRequests, localModelOllama, modelUseOpenRouter, modelUseOpenai, modelOpenRouterModel, modelOpenaiModel, isCustomModelOpenaiModel, customModelOpenaiModel, modelExcludedDirs, modelExcludedFiles]);
+  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, messages.loading, activeContentRequests, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles]);
 
   // Start wiki generation when component mounts
   useEffect(() => {
@@ -1317,13 +1301,6 @@ IMPORTANT:
             <Link href="/" className="text-[var(--accent-primary)] hover:text-[var(--highlight)] flex items-center gap-1.5 transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)] pb-0.5">
               <FaHome /> {messages.repoPage?.home || 'Home'}
             </Link>
-            <div className="flex items-center">
-              <div className="relative">
-                <div className="absolute -inset-1 bg-[var(--accent-primary)]/20 rounded-full blur-md"></div>
-                <FaWikipediaW className="mr-3 text-3xl text-[var(--accent-primary)] relative z-10" />
-              </div>
-              <h1 className="text-xl md:text-2xl font-bold text-[var(--foreground)] font-serif">DeepWiki</h1>
-            </div>
           </div>
         </div>
       </header>
@@ -1466,20 +1443,14 @@ IMPORTANT:
                   <div className="bg-[var(--background)]/50 border border-[var(--border-color)] rounded-lg p-3">
                     <h5 className="text-xs font-medium mb-2 text-[var(--foreground)]">{messages.form?.modelOptions || 'Model Options'}</h5>
                     <UserSelector
-                      localOllama={localModelOllama}
-                      setLocalOllama={setLocalModelOllama}
-                      useOpenRouter={modelUseOpenRouter}
-                      setUseOpenRouter={setModelUseOpenRouter}
-                      useOpenai={modelUseOpenai}
-                      setUseOpenai={setModelUseOpenai}
-                      openRouterModel={modelOpenRouterModel}
-                      setOpenRouterModel={setModelOpenRouterModel}
-                      openaiModel={modelOpenaiModel}
-                      setOpenaiModel={setModelOpenaiModel}
-                      isCustomOpenaiModel={isCustomModelOpenaiModel}
-                      setIsCustomOpenaiModel={setIsCustomModelOpenaiModel}
-                      customOpenaiModel={customModelOpenaiModel}
-                      setCustomOpenaiModel={setCustomModelOpenaiModel}
+                      provider={selectedProviderState}
+                      setProvider={setSelectedProviderState}
+                      model={selectedModelState}
+                      setModel={setSelectedModelState}
+                      isCustomModel={isCustomSelectedModelState}
+                      setIsCustomModel={setIsCustomSelectedModelState}
+                      customModel={customSelectedModelState}
+                      setCustomModel={setCustomSelectedModelState}
                       showFileFilters={true}
                       excludedDirs={modelExcludedDirs}
                       setExcludedDirs={setModelExcludedDirs}
@@ -1655,11 +1626,10 @@ IMPORTANT:
                 githubToken={githubToken}
                 gitlabToken={gitlabToken}
                 bitbucketToken={bitbucketToken}
-                localOllama={localOllama}
-                useOpenRouter={useOpenRouter}
-                openRouterModel={openRouterModel}
-                useOpenai={useOpenai}
-                openaiModel={openaiModel}
+                provider={selectedProviderState}
+                model={selectedModelState}
+                isCustomModel={isCustomSelectedModelState}
+                customModel={customSelectedModelState}
                 language={language}
               />
             )}
