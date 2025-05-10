@@ -8,7 +8,13 @@
     "submit": "Enviar",
     "cancel": "Cancelar",
     "close": "Cerrar",
-    "loading": "Cargando..."
+    "loading": "Cargando...",
+    "imageLoadError": "Error al cargar la imagen",
+    "imageLoadErrorDefault": "No se puede cargar la imagen, por favor verifique si la URL de la imagen es correcta",
+    "imageUrl": "URL de la imagen",
+    "imageCorrupted": "El archivo de imagen puede estar corrupto o en formato incorrecto",
+    "imageAccessError": "No se puede acceder a la imagen, puede ser debido a problemas de red o la imagen ha sido eliminada",
+    "imagePathError": "La ruta de la imagen puede ser incorrecta o el archivo no existe"
   },
   "loading": {
     "initializing": "Inicializando generación de wiki...",

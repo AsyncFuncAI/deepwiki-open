@@ -8,7 +8,13 @@
     "submit": "Submit",
     "cancel": "Cancel",
     "close": "Close",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "imageLoadError": "Image Load Failed",
+    "imageLoadErrorDefault": "Unable to load image, please check if the image URL is correct",
+    "imageUrl": "Image URL",
+    "imageCorrupted": "Image file may be corrupted or in incorrect format",
+    "imageAccessError": "Unable to access image, may be due to network issues or the image has been deleted",
+    "imagePathError": "Image path may be incorrect or file does not exist"
   },
   "loading": {
     "initializing": "Initializing wiki generation...",
