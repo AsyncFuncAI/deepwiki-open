@@ -39,6 +39,12 @@ const DEMO_SEQUENCE_CHART = `sequenceDiagram
   %% Add a note to make text more visible
   Note over User,GitHub: DeepWiki supports sequence diagrams for visualizing interactions`;
 
+// 定义模型的接口
+interface GeneratorModel {
+  display_name: string;
+  // 如果模型对象中还有其他字段，可以在这里添加
+}
+
 export default function Home() {
   const router = useRouter();
   const { language, setLanguage, messages } = useLanguage();
@@ -74,7 +80,7 @@ export default function Home() {
   const [repositoryInput, setRepositoryInput] = useState('https://github.com/AsyncFuncAI/deepwiki-open');
   const [showTokenInputs, setShowTokenInputs] = useState(false);
   const [generatorModelName, setGeneratorModelName] = useState<string>('google');
-  const [availableModels, setAvailableModels] = useState<{[key: string]: any}>({});
+  const [availableModels, setAvailableModels] = useState<{[key: string]: GeneratorModel}>({});
   const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>('github');
   const [accessToken, setAccessToken] = useState('');
   const [error, setError] = useState<string | null>(null);

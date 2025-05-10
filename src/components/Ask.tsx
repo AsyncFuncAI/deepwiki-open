@@ -26,7 +26,7 @@ interface AskProps {
   language?: string;
 }
 
-const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
+// const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
 
 const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketToken, generatorModelName, language = 'en' }) => {
   const [question, setQuestion] = useState('');
