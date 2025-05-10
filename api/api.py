@@ -57,6 +57,18 @@ class WikiPage(BaseModel):
     filePaths: List[str]
     importance: str # Should ideally be Literal['high', 'medium', 'low']
     relatedPages: List[str]
+    parentId: Optional[str] = None
+    isSection: Optional[bool] = None
+    children: Optional[List[str]] = None
+
+class WikiSection(BaseModel):
+    """
+    Model for a wiki section.
+    """
+    id: str
+    title: str
+    pages: List[str]
+    subsections: Optional[List[str]] = None
 
 class ProcessedProjectEntry(BaseModel):
     id: str  # Filename
@@ -75,6 +87,8 @@ class WikiStructureModel(BaseModel):
     title: str
     description: str
     pages: List[WikiPage]
+    sections: Optional[List[WikiSection]] = None
+    rootSections: Optional[List[str]] = None
 
 class WikiCacheData(BaseModel):
     """
@@ -196,7 +210,7 @@ async def get_local_repo_structure(path: str = Query(None, description="Path to 
             status_code=500,
             content={"error": f"Error processing local repository: {str(e)}"}
         )
-    
+
 def generate_markdown_export(repo_url: str, pages: List[WikiPage]) -> str:
     """
     Generate Markdown export of wiki pages.
@@ -429,7 +443,7 @@ async def get_processed_projects():
         if not os.path.exists(WIKI_CACHE_DIR):
             logger.info(f"Cache directory {WIKI_CACHE_DIR} not found. Returning empty list.")
             return []
-        
+
         logger.info(f"Scanning for project cache files in: {WIKI_CACHE_DIR}")
         filenames = await asyncio.to_thread(os.listdir, WIKI_CACHE_DIR) # Use asyncio.to_thread for os.listdir
 
@@ -439,7 +453,7 @@ async def get_processed_projects():
                 try:
                     stats = await asyncio.to_thread(os.stat, file_path) # Use asyncio.to_thread for os.stat
                     parts = filename.replace("deepwiki_cache_", "").replace(".json", "").split('_')
-                    
+
                     # Expecting repo_type_owner_repo_language
                     # Example: deepwiki_cache_github_AsyncFuncAI_deepwiki-open_en.json
                     # parts = [github, AsyncFuncAI, deepwiki-open, en]
@@ -482,29 +496,29 @@ async def get_generators():
         # Get the list of available generator models
         import json
         from pathlib import Path
-        
+
         logger.info(f"Get available generators")
         # Read the generators.json file
         config_dir = Path(__file__).parent / "config"
         file_path = config_dir / "generators.json"
-        
+
         with open(file_path, 'r') as f:
             generators = json.load(f)
-        
+
         # Process data, add display name
         result = {}
-        
+
         for name, config in generators.items():
             # Extract model information
             model_name = config["model_kwargs"]["model"]
-            
+
             result[name] = {
                 "name": name,
                 "model_type": config["model_type"],
                 "model": model_name,
                 "display_name": f"{name.capitalize()} - {model_name}"
             }
-        
+
         logger.info(f"Available generators: {json.dumps(result, indent=2)}")
         return JSONResponse(content=result)
     except Exception as error:

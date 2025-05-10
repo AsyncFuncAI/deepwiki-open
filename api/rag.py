@@ -296,13 +296,12 @@ IMPORTANT FORMATTING RULES:
             document_map_func=lambda doc: doc.vector,
         )
 
-    def call(self, query: str, language: str = "en") -> Tuple[Any, List]:
+    def call(self, query: str, language: str = "en") -> Tuple[List]:
         """
         Process a query using RAG.
 
         Args:
             query: The user's query
-            language: Language code for response (e.g., 'en', 'ja', 'zh', 'es' ,'kr', 'vi')
 
         Returns:
             Tuple of (RAGAnswer, retrieved_documents)
@@ -316,45 +315,7 @@ IMPORTANT FORMATTING RULES:
                 for doc_index in retrieved_documents[0].doc_indices
             ]
 
-            # Get language name for the prompt
-            language_name = {
-                "en": "English",
-                "ja": "Japanese (日本語)",
-                "zh": "Mandarin Chinese (中文)",
-                "es": "Spanish (Español)",
-                "kr": "Korean (한국어)",
-                "vi": "Vietnamese (Tiếng Việt)"
-            }.get(language, "English")
-
-            # Prepare generation parameters
-            prompt_kwargs = {
-                "input_str": f"[RESPOND IN {language_name.upper()}] {query}",
-                "contexts": retrieved_documents[0].documents,
-                "conversation_history": self.memory(),
-            }
-
-            # Generate response
-            response = self.generator(prompt_kwargs=prompt_kwargs)
-
-            final_response = response.data
-
-            # Check if final_response is None and create a default response if needed
-            if final_response is None:
-                logger.warning("Generated response data is None, creating default response")
-                final_response = RAGAnswer(
-                    rationale="No response data was generated.",
-                    answer="I couldn't find a specific answer to your question based on the repository content. Could you please rephrase your question or provide more details?"
-                )
-
-            # Post-process answer to remove markdown fences if present
-            if hasattr(final_response, 'answer') and isinstance(final_response.answer, str):
-                final_response.answer = re.sub(r'^```markdown\s*\n', '', final_response.answer)
-                final_response.answer = re.sub(r'^```\w*\s*\n', '', final_response.answer)
-
-            # Add to conversation memory
-            self.memory.add_dialog_turn(user_query=query, assistant_response=final_response.answer)
-
-            return final_response, retrieved_documents
+            return retrieved_documents
 
         except Exception as e:
             logger.error(f"Error in RAG call: {str(e)}")

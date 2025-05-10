@@ -175,12 +175,37 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 # Try to perform RAG retrieval
                 try:
                     # This will use the actual RAG implementation
-                    _, retrieved_documents = request_rag(rag_query, language=request.language)
+                    retrieved_documents = request_rag(rag_query, language=request.language)
 
                     if retrieved_documents and retrieved_documents[0].documents:
-                        # Format context for the prompt
-                        context_text = "\n\n".join([doc.text for doc in retrieved_documents[0].documents])
-                        logger.info(f"Retrieved {len(retrieved_documents[0].documents)} documents")
+                        # Format context for the prompt in a more structured way
+                        documents = retrieved_documents[0].documents
+                        logger.info(f"Retrieved {len(documents)} documents")
+
+                        # Group documents by file path
+                        docs_by_file = {}
+                        for doc in documents:
+                            file_path = doc.meta_data.get('file_path', 'unknown')
+                            if file_path not in docs_by_file:
+                                docs_by_file[file_path] = []
+                            docs_by_file[file_path].append(doc)
+
+                        # Format context text with file path grouping
+                        context_parts = []
+                        for file_path, docs in docs_by_file.items():
+                            file_type = docs[0].meta_data.get('type', 'unknown')
+                            is_code = docs[0].meta_data.get('is_code', False)
+                            is_implementation = docs[0].meta_data.get('is_implementation', False)
+
+                            # Add file header with metadata
+                            header = f"## File Path: {file_path}\n\n"
+                            # Add document content
+                            content = "\n\n".join([doc.text for doc in docs])
+
+                            context_parts.append(f"{header}{content}")
+
+                        # Join all parts with clear separation
+                        context_text = "\n\n" + "-" * 10 + "\n\n".join(context_parts)
                     else:
                         logger.warning("No documents retrieved from RAG")
                 except Exception as e:
@@ -393,7 +418,7 @@ This file contains...
 
         # Only include context if it's not empty
         if context_text.strip():
-            prompt += f"<context>\n{context_text}\n</context>\n\n"
+            prompt += f"<START_OF_CONTEXT>\n{context_text}\n</END_OF_CONTEXT>\n\n"
         else:
             # Add a note that we're skipping RAG due to size constraints or because it's the isolated API
             logger.info("No context available from RAG")
@@ -536,7 +561,7 @@ This file contains...
                         generation_config={
                             "temperature": model_config.model_kwargs.get("temperature", 0.7),
                             "top_p": model_config.model_kwargs.get("top_p", 0.8),
-                            "top_k": model_config.model_kwargs.get("top_k", 40)
+                            "top_k": model_config.model_kwargs.get("top_k", 20)
                         }
                     )
 

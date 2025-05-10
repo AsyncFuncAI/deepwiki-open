@@ -8,6 +8,7 @@ import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
 import Ask from '@/components/Ask';
+import WikiTreeView from '@/components/WikiTreeView';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // Wiki Interfaces
@@ -18,6 +19,17 @@ interface WikiPage {
   filePaths: string[];
   importance: 'high' | 'medium' | 'low';
   relatedPages: string[];
+  // New fields for hierarchy
+  parentId?: string;
+  isSection?: boolean;
+  children?: string[]; // IDs of child pages
+}
+
+interface WikiSection {
+  id: string;
+  title: string;
+  pages: string[]; // IDs of pages in this section
+  subsections?: string[]; // IDs of subsections
 }
 
 interface WikiStructure {
@@ -25,6 +37,8 @@ interface WikiStructure {
   title: string;
   description: string;
   pages: WikiPage[];
+  sections: WikiSection[]; // New field for sections
+  rootSections: string[]; // IDs of top-level sections
 }
 
 // Add CSS styles for wiki with Japanese aesthetic
@@ -272,8 +286,8 @@ ${filePaths.map(path => `- ${path}`).join('\n')}
 IMPORTANT: Generate the content in ${language === 'en' ? 'English' :
             language === 'ja' ? 'Japanese (日本語)' :
             language === 'zh' ? 'Mandarin Chinese (中文)' :
-            language === 'es' ? 'Spanish (Español)' : 
-            language === 'kr' ? 'Korean (한국어)' : 
+            language === 'es' ? 'Spanish (Español)' :
+            language === 'kr' ? 'Korean (한국어)' :
             language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'} language.
 
 Include:
@@ -438,7 +452,7 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
         repo_url: repoUrl,
         messages: [{
           role: 'user',
-          content: `Analyze this GitHub repository ${owner}/${repo} and create a wiki structure for it.
+          content: `Analyze this GitHub repository ${owner}/${repo} and create a hierarchical wiki structure for it.
 
 1. The complete file tree of the project:
 <file_tree>
@@ -450,14 +464,27 @@ ${fileTree}
 ${readme}
 </readme>
 
-I want to create a wiki for this repository. Determine the most logical structure for a wiki based on the repository's content.
+I want to create a wiki for this repository with a hierarchical structure. Organize the content into logical sections and subsections based on the repository's content.
 
 IMPORTANT: The wiki content will be generated in ${language === 'en' ? 'English' :
             language === 'ja' ? 'Japanese (日本語)' :
             language === 'zh' ? 'Mandarin Chinese (中文)' :
-            language === 'es' ? 'Spanish (Español)' : 
-            language === 'kr' ? 'Korean (한국어)' : 
+            language === 'es' ? 'Spanish (Español)' :
+            language === 'kr' ? 'Korean (한국어)' :
             language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'} language.
+
+Create a structured wiki with the following main sections:
+- Overview (general information about the project)
+- System Architecture (how the system is designed)
+- Core Features (key functionality)
+- Frontend Components (UI elements)
+- Backend Systems (server-side components)
+- Model Integration (AI model connections)
+- Deployment (how to deploy)
+- Internationalization (language support)
+- Project Setup & Dependencies
+
+Each section should contain relevant pages. For example, the "Frontend Components" section might include pages for "Home Page", "Repository Wiki Page", "Ask Component", etc.
 
 When designing the wiki structure, include pages that would benefit from visual diagrams, such as:
 - Architecture overviews
@@ -472,6 +499,19 @@ Return your analysis in the following XML format:
 <wiki_structure>
   <title>[Overall title for the wiki]</title>
   <description>[Brief description of the repository]</description>
+  <sections>
+    <section id="section-1">
+      <title>[Section title]</title>
+      <pages>
+        <page_ref>page-1</page_ref>
+        <page_ref>page-2</page_ref>
+      </pages>
+      <subsections>
+        <section_ref>section-2</section_ref>
+      </subsections>
+    </section>
+    <!-- More sections as needed -->
+  </sections>
   <pages>
     <page id="page-1">
       <title>[Page title]</title>
@@ -485,6 +525,7 @@ Return your analysis in the following XML format:
         <related>page-2</related>
         <!-- More related page IDs as needed -->
       </related_pages>
+      <parent_section>section-1</parent_section>
     </page>
     <!-- More pages as needed -->
   </pages>
@@ -498,8 +539,8 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 - Start directly with <wiki_structure> and end with </wiki_structure>
 
 IMPORTANT:
-1. Create 4-6 pages that would make a comprehensive wiki for this repository
-2. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
+1. Create a comprehensive wiki structure with 15-20 pages organized into logical sections
+2. Each page should focus on a specific aspect of the codebase
 3. The relevant_files should be actual files from the repository that would be used to generate that page
 4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
         }]
@@ -567,14 +608,60 @@ IMPORTANT:
       let title = '';
       let description = '';
       let pages: WikiPage[] = [];
+      const sections: WikiSection[] = [];
+      let rootSections: string[] = [];
 
       // Try using DOM parsing first
       const titleEl = xmlDoc.querySelector('title');
       const descriptionEl = xmlDoc.querySelector('description');
       const pagesEls = xmlDoc.querySelectorAll('page');
+      const sectionsEls = xmlDoc.querySelectorAll('section');
 
       title = titleEl ? titleEl.textContent || '' : '';
       description = descriptionEl ? descriptionEl.textContent || '' : '';
+
+      // Parse sections first
+      if (sectionsEls && sectionsEls.length > 0) {
+        sectionsEls.forEach(sectionEl => {
+          const id = sectionEl.getAttribute('id') || `section-${sections.length + 1}`;
+          const titleEl = sectionEl.querySelector('title');
+          const pageRefEls = sectionEl.querySelectorAll('page_ref');
+          const sectionRefEls = sectionEl.querySelectorAll('section_ref');
+
+          const title = titleEl ? titleEl.textContent || '' : '';
+          const sectionPages: string[] = [];
+          const subsections: string[] = [];
+
+          pageRefEls.forEach(el => {
+            if (el.textContent) sectionPages.push(el.textContent);
+          });
+
+          sectionRefEls.forEach(el => {
+            if (el.textContent) subsections.push(el.textContent);
+          });
+
+          sections.push({
+            id,
+            title,
+            pages: sectionPages,
+            subsections: subsections.length > 0 ? subsections : undefined
+          });
+        });
+
+        // Determine root sections (sections that are not referenced as subsections)
+        const allSubsections = new Set<string>();
+        sections.forEach(section => {
+          if (section.subsections) {
+            section.subsections.forEach(subsectionId => {
+              allSubsections.add(subsectionId);
+            });
+          }
+        });
+
+        rootSections = sections
+          .filter(section => !allSubsections.has(section.id))
+          .map(section => section.id);
+      }
 
       // Parse pages using DOM
       pages = [];
@@ -589,6 +676,7 @@ IMPORTANT:
         const importanceEl = pageEl.querySelector('importance');
         const filePathEls = pageEl.querySelectorAll('file_path');
         const relatedEls = pageEl.querySelectorAll('related');
+        const parentSectionEl = pageEl.querySelector('parent_section');
 
         const title = titleEl ? titleEl.textContent || '' : '';
         const importance = importanceEl ?
@@ -605,22 +693,78 @@ IMPORTANT:
           if (el.textContent) relatedPages.push(el.textContent);
         });
 
+        const parentId = parentSectionEl ? parentSectionEl.textContent || undefined : undefined;
+
         pages.push({
           id,
           title,
           content: '', // Will be generated later
           filePaths,
           importance,
-          relatedPages
+          relatedPages,
+          parentId
         });
       });
+
+      // If no sections were found, create a default section structure based on page titles
+      if (sections.length === 0 && pages.length > 0) {
+        console.log('No sections found, creating default section structure');
+
+        // Group pages by common prefixes or categories
+        const defaultSections = new Map<string, string[]>();
+        const defaultSectionIds = new Map<string, string>();
+
+        // Add an "Overview" section by default
+        const overviewSectionId = 'section-overview';
+        defaultSections.set('Overview', []);
+        defaultSectionIds.set('Overview', overviewSectionId);
+        sections.push({
+          id: overviewSectionId,
+          title: 'Overview',
+          pages: []
+        });
+        rootSections.push(overviewSectionId);
+
+        // Assign pages to sections based on their titles
+        pages.forEach(page => {
+          // Simple heuristic: check if the page title contains keywords that match our sections
+          let assigned = false;
+
+          if (page.title.toLowerCase().includes('overview') ||
+              page.title.toLowerCase().includes('introduction') ||
+              page.title.toLowerCase().includes('about')) {
+            defaultSections.get('Overview')?.push(page.id);
+            page.parentId = overviewSectionId;
+            assigned = true;
+          }
+
+          if (!assigned) {
+            // Default to Overview section
+            defaultSections.get('Overview')?.push(page.id);
+            page.parentId = overviewSectionId;
+          }
+        });
+
+        // Update section pages
+        for (const [sectionName, pageIds] of defaultSections.entries()) {
+          const sectionId = defaultSectionIds.get(sectionName);
+          if (sectionId) {
+            const section = sections.find(s => s.id === sectionId);
+            if (section) {
+              section.pages = pageIds;
+            }
+          }
+        }
+      }
 
       // Create wiki structure
       const wikiStructure: WikiStructure = {
         id: 'wiki',
         title,
         description,
-        pages
+        pages,
+        sections,
+        rootSections
       };
 
       setWikiStructure(wikiStructure);
@@ -635,7 +779,7 @@ IMPORTANT:
         console.log(`Starting generation for ${pages.length} pages with controlled concurrency`);
 
         // Maximum concurrent requests
-        const MAX_CONCURRENT = 1;
+        const MAX_CONCURRENT = 3;
 
         // Create a queue of pages
         const queue = [...pages];
@@ -1120,7 +1264,7 @@ IMPORTANT:
     setRequestInProgress(false); // Assuming this flag should be reset
 
     // Explicitly trigger the data loading process again by re-invoking what the main useEffect does.
-    // This will first attempt to load from (now hopefully non-existent or soon-to-be-overwritten) server cache, 
+    // This will first attempt to load from (now hopefully non-existent or soon-to-be-overwritten) server cache,
     // then proceed to fetchRepositoryStructure if needed.
     // To ensure fetchRepositoryStructure is called if cache is somehow still there or to force a full refresh:
     // One option is to directly call fetchRepositoryStructure() if force refresh means bypassing cache check.
@@ -1180,26 +1324,26 @@ IMPORTANT:
       console.log('Skipping duplicate repository fetch/cache check');
     }
 
-    // Clean up function for this effect is not strictly necessary for loadData, 
+    // Clean up function for this effect is not strictly necessary for loadData,
     // but keeping the main unmount cleanup in the other useEffect
   }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, fetchRepositoryStructure, messages.loading?.fetchingCache]);
 
   // Save wiki to server-side cache when generation is complete
   useEffect(() => {
     const saveCache = async () => {
-      if (!isLoading && 
-          !error && 
-          wikiStructure && 
+      if (!isLoading &&
+          !error &&
+          wikiStructure &&
           Object.keys(generatedPages).length > 0 &&
           Object.keys(generatedPages).length >= wikiStructure.pages.length &&
           !cacheLoadedSuccessfully.current) {
-        
-        const allPagesHaveContent = wikiStructure.pages.every(page => 
+
+        const allPagesHaveContent = wikiStructure.pages.every(page =>
           generatedPages[page.id] && generatedPages[page.id].content && generatedPages[page.id].content !== 'Loading...');
-        
+
         if (allPagesHaveContent) {
           console.log('Attempting to save wiki data to server cache via Next.js proxy');
-          
+
           try {
             const dataToCache = {
               owner: repoInfo.owner,
@@ -1429,30 +1573,11 @@ IMPORTANT:
               <h4 className="text-md font-semibold text-[var(--foreground)] mb-3 font-serif">
                 {messages.repoPage?.pages || 'Pages'}
               </h4>
-              <ul className="space-y-2">
-                {wikiStructure.pages.map(page => (
-                  <li key={page.id}>
-                    <button
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${currentPageId === page.id
-                          ? 'bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30'
-                          : 'text-[var(--foreground)] hover:bg-[var(--background)] border border-transparent'
-                        }`}
-                      onClick={() => handlePageSelect(page.id)}
-                    >
-                      <div className="flex items-center">
-                        <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
-                          page.importance === 'high'
-                            ? 'bg-[#9b7cb9]'
-                            : page.importance === 'medium'
-                              ? 'bg-[#d7c4bb]'
-                              : 'bg-[#e8927c]'
-                        }`}></div>
-                        <span className="truncate">{page.title}</span>
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <WikiTreeView
+                wikiStructure={wikiStructure}
+                currentPageId={currentPageId}
+                onPageSelect={handlePageSelect}
+              />
             </div>
 
             {/* Wiki Content */}
