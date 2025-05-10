@@ -32,7 +32,6 @@
     "repoPlaceholder": "owner/repo or GitHub/GitLab/Bitbucket URL",
     "wikiLanguage": "Wiki Language",
     "modelOptions": "Model Options",
-    "modelSelection": "Model Selection",
     "localOllama": "Local Ollama Model",
     "experimental": "Experimental",
     "useOpenRouter": "Use OpenRouter API",

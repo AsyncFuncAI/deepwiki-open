@@ -2,15 +2,14 @@ import os
 import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import json
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse
 from typing import List, Optional
 from pydantic import BaseModel, Field
 import google.generativeai as genai
 
 from api.data_pipeline import count_tokens, get_file_content
 from api.rag import RAG
-from api.config import app_configs, generator_config, embedder_config, get_generator_config
+from api.config import configs
 from adalflow.components.model_client.ollama_client import OllamaClient
 from api.openrouter_client import OpenRouterClient
 from api.openai_client import OpenAIClient
@@ -61,8 +60,12 @@ class ChatCompletionRequest(BaseModel):
     filePath: Optional[str] = Field(None, description="Optional path to a file in the repository to include in the prompt")
     github_token: Optional[str] = Field(None, description="GitHub personal access token for private repositories")
     gitlab_token: Optional[str] = Field(None, description="GitLab personal access token for private repositories")
+    local_ollama: Optional[bool] = Field(False, description="Use locally run Ollama model for embedding and generation")
+    use_openrouter: Optional[bool] = Field(False, description="Use OpenRouter API for generation")
+    use_openai: Optional[bool] = Field(False, description="Use OpenAI API for generation")
+    openrouter_model: Optional[str] = Field("openai/gpt-4o", description="OpenRouter model to use (e.g., 'openai/gpt-4o', 'anthropic/claude-3-opus')")
+    openai_model: Optional[str] = Field("gpt-4o", description="OpenAI protocol model to use")
     bitbucket_token: Optional[str] = Field(None, description="Bitbucket personal access token for private repositories")
-    generator_model_name: Optional[str] = Field(None, description="Name of the generator model to use")
     language: Optional[str] = Field("en", description="Language for content generation (e.g., 'en', 'ja', 'zh', 'es', 'kr', 'vi')")
 
 @app.post("/chat/completions/stream")
@@ -74,7 +77,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         if request.messages and len(request.messages) > 0:
             last_message = request.messages[-1]
             if hasattr(last_message, 'content') and last_message.content:
-                tokens = count_tokens(last_message.content)
+                tokens = count_tokens(last_message.content, local_ollama=request.local_ollama)
                 logger.info(f"Request size: {tokens} tokens")
                 if tokens > 8000:
                     logger.warning(f"Request exceeds recommended token limit ({tokens} > 7500)")
@@ -82,7 +85,8 @@ async def chat_completions_stream(request: ChatCompletionRequest):
 
         # Create a new RAG instance for this request
         try:
-            request_rag = RAG()
+            # Pass the local_ollama flag during initialization
+            request_rag = RAG(local_ollama=request.local_ollama)
 
             # Determine which access token to use based on the repository URL
             access_token = None
@@ -96,7 +100,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 access_token = request.bitbucket_token
                 logger.info("Using Bitbucket token for authentication")
 
-            request_rag.prepare_retriever(request.repo_url, access_token)
+            request_rag.prepare_retriever(request.repo_url, access_token, request.local_ollama)
             logger.info(f"Retriever prepared for {request.repo_url}")
         except Exception as e:
             logger.error(f"Error preparing retriever: {str(e)}")
@@ -400,66 +404,93 @@ This file contains...
 
         prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
 
+        if request.local_ollama:
+            prompt += " /no_think"
+
+            model = OllamaClient()
+            model_kwargs = {
+                "model": configs["generator_ollama"]["model_kwargs"]["model"],
+                "stream": True,
+                "options": {
+                    "temperature": configs["generator_ollama"]["model_kwargs"]["options"]["temperature"],
+                    "top_p": configs["generator_ollama"]["model_kwargs"]["options"]["top_p"]
+                }
+            }
+
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=prompt,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
+        elif request.use_openrouter:
+            logger.info(f"Using OpenRouter with model: {request.openrouter_model}")
+
+            # Check if OpenRouter API key is set
+            if not os.environ.get("OPENROUTER_API_KEY"):
+                logger.warning("OPENROUTER_API_KEY environment variable is not set, but continuing with request")
+                # We'll let the OpenRouterClient handle this and return a friendly error message
+
+            model = OpenRouterClient()
+            model_kwargs = {
+                "model": request.openrouter_model,
+                "stream": True,
+                "temperature": configs["generator_openrouter"]["model_kwargs"]["temperature"],
+                "top_p": configs["generator_openrouter"]["model_kwargs"]["top_p"]
+            }
+
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=prompt,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
+        elif request.use_openai:
+            logger.info(f"Using Openai protocol with model: {request.openai_model}")
+
+            # Check if an API key is set for Openai
+            if not os.environ.get("OPENAI_API_KEY"):
+                logger.warning("OPENAI_API_KEY environment variable is not set, but continuing with request")
+                # We'll let the OpenAIClient handle this and return an error message
+
+            # Initialize Openai client
+            model = OpenAIClient()
+            model_kwargs = {
+                "model": request.openai_model,
+                "stream": True,
+                "temperature": configs["generator_openai"]["model_kwargs"]["temperature"],
+                "top_p": configs["generator_openai"]["model_kwargs"]["temperature"]
+            }
+
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=prompt,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
+        else:
+            # Initialize Google Generative AI model
+            model = genai.GenerativeModel(
+                model_name=configs["generator"]["model_kwargs"]["model"],
+                generation_config={
+                    "temperature": configs["generator"]["model_kwargs"]["temperature"],
+                    "top_p": configs["generator"]["model_kwargs"]["top_p"],
+                    "top_k": configs["generator"]["model_kwargs"]["top_k"]
+                }
+            )
+
         # Create a streaming response
-        async def response_stream(prompt=prompt):
+        async def response_stream():
             try:
-                # Get model configuration
-                model_config = get_generator_config(request.generator_model_name)
-                logger.info(f"Model Name: {request.generator_model_name}")
-                logger.info(f"Using model: {model_config.model_type} - {model_config.model_kwargs['model']}")
-                # Select the appropriate model based on model type
-                if model_config.model_type == "ollama":
-                    # Use Ollama model
-                    model = OllamaClient()
-                    model_kwargs = {
-                        "model": model_config.model_kwargs["model"],
-                        "stream": True,
-                        "options": {
-                            "temperature": model_config.model_kwargs["options"]["temperature"],
-                            "top_p": model_config.model_kwargs["options"]["top_p"]
-                        }
-                    }
-                    
-                    prompt += " /no_think"
-                    
-                    api_kwargs = model.convert_inputs_to_api_kwargs(
-                        input=prompt,
-                        model_kwargs=model_kwargs,
-                        model_type=ModelType.LLM
-                    )
-                    
-                    # Get response and process
+
+                if request.local_ollama:
+                    # Get the response and handle it properly using the previously created api_kwargs
                     response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                    # Process streaming response from Ollama
+                    # Handle streaming response from Ollama
                     async for chunk in response:
                         text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
                         if text and not text.startswith('model=') and not text.startswith('created_at='):
                             yield text
-                            
-                elif model_config.model_type == "openrouter":
-                    # Use OpenRouter model
-                    logger.info(f"Using OpenRouter with model: {model_config.model_kwargs['model']}")
-                    
-                    # Check OpenRouter API key
-                    if not os.environ.get("OPENROUTER_API_KEY"):
-                        logger.warning("OPENROUTER_API_KEY environment variable is not set, but continuing with request")
-                        
-                    model = OpenRouterClient()
-                    model_kwargs = {
-                        "model": model_config.model_kwargs["model"],
-                        "stream": True,
-                        "temperature": model_config.model_kwargs["temperature"],
-                        "top_p": model_config.model_kwargs["top_p"]
-                    }
-                    
-                    api_kwargs = model.convert_inputs_to_api_kwargs(
-                        input=prompt,
-                        model_kwargs=model_kwargs,
-                        model_type=ModelType.LLM
-                    )
-                    
+                elif request.use_openrouter:
                     try:
-                        # Get response and process
+                        # Get the response and handle it properly using the previously created api_kwargs
                         logger.info("Making OpenRouter API call")
                         response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
                         # Handle streaming response from OpenRouter
@@ -486,19 +517,9 @@ This file contains...
                         logger.error(f"Error with Openai API: {str(e_openai)}")
                         yield f"\nError with Openai API: {str(e_openai)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
                 else:
-                    # Default to Google Generative AI model
-                    model = genai.GenerativeModel(
-                        model_name=model_config.model_kwargs["model"],
-                        generation_config={
-                            "temperature": model_config.model_kwargs.get("temperature", 0.7),
-                            "top_p": model_config.model_kwargs.get("top_p", 0.8),
-                            "top_k": model_config.model_kwargs.get("top_k", 40)
-                        }
-                    )
-                    
                     # Generate streaming response
                     response = model.generate_content(prompt, stream=True)
-                    # Stream back the response
+                    # Stream the response
                     for chunk in response:
                         if hasattr(chunk, 'text'):
                             yield chunk.text
@@ -525,7 +546,7 @@ This file contains...
                         simplified_prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
 
 
-                        if model_config.model_type == "ollama":
+                        if request.local_ollama:
                             simplified_prompt += " /no_think"
 
                             # Create new api_kwargs with the simplified prompt
@@ -543,7 +564,7 @@ This file contains...
                                 text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
                                 if text and not text.startswith('model=') and not text.startswith('created_at='):
                                     yield text
-                        elif model_config.model_type == "openrouter":
+                        elif request.use_openrouter:
                             try:
                                 # Create new api_kwargs with the simplified prompt
                                 fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
@@ -600,7 +621,7 @@ This file contains...
                     yield f"\nError: {error_message}"
 
         # Return streaming response
-        return StreamingResponse(response_stream(prompt), media_type="text/event-stream")
+        return StreamingResponse(response_stream(), media_type="text/event-stream")
 
     except HTTPException:
         raise
