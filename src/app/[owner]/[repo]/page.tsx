@@ -1552,23 +1552,23 @@ IMPORTANT:
               </span>
               {isAskSectionVisible ? <FaChevronUp /> : <FaChevronDown />}
             </button>
-            {isAskSectionVisible && (
-              <Ask
-                repoUrl={repoInfo.owner && repoInfo.repo
-                  ? getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type, repoInfo.localPath)
-                  : "https://github.com/AsyncFuncAI/deepwiki-open"
-                }
-                githubToken={githubToken}
-                gitlabToken={gitlabToken}
-                bitbucketToken={bitbucketToken}
-                localOllama={localOllama}
-                useOpenRouter={useOpenRouter}
-                openRouterModel={openRouterModel}
-                useOpenai={useOpenai}
-                openaiModel={openaiModel}
-                language={language}
-              />
-            )}
+            
+            <Ask
+              repoUrl={repoInfo.owner && repoInfo.repo
+                ? getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type, repoInfo.localPath)
+                : "https://github.com/AsyncFuncAI/deepwiki-open"
+              }
+              githubToken={githubToken}
+              gitlabToken={gitlabToken}
+              bitbucketToken={bitbucketToken}
+              localOllama={localOllama}
+              useOpenRouter={useOpenRouter}
+              openRouterModel={openRouterModel}
+              useOpenai={useOpenai}
+              openaiModel={openaiModel}
+              language={language}
+              isAskSectionVisible={isAskSectionVisible}
+            />
           </div>
         )}
         <div className="flex justify-between items-center gap-4 text-center text-[var(--muted)] text-sm h-fit w-full bg-[var(--card-bg)] rounded-lg p-3 shadow-sm border border-[var(--border-color)]">

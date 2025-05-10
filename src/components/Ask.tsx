@@ -28,11 +28,12 @@ interface AskProps {
   useOpenai?: boolean;
   openaiModel?: string;
   language?: string;
+  isAskSectionVisible?: boolean;
 }
 
 
 
-const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketToken, localOllama = false, useOpenRouter = false, openRouterModel = 'openai/gpt-4o', useOpenai = false, openaiModel = 'gpt-4o', language = 'en' }) => {
+const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketToken, localOllama = false, useOpenRouter = false, openRouterModel = 'openai/gpt-4o', useOpenai = false, openaiModel = 'gpt-4o', language = 'en', isAskSectionVisible = true }) => {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -499,6 +500,8 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
       setIsLoading(false);
     }
   };
+
+  if (!isAskSectionVisible) return null;
 
   return (
     <div className="w-full max-w-full">
