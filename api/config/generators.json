@@ -24,13 +24,5 @@
       "temperature": 0.7,
       "top_p": 0.8
     }
-  },
-  "openai": {
-    "model_type": "openai",
-    "model_kwargs": {
-      "model": "gpt-4o",
-      "temperature": 0.7,
-      "top_p": 0.8
-    }
   }
 }
