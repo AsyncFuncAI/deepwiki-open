@@ -243,6 +243,74 @@ API server cung cấp:
 
 Biết thêm chi tiết truy cập [ API README](./api/README.md).
 
+## 🤖 Hệ thống lựa chọn mô hình dựa trên nhà cung cấp
+
+DeepWiki hiện đã triển khai một hệ thống lựa chọn mô hình linh hoạt dựa trên nhiều nhà cung cấp LLM:
+
+### Các nhà cung cấp và mô hình được hỗ trợ
+
+- **Google**: Mặc định là `gemini-2.0-flash`, cũng hỗ trợ `gemini-1.5-flash`, `gemini-1.0-pro`, v.v.
+- **OpenAI**: Mặc định là `gpt-4o`, cũng hỗ trợ `o4-mini`, v.v.
+- **OpenRouter**: Truy cập nhiều mô hình qua một API thống nhất, bao gồm Claude, Llama, Mistral, v.v.
+- **Ollama**: Hỗ trợ các mô hình mã nguồn mở chạy cục bộ như `llama3`
+
+### Biến môi trường
+
+Mỗi nhà cung cấp yêu cầu các biến môi trường API key tương ứng:
+
+```
+# API Keys
+GOOGLE_API_KEY=google_api_key_của_bạn        # Bắt buộc cho các mô hình Google Gemini
+OPENAI_API_KEY=openai_key_của_bạn            # Bắt buộc cho các mô hình OpenAI
+OPENROUTER_API_KEY=openrouter_key_của_bạn    # Bắt buộc cho các mô hình OpenRouter
+
+# Cấu hình URL cơ sở cho OpenAI API
+OPENAI_API_BASE=https://endpoint-tùy-chỉnh.com/v1  # Tùy chọn, cho các điểm cuối API OpenAI tùy chỉnh
+
+# Thư mục cấu hình
+DEEPWIKI_CONFIG_DIR=/đường/dẫn/đến/thư_mục/cấu_hình  # Tùy chọn, cho vị trí tệp cấu hình tùy chỉnh
+```
+
+### Tệp cấu hình
+
+DeepWiki sử dụng các tệp cấu hình JSON để quản lý các khía cạnh khác nhau của hệ thống:
+
+1. **`generator.json`**: Cấu hình cho các mô hình tạo văn bản
+   - Xác định các nhà cung cấp mô hình có sẵn (Google, OpenAI, OpenRouter, Ollama)
+   - Chỉ định các mô hình mặc định và có sẵn cho mỗi nhà cung cấp
+   - Chứa các tham số đặc thù cho mô hình như temperature và top_p
+
+2. **`embedder.json`**: Cấu hình cho mô hình embedding và xử lý văn bản
+   - Xác định mô hình embedding cho lưu trữ vector
+   - Chứa cấu hình bộ truy xuất cho RAG
+   - Chỉ định cài đặt trình chia văn bản để phân đoạn tài liệu
+
+3. **`repo.json`**: Cấu hình xử lý repository
+   - Chứa bộ lọc tệp để loại trừ một số tệp và thư mục nhất định
+   - Xác định giới hạn kích thước repository và quy tắc xử lý
+
+Mặc định, các tệp này nằm trong thư mục `api/config/`. Bạn có thể tùy chỉnh vị trí của chúng bằng biến môi trường `DEEPWIKI_CONFIG_DIR`.
+
+### Lựa chọn mô hình tùy chỉnh cho nhà cung cấp dịch vụ
+
+Tính năng lựa chọn mô hình tùy chỉnh được thiết kế đặc biệt cho các nhà cung cấp dịch vụ cần:
+
+- Bạn có thể cung cấp cho người dùng trong tổ chức của mình nhiều lựa chọn mô hình AI khác nhau
+- Bạn có thể thích ứng nhanh chóng với môi trường LLM đang phát triển nhanh chóng mà không cần thay đổi mã
+- Bạn có thể hỗ trợ các mô hình chuyên biệt hoặc được tinh chỉnh không có trong danh sách định nghĩa trước
+
+Bạn có thể triển khai các mô hình cung cấp bằng cách chọn từ các tùy chọn định nghĩa trước hoặc nhập định danh mô hình tùy chỉnh trong giao diện người dùng.
+
+### Cấu hình URL cơ sở cho các kênh riêng doanh nghiệp
+
+Cấu hình base_url của OpenAI Client được thiết kế chủ yếu cho người dùng doanh nghiệp có các kênh API riêng. Tính năng này:
+
+- Cho phép kết nối với các điểm cuối API riêng hoặc dành riêng cho doanh nghiệp
+- Cho phép các tổ chức sử dụng dịch vụ LLM tự lưu trữ hoặc triển khai tùy chỉnh
+- Hỗ trợ tích hợp với các dịch vụ tương thích API OpenAI của bên thứ ba
+
+**Sắp ra mắt**: Trong các bản cập nhật tương lai, DeepWiki sẽ hỗ trợ chế độ mà người dùng cần cung cấp API key của riêng họ trong các yêu cầu. Điều này sẽ cho phép khách hàng doanh nghiệp có kênh riêng sử dụng cấu hình API hiện có mà không cần chia sẻ thông tin đăng nhập với triển khai DeepWiki.
+
 ## 🔌 Tích hợp OpenRouter
 
 DeepWiki hiện đã hỗ trợ [OpenRouter](https://openrouter.ai/) làm nhà cung cấp mô hình, cho phép bạn truy cập hàng trăm mô hình AI thông qua một API duy nhất:
@@ -277,21 +345,21 @@ Tính năng Hỏi cho phép bạn trò chuyện với kho mã của mình bằng
 
 - **Phản hồi theo ngữ cảnh**: Nhận câu trả lời chính xác dựa trên mã thực tế trong kho của bạn  
 - **Ứng dụng RAG**: Hệ thống truy xuất các đoạn mã liên quan để tạo ra câu trả lời có cơ sở  
-- **Phản hồi theo thời gian thực**: Xem câu trả lời được tạo ra trực tiếp, mang lại trải nghiệm tương tác hơn  
+- **Phản hồi theo thởi gian thực**: Xem câu trả lời được tạo ra trực tiếp, mang lại trải nghiệm tương tác hơn  
 - **Lưu lịch sử cuộc trò chuyện**: Hệ thống duy trì ngữ cảnh giữa các câu hỏi để cuộc đối thoại liền mạch hơn
 
 
 ### Tính năng DeepResearch
 
-DeepResearch nâng tầm phân tích kho mã với quy trình nghiên cứu nhiều vòng:
+DeepResearch nâng tầm phân tích kho mã với quy trình nghiện cứu nhiểu vòng:
 
-- **Ngieen cứu chuyên sâu**: Khám phá kỹ lưỡng các chủ đề phức tạp thông qua nhiều vòng nghiên cứu  
-- **Quy trình có cấu trúc**: Tuân theo kế hoạch nghiên cứu rõ ràng với các bản cập nhật và kết luận tổng thể  
-- **Tự động tiếp tục**: AI sẽ tự động tiếp tục quá trình nghiên cứu cho đến khi đưa ra kết luận (tối đa 5 vòng)  
-- **Các giai đoạn nghiên cứu**:  
-  1. **Kế hoạch nghiên cứu**: Phác thảo phương pháp và những phát hiện ban đầu  
-  2. **Cập nhật nghiên cứu**: Bổ sung kiến thức mới qua từng vòng lặp  
-  3. **Kết luận cuối cùng**: Đưa ra câu trả lời toàn diện dựa trên tất cả các vòng nghiên cứu
+- **Ngieen cứu chuyên sâu**: Khám phá kỹ lưỡng các chủ đề phức tạp thông qua nhiểu vòng nghiện cứu  
+- **Quy trình có cấu trúc**: Tuân theo kế hoạch nghiện cứu rõ ràng với các bản cập nhật và kết luận tổng thể  
+- **Tự động tiếp tục**: AI sẽ tự động tiếp tục quá trình nghiện cứu cho đến khi đưa ra kết luận (tối đa 5 vòng)  
+- **Các giai đoạn nghiện cứu**:  
+  1. **Kế hoạch nghiện cứu**: Phác thảo phương pháp và những phát hiện ban đầu  
+  2. **Cập nhật nghiện cứu**: Bổ sung kiến thức mới qua từng vòng lặp  
+  3. **Kết luận cuối cùng**: Đưa ra câu trả lời toàn diện dựa trên tất cả các vòng nghiện cứu
 
 Để sử dụng DeepResearch, chỉ cần bật công tắc "Deep Research" trong giao diện Hỏi (Ask) trước khi gửi câu hỏi của bạn.
 
@@ -305,7 +373,7 @@ DeepResearch nâng tầm phân tích kho mã với quy trình nghiên cứu nhi�
 *Truy cập kho riêng tư bằng Personal Access Token*
 
 ![Tính năng DeepResearch](screenshots/DeepResearch.png)  
-*DeepResearch thực hiện nghiên cứu nhiều vòng cho các chủ đề phức tạp*
+*DeepResearch thực hiện nghiện cứu nhiểu vòng cho các chủ đề phức tạp*
 
 ### Demo Video
 
@@ -350,4 +418,3 @@ Dự án này được cấp phép theo Giấy phép MIT - xem file [LICENSE](LI
 ## ⭐ Lịch sử
 
 [![Biểu đồ lịch sử](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
-

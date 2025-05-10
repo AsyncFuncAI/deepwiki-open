@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { FaArrowRight, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import {FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Markdown from './Markdown';
 import { useLanguage } from '@/contexts/LanguageContext';
+import UserSelector from './UserSelector';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -22,19 +23,35 @@ interface AskProps {
   githubToken?: string;
   gitlabToken?: string;
   bitbucketToken?: string;
-  generatorModelName?: string;
+  provider?: string;
+  model?: string;
+  isCustomModel?: boolean;
+  customModel?: string;
   language?: string;
 }
 
-// const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
-
-const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketToken, generatorModelName, language = 'en' }) => {
+const Ask: React.FC<AskProps> = ({ 
+  repoUrl, 
+  githubToken, 
+  gitlabToken, 
+  bitbucketToken, 
+  provider = '',
+  model = '',
+  isCustomModel = false,
+  customModel = '',
+  language = 'en' 
+}) => {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [deepResearch, setDeepResearch] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [hasResponse, setHasResponse] = useState(false);
+  
+  // Model selection state
+  const [selectedProvider, setSelectedProvider] = useState(provider);
+  const [selectedModel, setSelectedModel] = useState(model);
+  const [isCustomSelectedModel, setIsCustomSelectedModel] = useState(isCustomModel);
+  const [customSelectedModel, setCustomSelectedModel] = useState(customModel);
+  const [showModelOptions, setShowModelOptions] = useState(false);
 
   // Get language context for translations
   const { messages } = useLanguage();
@@ -65,7 +82,6 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
   const clearConversation = () => {
     setQuestion('');
     setResponse('');
-    setHasResponse(false);
     setConversationHistory([]);
     setResearchIteration(0);
     setResearchComplete(false);
@@ -215,16 +231,10 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
       const requestBody: Record<string, unknown> = {
         repo_url: repoUrl,
         messages: newHistory,
-        // local_ollama: false,
-        // use_openrouter: false,
+        provider: selectedProvider,
+        model: isCustomSelectedModel ? customSelectedModel : selectedModel,
         language: language
       };
-
-      // Add generator model name if provided
-      if (generatorModelName) {
-        requestBody.generator_model_name = generatorModelName;
-      }
-
 
       // Add tokens if available
       if (githubToken && repoUrl.includes('github.com')) {
@@ -378,7 +388,12 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
     e.preventDefault();
 
     if (!question.trim() || isLoading) return;
-
+    
+    handleConfirmAsk();
+  };
+  
+  // Handle confirm and send request
+  const handleConfirmAsk = async () => {
     setIsLoading(true);
     setResponse('');
     setResearchIteration(0);
@@ -399,15 +414,10 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
       const requestBody: Record<string, unknown> = {
         repo_url: repoUrl,
         messages: newHistory,
+        provider: selectedProvider,
+        model: isCustomSelectedModel ? customSelectedModel : selectedModel,
         language: language
       };
-
-      // Add generator model name if provided
-      console.log('Generator model name:', generatorModelName);
-      if (generatorModelName) {
-        requestBody.generator_model_name = generatorModelName;
-      }
-
 
       // Add tokens if available
       if (githubToken && repoUrl.includes('github.com')) {
@@ -442,7 +452,6 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
 
       // Read the stream
       let fullResponse = '';
-      setHasResponse(true);
 
       while (true) {
         const { done, value } = await reader.read();
@@ -463,9 +472,6 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
         }
       }
 
-      // Set hasResponse to true after successful response
-      setHasResponse(true);
-
       // If deep research is enabled, check if we should continue
       if (deepResearch) {
         const isComplete = checkIfResearchComplete(fullResponse);
@@ -480,7 +486,6 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
     } catch (error) {
       console.error('Error during API call:', error);
       setResponse(prev => prev + '\n\nError: Failed to get a response. Please try again.');
-      setHasResponse(true);
       setResearchComplete(true);
     } finally {
       setIsLoading(false);
@@ -488,30 +493,76 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
   };
 
   return (
-    <div className="w-full max-w-full">
-      <div className="rounded-lg overflow-hidden">
-        {/* Input area */}
-        <form onSubmit={handleSubmit} className="p-0">
+    <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-md overflow-hidden shadow-sm">
+      <div className="p-4">
+        <h2 className="text-xl font-serif mb-4 text-[var(--accent-primary)]">
+          {messages.ask?.title || 'Ask about this repository'}
+        </h2>
+
+        {/* Model options (always available as a collapsible section) */}
+        <div className="mb-4">
+          <button
+            onClick={() => setShowModelOptions(prev => !prev)}
+            className="flex items-center justify-between w-full px-4 py-2.5 rounded-md bg-[var(--card-bg)] border border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--highlight-bg)] transition-colors"
+          >
+            <div className="flex items-center">
+              <span className="text-sm">
+                <span className="font-medium">{messages.form?.modelProvider || 'Provider'}:</span> {selectedProvider}
+                <span className="mx-2">|</span>
+                <span className="font-medium">{messages.form?.modelSelection || 'Model'}:</span> {isCustomSelectedModel ? customSelectedModel : selectedModel}
+              </span>
+            </div>
+            <span className="text-[var(--accent-primary)]">
+              {showModelOptions ? '▲' : '▼'}
+            </span>
+          </button>
+          {showModelOptions && (
+            <div className="mt-2">
+              <UserSelector
+                provider={selectedProvider}
+                setProvider={setSelectedProvider}
+                model={selectedModel}
+                setModel={setSelectedModel}
+                isCustomModel={isCustomSelectedModel}
+                setIsCustomModel={setIsCustomSelectedModel}
+                customModel={customSelectedModel}
+                setCustomModel={setCustomSelectedModel}
+                showFileFilters={false}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Question input */}
+        <form onSubmit={handleSubmit} className="mt-4">
           <div className="relative">
             <input
               ref={inputRef}
               type="text"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder={messages?.ask?.placeholder || "Ask about this repository..."}
-              className="w-full p-3 pr-12 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder={messages.ask?.placeholder || 'Ask a question about this repo...'}
+              className="block w-full rounded-md border-2 border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-4 py-3 text-base focus:border-[var(--accent-primary)] focus:ring-[var(--accent-primary)] focus:ring-opacity-50 transition-all"
               disabled={isLoading}
             />
             <button
               type="submit"
-              disabled={!question.trim() || isLoading}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 disabled:opacity-50 disabled:hover:text-gray-400"
-              aria-label="Submit question"
+              disabled={isLoading || !question.trim()}
+              className={`absolute right-3 top-1/2 transform -translate-y-1/2 px-3 py-1.5 rounded-md ${
+                isLoading || !question.trim()
+                  ? 'bg-[var(--button-disabled-bg)] text-[var(--button-disabled-text)] cursor-not-allowed'
+                  : 'bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] hover:bg-[var(--button-primary-bg-hover)]'
+              } transition-colors`}
             >
-              <FaArrowRight />
+              {isLoading ? (
+                <div className="w-4 h-4 rounded-full border-2 border-t-transparent border-[var(--button-primary-text)] animate-spin" />
+              ) : (
+                messages.ask?.askButton || 'Ask'
+              )}
             </button>
           </div>
-
+          
+          {/* Deep Research toggle */}
           <div className="flex items-center mt-2 justify-between">
             <div className="group relative">
               <label className="flex items-center cursor-pointer">

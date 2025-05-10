@@ -3,7 +3,6 @@ import logging
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
-import json
 from typing import List, Optional, Dict, Any, Literal
 import json
 from datetime import datetime
@@ -22,10 +21,6 @@ if google_api_key:
     genai.configure(api_key=google_api_key)
 else:
     logger.warning("GOOGLE_API_KEY not found in environment variables")
-
-embedder_name = os.environ.get('EMBEDDER_NAME', 'default_embedder')
-generator_name = os.environ.get('GENERATOR_NAME', 'default_generator')
-logger.info(f"Using embedder: {embedder_name}, generator: {generator_name}")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -101,6 +96,92 @@ class WikiExportRequest(BaseModel):
     repo_url: str = Field(..., description="URL of the repository")
     pages: List[WikiPage] = Field(..., description="List of wiki pages to export")
     format: Literal["markdown", "json"] = Field(..., description="Export format (markdown or json)")
+
+# --- Model Configuration Models ---
+class Model(BaseModel):
+    """
+    Model for LLM model configuration
+    """
+    id: str = Field(..., description="Model identifier")
+    name: str = Field(..., description="Display name for the model")
+
+class Provider(BaseModel):
+    """
+    Model for LLM provider configuration
+    """
+    id: str = Field(..., description="Provider identifier")
+    name: str = Field(..., description="Display name for the provider")
+    models: List[Model] = Field(..., description="List of available models for this provider")
+    supportsCustomModel: Optional[bool] = Field(False, description="Whether this provider supports custom models")
+
+class ModelConfig(BaseModel):
+    """
+    Model for the entire model configuration
+    """
+    providers: List[Provider] = Field(..., description="List of available model providers")
+    defaultProvider: str = Field(..., description="ID of the default provider")
+
+from api.config import configs
+
+@app.get("/models/config", response_model=ModelConfig)
+async def get_model_config():
+    """
+    Get available model providers and their models.
+    
+    This endpoint returns the configuration of available model providers and their
+    respective models that can be used throughout the application.
+    
+    Returns:
+        ModelConfig: A configuration object containing providers and their models
+    """
+    try:
+        logger.info("Fetching model configurations")
+        
+        # Create providers from the config file
+        providers = []
+        default_provider = configs.get("default_provider", "google")
+        
+        # Add provider configuration based on config.py
+        for provider_id, provider_config in configs["providers"].items():
+            models = []
+            # Add models from config
+            for model_id in provider_config["models"].keys():
+                # Get a more user-friendly display name if possible
+                models.append(Model(id=model_id, name=model_id))
+            
+            # Add provider with its models
+            providers.append(
+                Provider(
+                    id=provider_id,
+                    name=f"{provider_id.capitalize()}",
+                    supportsCustomModel=provider_config.get("supportsCustomModel", False),
+                    models=models
+                )
+            )
+            
+        # Create and return the full configuration
+        config = ModelConfig(
+            providers=providers,
+            defaultProvider=default_provider
+        )
+        return config
+        
+    except Exception as e:
+        logger.error(f"Error creating model configuration: {str(e)}")
+        # Return some default configuration in case of error
+        return ModelConfig(
+            providers=[
+                Provider(
+                    id="google",
+                    name="Google",
+                    supportsCustomModel=True,
+                    models=[
+                        Model(id="gemini-2.0-flash", name="Gemini 2.0 Flash")
+                    ]
+                )
+            ],
+            defaultProvider="google"
+        )
 
 @app.post("/export/wiki")
 async def export_wiki(request: WikiExportRequest):
@@ -408,9 +489,6 @@ async def root():
             ],
             "LocalRepo": [
                 "GET /local_repo/structure - Get structure of a local repository (with path parameter)",
-            ],
-            "Config": [
-                "GET /config/generators - Get available generator models",
             ]
         }
     }
@@ -474,43 +552,3 @@ async def get_processed_projects():
     except Exception as e:
         logger.error(f"Error listing processed projects from {WIKI_CACHE_DIR}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to list processed projects from server cache.")
-
-@app.get("/config/generators")
-async def get_generators():
-    """Get the list of available generator models."""
-    try:
-        # Get the list of available generator models
-        import json
-        from pathlib import Path
-        
-        logger.info(f"Get available generators")
-        # Read the generators.json file
-        config_dir = Path(__file__).parent / "config"
-        file_path = config_dir / "generators.json"
-        
-        with open(file_path, 'r') as f:
-            generators = json.load(f)
-        
-        # Process data, add display name
-        result = {}
-        
-        for name, config in generators.items():
-            # Extract model information
-            model_name = config["model_kwargs"]["model"]
-            
-            result[name] = {
-                "name": name,
-                "model_type": config["model_type"],
-                "model": model_name,
-                "display_name": f"{name.capitalize()} - {model_name}"
-            }
-        
-        logger.info(f"Available generators: {json.dumps(result, indent=2)}")
-        return JSONResponse(content=result)
-    except Exception as error:
-        logger.error(f"Error fetching generators: {str(error)}")
-        return JSONResponse(
-            content={"error": "Failed to fetch generator models"},
-            status_code=500
-        )
-

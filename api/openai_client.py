@@ -21,11 +21,11 @@ import backoff
 
 # optional import
 from adalflow.utils.lazy_import import safe_import, OptionalPackages
-from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
+from openai.types.chat.chat_completion import Choice
 
 openai = safe_import(OptionalPackages.OPENAI.value[0], OptionalPackages.OPENAI.value[1])
 
-from openai import OpenAI, AsyncOpenAI, Stream, base_url
+from openai import OpenAI, AsyncOpenAI, Stream
 from openai import (
     APITimeoutError,
     InternalServerError,
@@ -38,7 +38,7 @@ from openai.types import (
     CreateEmbeddingResponse,
     Image,
 )
-from openai.types.chat import ChatCompletionChunk, ChatCompletion
+from openai.types.chat import ChatCompletionChunk, ChatCompletion, ChatCompletionMessage
 
 from adalflow.core.model_client import ModelClient
 from adalflow.core.types import (
@@ -439,9 +439,13 @@ class OpenAIClient(ModelClient):
                     id = getattr(chunk, "id", None) or id
                     model = getattr(chunk, "model", None) or model
                     created = getattr(chunk, "created", 0) or created
-                    content = parse_stream_response(chunk)
-                    if content is not None:
-                        accumulated_content += content or ""
+                    choices = getattr(chunk, "choices", [])
+                    if len(choices) > 0:
+                        delta = getattr(choices[0], "delta", None)
+                        if delta is not None:
+                            text = getattr(delta, "content", None)
+                            if text is not None:
+                                accumulated_content += text or ""
                 # Return the mock completion object that will be processed by the chat_completion_parser
                 return ChatCompletion(
                     id = id,
@@ -451,7 +455,7 @@ class OpenAIClient(ModelClient):
                     choices=[Choice(
                         index=0,
                         finish_reason="stop",
-                        delta=ChoiceDelta(content=accumulated_content, role="assistant")
+                        message=ChatCompletionMessage(content=accumulated_content, role="assistant")
                     )]
                 )
         elif model_type == ModelType.IMAGE_GENERATION:

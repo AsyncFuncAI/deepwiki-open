@@ -8,9 +8,7 @@
             "module": "uvicorn",
             "args": [
                 "api.api:app",
-                "--reload",
-                "--port",
-                "8001"
+                "--reload"
             ],
             "jinja": true,
             "justMyCode": true

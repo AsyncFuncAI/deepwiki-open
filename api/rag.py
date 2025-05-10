@@ -36,7 +36,7 @@ class CustomConversation:
 
 # Import other adalflow components
 from adalflow.components.retriever.faiss_retriever import FAISSRetriever
-from api.config import app_configs, embedder_config, generator_config
+from api.config import configs
 from api.data_pipeline import DatabaseManager
 
 # Configure logging
@@ -205,23 +205,33 @@ class RAG(adal.Component):
     """RAG with one repo.
     If you want to load a new repos, call prepare_retriever(repo_url_or_path) first."""
 
-    def __init__(self, use_s3: bool = False, use_local_models: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
+    def __init__(self, provider="google", model=None, use_s3: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
         """
         Initialize the RAG component.
 
         Args:
+            provider: Model provider to use (google, openai, openrouter, ollama)
+            model: Model name to use with the provider
             use_s3: Whether to use S3 for database storage (default: False)
-            use_local_models: Whether to use local models like Ollama (default: False)
         """
         super().__init__()
+
+        self.provider = provider
+        self.model = model
+        self.local_ollama = provider == "ollama"
 
         # Initialize components
         self.memory = Memory()
 
+        if self.local_ollama:
+            embedder_config = configs["embedder_ollama"]
+        else:
+            embedder_config = configs["embedder"]
+        
         # --- Initialize Embedder ---
         self.embedder = adal.Embedder(
-            model_client=embedder_config.get_client(),
-            model_kwargs=embedder_config.model_kwargs,
+            model_client=embedder_config["model_client"](),
+            model_kwargs=embedder_config["model_kwargs"],
         )
 
         # Patch: ensure query embedding is always single string for Ollama
@@ -253,6 +263,10 @@ IMPORTANT FORMATTING RULES:
 8. When listing tags or similar items, write them as plain text without escape characters
 9. For pipe characters (|) in text, write them directly without escaping them"""
 
+        # Get model configuration based on provider and model
+        from api.config import get_model_config
+        generator_config = get_model_config(self.provider, self.model)
+
         # Set up the main generator
         self.generator = adal.Generator(
             template=RAG_TEMPLATE,
@@ -262,8 +276,8 @@ IMPORTANT FORMATTING RULES:
                 "system_prompt": system_prompt,
                 "contexts": None,
             },
-            model_client=generator_config.get_client(),
-            model_kwargs=generator_config.model_kwargs,
+            model_client=generator_config["model_client"](),
+            model_kwargs=generator_config["model_kwargs"],
             output_processors=data_parser,
         )
 
@@ -273,7 +287,8 @@ IMPORTANT FORMATTING RULES:
         self.db_manager = DatabaseManager()
         self.transformed_docs = []
 
-    def prepare_retriever(self, repo_url_or_path: str, access_token: str = None):
+    def prepare_retriever(self, repo_url_or_path: str, access_token: str = None, local_ollama: bool = False, 
+                      excluded_dirs: List[str] = None, excluded_files: List[str] = None):
         """
         Prepare the retriever for a repository.
         Will load database from local storage if available.
@@ -281,17 +296,25 @@ IMPORTANT FORMATTING RULES:
         Args:
             repo_url_or_path: URL or local path to the repository
             access_token: Optional access token for private repositories
+            local_ollama: Optional flag to use local Ollama for embedding
+            excluded_dirs: Optional list of directories to exclude from processing
+            excluded_files: Optional list of file patterns to exclude from processing
         """
         self.initialize_db_manager()
         self.repo_url_or_path = repo_url_or_path
-        self.transformed_docs = self.db_manager.prepare_database(repo_url_or_path, access_token)
+        self.transformed_docs = self.db_manager.prepare_database(
+            repo_url_or_path, 
+            access_token, 
+            local_ollama=local_ollama,
+            excluded_dirs=excluded_dirs,
+            excluded_files=excluded_files
+        )
         logger.info(f"Loaded {len(self.transformed_docs)} documents for retrieval")
 
-        # Select the appropriate embedder based on the current model mode
-        retriever_embedder = self.query_embedder if embedder_config.is_local() else self.embedder
+        retreive_embedder = self.query_embedder if local_ollama else self.embedder
         self.retriever = FAISSRetriever(
-            **app_configs["retriever"],
-            embedder=retriever_embedder,
+            **configs["retriever"],
+            embedder=retreive_embedder,
             documents=self.transformed_docs,
             document_map_func=lambda doc: doc.vector,
         )
@@ -333,7 +356,7 @@ IMPORTANT FORMATTING RULES:
                 "conversation_history": self.memory(),
             }
 
-            # Generate response
+            # Generate response - use the already configured generator with provider and model
             response = self.generator(prompt_kwargs=prompt_kwargs)
 
             final_response = response.data
