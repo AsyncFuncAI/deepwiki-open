@@ -86,7 +86,7 @@ class OpenRouterClient(ModelClient):
                 raise ValueError(f"Unsupported input format for OpenRouter: {type(input)}")
 
             # For debugging
-            log.info(f"Messages for OpenRouter: {messages}")
+            log.debug(f"Messages for OpenRouter: {messages}")
 
             api_kwargs = {
                 "messages": messages,

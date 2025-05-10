@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
+import json
 from typing import List, Optional, Dict, Any, Literal
 import json
 from datetime import datetime
@@ -21,6 +22,10 @@ if google_api_key:
     genai.configure(api_key=google_api_key)
 else:
     logger.warning("GOOGLE_API_KEY not found in environment variables")
+
+embedder_name = os.environ.get('EMBEDDER_NAME', 'default_embedder')
+generator_name = os.environ.get('GENERATOR_NAME', 'default_generator')
+logger.info(f"Using embedder: {embedder_name}, generator: {generator_name}")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -404,6 +409,9 @@ async def root():
             ],
             "LocalRepo": [
                 "GET /local_repo/structure - Get structure of a local repository (with path parameter)",
+            ],
+            "Config": [
+                "GET /config/generators - Get available generator models",
             ]
         }
     }
@@ -467,3 +475,43 @@ async def get_processed_projects():
     except Exception as e:
         logger.error(f"Error listing processed projects from {WIKI_CACHE_DIR}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to list processed projects from server cache.")
+
+@app.get("/config/generators")
+async def get_generators():
+    """Get the list of available generator models."""
+    try:
+        # Get the list of available generator models
+        import json
+        from pathlib import Path
+        
+        logger.info(f"Get available generators")
+        # Read the generators.json file
+        config_dir = Path(__file__).parent / "config"
+        file_path = config_dir / "generators.json"
+        
+        with open(file_path, 'r') as f:
+            generators = json.load(f)
+        
+        # Process data, add display name
+        result = {}
+        
+        for name, config in generators.items():
+            # Extract model information
+            model_name = config["model_kwargs"]["model"]
+            
+            result[name] = {
+                "name": name,
+                "model_type": config["model_type"],
+                "model": model_name,
+                "display_name": f"{name.capitalize()} - {model_name}"
+            }
+        
+        logger.info(f"Available generators: {json.dumps(result, indent=2)}")
+        return JSONResponse(content=result)
+    except Exception as error:
+        logger.error(f"Error fetching generators: {str(error)}")
+        return JSONResponse(
+            content={"error": "Failed to fetch generator models"},
+            status_code=500
+        )
+

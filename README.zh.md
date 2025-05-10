@@ -169,6 +169,105 @@ deepwiki/
 └── .env                  # 环境变量（需要创建）
 ```
 
+## 🛠️ 高级设置
+
+### 环境变量
+
+| 变量 | 描述 | 必需 | 备注 |
+|----------|-------------|----------|------|
+| `GOOGLE_API_KEY` | Google Gemini API密钥用于AI生成 | 是 |
+| `OPENAI_API_KEY` | OpenAI API密钥用于嵌入 | 是 |
+| `OPENROUTER_API_KEY` | OpenRouter API密钥用于替代模型 | 否 | 仅当您想使用OpenRouter模型时需要 |
+| `EMBEDDER_NAME` | 要使用的嵌入模型（默认："openai"） | 否 | 选项："openai"、"ollama"或您定义的自定义模型 |
+| `GENERATOR_NAME` | 要使用的生成模型（默认："google"） | 否 | 选项："google"、"ollama"、"openrouter"或您定义的自定义模型 |
+| `PORT` | API服务器端口（默认：8001） | 否 | 如果您在同一台机器上托管API和前端，请确保相应地更改`NEXT_PUBLIC_SERVER_BASE_URL`的端口 |
+| `NEXT_PUBLIC_SERVER_BASE_URL` | API服务器的基本URL（默认：http://localhost:8001） | 否 |
+
+### 自定义模型
+
+DeepWiki允许您在`api/config`目录中添加自定义嵌入和生成器模型。以下是自定义它们的方法：
+
+#### 添加自定义嵌入模型
+
+编辑`api/config/embedders.json`文件以添加您自己的嵌入模型：
+
+```json
+{
+  "openai": {
+    "model_type": "openai",
+    "batch_size": 500,
+    "model_kwargs": {
+      "model": "text-embedding-3-small",
+      "dimensions": 256,
+      "encoding_format": "float"
+    }
+  },
+  "ollama": {
+    "model_type": "ollama",
+    "model_kwargs": {
+      "model": "nomic-embed-text"
+    }
+  },
+  "your-custom-embedder": {
+    "model_type": "openai",  // 提供商（openai、ollama等）
+    "batch_size": 500,       // 可选的嵌入批处理大小
+    "model_kwargs": {
+      "model": "your-model-name",
+      // 任何其他必需的参数
+    }
+  }
+}
+```
+
+#### 添加自定义生成器模型
+
+编辑`api/config/generators.json`文件以添加您自己的生成器模型：
+
+```json
+{
+  "google": {
+    "model_type": "google",
+    "model_kwargs": {
+      "model": "gemini-2.5-flash-preview-04-17",
+      "temperature": 0.7,
+      "top_p": 0.8
+    }
+  },
+  // 在此处添加您的自定义生成器
+  "your-custom-generator": {
+    "model_type": "openai",   // 提供商（google、openai、ollama、openrouter）
+    "model_kwargs": {
+      "model": "your-model-name",
+      "temperature": 0.7,
+      "top_p": 0.8
+      // 任何其他模型特定选项
+    }
+  }
+}
+```
+
+#### 使用您的自定义模型
+
+添加自定义模型后，您可以通过设置这些环境变量来使用它们：
+
+```bash
+# 在您的.env文件中
+EMBEDDER_NAME=your-custom-embedder
+GENERATOR_NAME=your-custom-generator
+```
+
+或直接在终端中：
+
+```bash
+EMBEDDER_NAME=your-custom-embedder GENERATOR_NAME=your-custom-generator python -m api.main
+```
+
+当前支持的模型类型包括：
+- `openai`：OpenAI的API
+- `google`：Google Gemini API
+- `ollama`：本地Ollama模型
+- `openrouter`：来自OpenRouter的模型
+
 ## 🤖 提问和深度研究功能
 
 ### 提问功能

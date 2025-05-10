@@ -11,6 +11,6 @@ services:
     environment:
       - PORT=${PORT:-8001}
       - NODE_ENV=production
-      - NEXT_PUBLIC_SERVER_BASE_URL=http://localhost:${PORT:-8001}
+      - SERVER_BASE_URL=http://localhost:${PORT:-8001}
     volumes:
       - ~/.adalflow:/root/.adalflow  # Persist repository and embedding data

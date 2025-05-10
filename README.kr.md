@@ -171,8 +171,8 @@ deepwiki/
 | `GOOGLE_API_KEY` | AI 생성용 Google Gemini API 키 | 예 |
 | `OPENAI_API_KEY` | 임베딩용 OpenAI API 키 | 예 |
 | `OPENROUTER_API_KEY` | 대체 모델용 OpenRouter API 키 | 아니오 | OpenRouter 모델 사용 시 필요 |
-| `PORT` | API 서버 포트 (기본값: 8001) | 아니오 | API와 프론트엔드를 같은 머신에서 호스팅 시 `NEXT_PUBLIC_SERVER_BASE_URL`의 포트도 변경 필요 |
-| `NEXT_PUBLIC_SERVER_BASE_URL` | API 서버 기본 URL (기본값: http://localhost:8001) | 아니오 |
+| `PORT` | API 서버 포트 (기본값: 8001) | 아니오 | API와 프론트엔드를 같은 머신에서 호스팅 시 `SERVER_BASE_URL`의 포트도 변경 필요 |
+| `SERVER_BASE_URL` | API 서버 기본 URL (기본값: http://localhost:8001) | 아니오 |
  
 ### Docker 설정
  

@@ -14,6 +14,7 @@
     "initializing": "初始化Wiki生成...",
     "fetchingStructure": "获取仓库结构...",
     "determiningStructure": "验证Wiki结构...",
+    "clearingCache": "清理服务器缓存...",
     "preparingDownload": "请等待，我们正在准备您的下载..."
   },
   "home": {
@@ -31,6 +32,7 @@
     "repoPlaceholder": "所有者/仓库或GitHub/GitLab/Bitbucket URL",
     "wikiLanguage": "Wiki语言",
     "modelOptions": "模型选项",
+    "modelSelection": "模型选择",
     "localOllama": "本地Ollama模型",
     "experimental": "实验性",
     "useOpenRouter": "使用OpenRouter API",
@@ -61,19 +63,19 @@
     "viewConclusion": "查看结论"
   },
   "repoPage": {
-    "refreshWiki": "Refresh Wiki",
-    "home": "Home",
-    "errorTitle": "Error",
-    "errorMessageDefault": "Please check that your repository exists and is public. Valid formats are \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", or local folder paths like \"C:\\\\path\\\\to\\\\folder\" or \"/path/to/folder\".",
-    "backToHome": "Back to Home",
-    "exportWiki": "Export Wiki",
-    "exportAsMarkdown": "Export as Markdown",
-    "exportAsJson": "Export as JSON",
-    "pages": "Pages",
-    "relatedFiles": "Related Files:",
-    "relatedPages": "Related Pages:",
-    "selectPagePrompt": "Select a page from the navigation to view its content",
-    "askAboutRepo": "Ask questions about this repository"
+    "refreshWiki": "刷新Wiki",
+    "home": "首页",
+    "errorTitle": "错误",
+    "errorMessageDefault": "请检查您的仓库是否存在且为公开的。有效格式为\"owner/repo\"、\"https://github.com/owner/repo\"、\"https://gitlab.com/owner/repo\"、\"https://bitbucket.org/owner/repo\"，或本地文件夹路径如\"C:\\\\path\\\\to\\\\folder\"或\"/path/to/folder\"。",
+    "backToHome": "返回首页",
+    "exportWiki": "导出Wiki",
+    "exportAsMarkdown": "导出为Markdown",
+    "exportAsJson": "导出为JSON",
+    "pages": "页面",
+    "relatedFiles": "相关文件：",
+    "relatedPages": "相关页面：",
+    "selectPagePrompt": "从导航中选择一个页面以查看其内容",
+    "askAboutRepo": "询问有关此仓库的问题"
   },
   "nav": {
     "wikiProjects": "项目列表"

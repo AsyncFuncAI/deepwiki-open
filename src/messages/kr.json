@@ -14,6 +14,7 @@
       "initializing": "위키 생성을 초기화하는 중...",
       "fetchingStructure": "저장소 구조를 가져오는 중...",
       "determiningStructure": "위키 구조를 결정하는 중...",
+      "clearingCache": "서버 캐시를 정리 중...",
       "preparingDownload": "다운로드를 준비 중입니다. 잠시만 기다려 주세요..."
     },
     "home": {
@@ -31,6 +32,7 @@
       "repoPlaceholder": "owner/repo 또는 GitHub/GitLab/Bitbucket URL",
       "wikiLanguage": "위키 언어",
       "modelOptions": "모델 옵션",
+      "modelSelection": "모델 선택",
       "localOllama": "로컬 Ollama 모델",
       "experimental": "실험적 기능",
       "useOpenRouter": "OpenRouter API 사용",
