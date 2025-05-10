@@ -76,7 +76,7 @@ exit $?' > /app/start.sh && chmod +x /app/start.sh
 # Set environment variables
 ENV PORT=8001
 ENV NODE_ENV=production
-ENV NEXT_PUBLIC_SERVER_BASE_URL=http://localhost:${PORT:-8001}
+ENV SERVER_BASE_URL=http://localhost:${PORT:-8001}
 
 # Create empty .env file (will be overridden if one exists at runtime)
 RUN touch .env

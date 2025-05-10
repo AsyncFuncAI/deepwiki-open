@@ -174,7 +174,7 @@ deepwiki/
 | `EMBEDDER_NAME` | The embedding model to use (default: "openai") | No | Options: "openai", "ollama", or custom models you define |
 | `GENERATOR_NAME` | The generation model to use (default: "google") | No | Options: "google", "ollama", "openrouter", or custom models you define |
 | `PORT` | Port for the API server (default: 8001) | No | If you host API and frontend on the same machine, make sure change port of `NEXT_PUBLIC_SERVER_BASE_URL` accordingly |
-| `NEXT_PUBLIC_SERVER_BASE_URL` | Base URL for the API server (default: http://localhost:8001) | No |
+| `SERVER_BASE_URL` | Base URL for the API server (default: http://localhost:8001) | No |
 
 ### Docker Setup
 
