@@ -52,6 +52,7 @@ class WikiPage(BaseModel):
     filePaths: List[str]
     importance: str # Should ideally be Literal['high', 'medium', 'low']
     relatedPages: List[str]
+    parentPage: Optional[str] = None
 
 class ProcessedProjectEntry(BaseModel):
     id: str  # Filename

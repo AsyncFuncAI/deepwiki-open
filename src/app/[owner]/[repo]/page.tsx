@@ -3,7 +3,7 @@
 
 import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown } from 'react-icons/fa';
+import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown, FaChevronRight, FaSitemap } from 'react-icons/fa';
 import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
@@ -18,6 +18,7 @@ interface WikiPage {
   filePaths: string[];
   importance: 'high' | 'medium' | 'low';
   relatedPages: string[];
+  parentPage: string;
 }
 
 interface WikiStructure {
@@ -158,6 +159,113 @@ const createBitbucketHeaders = (bitbucketToken: string): HeadersInit => {
   return headers;
 };
 
+// Add TreeView component
+interface TreeViewProps {
+  pages: WikiPage[];
+  currentPageId: string | undefined;
+  onPageSelect: (pageId: string) => void;
+}
+
+const TreeView: React.FC<TreeViewProps> = ({ pages, currentPageId, onPageSelect }) => {
+  const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (pageId: string) => {
+    setExpandedPages(prev => {
+      const next = new Set(prev);
+      if (next.has(pageId)) {
+        next.delete(pageId);
+      } else {
+        next.add(pageId);
+      }
+      return next;
+    });
+  };
+
+  // 使用 Map 来缓存子页面关系，避免重复计算
+  const childPagesMap = useMemo(() => {
+    const map = new Map<string, WikiPage[]>();
+    pages.forEach(page => {
+      if (page.parentPage) {
+        const children = map.get(page.parentPage) || [];
+        children.push(page);
+        map.set(page.parentPage, children);
+      }
+    });
+    return map;
+  }, [pages]);
+
+  const getChildPages = (parentId: string) => {
+    return childPagesMap.get(parentId) || [];
+  };
+
+  // 使用 Set 来跟踪已渲染的页面，防止循环引用
+  const renderedPages = useRef(new Set<string>()).current;
+
+  const renderPage = (page: WikiPage, level: number = 0) => {
+    // 如果页面已经渲染过，跳过
+    if (renderedPages.has(page.id)) {
+      return null;
+    }
+    renderedPages.add(page.id);
+
+    const childPages = getChildPages(page.id);
+    const hasChildren = childPages.length > 0;
+    const isExpanded = expandedPages.has(page.id);
+
+    return (
+      <div key={page.id} style={{ marginLeft: `${level * 1.5}rem` }}>
+        <div className="flex items-center">
+          {hasChildren && (
+            <button
+              onClick={() => toggleExpand(page.id)}
+              className="p-1 hover:bg-[var(--background)]/50 rounded-md transition-colors"
+            >
+              {isExpanded ? <FaChevronDown className="w-3 h-3" /> : <FaChevronRight className="w-3 h-3" />}
+            </button>
+          )}
+          <button
+            className={`flex-1 text-left px-3 py-2 rounded-md text-sm transition-colors ${
+              currentPageId === page.id
+                ? 'bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30'
+                : 'text-[var(--foreground)] hover:bg-[var(--background)] border border-transparent'
+            }`}
+            onClick={() => onPageSelect(page.id)}
+          >
+            <div className="flex items-center">
+              <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
+                page.importance === 'high'
+                  ? 'bg-[#9b7cb9]'
+                  : page.importance === 'medium'
+                    ? 'bg-[#d7c4bb]'
+                    : 'bg-[#e8927c]'
+              }`}></div>
+              <span className="truncate">{page.title}</span>
+            </div>
+          </button>
+        </div>
+        {hasChildren && isExpanded && (
+          <div className="mt-1">
+            {childPages.map(childPage => renderPage(childPage, level + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // 获取根页面（没有父页面的页面）
+  const rootPages = useMemo(() => {
+    return pages.filter(page => !page.parentPage);
+  }, [pages]);
+
+  // 在每次渲染前重置已渲染页面的集合
+  renderedPages.clear();
+
+  return (
+    <div className="space-y-1 min-h-0">
+      {rootPages.map(page => renderPage(page))}
+    </div>
+  );
+};
 
 export default function RepoWikiPage() {
   // Get route parameters and search params
@@ -483,6 +591,8 @@ When designing the wiki structure, include pages that would benefit from visual 
 - State machines
 - Class hierarchies
 
+When designing the wiki structure, split a complex page into multiple subpages, make sure to include a parent page for each subpage, parent page should be the page that is most relevant to the subpage.
+
 Return your analysis in the following XML format:
 
 <wiki_structure>
@@ -501,6 +611,7 @@ Return your analysis in the following XML format:
         <related>page-2</related>
         <!-- More related page IDs as needed -->
       </related_pages>
+      <parent_page>page-1</parent_page><!-- SubPage Needs to have a parent page Id -->
     </page>
     <!-- More pages as needed -->
   </pages>
@@ -514,10 +625,10 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 - Start directly with <wiki_structure> and end with </wiki_structure>
 
 IMPORTANT:
-1. Create 4-6 pages that would make a comprehensive wiki for this repository
-2. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
-3. The relevant_files should be actual files from the repository that would be used to generate that page
-4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
+1. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
+2. The relevant_files should be actual files from the repository that would be used to generate that page
+3. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters
+4. For first Generate, you should generate outline of the wiki structure, generate summary pages for the repository.`
         }]
       };
 
@@ -562,6 +673,7 @@ IMPORTANT:
 
       let xmlText = xmlMatch[0];
       xmlText = xmlText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+      
       // Try parsing with DOMParser
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xmlText, "text/xml");
@@ -569,14 +681,7 @@ IMPORTANT:
       // Check for parsing errors
       const parseError = xmlDoc.querySelector('parsererror');
       if (parseError) {
-        // Log the first few elements to see what was parsed
-        const elements = xmlDoc.querySelectorAll('*');
-        if (elements.length > 0) {
-          console.log('First 5 element names:',
-            Array.from(elements).slice(0, 5).map(el => el.nodeName).join(', '));
-        }
-
-        // We'll continue anyway since the XML might still be usable
+        console.warn('XML parsing error:', parseError);
       }
 
       // Extract wiki structure
@@ -593,12 +698,6 @@ IMPORTANT:
       description = descriptionEl ? descriptionEl.textContent || '' : '';
 
       // Parse pages using DOM
-      pages = [];
-
-      if (parseError && (!pagesEls || pagesEls.length === 0)) {
-        console.warn('DOM parsing failed, trying regex fallback');
-      }
-
       pagesEls.forEach(pageEl => {
         const id = pageEl.getAttribute('id') || `page-${pages.length + 1}`;
         const titleEl = pageEl.querySelector('title');
@@ -621,13 +720,17 @@ IMPORTANT:
           if (el.textContent) relatedPages.push(el.textContent);
         });
 
+        const parentPage = pageEl.querySelector('parent_page');
+        const parentPageId = parentPage ? parentPage.textContent || '' : '';
+
         pages.push({
           id,
           title,
           content: '', // Will be generated later
           filePaths,
           importance,
-          relatedPages
+          relatedPages,
+          parentPage: parentPageId
         });
       });
 
@@ -1254,6 +1357,453 @@ IMPORTANT:
     }
   };
 
+  // 修改 mergePages 函数
+  const mergePages = (
+    existingPages: WikiPage[], 
+    newPages: WikiPage[], 
+    existingGeneratedPages: Record<string, WikiPage>
+  ): { 
+    mergedPages: WikiPage[], 
+    idMapping: Map<string, string>,
+    updatedGeneratedPages: Record<string, WikiPage>
+  } => {
+    const mergedPages = new Map<string, WikiPage>();
+    const idMapping = new Map<string, string>();
+    const updatedGeneratedPages = { ...existingGeneratedPages };
+    
+    // 首先添加所有现有页面，保持原有 ID
+    existingPages.forEach(page => {
+      mergedPages.set(page.id, { ...page });
+    });
+
+    // 处理新页面
+    newPages.forEach(newPage => {
+      // 检查是否存在相同标题的页面
+      const existingPage = Array.from(mergedPages.values()).find(
+        page => page.title === newPage.title
+      );
+
+      if (existingPage) {
+        // 如果找到相同标题的页面，合并文件路径和相关页面
+        const updatedPage = {
+          ...existingPage,
+          filePaths: [...new Set([...existingPage.filePaths, ...newPage.filePaths])],
+          relatedPages: [...new Set([...existingPage.relatedPages, ...newPage.relatedPages])],
+          // 保持原有的父页面关系
+          parentPage: existingPage.parentPage
+        };
+        mergedPages.set(existingPage.id, updatedPage);
+        // 记录 ID 映射关系
+        idMapping.set(newPage.id, existingPage.id);
+
+        // 更新生成页面的内容
+        if (updatedGeneratedPages[existingPage.id]) {
+          updatedGeneratedPages[existingPage.id] = {
+            ...updatedGeneratedPages[existingPage.id],
+            ...updatedPage
+          };
+        }
+      } else {
+        // 如果是新页面，检查是否需要更新父页面关系
+        if (newPage.parentPage) {
+          const parentPage = Array.from(mergedPages.values()).find(
+            page => page.title === newPage.parentPage
+          );
+          if (parentPage) {
+            newPage.parentPage = parentPage.id;
+          }
+        }
+        // 为新页面生成唯一 ID
+        const newId = `page-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+        const pageWithNewId = {
+          ...newPage,
+          id: newId
+        };
+        mergedPages.set(newId, pageWithNewId);
+        // 记录 ID 映射关系
+        idMapping.set(newPage.id, newId);
+      }
+    });
+
+    return {
+      mergedPages: Array.from(mergedPages.values()),
+      idMapping,
+      updatedGeneratedPages
+    };
+  };
+
+  // 修改 refineWikiStructure 函数
+  const refineWikiStructure = useCallback(async (page: WikiPage) => {
+    if (!owner || !repo) {
+      setError('Invalid repository information. Owner and repo name are required.');
+      return;
+    }
+
+    try {
+      setLoadingMessage(messages.loading?.refiningStructure || 'Refining wiki structure...');
+      setIsLoading(true);
+
+      // Get repository URL
+      const repoUrl = getRepoUrl(owner, repo, repoInfo.type, repoInfo.localPath);
+
+      // Get parent page content if exists
+      let parentContent = '';
+      if (page.parentPage) {
+        const parentPage = wikiStructure?.pages.find(p => p.id === page.parentPage);
+        if (parentPage) {
+          parentContent = generatedPages[parentPage.id]?.content || '';
+        }
+      }
+
+      // Prepare request body
+      const requestBody: Record<string, any> = {
+        repo_url: repoUrl,
+        messages: [{
+          role: 'user',
+          content: `Analyze this page and provide a more detailed description of what this page will cover, generate some subpages that are related to this page.
+1. Current Page And Parent Page ID:
+<current_page_id>
+${page.id}
+</current_page_id>
+<parent_page_id>
+${page.parentPage}
+</parent_page_id>
+
+2. Current Page Content:
+<current_page_content>
+${page.content}
+</current_page_content>
+
+3. Parent Page Content:
+<parent_page_content>
+${parentContent}
+</parent_page_content>
+
+4. Current Page Title:
+<current_page_title>
+${page.title}
+</current_page_title>
+
+5. Related Pages:
+<related_pages>
+${page.relatedPages.join(', ')}
+</related_pages>
+
+6. File Paths:
+<file_paths>
+${page.filePaths.join('\n ')}
+</file_paths>
+
+7. All Page ID and Title:
+<all_page_ids_and_titles>
+${wikiStructure?.pages.map(p => `<page><page_id>${p.id}</page_id> <page_title>${p.title}</page_title></page>`).join('\n ')}
+</all_page_ids_and_titles>
+
+
+IMPORTANT: The wiki content will be generated in ${language === 'en' ? 'English' :
+            language === 'ja' ? 'Japanese (日本語)' :
+            language === 'zh' ? 'Mandarin Chinese (中文)' :
+            language === 'es' ? 'Spanish (Español)' : 
+            language === 'kr' ? 'Korean (한국어)' : 
+            language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'} language.
+
+When designing the wiki structure, include pages that would benefit from visual diagrams, such as:
+- Architecture overviews
+- Data flow descriptions
+- Component relationships
+- Process workflows
+- State machines
+- Class hierarchies
+
+When designing the wiki structure, split a complex page into multiple subpages, make sure to include a parent page for each subpage, parent page should be the page that is most relevant to the subpage.
+
+Return your analysis in the following XML format:
+
+<wiki_structure>
+  <title>[Overall title for the wiki]</title>
+  <description>[Brief description of the repository]</description>
+  <pages>
+    <page id="page-1">
+      <title>[Page title]</title>
+      <description>[Brief description of what this page will cover]</description>
+      <importance>high|medium|low</importance>
+      <relevant_files>
+        <file_path>[Path to a relevant file]</file_path>
+        <!-- More file paths as needed -->
+      </relevant_files>
+      <related_pages>
+        <related>page-2</related>
+        <!-- More related page IDs as needed -->
+      </related_pages>
+      <parent_page>page-1</parent_page><!-- SubPage Needs to have a parent page Id -->
+    </page>
+    <!-- More pages as needed -->
+  </pages>
+</wiki_structure>
+
+IMPORTANT FORMATTING INSTRUCTIONS:
+- Return ONLY the valid XML structure specified above
+- DO NOT wrap the XML in markdown code blocks (no \`\`\` or \`\`\`xml)
+- DO NOT include any explanation text before or after the XML
+- Ensure the XML is properly formatted and valid
+- Start directly with <wiki_structure> and end with </wiki_structure>
+
+IMPORTANT:
+1. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
+2. The relevant_files should be actual files from the repository that would be used to generate that page
+3. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters
+4. If generated page is existed page, do not change page id and title, only update page content, file_paths, related_pages, parent_page
+5. If generated page is new page, do not use a existing page id, generate a new page id.
+6. If Subpages contains parent page content, parent page should be simplified and concise, and subpages should be detailed and comprehensive.`
+        }]
+      };
+
+      // Add tokens if available
+      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language);
+
+      const response = await fetch(`/api/chat/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error refining wiki structure: ${response.status}`);
+      }
+
+      // Process the response
+      let responseText = '';
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('Failed to get response reader');
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        responseText += decoder.decode(value, { stream: true });
+      }
+
+      // Clean up markdown delimiters
+      responseText = responseText.replace(/^```(?:xml)?\s*/i, '').replace(/```\s*$/i, '');
+
+      // Extract wiki structure from response
+      const xmlMatch = responseText.match(/<wiki_structure>[\s\S]*?<\/wiki_structure>/m);
+      if (!xmlMatch) {
+        throw new Error('No valid XML found in response');
+      }
+
+      let xmlText = xmlMatch[0];
+      xmlText = xmlText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+      
+      // Try parsing with DOMParser
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+      // Check for parsing errors
+      const parseError = xmlDoc.querySelector('parsererror');
+      if (parseError) {
+        console.warn('XML parsing error:', parseError);
+      }
+
+      // Extract wiki structure
+      let title = '';
+      let description = '';
+      let newPages: WikiPage[] = [];
+
+      // Try using DOM parsing first
+      const titleEl = xmlDoc.querySelector('title');
+      const descriptionEl = xmlDoc.querySelector('description');
+      const pagesEls = xmlDoc.querySelectorAll('page');
+
+      title = titleEl ? titleEl.textContent || '' : '';
+      description = descriptionEl ? descriptionEl.textContent || '' : '';
+
+      // Parse pages using DOM
+      pagesEls.forEach(pageEl => {
+        const id = pageEl.getAttribute('id') || `page-${newPages.length + 1}`;
+        const titleEl = pageEl.querySelector('title');
+        const importanceEl = pageEl.querySelector('importance');
+        const filePathEls = pageEl.querySelectorAll('file_path');
+        const relatedEls = pageEl.querySelectorAll('related');
+
+        const title = titleEl ? titleEl.textContent || '' : '';
+        const importance = importanceEl ?
+          (importanceEl.textContent === 'high' ? 'high' :
+            importanceEl.textContent === 'medium' ? 'medium' : 'low') : 'medium';
+
+        const filePaths: string[] = [];
+        filePathEls.forEach(el => {
+          if (el.textContent) filePaths.push(el.textContent);
+        });
+
+        const relatedPages: string[] = [];
+        relatedEls.forEach(el => {
+          if (el.textContent) relatedPages.push(el.textContent);
+        });
+
+        const parentPage = pageEl.querySelector('parent_page');
+        const parentPageId = parentPage ? parentPage.textContent || '' : '';
+
+        newPages.push({
+          id,
+          title,
+          content: '', // Will be generated later
+          filePaths,
+          importance,
+          relatedPages,
+          parentPage: parentPageId
+        });
+      });
+
+      // Update wiki structure with merged pages
+      if (wikiStructure) {
+        const { mergedPages, idMapping, updatedGeneratedPages } = mergePages(
+          wikiStructure.pages, 
+          newPages,
+          generatedPages
+        );
+        
+        const updatedStructure = {
+          ...wikiStructure,
+          pages: mergedPages
+        };
+        
+        // 更新状态
+        setWikiStructure(updatedStructure);
+        setGeneratedPages(updatedGeneratedPages);
+
+        // 更新当前选中的页面 ID
+        if (currentPageId) {
+          const newId = idMapping.get(currentPageId);
+          if (newId) {
+            setCurrentPageId(newId);
+          } else {
+            // 如果找不到映射关系，尝试通过标题查找
+            const currentPage = wikiStructure.pages.find(p => p.id === currentPageId);
+            if (currentPage) {
+              const matchingPage = mergedPages.find(p => p.title === currentPage.title);
+              if (matchingPage) {
+                setCurrentPageId(matchingPage.id);
+              }
+            }
+          }
+        }
+
+        // Start generating content for new pages
+        const newPagesToGenerate = newPages.filter(newPage => {
+          const newId = idMapping.get(newPage.id);
+          return newId && !updatedGeneratedPages[newId];
+        });
+
+        if (newPagesToGenerate.length > 0) {
+          // Mark new pages as in progress
+          const initialInProgress = new Set(newPagesToGenerate.map(p => idMapping.get(p.id) || p.id));
+          setPagesInProgress(prev => new Set([...prev, ...initialInProgress]));
+
+          // Create a queue of new pages with updated IDs
+          const queue = newPagesToGenerate.map(page => ({
+            ...page,
+            id: idMapping.get(page.id) || page.id
+          }));
+          let activeRequests = 0;
+          const MAX_CONCURRENT = 1;
+
+          // Function to process next items in queue
+          const processQueue = async () => {
+            while (queue.length > 0 && activeRequests < MAX_CONCURRENT) {
+              const page = queue.shift();
+              if (page) {
+                activeRequests++;
+                await generatePageContent(page, owner, repo);
+                activeRequests--;
+                
+                if (queue.length === 0 && activeRequests === 0) {
+                  // 所有页面生成完成后，保存到缓存
+                  try {
+                    const dataToCache = {
+                      owner: repoInfo.owner,
+                      repo: repoInfo.repo,
+                      repo_type: repoInfo.type,
+                      language: language,
+                      wiki_structure: updatedStructure,
+                      generated_pages: generatedPages
+                    };
+                    
+                    const response = await fetch(`/api/wiki_cache`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify(dataToCache),
+                    });
+
+                    if (response.ok) {
+                      console.log('Refined wiki structure successfully saved to cache');
+                    } else {
+                      console.error('Error saving refined wiki structure to cache:', response.status);
+                    }
+                  } catch (error) {
+                    console.error('Error saving to cache:', error);
+                  }
+
+                  setIsLoading(false);
+                  setLoadingMessage(undefined);
+                } else if (queue.length > 0 && activeRequests < MAX_CONCURRENT) {
+                  processQueue();
+                }
+              }
+            }
+          };
+
+          // Start processing the queue
+          processQueue();
+        } else {
+          // 如果没有新页面需要生成，直接保存到缓存
+          try {
+            const dataToCache = {
+              owner: repoInfo.owner,
+              repo: repoInfo.repo,
+              repo_type: repoInfo.type,
+              language: language,
+              wiki_structure: updatedStructure,
+              generated_pages: updatedGeneratedPages
+            };
+            
+            const response = await fetch(`/api/wiki_cache`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(dataToCache),
+            });
+
+            if (response.ok) {
+              console.log('Refined wiki structure successfully saved to cache');
+            } else {
+              console.error('Error saving refined wiki structure to cache:', response.status);
+            }
+          } catch (error) {
+            console.error('Error saving to cache:', error);
+          }
+
+          setIsLoading(false);
+          setLoadingMessage(undefined);
+        }
+      }
+
+    } catch (error) {
+      console.error('Error refining wiki structure:', error);
+      setError(error instanceof Error ? error.message : 'An unknown error occurred');
+      setIsLoading(false);
+      setLoadingMessage(undefined);
+    }
+  }, [owner, repo, wikiStructure, generatedPages, currentPageId, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language, messages.loading]);
+
   return (
     <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
       <style>{wikiStyles}</style>
@@ -1445,39 +1995,32 @@ IMPORTANT:
               <h4 className="text-md font-semibold text-[var(--foreground)] mb-3 font-serif">
                 {messages.repoPage?.pages || 'Pages'}
               </h4>
-              <ul className="space-y-2">
-                {wikiStructure.pages.map(page => (
-                  <li key={page.id}>
-                    <button
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${currentPageId === page.id
-                          ? 'bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30'
-                          : 'text-[var(--foreground)] hover:bg-[var(--background)] border border-transparent'
-                        }`}
-                      onClick={() => handlePageSelect(page.id)}
-                    >
-                      <div className="flex items-center">
-                        <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
-                          page.importance === 'high'
-                            ? 'bg-[#9b7cb9]'
-                            : page.importance === 'medium'
-                              ? 'bg-[#d7c4bb]'
-                              : 'bg-[#e8927c]'
-                        }`}></div>
-                        <span className="truncate">{page.title}</span>
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <TreeView
+                  pages={wikiStructure.pages}
+                  currentPageId={currentPageId}
+                  onPageSelect={handlePageSelect}
+                />
+              </div>
             </div>
 
             {/* Wiki Content */}
             <div id="wiki-content" className="w-full flex-grow p-6 overflow-y-auto">
               {currentPageId && generatedPages[currentPageId] ? (
                 <div>
-                  <h3 className="text-xl font-bold text-[var(--foreground)] mb-4 break-words font-serif">
-                    {generatedPages[currentPageId].title}
-                  </h3>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold text-[var(--foreground)] break-words font-serif">
+                      {generatedPages[currentPageId].title}
+                    </h3>
+                    <button
+                      onClick={() => refineWikiStructure(generatedPages[currentPageId])}
+                      disabled={isLoading}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--accent-primary)]/20"
+                    >
+                      <FaSitemap className="w-4 h-4" />
+                      {messages.repoPage?.refinePage || 'Refine Page'}
+                    </button>
+                  </div>
 
                   {generatedPages[currentPageId].filePaths.length > 0 && (
                     <div className="mb-5">
