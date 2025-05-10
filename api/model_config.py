@@ -4,11 +4,15 @@ Provides the ModelConfig class for handling different types of model configurati
 """
 import os
 import json
+import logging
 from typing import Dict, Any, Optional, List, Union, Tuple
 from pathlib import Path
 
 from adalflow import GoogleGenAIClient, OllamaClient, OpenAIClient, ModelClient
 from api.openrouter_client import OpenRouterClient
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 class ModelConfig:
     """Model configuration class, used to manage and load configuration information for different models."""
@@ -122,7 +126,7 @@ def load_model_configs(config_dir: Union[str, Path]) -> Tuple[Dict[str, Dict[str
                     embedders[name] = {}
                 embedders[name] = ModelConfig.load_from_config_dict(config, "embedder")
         except Exception as e:
-            print(f"Error loading embedders config: {e}")
+            logger.error(f"Error loading embedders config: {e}")
     
     # Load generators configuration
     if generators_path.exists():
@@ -135,6 +139,6 @@ def load_model_configs(config_dir: Union[str, Path]) -> Tuple[Dict[str, Dict[str
                     generators[name] = {}
                 generators[name] = ModelConfig.load_from_config_dict(config, "generator")
         except Exception as e:
-            print(f"Error loading generators config: {e}")
+            logger.error(f"Error loading generators config: {e}")
     
     return embedders, generators
