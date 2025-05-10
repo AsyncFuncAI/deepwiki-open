@@ -200,8 +200,12 @@ const TreeView: React.FC<TreeViewProps> = ({ pages, currentPageId, onPageSelect 
     const hasChildren = childPages.length > 0;
     const isExpanded = expandedPages.has(page.id);
 
+    // 计算缩进：第一级 1rem，之后每级递减 0.2rem，最小缩进 0.4rem
+    const indent = Math.max(0.4, 1 - (level - 1) * 0.2);
+    const totalIndent = level === 0 ? 0 : 1 + (level - 1) * indent;
+
     return (
-      <div key={page.id} style={{ marginLeft: `${level * 1.5}rem` }}>
+      <div key={page.id} style={{ marginLeft: `${totalIndent}rem` }}>
         <div className="flex items-center">
           {hasChildren && (
             <button
@@ -574,6 +578,17 @@ When designing the wiki structure, include pages that would benefit from visual 
 - Process workflows
 - State machines
 - Class hierarchies
+
+When designing the wiki structure, include pages that would benefit from table, such as:
+- Key features
+- System components
+- Configuration settings
+- API endpoints
+- Error codes
+- Performance metrics
+- Environment variables
+- Dependencies
+- Model Properties
 
 When designing the wiki structure, split a complex page into multiple subpages, make sure to include a parent page for each subpage, parent page should be the page that is most relevant to the subpage.
 
@@ -1406,6 +1421,24 @@ IMPORTANT:
         mergedPages.set(newId, pageWithNewId);
         // 记录 ID 映射关系
         idMapping.set(newPage.id, newId);
+
+        // 如果有现有内容，复制到新页面
+        if (existingGeneratedPages[newPage.id]) {
+          updatedGeneratedPages[newId] = {
+            ...pageWithNewId,
+            content: existingGeneratedPages[newPage.id].content
+          };
+        }
+      }
+    });
+
+    // 更新所有页面的相关页面引用
+    Array.from(mergedPages.values()).forEach(page => {
+      if (page.relatedPages.length > 0) {
+        page.relatedPages = page.relatedPages.map(relatedId => {
+          const newId = idMapping.get(relatedId);
+          return newId || relatedId;
+        }).filter(id => mergedPages.has(id));
       }
     });
 
@@ -1499,6 +1532,17 @@ When designing the wiki structure, include pages that would benefit from visual 
 - State machines
 - Class hierarchies
 
+When designing the wiki structure, include pages that would benefit from table, such as:
+- Key features
+- System components
+- Configuration settings
+- API endpoints
+- Error codes
+- Performance metrics
+- Environment variables
+- Dependencies
+- Model Properties
+
 When designing the wiki structure, split a complex page into multiple subpages, make sure to include a parent page for each subpage, parent page should be the page that is most relevant to the subpage.
 
 Return your analysis in the following XML format:
@@ -1543,7 +1587,7 @@ IMPORTANT:
       };
 
       // Add tokens if available
-      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language);
+      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, generatorModelName, language);
 
       const response = await fetch(`/api/chat/stream`, {
         method: 'POST',
@@ -1678,6 +1722,34 @@ IMPORTANT:
           }
         }
 
+        // 立即保存更新后的结构到缓存
+        try {
+          const dataToCache = {
+            owner: repoInfo.owner,
+            repo: repoInfo.repo,
+            repo_type: repoInfo.type,
+            language: language,
+            wiki_structure: updatedStructure,
+            generated_pages: updatedGeneratedPages
+          };
+          
+          const response = await fetch(`/api/wiki_cache`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(dataToCache),
+          });
+
+          if (response.ok) {
+            console.log('Updated wiki structure successfully saved to cache');
+          } else {
+            console.error('Error saving updated wiki structure to cache:', response.status);
+          }
+        } catch (error) {
+          console.error('Error saving to cache:', error);
+        }
+
         // Start generating content for new pages
         const newPagesToGenerate = newPages.filter(newPage => {
           const newId = idMapping.get(newPage.id);
@@ -1786,7 +1858,7 @@ IMPORTANT:
       setIsLoading(false);
       setLoadingMessage(undefined);
     }
-  }, [owner, repo, wikiStructure, generatedPages, currentPageId, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language, messages.loading]);
+  }, [owner, repo, wikiStructure, generatedPages, currentPageId, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, language, messages.loading]);
 
   return (
     <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">

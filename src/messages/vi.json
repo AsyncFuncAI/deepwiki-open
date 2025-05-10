@@ -8,7 +8,13 @@
     "submit": "Gửi",
     "cancel": "Hủy",
     "close": "Đóng",
-    "loading": "Đang tải..."
+    "loading": "Đang tải...",
+    "imageLoadError": "Lỗi tải hình ảnh",
+    "imageLoadErrorDefault": "Không thể tải hình ảnh, vui lòng kiểm tra xem URL hình ảnh có chính xác không",
+    "imageUrl": "URL hình ảnh",
+    "imageCorrupted": "Tệp hình ảnh có thể bị hỏng hoặc định dạng không đúng",
+    "imageAccessError": "Không thể truy cập hình ảnh, có thể do vấn đề mạng hoặc hình ảnh đã bị xóa",
+    "imagePathError": "Đường dẫn hình ảnh có thể không chính xác hoặc tệp không tồn tại"
   },
   "loading": {
     "initializing": "Đang khởi tạo wiki...",

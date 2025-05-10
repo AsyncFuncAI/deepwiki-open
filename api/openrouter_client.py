@@ -287,11 +287,9 @@ class OpenRouterClient(ModelClient):
                                                                         clean_structure += "      </related_pages>\n"
 
                                                                         # Extract parent page
-                                                                        clean_structure += "      <parent_page>\n"
                                                                         parent_page = re.search(r'<parent_page>(.*?)</parent_page>', page_content, re.DOTALL)
                                                                         if parent_page:
                                                                             clean_structure += f"        <parent_page>{parent_page.strip()}</parent_page>\n"
-                                                                        clean_structure += "      </related_pages>\n"
 
                                                                         clean_structure += "    </page>\n"
 

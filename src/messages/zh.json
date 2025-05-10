@@ -8,7 +8,13 @@
     "submit": "提交",
     "cancel": "取消",
     "close": "关闭",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "imageLoadError": "图片加载失败",
+    "imageLoadErrorDefault": "无法加载图片，请检查图片地址是否正确",
+    "imageUrl": "图片地址",
+    "imageCorrupted": "图片文件可能已损坏或格式不正确",
+    "imageAccessError": "无法访问图片，可能是网络问题或图片已被删除",
+    "imagePathError": "图片路径可能不正确或文件不存在"
   },
   "loading": {
     "initializing": "初始化Wiki生成...",

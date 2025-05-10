@@ -1,16 +1,42 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import Mermaid from './Mermaid';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface MarkdownProps {
   content: string;
+  repoUrl?: string;
 }
 
-const Markdown: React.FC<MarkdownProps> = ({ content }) => {
+const Markdown: React.FC<MarkdownProps> = ({ content, repoUrl }) => {
+  const { messages } = useLanguage();
+
+  // Create a simple translation function
+  const t = (key: string, params: Record<string, string | number> = {}): string => {
+    const keys = key.split('.');
+    let value: any = messages;
+
+    for (const k of keys) {
+      if (value && typeof value === 'object' && k in value) {
+        value = value[k];
+      } else {
+        return key;
+      }
+    }
+
+    if (typeof value === 'string') {
+      return Object.entries(params).reduce((acc: string, [paramKey, paramValue]) => {
+        return acc.replace(`{${paramKey}}`, String(paramValue));
+      }, value);
+    }
+
+    return key;
+  };
+
   // Define markdown components
   const MarkdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
     p({ children, ...props }: { children?: React.ReactNode }) {
@@ -188,6 +214,79 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
         >
           {children}
         </code>
+      );
+    },
+    img: ({ src, alt, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) => {
+      const [error, setError] = useState(false);
+      const [loading, setLoading] = useState(true);
+      const [errorMessage, setErrorMessage] = useState<string>('');
+
+      // 处理图片 URL
+      const srcStr = typeof src === 'string' ? src : '';
+      let processedSrc = srcStr;
+      if (processedSrc && !processedSrc.startsWith('http') && repoUrl) {
+        // 检查是否是本地项目
+        if (repoUrl.startsWith('file://') || repoUrl.startsWith('/') || /^[A-Za-z]:/.test(repoUrl)) {
+          // 本地项目，直接使用相对路径
+          processedSrc = processedSrc.replace(/^\.\//, '');
+        } else {
+          // 远程仓库，使用 raw 地址
+          if (processedSrc.startsWith('./') || processedSrc.startsWith('../')) {
+            processedSrc = `${repoUrl}/raw/main/${processedSrc.replace(/^\.\//, '')}`;
+          } else {
+            processedSrc = `${repoUrl}/raw/main/${processedSrc}`;
+          }
+        }
+      } else if (processedSrc && processedSrc.includes('github.com')) {
+        // 将 github.com 的地址转换为 raw.githubusercontent.com
+        processedSrc = processedSrc
+          .replace('github.com', 'raw.githubusercontent.com')
+          .replace('/blob/', '/');
+      }
+
+      if (error) {
+        return (
+          <span className="block w-full bg-[var(--background)]/50 p-4 rounded-lg text-center border border-[var(--border-color)] my-2">
+            <span className="block text-[var(--muted)] text-sm mb-2">{t('common.imageLoadError')}</span>
+            <span className="block text-xs text-[var(--muted)] mb-2 break-all">
+              {errorMessage || t('common.imageLoadErrorDefault')}
+            </span>
+            <span className="block text-xs text-[var(--muted)] break-all">
+              {t('common.imageUrl')}: {typeof src === 'string' ? src : ''}
+            </span>
+          </span>
+        );
+      }
+
+      return (
+        <span className="block w-full relative group my-2">
+          {loading && (
+            <span className="absolute inset-0 flex items-center justify-center bg-[var(--background)]/50 rounded-lg">
+              <span className="w-6 h-6 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full animate-spin"></span>
+            </span>
+          )}
+          <img 
+            src={processedSrc} 
+            alt={alt} 
+            className="w-full rounded-lg shadow-sm transition-opacity duration-200"
+            style={{ opacity: loading ? 0 : 1 }}
+            onLoad={() => setLoading(false)}
+            onError={(e) => {
+              setError(true);
+              setLoading(false);
+              // 获取具体的错误信息
+              const target = e.target as HTMLImageElement;
+              if (target.naturalWidth === 0) {
+                setErrorMessage(t('common.imageCorrupted'));
+              } else if (processedSrc.startsWith('http')) {
+                setErrorMessage(t('common.imageAccessError'));
+              } else {
+                setErrorMessage(t('common.imagePathError'));
+              }
+            }}
+            {...props}
+          />
+        </span>
       );
     },
   };

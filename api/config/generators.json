@@ -32,5 +32,21 @@
       "temperature": 0.7,
       "top_p": 0.8
     }
+  },
+  "deepseek": {
+    "model_type": "openai",
+    "model_kwargs": {
+      "model": "deepseek-chat",
+      "temperature": 0.7,
+      "top_p": 0.8
+    }
+  },
+  "claude": {
+    "model_type": "openrouter",
+    "model_kwargs": {
+      "model": "anthropic/claude-3.7-sonnet",
+      "temperature": 0.7,
+      "top_p": 0.8
+    }
   }
 }
