@@ -309,6 +309,7 @@ OPENAI_API_BASE=https://custom-api-endpoint.com/v1  # 可选，用于自定义Op
 # 配置目录
 DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # 可选，用于自定义配置文件位置
 ```
+如果不使用ollama模式，那么需要配置OpenAI API密钥用于embeddings。其他密钥只有配置并使用使用对应提供商的模型时才需要。
 
 ### 配置文件
 

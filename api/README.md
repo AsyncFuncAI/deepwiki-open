@@ -38,6 +38,8 @@ OPENAI_API_BASE=https://custom-api-endpoint.com/v1  # Optional, for custom OpenA
 PORT=8001  # Optional, defaults to 8001
 ```
 
+If you're not using Ollama mode, you need to configure an OpenAI API key for embeddings. Other API keys are only required when configuring and using models from the corresponding providers.
+
 > 💡 **Where to get these keys:**
 > - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 > - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)

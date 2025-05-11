@@ -236,11 +236,13 @@ The OpenAI Client's base_url configuration is designed primarily for enterprise 
 
 | Variable | Description | Required | Note |
 |----------|-------------|----------|------|
-| `GOOGLE_API_KEY` | Google Gemini API key for AI generation | Yes |
-| `OPENAI_API_KEY` | OpenAI API key for embeddings | Yes |
+| `GOOGLE_API_KEY` | Google Gemini API key for AI generation | No | Required only if you want to use Google Gemini models
+| `OPENAI_API_KEY` | OpenAI API key for embeddings | Yes | Note: This is required even if you're not using OpenAI models, as it's used for embeddings. |
 | `OPENROUTER_API_KEY` | OpenRouter API key for alternative models | No | Required only if you want to use OpenRouter models |
 | `PORT` | Port for the API server (default: 8001) | No | If you host API and frontend on the same machine, make sure change port of `SERVER_BASE_URL` accordingly |
 | `SERVER_BASE_URL` | Base URL for the API server (default: http://localhost:8001) | No |
+
+If you're not using ollama mode, you need to configure an OpenAI API key for embeddings. Other API keys are only required when configuring and using models from the corresponding providers.
 
 ### Docker Setup
 
