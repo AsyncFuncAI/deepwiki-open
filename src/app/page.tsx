@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaCoffee, FaTwitter} from 'react-icons/fa';
+import { FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaCoffee, FaTwitter } from 'react-icons/fa';
 import ThemeToggle from '@/components/theme-toggle';
 import Mermaid from '../components/Mermaid';
 import UserSelector from '@/components/UserSelector';
+import { extractUrlPath } from '@/utils/urlDecoder';
 
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -41,7 +42,7 @@ const DEMO_SEQUENCE_CHART = `sequenceDiagram
 
 export default function Home() {
   const router = useRouter();
-  const {language, setLanguage, messages} = useLanguage();
+  const { language, setLanguage, messages } = useLanguage();
 
   // Create a simple translation function
   const t = (key: string, params: Record<string, string | number> = {}): string => {
@@ -108,6 +109,8 @@ export default function Home() {
 
     // Handle Windows absolute paths (e.g., C:\path\to\folder)
     const windowsPathRegex = /^[a-zA-Z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]*$/;
+    const customGitRegex = /^(?:https?:\/\/)?([^\/]+)\/(.+?)\/([^\/]+)(?:\.git)?\/?$/;
+
     if (windowsPathRegex.test(input)) {
       type = 'local';
       localPath = input;
@@ -121,40 +124,23 @@ export default function Home() {
       repo = input.split('/').filter(Boolean).pop() || 'local-repo';
       owner = 'local';
     }
-    // Handle GitHub URL format
-    else if (input.startsWith('https://github.com/')) {
-      type = 'github';
-      const parts = input.replace('https://github.com/', '').split('/');
-      owner = parts[0] || '';
-      repo = parts[1] || '';
-    }
-    // Handle GitLab URL format
-    else if (input.startsWith('https://gitlab.com/')) {
-      type = 'gitlab';
-      const parts = input.replace('https://gitlab.com/', '').split('/');
-
-      // GitLab can have nested groups, so the repo is the last part
-      // and the owner/group is everything before that
+    else if (customGitRegex.test(input)) {
+      type = 'web';
+      fullPath = extractUrlPath(input)?.replace(/\.git$/, '');
+      const parts = fullPath?.split('/') ?? [];
       if (parts.length >= 2) {
         repo = parts[parts.length - 1] || '';
-        owner = parts[0] || '';
-
-        // For GitLab, we also need to keep track of the full path for API calls
-        fullPath = parts.join('/');
+        owner = parts[parts.length - 2] || '';
       }
     }
-    // Handle Bitbucket URL format
-    else if (input.startsWith('https://bitbucket.org/')) {
-      type = 'bitbucket';
-      const parts = input.replace('https://bitbucket.org/', '').split('/');
-      owner = parts[0] || '';
-      repo = parts[1] || '';
-    }
-    // Handle owner/repo format (assume GitHub by default)
+    // Unsupported URL formats
     else {
-      const parts = input.split('/');
-      owner = parts[0] || '';
-      repo = parts[1] || '';
+      console.error('Unsupported URL format:', input);
+      return null;
+    }
+
+    if (!owner || !repo) {
+      return null;
     }
 
     // Clean values
@@ -166,11 +152,7 @@ export default function Home() {
       repo = repo.slice(0, -4);
     }
 
-    if (!owner || !repo) {
-      return null;
-    }
-
-    return {owner, repo, type, fullPath, localPath};
+    return { owner, repo, type, fullPath, localPath };
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -193,24 +175,20 @@ export default function Home() {
       return;
     }
 
-    const {owner, repo, type, localPath} = parsedRepo;
+    const { owner, repo, type, localPath } = parsedRepo;
 
     // Store tokens in query params if they exist
     const params = new URLSearchParams();
     if (accessToken) {
-      if (selectedPlatform === 'github') {
-        params.append('github_token', accessToken);
-      } else if (selectedPlatform === 'gitlab') {
-        params.append('gitlab_token', accessToken);
-      } else if (selectedPlatform === 'bitbucket') {
-        params.append('bitbucket_token', accessToken);
-      }
+      params.append('token', accessToken);
     }
     // Always include the type parameter
-    params.append('type', type);
+    params.append('type', (type == 'local' ? type : selectedPlatform) || 'github');
     // Add local path if it exists
     if (localPath) {
       params.append('local_path', encodeURIComponent(localPath));
+    } else {
+      params.append('repo_url', encodeURIComponent(repositoryInput));
     }
     // Add model parameters
     params.append('provider', provider);
@@ -244,7 +222,7 @@ export default function Home() {
           className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-[var(--card-bg)] rounded-lg shadow-custom border border-[var(--border-color)] p-4">
           <div className="flex items-center">
             <div className="bg-[var(--accent-primary)] p-2 rounded-lg mr-3">
-              <FaWikipediaW className="text-2xl text-white"/>
+              <FaWikipediaW className="text-2xl text-white" />
             </div>
             <div className="mr-6">
               <h1 className="text-xl md:text-2xl font-bold text-[var(--accent-primary)]">{t('common.appName')}</h1>
@@ -252,7 +230,7 @@ export default function Home() {
                 <p className="text-xs text-[var(--muted)] whitespace-nowrap">{t('common.tagline')}</p>
                 <div className="hidden md:inline-block">
                   <Link href="/wiki/projects"
-                        className="text-xs font-medium text-[var(--accent-primary)] hover:text-[var(--highlight)] hover:underline whitespace-nowrap">
+                    className="text-xs font-medium text-[var(--accent-primary)] hover:text-[var(--highlight)] hover:underline whitespace-nowrap">
                     {t('nav.wikiProjects')}
                   </Link>
                 </div>
@@ -263,7 +241,7 @@ export default function Home() {
           <form onSubmit={handleFormSubmit} className="flex flex-col gap-3 w-full max-w-3xl">
             {/* Repository URL input and submit button */}
             <div className="flex flex-col sm:flex-row gap-2">
-                <div className="relative flex-1">
+              <div className="relative flex-1">
                 <input
                   type="text"
                   value={repositoryInput}
@@ -292,7 +270,7 @@ export default function Home() {
               {/* Language selection */}
               <div className="min-w-[140px]">
                 <label htmlFor="language-select"
-                       className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
+                  className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
                   {t('form.wikiLanguage')}
                 </label>
                 <select
@@ -342,16 +320,16 @@ export default function Home() {
               {showTokenInputs && (
                 <>
                   <div className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40"
-                       onClick={() => setShowTokenInputs(false)}/>
+                    onClick={() => setShowTokenInputs(false)} />
                   <div className="absolute left-0 right-0 top-full mt-2 z-50">
                     <div
                       className="flex flex-col gap-3 p-4 bg-[var(--card-bg)] rounded-lg border border-[var(--border-color)] shadow-custom card-japanese">
                       <div className="flex justify-between items-center">
                         <h3 className="text-sm font-medium text-[var(--accent-primary)] mb-3 flex items-center">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none"
-                               viewBox="0 0 24 24" stroke="currentColor">
+                            viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                           {t('form.accessToken')}
                         </h3>
@@ -363,7 +341,7 @@ export default function Home() {
                           <span className="sr-only">Close</span>
                           <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </button>
                       </div>
@@ -376,37 +354,34 @@ export default function Home() {
                           <button
                             type="button"
                             onClick={() => setSelectedPlatform('github')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${
-                                selectedPlatform === 'github'
-                                    ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
-                                    : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
-                            }`}
+                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${selectedPlatform === 'github'
+                              ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
+                              : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
+                              }`}
                           >
-                            <FaGithub className="text-lg"/>
+                            <FaGithub className="text-lg" />
                             <span className="text-sm">GitHub</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => setSelectedPlatform('gitlab')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${
-                                selectedPlatform === 'gitlab'
-                                    ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
-                                    : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
-                            }`}
+                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${selectedPlatform === 'gitlab'
+                              ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
+                              : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
+                              }`}
                           >
-                            <FaGitlab className="text-lg"/>
+                            <FaGitlab className="text-lg" />
                             <span className="text-sm">GitLab</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => setSelectedPlatform('bitbucket')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${
-                                selectedPlatform === 'bitbucket'
-                                    ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
-                                    : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
-                            }`}
+                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${selectedPlatform === 'bitbucket'
+                              ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
+                              : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
+                              }`}
                           >
-                            <FaBitbucket className="text-lg"/>
+                            <FaBitbucket className="text-lg" />
                             <span className="text-sm">Bitbucket</span>
                           </button>
                         </div>
@@ -414,22 +389,22 @@ export default function Home() {
 
                       <div>
                         <label htmlFor="access-token"
-                               className="block text-xs font-medium text-[var(--foreground)] mb-2">
-                          {t('form.personalAccessToken', {platform: selectedPlatform.charAt(0).toUpperCase() + selectedPlatform.slice(1)})}
+                          className="block text-xs font-medium text-[var(--foreground)] mb-2">
+                          {t('form.personalAccessToken', { platform: selectedPlatform.charAt(0).toUpperCase() + selectedPlatform.slice(1) })}
                         </label>
                         <input
                           id="access-token"
                           type="password"
                           value={accessToken}
                           onChange={(e) => setAccessToken(e.target.value)}
-                          placeholder={t('form.tokenPlaceholder', {platform: selectedPlatform})}
+                          placeholder={t('form.tokenPlaceholder', { platform: selectedPlatform })}
                           className="input-japanese block w-full px-3 py-2 rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)] text-sm"
                         />
                         <div className="flex items-center mt-2 text-xs text-[var(--muted)]">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-[var(--muted)]"
-                               fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                           {t('form.tokenSecurityNote')}
                         </div>
@@ -452,7 +427,7 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row items-center mb-6 gap-4">
               <div className="relative">
                 <div className="absolute -inset-1 bg-[var(--accent-primary)]/20 rounded-full blur-md"></div>
-                <FaWikipediaW className="text-5xl text-[var(--accent-primary)] relative z-10"/>
+                <FaWikipediaW className="text-5xl text-[var(--accent-primary)] relative z-10" />
               </div>
               <div className="text-center sm:text-left">
                 <h2 className="text-2xl font-bold text-[var(--foreground)] font-serif mb-1">{t('home.welcome')}</h2>
@@ -470,9 +445,9 @@ export default function Home() {
             className="w-full max-w-2xl mb-10 bg-[var(--accent-primary)]/5 border border-[var(--accent-primary)]/20 rounded-lg p-5">
             <h3 className="text-sm font-semibold text-[var(--accent-primary)] mb-3 flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
-                   stroke="currentColor">
+                stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               {t('home.quickStart')}
             </h3>
@@ -502,10 +477,10 @@ export default function Home() {
             className="w-full max-w-2xl mb-8 bg-[var(--background)]/70 rounded-lg p-6 border border-[var(--border-color)]">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-4">
               <svg xmlns="http://www.w3.org/2000/svg"
-                   className="h-5 w-5 text-[var(--accent-primary)] flex-shrink-0 mt-0.5 sm:mt-0" fill="none"
-                   viewBox="0 0 24 24" stroke="currentColor">
+                className="h-5 w-5 text-[var(--accent-primary)] flex-shrink-0 mt-0.5 sm:mt-0" fill="none"
+                viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
               <h3 className="text-base font-semibold text-[var(--foreground)] font-serif">{t('home.advancedVisualization')}</h3>
             </div>
@@ -517,12 +492,12 @@ export default function Home() {
             <div className="grid grid-cols-1 gap-6">
               <div className="bg-[var(--card-bg)] p-4 rounded-lg border border-[var(--border-color)] shadow-custom">
                 <h4 className="text-sm font-medium text-[var(--foreground)] mb-3 font-serif">{t('home.flowDiagram')}</h4>
-                <Mermaid chart={DEMO_FLOW_CHART}/>
+                <Mermaid chart={DEMO_FLOW_CHART} />
               </div>
 
               <div className="bg-[var(--card-bg)] p-4 rounded-lg border border-[var(--border-color)] shadow-custom">
                 <h4 className="text-sm font-medium text-[var(--foreground)] mb-3 font-serif">{t('home.sequenceDiagram')}</h4>
-                <Mermaid chart={DEMO_SEQUENCE_CHART}/>
+                <Mermaid chart={DEMO_SEQUENCE_CHART} />
               </div>
             </div>
           </div>
@@ -537,19 +512,19 @@ export default function Home() {
           <div className="flex items-center gap-6">
             <div className="flex items-center space-x-5">
               <a href="https://github.com/AsyncFuncAI/deepwiki-open" target="_blank" rel="noopener noreferrer"
-                 className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
-                <FaGithub className="text-xl"/>
+                className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
+                <FaGithub className="text-xl" />
               </a>
               <a href="https://buymeacoffee.com/sheing" target="_blank" rel="noopener noreferrer"
-                 className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
-                <FaCoffee className="text-xl"/>
+                className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
+                <FaCoffee className="text-xl" />
               </a>
               <a href="https://x.com/sashimikun_void" target="_blank" rel="noopener noreferrer"
-                 className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
-                <FaTwitter className="text-xl"/>
+                className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
+                <FaTwitter className="text-xl" />
               </a>
             </div>
-            <ThemeToggle/>
+            <ThemeToggle />
           </div>
         </div>
       </footer>

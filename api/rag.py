@@ -287,7 +287,7 @@ IMPORTANT FORMATTING RULES:
         self.db_manager = DatabaseManager()
         self.transformed_docs = []
 
-    def prepare_retriever(self, repo_url_or_path: str, access_token: str = None, local_ollama: bool = False, 
+    def prepare_retriever(self, repo_url_or_path: str, type: str = "github", access_token: str = None, local_ollama: bool = False, 
                       excluded_dirs: List[str] = None, excluded_files: List[str] = None):
         """
         Prepare the retriever for a repository.
@@ -304,6 +304,7 @@ IMPORTANT FORMATTING RULES:
         self.repo_url_or_path = repo_url_or_path
         self.transformed_docs = self.db_manager.prepare_database(
             repo_url_or_path, 
+            type, 
             access_token, 
             local_ollama=local_ollama,
             excluded_dirs=excluded_dirs,

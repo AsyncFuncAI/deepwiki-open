@@ -60,9 +60,8 @@ class ChatCompletionRequest(BaseModel):
     repo_url: str = Field(..., description="URL of the repository to query")
     messages: List[ChatMessage] = Field(..., description="List of chat messages")
     filePath: Optional[str] = Field(None, description="Optional path to a file in the repository to include in the prompt")
-    github_token: Optional[str] = Field(None, description="GitHub personal access token for private repositories")
-    gitlab_token: Optional[str] = Field(None, description="GitLab personal access token for private repositories")
-    bitbucket_token: Optional[str] = Field(None, description="Bitbucket personal access token for private repositories")
+    token: Optional[str] = Field(None, description="Personal access token for private repositories")
+    type: Optional[str] = Field("github", description="Type of repository (e.g., 'github', 'gitlab', 'bitbucket')")
     
     # model parameters
     provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama)")
@@ -91,18 +90,6 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         try:
             request_rag = RAG(provider=request.provider, model=request.model)
 
-            # Determine which access token to use based on the repository URL
-            access_token = None
-            if "github.com" in request.repo_url and request.github_token:
-                access_token = request.github_token
-                logger.info("Using GitHub token for authentication")
-            elif "gitlab.com" in request.repo_url and request.gitlab_token:
-                access_token = request.gitlab_token
-                logger.info("Using GitLab token for authentication")
-            elif "bitbucket.org" in request.repo_url and request.bitbucket_token:
-                access_token = request.bitbucket_token
-                logger.info("Using Bitbucket token for authentication")
-
             # Extract custom file filter parameters if provided
             excluded_dirs = None
             excluded_files = None
@@ -113,7 +100,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 excluded_files = [unquote(file_pattern) for file_pattern in request.excluded_files.split('\n') if file_pattern.strip()]
                 logger.info(f"Using custom excluded files: {excluded_files}")
 
-            request_rag.prepare_retriever(request.repo_url, access_token, False, excluded_dirs, excluded_files)
+            request_rag.prepare_retriever(request.repo_url, request.type, request.token, False, excluded_dirs, excluded_files)
             logger.info(f"Retriever prepared for {request.repo_url}")
         except Exception as e:
             logger.error(f"Error preparing retriever: {str(e)}")
@@ -233,11 +220,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         repo_name = repo_url.split("/")[-1] if "/" in repo_url else repo_url
 
         # Determine repository type
-        repo_type = "GitHub"
-        if "gitlab.com" in repo_url:
-            repo_type = "GitLab"
-        elif "bitbucket.org" in repo_url:
-            repo_type = "Bitbucket"
+        repo_type = request.type
 
         # Get language information
         language_code = request.language or "en"
@@ -396,16 +379,7 @@ This file contains...
         file_content = ""
         if request.filePath:
             try:
-                # Determine which access token to use
-                access_token = None
-                if "github.com" in request.repo_url and request.github_token:
-                    access_token = request.github_token
-                elif "gitlab.com" in request.repo_url and request.gitlab_token:
-                    access_token = request.gitlab_token
-                elif "bitbucket.org" in request.repo_url and request.bitbucket_token:
-                    access_token = request.bitbucket_token
-
-                file_content = get_file_content(request.repo_url, request.filePath, access_token)
+                file_content = get_file_content(request.repo_url, request.filePath, request.type, request.token)
                 logger.info(f"Successfully retrieved content for file: {request.filePath}")
             except Exception as e:
                 logger.error(f"Error retrieving file content: {str(e)}")

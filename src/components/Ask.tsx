@@ -4,6 +4,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import {FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Markdown from './Markdown';
 import { useLanguage } from '@/contexts/LanguageContext';
+import RepoInfo from '@/types/repoinfo';
+import getRepoUrl from '@/utils/getRepoUrl';
 import ModelSelectionModal from './ModelSelectionModal';
 
 interface Message {
@@ -19,10 +21,7 @@ interface ResearchStage {
 }
 
 interface AskProps {
-  repoUrl: string;
-  githubToken?: string;
-  gitlabToken?: string;
-  bitbucketToken?: string;
+  repoInfo: RepoInfo;
   provider?: string;
   model?: string;
   isCustomModel?: boolean;
@@ -31,10 +30,7 @@ interface AskProps {
 }
 
 const Ask: React.FC<AskProps> = ({ 
-  repoUrl, 
-  githubToken, 
-  gitlabToken, 
-  bitbucketToken, 
+  repoInfo,
   provider = '',
   model = '',
   isCustomModel = false,
@@ -101,27 +97,27 @@ const Ask: React.FC<AskProps> = ({
 
     // Check for conclusion sections that don't indicate further research
     if ((content.includes('## Conclusion') || content.includes('## Summary')) &&
-        !content.includes('I will now proceed to') &&
-        !content.includes('Next Steps') &&
-        !content.includes('next iteration')) {
+      !content.includes('I will now proceed to') &&
+      !content.includes('Next Steps') &&
+      !content.includes('next iteration')) {
       return true;
     }
 
     // Check for phrases that explicitly indicate completion
     if (content.includes('This concludes our research') ||
-        content.includes('This completes our investigation') ||
-        content.includes('This concludes the deep research process') ||
-        content.includes('Key Findings and Implementation Details') ||
-        content.includes('In conclusion,') ||
-        (content.includes('Final') && content.includes('Conclusion'))) {
+      content.includes('This completes our investigation') ||
+      content.includes('This concludes the deep research process') ||
+      content.includes('Key Findings and Implementation Details') ||
+      content.includes('In conclusion,') ||
+      (content.includes('Final') && content.includes('Conclusion'))) {
       return true;
     }
 
     // Check for topic-specific completion indicators
     if (content.includes('Dockerfile') &&
-        (content.includes('This Dockerfile') || content.includes('The Dockerfile')) &&
-        !content.includes('Next Steps') &&
-        !content.includes('In the next iteration')) {
+      (content.includes('This Dockerfile') || content.includes('The Dockerfile')) &&
+      !content.includes('Next Steps') &&
+      !content.includes('In the next iteration')) {
       return true;
     }
 
@@ -229,7 +225,7 @@ const Ask: React.FC<AskProps> = ({
 
       // Prepare the request body
       const requestBody: Record<string, unknown> = {
-        repo_url: repoUrl,
+        repo_url: getRepoUrl(repoInfo),
         messages: newHistory,
         provider: selectedProvider,
         model: isCustomSelectedModel ? customSelectedModel : selectedModel,
@@ -237,14 +233,8 @@ const Ask: React.FC<AskProps> = ({
       };
 
       // Add tokens if available
-      if (githubToken && repoUrl.includes('github.com')) {
-        requestBody.github_token = githubToken;
-      }
-      if (gitlabToken && repoUrl.includes('gitlab.com')) {
-        requestBody.gitlab_token = gitlabToken;
-      }
-      if (bitbucketToken && repoUrl.includes('bitbucket.org')) {
-        requestBody.bitbucket_token = bitbucketToken;
+      if (repoInfo?.token) {
+        requestBody.token = repoInfo.token;
       }
 
       // Make the API call
@@ -349,7 +339,7 @@ const Ask: React.FC<AskProps> = ({
         return () => clearTimeout(timer);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [response, isLoading, deepResearch, researchComplete, researchIteration]);
 
   // Effect to update research stages when the response changes
@@ -381,7 +371,7 @@ const Ask: React.FC<AskProps> = ({
       }
     }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [response, isLoading, deepResearch, researchIteration]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -412,7 +402,7 @@ const Ask: React.FC<AskProps> = ({
 
       // Prepare request body
       const requestBody: Record<string, unknown> = {
-        repo_url: repoUrl,
+        repo_url: getRepoUrl(repoInfo),
         messages: newHistory,
         provider: selectedProvider,
         model: isCustomSelectedModel ? customSelectedModel : selectedModel,
@@ -420,14 +410,8 @@ const Ask: React.FC<AskProps> = ({
       };
 
       // Add tokens if available
-      if (githubToken && repoUrl.includes('github.com')) {
-        requestBody.github_token = githubToken;
-      }
-      if (gitlabToken && repoUrl.includes('gitlab.com')) {
-        requestBody.gitlab_token = gitlabToken;
-      }
-      if (bitbucketToken && repoUrl.includes('bitbucket.org')) {
-        requestBody.bitbucket_token = bitbucketToken;
+      if (repoInfo?.token) {
+        requestBody.token = repoInfo.token;
       }
 
       const apiResponse = await fetch(`/api/chat/stream`, {
@@ -649,8 +633,8 @@ const Ask: React.FC<AskProps> = ({
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 {deepResearch
                   ? (researchIteration === 0
-                      ? "Planning research approach..."
-                      : `Research iteration ${researchIteration} in progress...`)
+                    ? "Planning research approach..."
+                    : `Research iteration ${researchIteration} in progress...`)
                   : "Thinking..."}
               </span>
             </div>
