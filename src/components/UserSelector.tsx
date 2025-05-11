@@ -268,73 +268,57 @@ next.config.js
         
         {/* Provider Selection */}
         <div>
-          <label htmlFor="provider-dropdown" className="block text-sm font-medium text-[var(--muted)] mb-1.5">
+          <label htmlFor="provider-dropdown" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
             {t.form?.modelProvider || 'Model Provider'}
           </label>
-          <div className="relative">
-            <select
-              id="provider-dropdown"
-              value={provider}
-              onChange={(e) => handleProviderChange(e.target.value)}
-              className="block w-full rounded-md border border-[var(--border-color)]/50 bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-base focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)] focus:ring-opacity-50 transition-all cursor-pointer shadow-sm appearance-none"
-            >
-              <option value="" disabled>{t.form?.selectProvider || 'Select Provider'}</option>
-              {modelConfig?.providers.map((providerOption) => (
-                <option key={providerOption.id} value={providerOption.id}>
-                  {t.form?.[`provider${providerOption.id.charAt(0).toUpperCase() + providerOption.id.slice(1)}`] || providerOption.name}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[var(--muted)]">
-              <svg className="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-              </svg>
-            </div>
-          </div>
+          <select
+            id="provider-dropdown"
+            value={provider}
+            onChange={(e) => handleProviderChange(e.target.value)}
+            className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+          >
+            <option value="" disabled>{t.form?.selectProvider || 'Select Provider'}</option>
+            {modelConfig?.providers.map((providerOption) => (
+              <option key={providerOption.id} value={providerOption.id}>
+                {t.form?.[`provider${providerOption.id.charAt(0).toUpperCase() + providerOption.id.slice(1)}`] || providerOption.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Model Selection - consistent height regardless of type */}
         <div>
-          <label htmlFor={isCustomModel ? "custom-model-input" : "model-dropdown"} className="block text-sm font-medium text-[var(--muted)] mb-1.5">
+          <label htmlFor={isCustomModel ? "custom-model-input" : "model-dropdown"} className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
             {t.form?.modelSelection || 'Model Selection'}
           </label>
           
-          <div className="min-h-[50px]"> {/* 改用min-height而非固定height */}
-            {isCustomModel ? (
-              <input
-                id="custom-model-input"
-                type="text"
-                value={customModel}
-                onChange={(e) => {
-                  setCustomModel(e.target.value);
-                  setModel(e.target.value);
-                }}
-                placeholder={t.form?.customModelPlaceholder || 'Enter custom model name'}
-                className="block w-full rounded-md border border-[var(--border-color)]/50 bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-base focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)] focus:ring-opacity-50 transition-all shadow-sm"
-              />
-            ) : (
-              <div className="relative">
-                <select
-                  id="model-dropdown"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="block w-full rounded-md border border-[var(--border-color)]/50 bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-base focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)] focus:ring-opacity-50 transition-all cursor-pointer shadow-sm appearance-none"
-                  disabled={!provider || isLoading || !modelConfig?.providers.find(p => p.id === provider)?.models?.length}
-                >
-                  {modelConfig?.providers.find((p: Provider) => p.id === provider)?.models.map((modelOption) => (
-                    <option key={modelOption.id} value={modelOption.id}>
-                      {modelOption.name}
-                    </option>
-                  )) || <option value="">{t.form?.selectModel || 'Select Model'}</option>}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[var(--muted)]">
-                  <svg className="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                  </svg>
-                </div>
-              </div>
-            )}
-          </div>
+          {isCustomModel ? (
+            <input
+              id="custom-model-input"
+              type="text"
+              value={customModel}
+              onChange={(e) => {
+                setCustomModel(e.target.value);
+                setModel(e.target.value);
+              }}
+              placeholder={t.form?.customModelPlaceholder || 'Enter custom model name'}
+              className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+            />
+          ) : (
+            <select
+              id="model-dropdown"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+              disabled={!provider || isLoading || !modelConfig?.providers.find(p => p.id === provider)?.models?.length}
+            >
+              {modelConfig?.providers.find((p: Provider) => p.id === provider)?.models.map((modelOption) => (
+                <option key={modelOption.id} value={modelOption.id}>
+                  {modelOption.name}
+                </option>
+              )) || <option value="">{t.form?.selectModel || 'Select Model'}</option>}
+            </select>
+          )}
         </div>
 
         {/* Custom model toggle - only when provider supports it */}

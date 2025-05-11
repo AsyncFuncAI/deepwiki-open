@@ -1579,9 +1579,12 @@ IMPORTANT:
               className="w-full flex items-center justify-between text-left mb-3 text-sm font-serif text-[var(--foreground)] hover:text-[var(--accent-primary)] transition-colors"
               aria-expanded={isAskSectionVisible}
             >
-              <span>
-                {messages.repoPage?.askAboutRepo || 'Ask questions about this repository'}
-              </span>
+              {!isAskSectionVisible && (
+                <span>
+                  {messages.repoPage?.askAboutRepo || 'Ask questions about this repository'}
+                </span>
+              )}
+              {isAskSectionVisible && <span></span>}
               {isAskSectionVisible ? <FaChevronUp /> : <FaChevronDown />}
             </button>
             {isAskSectionVisible && (
