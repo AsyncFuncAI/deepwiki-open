@@ -4,6 +4,7 @@ import { FaCog } from "react-icons/fa";
 import { getConfig } from "@/config";
 import { IoLanguageOutline } from "react-icons/io5";
 import { MdSelectAll } from "react-icons/md";
+import { GeneratorModel } from "@/app/types/types";
 
 const config = getConfig('landingPage.advancedOptions');
 
@@ -20,7 +21,7 @@ export default function AdvancedOptions({
   setSelectedLanguage: (language: string) => void;
   generatorModelName: string;
   setGeneratorModelName: (modelName: string) => void;
-  availableModels: Record<string, any>;
+  availableModels: {[key: string]: GeneratorModel};
   setIsModelConfigModalOpen: (open: boolean) => void;
   messages: Messages;
 }) {

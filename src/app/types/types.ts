@@ -15,6 +15,12 @@ export interface WikiStructure {
   pages: WikiPage[];
 }
 
+// Define the model interface
+export interface GeneratorModel {
+  display_name: string;
+  // If there are other fields in the model object, add them here
+}
+
 export type RepoInfo = {
   owner: string;
   repo: string;

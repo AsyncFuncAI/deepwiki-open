@@ -31,11 +31,11 @@ export default function AskSection({
   generatorModelName: string
   language: string
 }) {
+  const [isAskSectionVisible, setIsAskSectionVisible] = useState(config.defaultState === 'open' || !config.collapsible);
+  
   if (!config.enabled) {
     return null;
   }
-
-  const [isAskSectionVisible, setIsAskSectionVisible] = useState(config.defaultState === 'open' || !config.collapsible);
   
   return (
     <div id="ask-section" className={cn(

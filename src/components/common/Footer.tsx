@@ -1,6 +1,4 @@
 import ThemeToggle from "@/components/theme-toggle";
-import { t } from "@/utils/utils";
-import { Messages } from "next-intl";
 import { FaGithub, FaTwitter } from "react-icons/fa";
 import { FaCoffee } from "react-icons/fa";
 

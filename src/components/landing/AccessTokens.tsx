@@ -71,7 +71,6 @@ export default function AccessTokens({
 }
 
 function PlatformAccessToken({
-  showTokenInputs,
   setShowTokenInputs,
   selectedPlatform,
   setSelectedPlatform,

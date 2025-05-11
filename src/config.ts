@@ -75,7 +75,9 @@ export const config = {
 
 export const getConfig = (path: string) => {
   const keys = path.split('.');
-  let result: any = config;
+  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let result: {[key: string]: any} = config;
   for (const key of keys) {
     result = result[key];
   }

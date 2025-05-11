@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaCoffee, FaTwitter, FaCog } from 'react-icons/fa';
-import ThemeToggle from '@/components/theme-toggle';
+import { FaWikipediaW, FaCog } from 'react-icons/fa';
 import Mermaid from '../components/Mermaid';
 import ModelConfigModal from '@/components/ModelConfigModal';
 
@@ -15,6 +14,7 @@ import AdvancedOptions from '@/components/landing/AdvancedOptions';
 import AccessTokens from '@/components/landing/AccessTokens';
 import { getConfig } from '@/config';
 import AdvancedOptionsModal from '@/components/landing/AdvancedOptionsModal';
+import { GeneratorModel } from './types/types';
 
 const config = getConfig('landingPage');
 const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
@@ -46,12 +46,6 @@ const DEMO_SEQUENCE_CHART = `sequenceDiagram
 
   %% Add a note to make text more visible
   Note over User,GitHub: DeepWiki supports sequence diagrams for visualizing interactions`;
-
-// Define the model interface
-interface GeneratorModel {
-  display_name: string;
-  // If there are other fields in the model object, add them here
-}
 
 export default function Home() {
   const router = useRouter();
