@@ -13,6 +13,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { RepoInfo } from '@/types/repoinfo';
 import { extractUrlDomain, extractUrlPath } from '@/utils/urlDecoder';
 import getRepoUrl from '@/utils/getRepoUrl';
+import { WikiStructure } from '@/types/wiki/wikistructure';
+import { WikiPage } from '@/types/wiki/wikipage';
 
 // Add CSS styles for wiki with Japanese aesthetic
 const wikiStyles = `
@@ -413,7 +415,7 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
         setLoadingMessage(undefined); // Clear specific loading message
       }
     });
-  }, [generatedPages, token, repoInfo.type, repoInfo.localPath, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests]);
+  }, [generatedPages, token, repoInfo, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -707,7 +709,7 @@ IMPORTANT:
     } finally {
       setStructureRequestInProgress(false);
     }
-  }, [generatePageContent, token, repoInfo.type, repoInfo.localPath, pagesInProgress.size, structureRequestInProgress, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, messages.loading]);
+  }, [generatePageContent, token, repoInfo, pagesInProgress.size, structureRequestInProgress, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, messages.loading]);
 
   // Fetch repository structure using GitHub or GitLab API
   const fetchRepositoryStructure = useCallback(async () => {
@@ -820,7 +822,8 @@ IMPORTANT:
 
         const headers = createGitlabHeaders(token);
 
-        let filesData: any[] = [];
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+        const filesData: any[] = [];
 
         try {
           // Step 1: Get project info to determine default branch
@@ -978,7 +981,7 @@ IMPORTANT:
       // Reset the request in progress flag
       setRequestInProgress(false);
     }
-  }, [owner, repo, determineWikiStructure, token, repoInfo.type, repoInfo.localPath, requestInProgress, messages.loading]);
+  }, [owner, repo, determineWikiStructure, token, repoInfo, requestInProgress, messages.loading]);
 
   // Function to export wiki content
   const exportWiki = useCallback(async (format: 'markdown' | 'json') => {

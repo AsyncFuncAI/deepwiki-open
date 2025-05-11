@@ -17,5 +17,3 @@ export function extractUrlPath(input: string): string | null {
         return null; // Not a valid URL
     }
 }
-
-export default { extractUrlDomain, extractUrlPath };
