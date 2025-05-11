@@ -47,7 +47,8 @@
     "selectPlatform": "Seleccionar Plataforma",
     "personalAccessToken": "Token de Acceso Personal de {platform}",
     "tokenPlaceholder": "Ingresa tu token de {platform}",
-    "tokenSecurityNote": "El token solo se almacena en memoria y nunca se persiste."
+    "tokenSecurityNote": "El token solo se almacena en memoria y nunca se persiste.",
+    "advancedOptions": "Opciones Avanzadas"
   },
   "footer": {
     "copyright": "DeepWiki - Documentación impulsada por IA para repositorios de código"
@@ -69,8 +70,8 @@
     "errorMessageDefault": "Por favor, verifica que tu repositorio existe y es público. Los formatos válidos son \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", o rutas de carpetas locales como \"C:\\\\path\\\\to\\\\folder\" o \"/path/to/folder\".",
     "backToHome": "Volver al Inicio",
     "exportWiki": "Exportar Wiki",
-    "exportAsMarkdown": "Exportar como Markdown",
-    "exportAsJson": "Exportar como JSON",
+    "exportAsMarkdown": "Markdown",
+    "exportAsJson": "JSON",
     "pages": "Páginas",
     "relatedFiles": "Archivos Relacionados:",
     "relatedPages": "Páginas Relacionadas:",

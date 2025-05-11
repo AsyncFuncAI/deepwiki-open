@@ -7,25 +7,14 @@ import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub, FaGitlab, Fa
 import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
-import Ask from '@/components/Ask';
+import Ask from '@/components/wiki/Ask';
 import { useLanguage } from '@/contexts/LanguageContext';
-
-// Wiki Interfaces
-interface WikiPage {
-  id: string;
-  title: string;
-  content: string;
-  filePaths: string[];
-  importance: 'high' | 'medium' | 'low';
-  relatedPages: string[];
-}
-
-interface WikiStructure {
-  id: string;
-  title: string;
-  description: string;
-  pages: WikiPage[];
-}
+import Footer from '@/components/common/Footer';
+import { RepoInfo, WikiPage, WikiStructure } from '@/app/types/types';
+import { cn, getRepoUrl } from '@/utils/utils';
+import AskSection from '@/components/wiki/AskSection';
+import WikiDocLoading from '@/components/wiki/WikiDocLoading';
+import { getConfig } from '@/config';
 
 // Add CSS styles for wiki with Japanese aesthetic
 const wikiStyles = `
@@ -70,17 +59,7 @@ const wikiStyles = `
   }
 `;
 
-// Helper functions for token handling and API requests
-const getRepoUrl = (owner: string, repo: string, repoType: string, localPath?: string): string => {
-  if (repoType === 'local' && localPath) {
-    return localPath;
-  }
-  return repoType === 'github'
-    ? `https://github.com/${owner}/${repo}`
-    : repoType === 'gitlab'
-    ? `https://gitlab.com/${owner}/${repo}`
-    : `https://bitbucket.org/${owner}/${repo}`;
-};
+const config = getConfig('wikiPage');
 
 // Helper function to generate cache key for localStorage
 const getCacheKey = (owner: string, repo: string, repoType: string, language: string): string => {
@@ -169,7 +148,7 @@ export default function RepoWikiPage() {
   const { messages } = useLanguage();
 
   // Initialize repo info
-  const repoInfo = useMemo(() => ({
+  const repoInfo: RepoInfo = useMemo(() => ({
     owner,
     repo,
     type: repoType,
@@ -201,11 +180,6 @@ export default function RepoWikiPage() {
 
   // Create a flag to ensure the effect only runs once
   const effectRan = React.useRef(false);
-
-  // State for Ask section visibility
-  const [isAskSectionVisible, setIsAskSectionVisible] = useState(true);
-
-  // Memoize repo info to avoid triggering updates in callbacks
 
   // Add useEffect to handle scroll reset
   useEffect(() => {
@@ -1238,8 +1212,25 @@ IMPORTANT:
     }
   };
 
+  const AskSectionComponent = () => {
+    return (
+      <AskSection
+        wikiStructure={wikiStructure}
+        generatedPages={generatedPages}
+        isLoading={isLoading}
+        messages={messages}
+        repoInfo={repoInfo}
+        githubToken={githubToken}
+        gitlabToken={gitlabToken}
+        bitbucketToken={bitbucketToken}
+        generatorModelName={generatorModelName}
+        language={language}
+      />
+    )
+  }
+
   return (
-    <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
+    <div className="h-screen paper-texture p-4 md:p-8 flex flex-col gap-4">
       <style>{wikiStyles}</style>
 
       <header className="max-w-6xl mx-auto mb-8 h-fit w-full">
@@ -1259,69 +1250,20 @@ IMPORTANT:
         </div>
       </header>
 
-      <main className="flex-1 max-w-6xl mx-auto overflow-y-auto">
+      {config.askSection.position === 'top' && (
+        <AskSectionComponent />
+      )}
+
+      <main className="relative flex-1 max-w-6xl mx-auto overflow-y-hidden">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
-            <div className="relative mb-6">
-              <div className="absolute -inset-4 bg-[var(--accent-primary)]/10 rounded-full blur-md animate-pulse"></div>
-              <div className="relative flex items-center justify-center">
-                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse"></div>
-                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-75 mx-2"></div>
-                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-150"></div>
-              </div>
-            </div>
-            <p className="text-[var(--foreground)] text-center mb-3 font-serif">
-              {loadingMessage || messages.common?.loading || 'Loading...'}
-              {isExporting && (messages.loading?.preparingDownload || ' Please wait while we prepare your download...')}
-            </p>
-
-            {/* Progress bar for page generation */}
-            {wikiStructure && (
-              <div className="w-full max-w-md mt-3">
-                <div className="bg-[var(--background)]/50 rounded-full h-2 mb-3 overflow-hidden border border-[var(--border-color)]">
-                  <div
-                    className="bg-[var(--accent-primary)] h-2 rounded-full transition-all duration-300 ease-in-out"
-                    style={{
-                      width: `${Math.max(5, 100 * (wikiStructure.pages.length - pagesInProgress.size) / wikiStructure.pages.length)}%`
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-[var(--muted)] text-center">
-                  {language === 'ja'
-                    ? `${wikiStructure.pages.length}ページ中${wikiStructure.pages.length - pagesInProgress.size}ページ完了`
-                    : messages.repoPage?.pagesCompleted
-                        ? messages.repoPage.pagesCompleted
-                            .replace('{completed}', (wikiStructure.pages.length - pagesInProgress.size).toString())
-                            .replace('{total}', wikiStructure.pages.length.toString())
-                        : `${wikiStructure.pages.length - pagesInProgress.size} of ${wikiStructure.pages.length} pages completed`}
-                </p>
-
-                {/* Show list of in-progress pages */}
-                {pagesInProgress.size > 0 && (
-                  <div className="mt-4 text-xs">
-                    <p className="text-[var(--muted)] mb-2">
-                      {messages.repoPage?.currentlyProcessing || 'Currently processing:'}
-                    </p>
-                    <ul className="text-[var(--foreground)] space-y-1">
-                      {Array.from(pagesInProgress).slice(0, 3).map(pageId => {
-                        const page = wikiStructure.pages.find(p => p.id === pageId);
-                        return page ? <li key={pageId} className="truncate border-l-2 border-[var(--accent-primary)]/30 pl-2">{page.title}</li> : null;
-                      })}
-                      {pagesInProgress.size > 3 && (
-                        <li className="text-[var(--muted)]">
-                          {language === 'ja'
-                            ? `...他に${pagesInProgress.size - 3}ページ`
-                            : messages.repoPage?.andMorePages
-                                ? messages.repoPage.andMorePages.replace('{count}', (pagesInProgress.size - 3).toString())
-                                : `...and ${pagesInProgress.size - 3} more`}
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <WikiDocLoading
+            loadingMessage={loadingMessage}
+            isExporting={isExporting}
+            messages={messages}
+            wikiStructure={wikiStructure}
+            pagesInProgress={pagesInProgress}
+            language={language}
+          />
         ) : error ? (
           <div className="bg-[var(--highlight)]/5 border border-[var(--highlight)]/30 rounded-lg p-5 mb-4 shadow-sm">
             <div className="flex items-center text-[var(--highlight)] mb-3">
@@ -1344,8 +1286,12 @@ IMPORTANT:
           </div>
         ) : wikiStructure ? (
           <div className="h-full overflow-y-auto flex flex-col lg:flex-row gap-4 w-full overflow-hidden bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
+
             {/* Wiki Navigation */}
-            <div className="h-full w-full lg:w-80 flex-shrink-0 bg-[var(--background)]/50 rounded-lg rounded-r-none p-5 border-b lg:border-b-0 lg:border-r border-[var(--border-color)] overflow-y-auto">
+            <div className={cn(
+              "h-full w-full lg:w-80 flex-shrink-0 bg-[var(--background)]/50 rounded-lg rounded-r-none p-5 border-b lg:border-b-0 lg:border-r border-[var(--border-color)] overflow-y-auto",
+              config.askSection.position === 'embed' && "pb-44"
+            )}>
               <h3 className="text-lg font-bold text-[var(--foreground)] mb-3 font-serif">{wikiStructure.title}</h3>
               <p className="text-[var(--muted)] text-sm mb-5 leading-relaxed">{wikiStructure.description}</p>
 
@@ -1395,28 +1341,32 @@ IMPORTANT:
               </div>
 
               {/* Export buttons */}
-              {Object.keys(generatedPages).length > 0 && (
+              {Object.keys(generatedPages).length > 0 && (config.exportWiki.markdown || config.exportWiki.json) && (
                 <div className="mb-5">
                   <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3 font-serif">
                     {messages.repoPage?.exportWiki || 'Export Wiki'}
                   </h4>
-                  <div className="flex flex-col gap-2">
-                    <button
-                      onClick={() => exportWiki('markdown')}
-                      disabled={isExporting}
-                      className="btn-japanese flex items-center text-xs px-3 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <FaDownload className="mr-2" />
-                      {messages.repoPage?.exportAsMarkdown || 'Export as Markdown'}
-                    </button>
-                    <button
-                      onClick={() => exportWiki('json')}
-                      disabled={isExporting}
-                      className="flex items-center text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors"
-                    >
-                      <FaFileExport className="mr-2" />
-                      {messages.repoPage?.exportAsJson || 'Export as JSON'}
-                    </button>
+                  <div className="flex flex-wrap gap-2">
+                    {config.exportWiki.markdown && (
+                      <button
+                        onClick={() => exportWiki('markdown')}
+                        disabled={isExporting}
+                        className="flex-1 btn-japanese flex items-center justify-center text-xs px-3 py-2 rounded-md opacity-80 hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <FaDownload className="mr-2" />
+                        {messages.repoPage?.exportAsMarkdown || 'Markdown'}
+                      </button>
+                    )}
+                    {config.exportWiki.json && (
+                      <button
+                        onClick={() => exportWiki('json')}
+                        disabled={isExporting}
+                        className="flex-1 btn-japanese flex items-center justify-center text-xs px-3 py-2 rounded-md opacity-80 hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <FaFileExport className="mr-2" />
+                        {messages.repoPage?.exportAsJson || 'JSON'}
+                      </button>
+                    )}
                   </div>
                   {exportError && (
                     <div className="mt-2 text-xs text-[var(--highlight)]">
@@ -1456,7 +1406,10 @@ IMPORTANT:
             </div>
 
             {/* Wiki Content */}
-            <div id="wiki-content" className="w-full flex-grow p-6 overflow-y-auto">
+            <div id="wiki-content" className={cn(
+              "w-full flex-grow p-6 overflow-y-auto",
+              config.askSection.position === 'embed' && "pb-48"
+            )}>
               {currentPageId && generatedPages[currentPageId] ? (
                 <div>
                   <h3 className="text-xl font-bold text-[var(--foreground)] mb-4 break-words font-serif">
@@ -1520,44 +1473,15 @@ IMPORTANT:
             </div>
           </div>
         ) : null}
+        {config.askSection.position === 'embed' && (
+          <AskSectionComponent />
+        )}
       </main>
 
-      <footer className="max-w-6xl mx-auto mt-8 flex flex-col gap-4 w-full">
-        {/* Only show Ask component when wiki is successfully generated */}
-        {wikiStructure && Object.keys(generatedPages).length > 0 && !isLoading && (
-          <div className="w-full bg-[var(--card-bg)] rounded-lg p-5 mb-4 shadow-custom card-japanese">
-            <button
-              onClick={() => setIsAskSectionVisible(!isAskSectionVisible)}
-              className="w-full flex items-center justify-between text-left mb-3 text-sm font-serif text-[var(--foreground)] hover:text-[var(--accent-primary)] transition-colors"
-              aria-expanded={isAskSectionVisible}
-            >
-              <span>
-                {messages.repoPage?.askAboutRepo || 'Ask questions about this repository'}
-              </span>
-              {isAskSectionVisible ? <FaChevronUp /> : <FaChevronDown />}
-            </button>
-            {isAskSectionVisible && (
-              <Ask
-                repoUrl={repoInfo.owner && repoInfo.repo
-                  ? getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type, repoInfo.localPath)
-                  : "https://github.com/AsyncFuncAI/deepwiki-open"
-                }
-                githubToken={githubToken}
-                gitlabToken={gitlabToken}
-                bitbucketToken={bitbucketToken}
-                generatorModelName={generatorModelName}
-                language={language}
-              />
-            )}
-          </div>
-        )}
-        <div className="flex justify-between items-center gap-4 text-center text-[var(--muted)] text-sm h-fit w-full bg-[var(--card-bg)] rounded-lg p-3 shadow-sm border border-[var(--border-color)]">
-          <p className="flex-1 font-serif">
-            {messages.footer?.copyright || 'DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories'}
-          </p>
-          <ThemeToggle />
-        </div>
-      </footer>
+      {config.askSection.position === 'bottom' && (
+        <AskSectionComponent />
+      )}
+      <Footer footerText={messages.footer?.copyright || 'DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories'} showSocialLinks={false} />
     </div>
   );
 }

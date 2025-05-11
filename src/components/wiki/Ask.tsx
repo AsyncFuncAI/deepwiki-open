@@ -2,8 +2,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { FaArrowRight, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
-import Markdown from './Markdown';
+import Markdown from '../Markdown';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getConfig } from '@/config';
+import { cn } from '@/utils/utils';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -24,11 +26,12 @@ interface AskProps {
   bitbucketToken?: string;
   generatorModelName?: string;
   language?: string;
+  isAskSectionVisible?: boolean;
 }
 
-// const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
+const config = getConfig('wikiPage.askSection');
 
-const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketToken, generatorModelName, language = 'en' }) => {
+const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketToken, generatorModelName, language = 'en', isAskSectionVisible }) => {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -487,8 +490,10 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
     }
   };
 
+  if (!isAskSectionVisible) return null;
+  
   return (
-    <div className="w-full max-w-full">
+    <div className={cn("w-full max-w-full", config.position === 'embed' && "bg-[var(--card-bg)] backdrop-blur-md")}>
       <div className="rounded-lg overflow-hidden">
         {/* Input area */}
         <form onSubmit={handleSubmit} className="p-0">
@@ -557,7 +562,7 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
           <div className="border-t border-gray-200 dark:border-gray-700 mt-4">
             <div
               ref={responseRef}
-              className="p-4 max-h-[500px] overflow-y-auto"
+              className="p-4 max-h-[300px] overflow-y-auto"
             >
               <Markdown content={response} />
             </div>

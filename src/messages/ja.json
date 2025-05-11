@@ -47,7 +47,8 @@
     "selectPlatform": "プラットフォームを選択",
     "personalAccessToken": "{platform}個人アクセストークン",
     "tokenPlaceholder": "{platform}トークンを入力してください",
-    "tokenSecurityNote": "トークンはメモリ内にのみ保存され、永続化されることはありません。"
+    "tokenSecurityNote": "トークンはメモリ内にのみ保存され、永続化されることはありません。",
+    "advancedOptions": "高度なオプション"
   },
   "footer": {
     "copyright": "DeepWiki - コードリポジトリのためのAI駆動ドキュメンテーション"
@@ -69,8 +70,8 @@
     "errorMessageDefault": "リポジトリが存在し、公開されていることを確認してください。有効な形式は「owner/repo」、「https://github.com/owner/repo」、「https://gitlab.com/owner/repo」、「https://bitbucket.org/owner/repo」、またはローカルフォルダパス（例: 「C:\\\\path\\\\to\\\\folder」、「/path/to/folder」）です。",
     "backToHome": "ホームに戻る",
     "exportWiki": "Wikiをエクスポート",
-    "exportAsMarkdown": "Markdownとしてエクスポート",
-    "exportAsJson": "JSONとしてエクスポート",
+    "exportAsMarkdown": "Markdown",
+    "exportAsJson": "JSON",
     "pages": "ページ",
     "relatedFiles": "関連ファイル:",
     "relatedPages": "関連ページ:",

@@ -9,7 +9,14 @@ import Mermaid from '../components/Mermaid';
 import ModelConfigModal from '@/components/ModelConfigModal';
 
 import { useLanguage } from '@/contexts/LanguageContext';
+import { cn, t } from '@/utils/utils';
+import Footer from '@/components/common/Footer';
+import AdvancedOptions from '@/components/landing/AdvancedOptions';
+import AccessTokens from '@/components/landing/AccessTokens';
+import { getConfig } from '@/config';
+import AdvancedOptionsModal from '@/components/landing/AdvancedOptionsModal';
 
+const config = getConfig('landingPage');
 const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
 // Define the demo mermaid charts outside the component
 const DEMO_FLOW_CHART = `graph TD
@@ -40,43 +47,15 @@ const DEMO_SEQUENCE_CHART = `sequenceDiagram
   %% Add a note to make text more visible
   Note over User,GitHub: DeepWiki supports sequence diagrams for visualizing interactions`;
 
-// 定义模型的接口
+// Define the model interface
 interface GeneratorModel {
   display_name: string;
-  // 如果模型对象中还有其他字段，可以在这里添加
+  // If there are other fields in the model object, add them here
 }
 
 export default function Home() {
   const router = useRouter();
   const { language, setLanguage, messages } = useLanguage();
-
-  // Create a simple translation function
-  const t = (key: string, params: Record<string, string | number> = {}): string => {
-    // Split the key by dots to access nested properties
-    const keys = key.split('.');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let value: any = messages;
-
-    // Navigate through the nested properties
-    for (const k of keys) {
-      if (value && typeof value === 'object' && k in value) {
-        value = value[k];
-      } else {
-        // Return the key if the translation is not found
-        return key;
-      }
-    }
-
-    // If the value is a string, replace parameters
-    if (typeof value === 'string') {
-      return Object.entries(params).reduce((acc: string, [paramKey, paramValue]) => {
-        return acc.replace(`{${paramKey}}`, String(paramValue));
-      }, value);
-    }
-
-    // Return the key if the value is not a string
-    return key;
-  };
 
   const [repositoryInput, setRepositoryInput] = useState('https://github.com/AsyncFuncAI/deepwiki-open');
   const [showTokenInputs, setShowTokenInputs] = useState(false);
@@ -88,13 +67,14 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>(language);
   const [isModelConfigModalOpen, setIsModelConfigModalOpen] = useState(false);
+  const [isAdvancedOptionsModalOpen, setIsAdvancedOptionsModalOpen] = useState(false);
 
   // Sync the language context with the selectedLanguage state
   useEffect(() => {
     setLanguage(selectedLanguage);
   }, [selectedLanguage, setLanguage]);
 
-  // 获取可用的生成器模型列表
+  // Fetch available generators
   useEffect(() => {
     const fetchGenerators = async () => {
       try {
@@ -109,7 +89,7 @@ export default function Home() {
           const data = await response.json();
           console.log('Response:', response.json);
           setAvailableModels(data);
-          // 如果模型列表不为空且当前选择的模型不在列表中，则选择默认模型
+          // If the model list is not empty and the current selected model is not in the list, select the default model
           if (Object.keys(data).length > 0 && !data[generatorModelName]) {
             console.log('Selected model in fetch:', Object.keys(data)[0]);
             setGeneratorModelName(Object.keys(data)[0]);
@@ -250,36 +230,64 @@ export default function Home() {
     // The isSubmitting state will be reset when the component unmounts during navigation
   };
 
+  const AdvancedOptionsComponent = () => {
+    return (
+      <>
+        {/* Advanced options section with improved layout */}
+          <AdvancedOptions
+            selectedLanguage={selectedLanguage}
+            setSelectedLanguage={setSelectedLanguage}
+            generatorModelName={generatorModelName}
+            setGeneratorModelName={setGeneratorModelName}
+            availableModels={availableModels}
+            setIsModelConfigModalOpen={setIsModelConfigModalOpen}
+            messages={messages}
+          />
+
+          {/* Access tokens button */}
+          <AccessTokens
+            showTokenInputs={showTokenInputs}
+            setShowTokenInputs={setShowTokenInputs}
+            selectedPlatform={selectedPlatform}
+            setSelectedPlatform={setSelectedPlatform}
+            accessToken={accessToken}
+            setAccessToken={setAccessToken}
+            messages={messages}
+          />
+        </>
+    )
+  }
+
   return (
-    <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
-      <header className="max-w-6xl mx-auto mb-6 h-fit w-full">
+    <div className="h-screen paper-texture p-4 md:p-8 flex flex-col gap-4">
+      <header className="max-w-6xl mx-auto h-fit w-full">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-[var(--card-bg)] rounded-lg shadow-custom border border-[var(--border-color)] p-4">
           <div className="flex items-center">
             <div className="bg-[var(--accent-primary)] p-2 rounded-lg mr-3">
               <FaWikipediaW className="text-2xl text-white" />
             </div>
             <div className="mr-6">
-              <h1 className="text-xl md:text-2xl font-bold text-[var(--accent-primary)]">{t('common.appName')}</h1>
+              <h1 className="text-xl md:text-2xl font-bold text-[var(--accent-primary)]">{t('common.appName', messages)}</h1>
               <div className="flex flex-wrap items-baseline gap-x-2 md:gap-x-3 mt-0.5">
-                <p className="text-xs text-[var(--muted)] whitespace-nowrap">{t('common.tagline')}</p>
+                <p className="text-xs text-[var(--muted)] whitespace-nowrap">{t('common.tagline', messages)}</p>
                 <div className="hidden md:inline-block">
                   <Link href="/wiki/projects" className="text-xs font-medium text-[var(--accent-primary)] hover:text-[var(--highlight)] hover:underline whitespace-nowrap">
-                    {t('nav.wikiProjects')}
+                    {t('nav.wikiProjects', messages)}
                   </Link>
                 </div>
               </div>
             </div>
           </div>
 
-          <form onSubmit={handleFormSubmit} className="flex flex-col gap-3 w-full max-w-3xl">
+          <form onSubmit={handleFormSubmit} className={cn("flex flex-col gap-3 w-full max-w-3xl", config.advancedOptions.position === 'modal' && "flex-row gap-2")}>
             {/* Repository URL input and submit button */}
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex-1 flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
                 <input
                   type="text"
                   value={repositoryInput}
                   onChange={(e) => setRepositoryInput(e.target.value)}
-                  placeholder={t('form.repoPlaceholder') || "owner/repo, GitHub/GitLab/BitBucket URL, or local folder path"}
+                  placeholder={t('form.repoPlaceholder', messages) || "owner/repo, GitHub/GitLab/BitBucket URL, or local folder path"}
                   className="input-japanese block w-full pl-10 pr-3 py-2.5 border-[var(--border-color)] rounded-lg bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
                 />
                 {error && (
@@ -293,232 +301,34 @@ export default function Home() {
                 className="btn-japanese px-6 py-2.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? t('common.processing') : t('common.generateWiki')}
+                {isSubmitting ? t('common.processing', messages) : t('common.generateWiki', messages)}
               </button>
             </div>
 
-            {/* Advanced options section with improved layout */}
-            <div className="flex flex-wrap gap-4 items-start bg-[var(--card-bg)]/80 p-4 rounded-lg border border-[var(--border-color)] shadow-sm">
-              {/* Language selection */}
-              <div className="min-w-[140px]">
-                <label htmlFor="language-select" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
-                  {t('form.wikiLanguage')}
-                </label>
-                <select
-                  id="language-select"
-                  value={selectedLanguage}
-                  onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+            {
+              config.advancedOptions.position === 'embed' && (
+                <AdvancedOptionsComponent />
+              )
+            }
+            {
+              config.advancedOptions.position === 'modal' && (
+                <button
+                  type="button"
+                  className="btn-japanese flex items-center gap-2 px-6 py-2.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => setIsAdvancedOptionsModalOpen(true)}
                 >
-                  <option value="en">English</option>
-                  <option value="ja">Japanese (日本語)</option>
-                  <option value="zh">Mandarin (中文)</option>
-                  <option value="es">Spanish (Español)</option>
-                  <option value="kr">Korean (한국어)</option>
-                  <option value="vi">Vietnamese (Tiếng Việt)</option>
-                </select>
-              </div>
-
-              {/* Model options with improved UI and explanations */}
-              <div className="flex-1 min-w-[200px]">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="generator-model" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
-                    {t('form.modelSelection')}
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsModelConfigModalOpen(true)}
-                      className="text-xs flex items-center gap-1 text-[var(--accent-primary)] hover:text-[var(--highlight)] transition-colors"
-                      title={messages.modelConfig?.customizeTitle || "Learn how to customize models"}
-                    >
-                      <FaCog className="text-xs" />
-                      <span>{messages.modelConfig?.customizeButton || "Customize"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => window.open('https://github.com/AsyncFuncAI/deepwiki-open/blob/main/api/config/generators.json', '_blank')}
-                      className="text-xs text-[var(--accent-primary)] hover:text-[var(--highlight)] transition-colors"
-                      title={messages.modelConfig?.viewConfigTitle || "View generators.json on GitHub"}
-                    >
-                      {messages.modelConfig?.viewConfigButton || "View Config"}
-                    </button>
-                  </div>
-                </div>
-                <div className="relative">
-                  <select
-                    id="generator-model"
-                    value={generatorModelName}
-                    onChange={(e) => {
-                      console.log('Selected model:', e.target.value);
-                      setGeneratorModelName(e.target.value)
-                    }}
-                    className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
-                    aria-describedby="model-type-description"
-                  >
-                    {Object.entries(availableModels).map(([key, model]) => (
-                      <option key={key} value={key}>
-                        {model.display_name}
-                      </option>
-                    ))}
-                  </select>
-                  <div id="model-type-description" className="absolute right-0 top-0 mt-2 mr-2">
-                    <div className="group relative">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[var(--muted)] cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div className="opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity absolute right-0 bottom-full mb-2 w-64 bg-[var(--card-bg)] p-2 rounded-md shadow-lg border border-[var(--border-color)] text-xs z-10">
-                        <div className="font-medium mb-1">{messages.modelConfig?.availableModelTypes || "Available Model Types:"}</div>
-                        <ul className="space-y-1">
-                          <li><span className="font-medium">Google:</span> {messages.modelConfig?.googleRequiresShort || "Requires GOOGLE_API_KEY"}</li>
-                          <li><span className="font-medium">Ollama:</span> {messages.modelConfig?.ollamaRequiresShort || "Local models, requires Ollama running"}</li>
-                          <li><span className="font-medium">OpenRouter:</span> {messages.modelConfig?.openrouterRequiresShort || "Requires OPENROUTER_API_KEY"}</li>
-                          <li><span className="font-medium">OpenAI:</span> {messages.modelConfig?.openaiRequiresShort || "Requires OPENAI_API_KEY"}</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {/* Current model type indicator */}
-                <div className="mt-2 flex items-center">
-                  <div className={`px-2 py-0.5 rounded-full text-xs ${
-                    generatorModelName === 'google' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                    generatorModelName === 'ollama' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                    generatorModelName === 'openrouter' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
-                    'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                  }`}>
-                    {generatorModelName === 'google' ? 'Google API' :
-                     generatorModelName === 'ollama' ? 'Local Ollama' :
-                     generatorModelName === 'openrouter' ? 'OpenRouter API' :
-                     'API'}
-                  </div>
-                  {generatorModelName === 'ollama' && (
-                    <div className="ml-2 text-xs text-[var(--muted)]">
-                      ({messages.modelConfig?.requiresOllamaLocal || "Requires Ollama running locally"})
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-2 text-xs text-[var(--muted)] flex items-start">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-[var(--muted)] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>
-                    {messages.modelConfig?.configuredIn || "Models are configured in"} <code className="bg-[var(--background)]/50 px-1 rounded">api/config/generators.json</code>.
-                    {messages.modelConfig?.clickHere || "Click"} <button
-                      onClick={() => setIsModelConfigModalOpen(true)}
-                      className="text-[var(--accent-primary)] hover:underline"
-                    >
-                      {messages.modelConfig?.here || "here"}
-                    </button> {messages.modelConfig?.toLearnHow || "to learn how to customize models."}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Access tokens button */}
-            <div className="flex items-center relative">
-              <button
-                type="button"
-                onClick={() => setShowTokenInputs(!showTokenInputs)}
-                className="text-sm text-[var(--accent-primary)] hover:text-[var(--highlight)] flex items-center transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)] pb-0.5"
-              >
-                {showTokenInputs ? t('form.hideTokens') : t('form.addTokens')}
-              </button>
-              {showTokenInputs && (
-                <>
-                  <div className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40" onClick={() => setShowTokenInputs(false)} />
-                  <div className="absolute left-0 right-0 top-full mt-2 z-50">
-                    <div className="flex flex-col gap-3 p-4 bg-[var(--card-bg)] rounded-lg border border-[var(--border-color)] shadow-custom card-japanese">
-                      <div className="flex justify-between items-center">
-                        <h3 className="text-sm font-medium text-[var(--foreground)]">{t('form.accessToken')}</h3>
-                        <button
-                          type="button"
-                          onClick={() => setShowTokenInputs(false)}
-                          className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-                        >
-                          <span className="sr-only">Close</span>
-                          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </div>
-
-                      <div className="bg-[var(--background)]/50 p-3 rounded-md border border-[var(--border-color)]">
-                        <label className="block text-xs font-medium text-[var(--foreground)] mb-2">
-                          {t('form.selectPlatform')}
-                        </label>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedPlatform('github')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${
-                              selectedPlatform === 'github'
-                                ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
-                                : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
-                            }`}
-                          >
-                            <FaGithub className="text-lg" />
-                            <span className="text-sm">GitHub</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedPlatform('gitlab')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${
-                              selectedPlatform === 'gitlab'
-                                ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
-                                : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
-                            }`}
-                          >
-                            <FaGitlab className="text-lg" />
-                            <span className="text-sm">GitLab</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedPlatform('bitbucket')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${
-                              selectedPlatform === 'bitbucket'
-                                ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
-                                : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
-                            }`}
-                          >
-                            <FaBitbucket className="text-lg" />
-                            <span className="text-sm">Bitbucket</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label htmlFor="access-token" className="block text-xs font-medium text-[var(--foreground)] mb-2">
-                          {t('form.personalAccessToken', { platform: selectedPlatform.charAt(0).toUpperCase() + selectedPlatform.slice(1) })}
-                        </label>
-                        <input
-                          id="access-token"
-                          type="password"
-                          value={accessToken}
-                          onChange={(e) => setAccessToken(e.target.value)}
-                          placeholder={t('form.tokenPlaceholder', { platform: selectedPlatform })}
-                          className="input-japanese block w-full px-3 py-2 rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)] text-sm"
-                        />
-                        <div className="flex items-center mt-2 text-xs text-[var(--muted)]">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          {t('form.tokenSecurityNote')}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+                  <FaCog />
+                  {t('form.advancedOptions', messages)}
+                </button>
+              )
+            }
           </form>
 
         </div>
       </header>
 
-      <main className="flex-1 max-w-6xl mx-auto w-full overflow-y-auto">
-        <div className="min-h-full flex flex-col items-center p-8 pt-10 bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
+      <main className="flex-1 max-w-6xl mx-auto w-full rounded-lg bg-[var(--card-bg)] card-japanese overflow-y-auto!">
+        <div className="min-h-full flex flex-col items-center p-8 pt-10 rounded-lg shadow-custom">
           {/* Header section */}
           <div className="flex flex-col items-center w-full max-w-2xl mb-8">
             <div className="flex flex-col sm:flex-row items-center mb-6 gap-4">
@@ -527,13 +337,13 @@ export default function Home() {
                 <FaWikipediaW className="text-5xl text-[var(--accent-primary)] relative z-10" />
               </div>
               <div className="text-center sm:text-left">
-                <h2 className="text-2xl font-bold text-[var(--foreground)] font-serif mb-1">{t('home.welcome')}</h2>
-                <p className="text-[var(--accent-primary)] text-sm max-w-md">{t('home.welcomeTagline')}</p>
+                <h2 className="text-2xl font-bold text-[var(--foreground)] font-serif mb-1">{t('home.welcome', messages)}</h2>
+                <p className="text-[var(--accent-primary)] text-sm max-w-md">{t('home.welcomeTagline', messages)}</p>
               </div>
             </div>
 
             <p className="text-[var(--foreground)] text-center mb-8 text-lg leading-relaxed">
-              {t('home.description')}
+              {t('home.description', messages)}
             </p>
           </div>
 
@@ -543,9 +353,9 @@ export default function Home() {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {t('home.quickStart')}
+              {t('home.quickStart', messages)}
             </h3>
-            <p className="text-sm text-[var(--foreground)] mb-3">{t('home.enterRepoUrl')}</p>
+            <p className="text-sm text-[var(--foreground)] mb-3">{t('home.enterRepoUrl', messages)}</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-[var(--muted)]">
               <div className="bg-[var(--background)]/70 p-3 rounded border border-[var(--border-color)] font-mono overflow-x-hidden whitespace-nowrap"
               >https://github.com/AsyncFuncAI/deepwiki-open</div>
@@ -564,21 +374,21 @@ export default function Home() {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-primary)] flex-shrink-0 mt-0.5 sm:mt-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
-              <h3 className="text-base font-semibold text-[var(--foreground)] font-serif">{t('home.advancedVisualization')}</h3>
+              <h3 className="text-base font-semibold text-[var(--foreground)] font-serif">{t('home.advancedVisualization', messages)}</h3>
             </div>
             <p className="text-sm text-[var(--foreground)] mb-5 leading-relaxed">
-              {t('home.diagramDescription')}
+              {t('home.diagramDescription', messages)}
             </p>
 
             {/* Diagrams with improved layout */}
             <div className="grid grid-cols-1 gap-6">
               <div className="bg-[var(--card-bg)] p-4 rounded-lg border border-[var(--border-color)] shadow-custom">
-                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3 font-serif">{t('home.flowDiagram')}</h4>
+                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3 font-serif">{t('home.flowDiagram', messages)}</h4>
                 <Mermaid chart={DEMO_FLOW_CHART} />
               </div>
 
               <div className="bg-[var(--card-bg)] p-4 rounded-lg border border-[var(--border-color)] shadow-custom">
-                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3 font-serif">{t('home.sequenceDiagram')}</h4>
+                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3 font-serif">{t('home.sequenceDiagram', messages)}</h4>
                 <Mermaid chart={DEMO_SEQUENCE_CHART} />
               </div>
             </div>
@@ -586,35 +396,23 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="max-w-6xl mx-auto mt-8 flex flex-col gap-4 w-full">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-[var(--card-bg)] rounded-lg p-4 border border-[var(--border-color)] shadow-custom">
-          <p className="text-[var(--muted)] text-sm font-serif">{t('footer.copyright')}</p>
-
-          <div className="flex items-center gap-6">
-            <div className="flex items-center space-x-5">
-              <a href="https://github.com/AsyncFuncAI/deepwiki-open" target="_blank" rel="noopener noreferrer"
-                className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
-                <FaGithub className="text-xl" />
-              </a>
-              <a href="https://buymeacoffee.com/sheing" target="_blank" rel="noopener noreferrer"
-                className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
-                <FaCoffee className="text-xl" />
-              </a>
-              <a href="https://x.com/sashimikun_void" target="_blank" rel="noopener noreferrer"
-                className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
-                <FaTwitter className="text-xl" />
-              </a>
-            </div>
-            <ThemeToggle />
-          </div>
-        </div>
-      </footer>
+      <Footer footerText={t('footer.copyright', messages)} />
 
       {/* Model Configuration Modal */}
       <ModelConfigModal
         isOpen={isModelConfigModalOpen}
         onClose={() => setIsModelConfigModalOpen(false)}
       />
+
+      {/* Advanced Options Modal */}
+      {config.advancedOptions.position === 'modal' && (
+        <AdvancedOptionsModal
+          isOpen={isAdvancedOptionsModalOpen}
+          onClose={() => setIsAdvancedOptionsModalOpen(false)}
+          content={<AdvancedOptionsComponent />}
+          messages={messages}
+        />
+      )}
     </div>
   );
 }

@@ -47,7 +47,8 @@
     "selectPlatform": "Chọn nền tảng",
     "personalAccessToken": "Token truy cập cá nhân {platform}",
     "tokenPlaceholder": "Nhập token {platform} của bạn",
-    "tokenSecurityNote": "Token chỉ được lưu trong bộ nhớ và không bao giờ được lưu trữ vĩnh viễn."
+    "tokenSecurityNote": "Token chỉ được lưu trong bộ nhớ và không bao giờ được lưu trữ vĩnh viễn.",
+    "advancedOptions": "Tùy chọn nâng cao"
   },
   "footer": {
     "copyright": "DeepWiki - Tài liệu hỗ trợ bởi AI cho repository"
@@ -69,8 +70,8 @@
     "errorMessageDefault": "Vui lòng kiểm tra xem repository có tồn tại và công khai hay không. Các định dạng hợp lệ là \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", hoặc các đường dẫn thư mục cục bộ như \"C:\\\\path\\\\to\\\\folder\" hoặc \"/path/to/folder\".",
     "backToHome": "Quay lại trang chủ",
     "exportWiki": "Xuất Wiki",
-    "exportAsMarkdown": "Xuất dưới dạng Markdown",
-    "exportAsJson": "Xuất dưới dạng JSON",
+    "exportAsMarkdown": "Markdown",
+    "exportAsJson": "JSON",
     "pages": "Trang",
     "relatedFiles": "Tệp liên quan:",
     "relatedPages": "Trang liên quan:",
