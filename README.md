@@ -162,19 +162,87 @@ deepwiki/
 └── .env                  # Environment variables (create this)
 ```
 
+## 🤖 Provider-Based Model Selection System
+
+DeepWiki now implements a flexible provider-based model selection system supporting multiple LLM providers:
+
+### Supported Providers and Models
+
+- **Google**: Default `gemini-2.0-flash`, also supports `gemini-1.5-flash`, `gemini-1.0-pro`, etc.
+- **OpenAI**: Default `gpt-4o`, also supports `o4-mini`, etc.
+- **OpenRouter**: Access to multiple models via a unified API, including Claude, Llama, Mistral, etc.
+- **Ollama**: Support for locally running open-source models like `llama3`
+
+### Environment Variables
+
+Each provider requires its corresponding API key environment variables:
+
+```
+# API Keys
+GOOGLE_API_KEY=your_google_api_key        # Required for Google Gemini models
+OPENAI_API_KEY=your_openai_api_key        # Required for OpenAI models
+OPENROUTER_API_KEY=your_openrouter_api_key # Required for OpenRouter models
+
+# OpenAI API Base URL Configuration
+OPENAI_API_BASE=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
+
+# Configuration Directory
+DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # Optional, for custom config file location
+```
+
+### Configuration Files
+
+DeepWiki uses JSON configuration files to manage various aspects of the system:
+
+1. **`generator.json`**: Configuration for text generation models
+   - Defines available model providers (Google, OpenAI, OpenRouter, Ollama)
+   - Specifies default and available models for each provider
+   - Contains model-specific parameters like temperature and top_p
+
+2. **`embedder.json`**: Configuration for embedding models and text processing
+   - Defines embedding models for vector storage
+   - Contains retriever configuration for RAG
+   - Specifies text splitter settings for document chunking
+
+3. **`repo.json`**: Configuration for repository handling
+   - Contains file filters to exclude certain files and directories
+   - Defines repository size limits and processing rules
+
+By default, these files are located in the `api/config/` directory. You can customize their location using the `DEEPWIKI_CONFIG_DIR` environment variable.
+
+### Custom Model Selection for Service Providers
+
+The custom model selection feature is specifically designed for service providers who need to:
+
+- You can offer multiple AI model choices to users within your organization
+- You can quickly adapt to the rapidly evolving LLM landscape without code changes
+- You can support specialized or fine-tuned models that aren't in the predefined list
+
+Service providers can implement their model offerings by selecting from the predefined options or entering custom model identifiers in the frontend interface.
+
+### Base URL Configuration for Enterprise Private Channels
+
+The OpenAI Client's base_url configuration is designed primarily for enterprise users with private API channels. This feature:
+
+- Enables connection to private or enterprise-specific API endpoints
+- Allows organizations to use their own self-hosted or custom-deployed LLM services
+- Supports integration with third-party OpenAI API-compatible services
+
+**Coming Soon**: In future updates, DeepWiki will support a mode where users need to provide their own API keys in requests. This will allow enterprise customers with private channels to use their existing API arrangements without sharing credentials with the DeepWiki deployment.
+
 ## 🛠️ Advanced Setup
 
 ### Environment Variables
 
 | Variable | Description | Required | Note |
 |----------|-------------|----------|------|
-| `GOOGLE_API_KEY` | Google Gemini API key for AI generation | Yes |
-| `OPENAI_API_KEY` | OpenAI API key for embeddings | Yes |
+| `GOOGLE_API_KEY` | Google Gemini API key for AI generation | No | Required only if you want to use Google Gemini models
+| `OPENAI_API_KEY` | OpenAI API key for embeddings | Yes | Note: This is required even if you're not using OpenAI models, as it's used for embeddings. |
 | `OPENROUTER_API_KEY` | OpenRouter API key for alternative models | No | Required only if you want to use OpenRouter models |
-| `EMBEDDER_NAME` | The embedding model to use (default: "openai") | No | Options: "openai", "ollama", or custom models you define |
-| `GENERATOR_NAME` | The generation model to use (default: "google") | No | Options: "google", "ollama", "openrouter", or custom models you define |
-| `PORT` | Port for the API server (default: 8001) | No | If you host API and frontend on the same machine, make sure change port of `NEXT_PUBLIC_SERVER_BASE_URL` accordingly |
+| `PORT` | Port for the API server (default: 8001) | No | If you host API and frontend on the same machine, make sure change port of `SERVER_BASE_URL` accordingly |
 | `SERVER_BASE_URL` | Base URL for the API server (default: http://localhost:8001) | No |
+
+If you're not using ollama mode, you need to configure an OpenAI API key for embeddings. Other API keys are only required when configuring and using models from the corresponding providers.
 
 ### Docker Setup
 
@@ -261,85 +329,6 @@ The API server provides:
 - Streaming chat completions
 
 For more details, see the [API README](./api/README.md).
-
-### Custom Models
-
-DeepWiki allows you to add custom embedding and generator models in the `api/config` directory. Here's how to customize them:
-
-#### Adding a Custom Embedding Model
-
-Edit the `api/config/embedders.json` file to add your own embedding model:
-
-```json
-{
-  "openai": {
-    "model_type": "openai",
-    "batch_size": 500,
-    "model_kwargs": {
-      "model": "text-embedding-3-small",
-      "dimensions": 256,
-      "encoding_format": "float"
-    }
-  },
-  "ollama": {
-    "model_type": "ollama",
-    "model_kwargs": {
-      "model": "nomic-embed-text"
-    }
-  },
-  "your-custom-embedder": {
-    "model_type": "openai",  // The provider (openai, ollama, etc.)
-    "batch_size": 500,       // Optional batch size for embeddings
-    "model_kwargs": {
-      "model": "your-model-name",
-      // Any other required parameters
-    }
-  }
-}
-```
-
-#### Adding a Custom Generator Model
-
-Edit the `api/config/generators.json` file to add your own generator model:
-
-```json
-{
-  "google": {
-    "model_type": "google",
-    "model_kwargs": {
-      "model": "gemini-2.5-flash-preview-04-17",
-      "temperature": 0.7,
-      "top_p": 0.8
-    }
-  },
-  // Add your custom generator here
-  "your-custom-generator": {
-    "model_type": "openai",   // The provider (google, openai, ollama, openrouter)
-    "model_kwargs": {
-      "model": "your-model-name",
-      "temperature": 0.7,
-      "top_p": 0.8
-      // Any other model-specific options
-    }
-  }
-}
-```
-
-#### Using Your Custom Models
-
-Once you've added custom models, you can use them by setting these environment variables:
-
-```bash
-# In your .env file
-EMBEDDER_NAME=your-custom-embedder
-GENERATOR_NAME=your-custom-generator
-```
-
-Currently supported model types include:
-- `openai`: OpenAI's API
-- `google`: Google Gemini API
-- `ollama`: Local Ollama models
-- `openrouter`: Models from OpenRouter
 
 ## 🔌 OpenRouter Integration
 

@@ -169,105 +169,6 @@ deepwiki/
 └── .env                  # 环境变量（需要创建）
 ```
 
-## 🛠️ 高级设置
-
-### 环境变量
-
-| 变量 | 描述 | 必需 | 备注 |
-|----------|-------------|----------|------|
-| `GOOGLE_API_KEY` | Google Gemini API密钥用于AI生成 | 是 |
-| `OPENAI_API_KEY` | OpenAI API密钥用于嵌入 | 是 |
-| `OPENROUTER_API_KEY` | OpenRouter API密钥用于替代模型 | 否 | 仅当您想使用OpenRouter模型时需要 |
-| `EMBEDDER_NAME` | 要使用的嵌入模型（默认："openai"） | 否 | 选项："openai"、"ollama"或您定义的自定义模型 |
-| `GENERATOR_NAME` | 要使用的生成模型（默认："google"） | 否 | 选项："google"、"ollama"、"openrouter"或您定义的自定义模型 |
-| `PORT` | API服务器端口（默认：8001） | 否 | 如果您在同一台机器上托管API和前端，请确保相应地更改`NEXT_PUBLIC_SERVER_BASE_URL`的端口 |
-| `NEXT_PUBLIC_SERVER_BASE_URL` | API服务器的基本URL（默认：http://localhost:8001） | 否 |
-
-### 自定义模型
-
-DeepWiki允许您在`api/config`目录中添加自定义嵌入和生成器模型。以下是自定义它们的方法：
-
-#### 添加自定义嵌入模型
-
-编辑`api/config/embedders.json`文件以添加您自己的嵌入模型：
-
-```json
-{
-  "openai": {
-    "model_type": "openai",
-    "batch_size": 500,
-    "model_kwargs": {
-      "model": "text-embedding-3-small",
-      "dimensions": 256,
-      "encoding_format": "float"
-    }
-  },
-  "ollama": {
-    "model_type": "ollama",
-    "model_kwargs": {
-      "model": "nomic-embed-text"
-    }
-  },
-  "your-custom-embedder": {
-    "model_type": "openai",  // 提供商（openai、ollama等）
-    "batch_size": 500,       // 可选的嵌入批处理大小
-    "model_kwargs": {
-      "model": "your-model-name",
-      // 任何其他必需的参数
-    }
-  }
-}
-```
-
-#### 添加自定义生成器模型
-
-编辑`api/config/generators.json`文件以添加您自己的生成器模型：
-
-```json
-{
-  "google": {
-    "model_type": "google",
-    "model_kwargs": {
-      "model": "gemini-2.5-flash-preview-04-17",
-      "temperature": 0.7,
-      "top_p": 0.8
-    }
-  },
-  // 在此处添加您的自定义生成器
-  "your-custom-generator": {
-    "model_type": "openai",   // 提供商（google、openai、ollama、openrouter）
-    "model_kwargs": {
-      "model": "your-model-name",
-      "temperature": 0.7,
-      "top_p": 0.8
-      // 任何其他模型特定选项
-    }
-  }
-}
-```
-
-#### 使用您的自定义模型
-
-添加自定义模型后，您可以通过设置这些环境变量来使用它们：
-
-```bash
-# 在您的.env文件中
-EMBEDDER_NAME=your-custom-embedder
-GENERATOR_NAME=your-custom-generator
-```
-
-或直接在终端中：
-
-```bash
-EMBEDDER_NAME=your-custom-embedder GENERATOR_NAME=your-custom-generator python -m api.main
-```
-
-当前支持的模型类型包括：
-- `openai`：OpenAI的API
-- `google`：Google Gemini API
-- `ollama`：本地Ollama模型
-- `openrouter`：来自OpenRouter的模型
-
 ## 🤖 提问和深度研究功能
 
 ### 提问功能
@@ -346,3 +247,106 @@ EMBEDDER_NAME=your-custom-embedder GENERATOR_NAME=your-custom-generator python -
 ## ⭐ 星标历史
 
 [![星标历史图表](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
+
+## 🤖 基于提供者的模型选择系统
+
+DeepWiki 现在实现了灵活的基于提供者的模型选择系统，支持多种 LLM 提供商：
+
+### 支持的提供商和模型
+
+- **Google**: 默认使用 `gemini-2.0-flash`，还支持 `gemini-1.5-flash`、`gemini-1.0-pro` 等
+- **OpenAI**: 默认使用 `gpt-4o`，还支持 `o4-mini` 等
+- **OpenRouter**: 通过统一 API 访问多种模型，包括 Claude、Llama、Mistral 等
+- **Ollama**: 支持本地运行的开源模型，如 `llama3`
+
+### 环境变量
+
+每个提供商需要相应的 API 密钥环境变量：
+
+```
+# API 密钥
+GOOGLE_API_KEY=你的谷歌API密钥        # 使用 Google Gemini 模型必需
+OPENAI_API_KEY=你的OpenAI密钥        # 使用 OpenAI 模型必需
+OPENROUTER_API_KEY=你的OpenRouter密钥 # 使用 OpenRouter 模型必需
+
+# OpenAI API 基础 URL 配置
+OPENAI_API_BASE=https://自定义API端点.com/v1  # 可选，用于自定义 OpenAI API 端点
+```
+
+### 为服务提供者设计的自定义模型选择
+
+自定义模型选择功能专为需要以下功能的服务提供者设计：
+
+- 您可在您的组织内部为用户提供多种 AI 模型选择
+- 您无需代码更改即可快速适应快速发展的 LLM 领域
+- 您可支持预定义列表中没有的专业或微调模型
+
+使用者可以通过从服务提供者预定义选项中选择或在前端界面中输入自定义模型标识符来实现其模型产品。
+
+### 为企业私有渠道设计的基础 URL 配置
+
+OpenAI 客户端的 base_url 配置主要为拥有私有 API 渠道的企业用户设计。此功能：
+
+- 支持连接到私有或企业特定的 API 端点
+- 允许组织使用自己的自托管或自定义部署的 LLM 服务
+- 支持与第三方 OpenAI API 兼容服务的集成
+
+**即将推出**：在未来的更新中，DeepWiki 将支持一种模式，用户需要在请求中提供自己的 API 密钥。这将允许拥有私有渠道的企业客户使用其现有的 API 安排，而不是与 DeepWiki 部署共享凭据。
+
+### 环境变量
+
+每个提供商需要其相应的API密钥环境变量：
+
+```
+# API密钥
+GOOGLE_API_KEY=your_google_api_key        # Google Gemini模型必需
+OPENAI_API_KEY=your_openai_api_key        # OpenAI模型必需
+OPENROUTER_API_KEY=your_openrouter_api_key # OpenRouter模型必需
+
+# OpenAI API基础URL配置
+OPENAI_API_BASE=https://custom-api-endpoint.com/v1  # 可选，用于自定义OpenAI API端点
+
+# 配置目录
+DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # 可选，用于自定义配置文件位置
+```
+如果不使用ollama模式，那么需要配置OpenAI API密钥用于embeddings。其他密钥只有配置并使用使用对应提供商的模型时才需要。
+
+### 配置文件
+
+DeepWiki使用JSON配置文件管理系统的各个方面：
+
+1. **`generator.json`**：文本生成模型配置
+   - 定义可用的模型提供商（Google、OpenAI、OpenRouter、Ollama）
+   - 指定每个提供商的默认和可用模型
+   - 包含特定模型的参数，如temperature和top_p
+
+2. **`embedder.json`**：嵌入模型和文本处理配置
+   - 定义用于向量存储的嵌入模型
+   - 包含用于RAG的检索器配置
+   - 指定文档分块的文本分割器设置
+
+3. **`repo.json`**：仓库处理配置
+   - 包含排除特定文件和目录的文件过滤器
+   - 定义仓库大小限制和处理规则
+
+默认情况下，这些文件位于`api/config/`目录中。您可以使用`DEEPWIKI_CONFIG_DIR`环境变量自定义它们的位置。
+
+### 面向服务提供商的自定义模型选择
+
+自定义模型选择功能专为需要以下功能的服务提供者设计：
+
+- 您可在您的组织内部为用户提供多种 AI 模型选择
+- 您无需代码更改即可快速适应快速发展的 LLM 领域
+- 您可支持预定义列表中没有的专业或微调模型
+
+使用者可以通过从服务提供者预定义选项中选择或在前端界面中输入自定义模型标识符来实现其模型产品。
+
+### 为企业私有渠道设计的基础 URL 配置
+
+OpenAI 客户端的 base_url 配置主要为拥有私有 API 渠道的企业用户设计。此功能：
+
+- 支持连接到私有或企业特定的 API 端点
+- 允许组织使用自己的自托管或自定义部署的 LLM 服务
+- 支持与第三方 OpenAI API 兼容服务的集成
+
+**即将推出**：在未来的更新中，DeepWiki 将支持一种模式，用户需要在请求中提供自己的 API 密钥。这将允许拥有私有渠道的企业客户使用其现有的 API 安排，而不是与 DeepWiki 部署共享凭据。

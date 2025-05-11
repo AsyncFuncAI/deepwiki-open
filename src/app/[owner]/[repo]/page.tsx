@@ -3,11 +3,12 @@
 
 import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown } from 'react-icons/fa';
+import { FaExclamationTriangle, FaBookOpen, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown } from 'react-icons/fa';
 import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
 import Ask from '@/components/Ask';
+import ModelSelectionModal from '@/components/ModelSelectionModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // Wiki Interfaces
@@ -87,6 +88,7 @@ const getCacheKey = (owner: string, repo: string, repoType: string, language: st
   return `deepwiki_cache_${repoType}_${owner}_${repo}_${language}`;
 };
 
+// Helper function to add tokens and other parameters to request body
 const addTokensToRequestBody = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   requestBody: Record<string, any>,
@@ -94,8 +96,13 @@ const addTokensToRequestBody = (
   gitlabToken: string,
   bitbucketToken: string,
   repoType: string,
-  generatorModelName: string,
+  provider: string = '',
+  model: string = '',
+  isCustomModel: boolean = false,
+  customModel: string = '',
   language: string = 'en',
+  excludedDirs?: string,
+  excludedFiles?: string,
 ): void => {
   if (githubToken && repoType === 'github') {
     requestBody.github_token = githubToken;
@@ -106,8 +113,23 @@ const addTokensToRequestBody = (
   if (bitbucketToken && repoType === 'bitbucket') {
     requestBody.bitbucket_token = bitbucketToken;
   }
-  requestBody.generator_model_name = generatorModelName;
+  
+  // Add provider-based model selection parameters
+  requestBody.provider = provider;
+  requestBody.model = model;
+  if (isCustomModel && customModel) {
+    requestBody.custom_model = customModel;
+  }
+  
   requestBody.language = language;
+  
+  // Add file filter parameters if provided
+  if (excludedDirs) {
+    requestBody.excluded_dirs = excludedDirs;
+  }
+  if (excludedFiles) {
+    requestBody.excluded_files = excludedFiles;
+  }
 };
 
 const createGithubHeaders = (githubToken: string): HeadersInit => {
@@ -162,8 +184,11 @@ export default function RepoWikiPage() {
   const bitbucketToken = searchParams.get('bitbucket_token') || '';
   const repoType = searchParams.get('type') || 'github';
   const localPath = searchParams.get('local_path') ? decodeURIComponent(searchParams.get('local_path') || '') : undefined;
+  const providerParam = searchParams.get('provider') || '';
+  const modelParam = searchParams.get('model') || '';
+  const isCustomModelParam = searchParams.get('is_custom_model') === 'true';
+  const customModelParam = searchParams.get('custom_model') || '';
   const language = searchParams.get('language') || 'en';
-  const generatorModelName = searchParams.get('generator_model_name') || '';
 
   // Import language context for translations
   const { messages } = useLanguage();
@@ -190,6 +215,17 @@ export default function RepoWikiPage() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [originalMarkdown, setOriginalMarkdown] = useState<Record<string, string>>({});
   const [requestInProgress, setRequestInProgress] = useState(false);
+  
+  // Model selection state variables
+  const [selectedProviderState, setSelectedProviderState] = useState(providerParam);
+  const [selectedModelState, setSelectedModelState] = useState(modelParam);
+  const [isCustomSelectedModelState, setIsCustomSelectedModelState] = useState(isCustomModelParam);
+  const [customSelectedModelState, setCustomSelectedModelState] = useState(customModelParam);
+  const [showModelOptions, setShowModelOptions] = useState(false); // Controls whether to show model options
+  const excludedDirs = searchParams.get('excluded_dirs') || '';
+  const excludedFiles = searchParams.get('excluded_files') || '';
+  const [modelExcludedDirs, setModelExcludedDirs] = useState(excludedDirs);
+  const [modelExcludedFiles, setModelExcludedFiles] = useState(excludedFiles);
   // Using useRef for activeContentRequests to maintain a single instance across renders
   // This map tracks which pages are currently being processed to prevent duplicate requests
   // Note: In a multi-threaded environment, additional synchronization would be needed,
@@ -334,7 +370,7 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
         };
 
         // Add tokens if available
-        addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, generatorModelName, language);
+        addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles);
 
         const response = await fetch(`/api/chat/stream`, {
           method: 'POST',
@@ -409,7 +445,7 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
         setLoadingMessage(undefined); // Clear specific loading message
       }
     });
-  }, [generatedPages, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, generatorModelName, language, activeContentRequests]);
+  }, [generatedPages, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -502,11 +538,11 @@ IMPORTANT:
 2. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
 3. The relevant_files should be actual files from the repository that would be used to generate that page
 4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
-        }]
+        }] 
       };
 
       // Add tokens if available
-      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, generatorModelName, language);
+      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles);
 
       const response = await fetch(`/api/chat/stream`, {
         method: 'POST',
@@ -702,7 +738,7 @@ IMPORTANT:
     } finally {
       setStructureRequestInProgress(false);
     }
-  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, pagesInProgress.size, structureRequestInProgress, generatorModelName, language, messages.loading]);
+  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, pagesInProgress.size, structureRequestInProgress, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, messages.loading]);
 
   // Fetch repository structure using GitHub or GitLab API
   const fetchRepositoryStructure = useCallback(async () => {
@@ -815,7 +851,7 @@ IMPORTANT:
         // Try to get the file tree for common branch names
         let filesData = null;
         let apiErrorDetails = '';
-
+        let defaultBranch = '';
         const headers = createGitlabHeaders(gitlabToken);
 
         // First get project info to determine default branch
@@ -826,7 +862,7 @@ IMPORTANT:
 
           if (response.ok) {
             const projectData = await response.json();
-            const defaultBranch = projectData.default_branch;
+            defaultBranch = projectData.default_branch;
 
             const apiUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/tree?recursive=true&ref=${defaultBranch}&per_page=100`;
             try {
@@ -1061,8 +1097,13 @@ IMPORTANT:
     }
   }, [wikiStructure, generatedPages, repoInfo, language]);
 
-  // Function to refresh wiki and clear cache
-  const handleRefreshWiki = useCallback(async () => {
+  // 显示模型选项
+  const handleRefreshWiki = useCallback(() => {
+    setShowModelOptions(true);
+  }, []);
+
+  const confirmRefresh = useCallback(async () => {
+    setShowModelOptions(false);
     setLoadingMessage(messages.loading?.clearingCache || 'Clearing server cache...');
     setIsLoading(true); // Show loading indicator immediately
 
@@ -1072,7 +1113,19 @@ IMPORTANT:
         repo: repoInfo.repo,
         repo_type: repoInfo.type,
         language: language,
+        provider: selectedProviderState,
+        model: selectedModelState,
+        is_custom_model: isCustomSelectedModelState.toString(),
+        custom_model: customSelectedModelState,
       });
+      
+      // Add file filters configuration
+      if (modelExcludedDirs) {
+        params.append('excluded_dirs', modelExcludedDirs);
+      }
+      if (modelExcludedFiles) {
+        params.append('excluded_files', modelExcludedFiles);
+      }
       const response = await fetch(`/api/wiki_cache?${params.toString()}`, {
         method: 'DELETE',
       });
@@ -1127,7 +1180,7 @@ IMPORTANT:
     // For now, we rely on the standard loadData flow initiated by resetting effectRan and dependencies.
     // This will re-trigger the main data loading useEffect.
     // No direct call to fetchRepositoryStructure here, let the useEffect handle it based on effectRan.current = false.
-  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, messages.loading, activeContentRequests]);
+  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, messages.loading, activeContentRequests, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles]);
 
   // Start wiki generation when component mounts
   useEffect(() => {
@@ -1238,6 +1291,8 @@ IMPORTANT:
     }
   };
 
+  const [isModelSelectionModalOpen, setIsModelSelectionModalOpen] = useState(false);
+
   return (
     <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
       <style>{wikiStyles}</style>
@@ -1248,13 +1303,6 @@ IMPORTANT:
             <Link href="/" className="text-[var(--accent-primary)] hover:text-[var(--highlight)] flex items-center gap-1.5 transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)] pb-0.5">
               <FaHome /> {messages.repoPage?.home || 'Home'}
             </Link>
-            <div className="flex items-center">
-              <div className="relative">
-                <div className="absolute -inset-1 bg-[var(--accent-primary)]/20 rounded-full blur-md"></div>
-                <FaWikipediaW className="mr-3 text-3xl text-[var(--accent-primary)] relative z-10" />
-              </div>
-              <h1 className="text-xl md:text-2xl font-bold text-[var(--foreground)] font-serif">DeepWiki</h1>
-            </div>
           </div>
         </div>
       </header>
@@ -1385,7 +1433,7 @@ IMPORTANT:
               {/* Refresh Wiki button */}
               <div className="mb-5">
                 <button
-                  onClick={handleRefreshWiki}
+                  onClick={() => setIsModelSelectionModalOpen(true)}
                   disabled={isLoading}
                   className="flex items-center w-full text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors hover:cursor-pointer"
                 >
@@ -1531,9 +1579,12 @@ IMPORTANT:
               className="w-full flex items-center justify-between text-left mb-3 text-sm font-serif text-[var(--foreground)] hover:text-[var(--accent-primary)] transition-colors"
               aria-expanded={isAskSectionVisible}
             >
-              <span>
-                {messages.repoPage?.askAboutRepo || 'Ask questions about this repository'}
-              </span>
+              {!isAskSectionVisible && (
+                <span>
+                  {messages.repoPage?.askAboutRepo || 'Ask questions about this repository'}
+                </span>
+              )}
+              {isAskSectionVisible && <span></span>}
               {isAskSectionVisible ? <FaChevronUp /> : <FaChevronDown />}
             </button>
             {isAskSectionVisible && (
@@ -1545,7 +1596,10 @@ IMPORTANT:
                 githubToken={githubToken}
                 gitlabToken={gitlabToken}
                 bitbucketToken={bitbucketToken}
-                generatorModelName={generatorModelName}
+                provider={selectedProviderState}
+                model={selectedModelState}
+                isCustomModel={isCustomSelectedModelState}
+                customModel={customSelectedModelState}
                 language={language}
               />
             )}
@@ -1558,6 +1612,25 @@ IMPORTANT:
           <ThemeToggle />
         </div>
       </footer>
+
+      <ModelSelectionModal
+        isOpen={isModelSelectionModalOpen}
+        onClose={() => setIsModelSelectionModalOpen(false)}
+        provider={selectedProviderState}
+        setProvider={setSelectedProviderState}
+        model={selectedModelState}
+        setModel={setSelectedModelState}
+        isCustomModel={isCustomSelectedModelState}
+        setIsCustomModel={setIsCustomSelectedModelState}
+        customModel={customSelectedModelState}
+        setCustomModel={setCustomSelectedModelState}
+        showFileFilters={true}
+        excludedDirs={modelExcludedDirs}
+        setExcludedDirs={setModelExcludedDirs}
+        excludedFiles={modelExcludedFiles}
+        setExcludedFiles={setModelExcludedFiles}
+        onApply={confirmRefresh}
+      />
     </div>
   );
 }
