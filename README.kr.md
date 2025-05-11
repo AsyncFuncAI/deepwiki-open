@@ -1,4 +1,6 @@
 # DeepWiki-Open
+
+[English](./README.md) | [简体中文](./README.zh.md) | [日本語](./README.ja.md) | [Español](./README.es.md) | [한국어](./README.kr.md) | [Tiếng Việt](./README.vi.md)
  
 ![DeepWiki Banner](screenshots/Deepwiki.png)
  
