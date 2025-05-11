@@ -1,10 +1,13 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import {FaChevronLeft, FaChevronRight } from 'react-icons/fa';
-import Markdown from './Markdown';
+import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import Markdown from '../Markdown';
 import { useLanguage } from '@/contexts/LanguageContext';
-import ModelSelectionModal from './ModelSelectionModal';
+import ModelSelectionModal from '@/components/ModelSelectionModal';
+import { getConfig } from '@/config';
+import { cn } from '@/utils/utils';
+
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -28,8 +31,11 @@ interface AskProps {
   isCustomModel?: boolean;
   customModel?: string;
   language?: string;
+  isAskSectionVisible?: boolean;
 }
 
+const config = getConfig('wikiPage.askSection');
+  
 const Ask: React.FC<AskProps> = ({ 
   repoUrl, 
   githubToken, 
@@ -39,7 +45,8 @@ const Ask: React.FC<AskProps> = ({
   model = '',
   isCustomModel = false,
   customModel = '',
-  language = 'en' 
+  language = 'en',
+  isAskSectionVisible
 }) => {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
@@ -492,7 +499,14 @@ const Ask: React.FC<AskProps> = ({
     }
   };
 
+  if (!isAskSectionVisible) return null;
+  
   return (
+    // <div className={cn("w-full max-w-full", config.position === 'embed' && "bg-[var(--card-bg)] backdrop-blur-md")}>
+    //   <div className="rounded-lg overflow-hidden">
+        
+    //     <form onSubmit={handleSubmit} className="p-0">
+          
     <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-md overflow-hidden shadow-sm">
       <div className="p-4">
         <div className="flex items-center justify-between mb-4">
@@ -588,7 +602,7 @@ const Ask: React.FC<AskProps> = ({
           <div className="border-t border-gray-200 dark:border-gray-700 mt-4">
             <div
               ref={responseRef}
-              className="p-4 max-h-[500px] overflow-y-auto"
+              className="p-4 max-h-[300px] overflow-y-auto"
             >
               <Markdown content={response} />
             </div>

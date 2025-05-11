@@ -3,12 +3,18 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaCoffee, FaTwitter} from 'react-icons/fa';
-import ThemeToggle from '@/components/theme-toggle';
+import { FaWikipediaW, FaCog } from 'react-icons/fa';
 import Mermaid from '../components/Mermaid';
-import UserSelector from '@/components/UserSelector';
-
 import { useLanguage } from '@/contexts/LanguageContext';
+import { cn, t } from '@/utils/utils';
+import Footer from '@/components/common/Footer';
+import AdvancedOptions from '@/components/landing/AdvancedOptions';
+import AccessTokens from '@/components/landing/AccessTokens';
+import { getConfig } from '@/config';
+import AdvancedOptionsModal from '@/components/landing/AdvancedOptionsModal';
+
+
+const config = getConfig('landingPage');
 
 // Define the demo mermaid charts outside the component
 const DEMO_FLOW_CHART = `graph TD
@@ -43,34 +49,6 @@ export default function Home() {
   const router = useRouter();
   const {language, setLanguage, messages} = useLanguage();
 
-  // Create a simple translation function
-  const t = (key: string, params: Record<string, string | number> = {}): string => {
-    // Split the key by dots to access nested properties
-    const keys = key.split('.');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let value: any = messages;
-
-    // Navigate through the nested properties
-    for (const k of keys) {
-      if (value && typeof value === 'object' && k in value) {
-        value = value[k];
-      } else {
-        // Return the key if the translation is not found
-        return key;
-      }
-    }
-
-    // If the value is a string, replace parameters
-    if (typeof value === 'string') {
-      return Object.entries(params).reduce((acc: string, [paramKey, paramValue]) => {
-        return acc.replace(`{${paramKey}}`, String(paramValue));
-      }, value);
-    }
-
-    // Return the key if the value is not a string
-    return key;
-  };
-
   const [repositoryInput, setRepositoryInput] = useState('https://github.com/AsyncFuncAI/deepwiki-open');
   const [showTokenInputs, setShowTokenInputs] = useState(false);
 
@@ -87,6 +65,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>(language);
+  const [isAdvancedOptionsModalOpen, setIsAdvancedOptionsModalOpen] = useState(false);
 
   // Sync the language context with the selectedLanguage state
   useEffect(() => {
@@ -237,6 +216,42 @@ export default function Home() {
     // The isSubmitting state will be reset when the component unmounts during navigation
   };
 
+  const AdvancedOptionsComponent = () => {
+    return (
+      <>
+        {/* Advanced options section with improved layout */}
+          <AdvancedOptions
+            selectedLanguage={selectedLanguage}
+            setSelectedLanguage={setSelectedLanguage}
+            provider={provider}
+            setProvider={setProvider}
+            model={model}
+            setModel={setModel}
+            isCustomModel={isCustomModel}
+            setIsCustomModel={setIsCustomModel}
+            customModel={customModel}
+            setCustomModel={setCustomModel}
+            excludedDirs={excludedDirs}
+            setExcludedDirs={setExcludedDirs}
+            excludedFiles={excludedFiles}
+            setExcludedFiles={setExcludedFiles}
+            messages={messages}
+          />
+
+          {/* Access tokens button */}
+          <AccessTokens
+            showTokenInputs={showTokenInputs}
+            setShowTokenInputs={setShowTokenInputs}
+            selectedPlatform={selectedPlatform}
+            setSelectedPlatform={setSelectedPlatform}
+            accessToken={accessToken}
+            setAccessToken={setAccessToken}
+            messages={messages}
+          />
+        </>
+    )
+  }
+
   return (
     <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
       <header className="max-w-6xl mx-auto mb-6 h-fit w-full">
@@ -247,28 +262,28 @@ export default function Home() {
               <FaWikipediaW className="text-2xl text-white"/>
             </div>
             <div className="mr-6">
-              <h1 className="text-xl md:text-2xl font-bold text-[var(--accent-primary)]">{t('common.appName')}</h1>
+              <h1 className="text-xl md:text-2xl font-bold text-[var(--accent-primary)]">{t('common.appName', messages)}</h1>
               <div className="flex flex-wrap items-baseline gap-x-2 md:gap-x-3 mt-0.5">
-                <p className="text-xs text-[var(--muted)] whitespace-nowrap">{t('common.tagline')}</p>
+                <p className="text-xs text-[var(--muted)] whitespace-nowrap">{t('common.tagline', messages)}</p>
                 <div className="hidden md:inline-block">
                   <Link href="/wiki/projects"
                         className="text-xs font-medium text-[var(--accent-primary)] hover:text-[var(--highlight)] hover:underline whitespace-nowrap">
-                    {t('nav.wikiProjects')}
+                    {t('nav.wikiProjects', messages)}
                   </Link>
                 </div>
               </div>
             </div>
           </div>
 
-          <form onSubmit={handleFormSubmit} className="flex flex-col gap-3 w-full max-w-3xl">
+          <form onSubmit={handleFormSubmit} className={cn("flex flex-col gap-3 w-full max-w-3xl", config.advancedOptions.position === 'modal' && "flex-row gap-2")}>
             {/* Repository URL input and submit button */}
-            <div className="flex flex-col sm:flex-row gap-2">
-                <div className="relative flex-1">
+            <div className="flex-1 flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
                 <input
                   type="text"
                   value={repositoryInput}
                   onChange={(e) => setRepositoryInput(e.target.value)}
-                  placeholder={t('form.repoPlaceholder') || "owner/repo, GitHub/GitLab/BitBucket URL, or local folder path"}
+                  placeholder={t('form.repoPlaceholder', messages) || "owner/repo, GitHub/GitLab/BitBucket URL, or local folder path"}
                   className="input-japanese block w-full pl-10 pr-3 py-2.5 border-[var(--border-color)] rounded-lg bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
                 />
                 {error && (
@@ -282,163 +297,27 @@ export default function Home() {
                 className="btn-japanese px-6 py-2.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? t('common.processing') : t('common.generateWiki')}
+                {isSubmitting ? t('common.processing', messages) : t('common.generateWiki', messages)}
               </button>
             </div>
 
-            {/* Advanced options section with improved layout */}
-            <div
-              className="flex flex-wrap gap-4 items-start bg-[var(--card-bg)]/80 p-4 rounded-lg border border-[var(--border-color)] shadow-custom card-japanese">
-              {/* Language selection */}
-              <div className="min-w-[140px]">
-                <label htmlFor="language-select"
-                       className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
-                  {t('form.wikiLanguage')}
-                </label>
-                <select
-                  id="language-select"
-                  value={selectedLanguage}
-                  onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+            {
+              config.advancedOptions.position === 'embed' && (
+                <AdvancedOptionsComponent />
+              )
+            }
+            {
+              config.advancedOptions.position === 'modal' && (
+                <button
+                  type="button"
+                  className="btn-japanese flex items-center gap-2 px-6 py-2.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => setIsAdvancedOptionsModalOpen(true)}
                 >
-                  <option value="en">English</option>
-                  <option value="ja">Japanese (日本語)</option>
-                  <option value="zh">Mandarin (中文)</option>
-                  <option value="es">Spanish (Español)</option>
-                  <option value="kr">Korean (한국어)</option>
-                  <option value="vi">Vietnamese (Tiếng Việt)</option>
-                </select>
-              </div>
-
-              {/* Model options */}
-              <div className="flex-1 min-w-[200px]">
-                <UserSelector
-                  provider={provider}
-                  setProvider={setProvider}
-                  model={model}
-                  setModel={setModel}
-                  isCustomModel={isCustomModel}
-                  setIsCustomModel={setIsCustomModel}
-                  customModel={customModel}
-                  setCustomModel={setCustomModel}
-                  showFileFilters={true}
-                  excludedDirs={excludedDirs}
-                  setExcludedDirs={setExcludedDirs}
-                  excludedFiles={excludedFiles}
-                  setExcludedFiles={setExcludedFiles}
-                />
-              </div>
-            </div>
-
-            {/* Access tokens button */}
-            <div className="flex items-center relative">
-              <button
-                type="button"
-                onClick={() => setShowTokenInputs(!showTokenInputs)}
-                className="text-sm text-[var(--accent-primary)] hover:text-[var(--highlight)] flex items-center transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)] pb-0.5"
-              >
-                {showTokenInputs ? t('form.hideTokens') : t('form.addTokens')}
-              </button>
-              {showTokenInputs && (
-                <>
-                  <div className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40"
-                       onClick={() => setShowTokenInputs(false)}/>
-                  <div className="absolute left-0 right-0 top-full mt-2 z-50">
-                    <div
-                      className="flex flex-col gap-3 p-4 bg-[var(--card-bg)] rounded-lg border border-[var(--border-color)] shadow-custom card-japanese">
-                      <div className="flex justify-between items-center">
-                        <h3 className="text-sm font-medium text-[var(--accent-primary)] mb-3 flex items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none"
-                               viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                          </svg>
-                          {t('form.accessToken')}
-                        </h3>
-                        <button
-                          type="button"
-                          onClick={() => setShowTokenInputs(false)}
-                          className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-                        >
-                          <span className="sr-only">Close</span>
-                          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                          </svg>
-                        </button>
-                      </div>
-
-                      <div className="bg-[var(--background)]/50 p-3 rounded-md border border-[var(--border-color)]">
-                        <label className="block text-xs font-medium text-[var(--foreground)] mb-2">
-                          {t('form.selectPlatform')}
-                        </label>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedPlatform('github')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${
-                                selectedPlatform === 'github'
-                                    ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
-                                    : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
-                            }`}
-                          >
-                            <FaGithub className="text-lg"/>
-                            <span className="text-sm">GitHub</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedPlatform('gitlab')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${
-                                selectedPlatform === 'gitlab'
-                                    ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
-                                    : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
-                            }`}
-                          >
-                            <FaGitlab className="text-lg"/>
-                            <span className="text-sm">GitLab</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedPlatform('bitbucket')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${
-                                selectedPlatform === 'bitbucket'
-                                    ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
-                                    : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
-                            }`}
-                          >
-                            <FaBitbucket className="text-lg"/>
-                            <span className="text-sm">Bitbucket</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label htmlFor="access-token"
-                               className="block text-xs font-medium text-[var(--foreground)] mb-2">
-                          {t('form.personalAccessToken', {platform: selectedPlatform.charAt(0).toUpperCase() + selectedPlatform.slice(1)})}
-                        </label>
-                        <input
-                          id="access-token"
-                          type="password"
-                          value={accessToken}
-                          onChange={(e) => setAccessToken(e.target.value)}
-                          placeholder={t('form.tokenPlaceholder', {platform: selectedPlatform})}
-                          className="input-japanese block w-full px-3 py-2 rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)] text-sm"
-                        />
-                        <div className="flex items-center mt-2 text-xs text-[var(--muted)]">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-[var(--muted)]"
-                               fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                          </svg>
-                          {t('form.tokenSecurityNote')}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+                  <FaCog />
+                  {t('form.advancedOptions', messages)}
+                </button>
+              )
+            }
           </form>
 
         </div>
@@ -455,13 +334,13 @@ export default function Home() {
                 <FaWikipediaW className="text-5xl text-[var(--accent-primary)] relative z-10"/>
               </div>
               <div className="text-center sm:text-left">
-                <h2 className="text-2xl font-bold text-[var(--foreground)] font-serif mb-1">{t('home.welcome')}</h2>
-                <p className="text-[var(--accent-primary)] text-sm max-w-md">{t('home.welcomeTagline')}</p>
+                <h2 className="text-2xl font-bold text-[var(--foreground)] font-serif mb-1">{t('home.welcome', messages)}</h2>
+                <p className="text-[var(--accent-primary)] text-sm max-w-md">{t('home.welcomeTagline', messages)}</p>
               </div>
             </div>
 
             <p className="text-[var(--foreground)] text-center mb-8 text-lg leading-relaxed">
-              {t('home.description')}
+              {t('home.description', messages)}
             </p>
           </div>
 
@@ -474,9 +353,9 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
-              {t('home.quickStart')}
+              {t('home.quickStart', messages)}
             </h3>
-            <p className="text-sm text-[var(--foreground)] mb-3">{t('home.enterRepoUrl')}</p>
+            <p className="text-sm text-[var(--foreground)] mb-3">{t('home.enterRepoUrl', messages)}</p>
             <div className="grid grid-cols-1 gap-3 text-xs text-[var(--muted)]">
               <div
                 className="bg-[var(--background)]/70 p-3 rounded border border-[var(--border-color)] font-mono overflow-x-hidden whitespace-nowrap"
@@ -507,21 +386,21 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
               </svg>
-              <h3 className="text-base font-semibold text-[var(--foreground)] font-serif">{t('home.advancedVisualization')}</h3>
+              <h3 className="text-base font-semibold text-[var(--foreground)] font-serif">{t('home.advancedVisualization', messages)}</h3>
             </div>
             <p className="text-sm text-[var(--foreground)] mb-5 leading-relaxed">
-              {t('home.diagramDescription')}
+              {t('home.diagramDescription', messages)}
             </p>
 
             {/* Diagrams with improved layout */}
             <div className="grid grid-cols-1 gap-6">
               <div className="bg-[var(--card-bg)] p-4 rounded-lg border border-[var(--border-color)] shadow-custom">
-                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3 font-serif">{t('home.flowDiagram')}</h4>
+                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3 font-serif">{t('home.flowDiagram', messages)}</h4>
                 <Mermaid chart={DEMO_FLOW_CHART}/>
               </div>
 
               <div className="bg-[var(--card-bg)] p-4 rounded-lg border border-[var(--border-color)] shadow-custom">
-                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3 font-serif">{t('home.sequenceDiagram')}</h4>
+                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3 font-serif">{t('home.sequenceDiagram', messages)}</h4>
                 <Mermaid chart={DEMO_SEQUENCE_CHART}/>
               </div>
             </div>
@@ -529,30 +408,18 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="max-w-6xl mx-auto mt-8 flex flex-col gap-4 w-full">
-        <div
-          className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-[var(--card-bg)] rounded-lg p-4 border border-[var(--border-color)] shadow-custom">
-          <p className="text-[var(--muted)] text-sm font-serif">{t('footer.copyright')}</p>
+      <Footer footerText={t('footer.copyright', messages)} />
 
-          <div className="flex items-center gap-6">
-            <div className="flex items-center space-x-5">
-              <a href="https://github.com/AsyncFuncAI/deepwiki-open" target="_blank" rel="noopener noreferrer"
-                 className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
-                <FaGithub className="text-xl"/>
-              </a>
-              <a href="https://buymeacoffee.com/sheing" target="_blank" rel="noopener noreferrer"
-                 className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
-                <FaCoffee className="text-xl"/>
-              </a>
-              <a href="https://x.com/sashimikun_void" target="_blank" rel="noopener noreferrer"
-                 className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
-                <FaTwitter className="text-xl"/>
-              </a>
-            </div>
-            <ThemeToggle/>
-          </div>
-        </div>
-      </footer>
+
+      {/* Advanced Options Modal */}
+      {config.advancedOptions.position === 'modal' && (
+        <AdvancedOptionsModal
+          isOpen={isAdvancedOptionsModalOpen}
+          onClose={() => setIsAdvancedOptionsModalOpen(false)}
+          content={<AdvancedOptionsComponent />}
+          messages={messages}
+        />
+      )}
     </div>
   );
 }

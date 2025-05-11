@@ -5,6 +5,9 @@ import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import Mermaid from './Mermaid';
+import { getConfig } from '@/config';
+
+const config = getConfig('wikiPage.wikiContent.sizes');
 
 interface MarkdownProps {
   content: string;
@@ -14,10 +17,10 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
   // Define markdown components
   const MarkdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
     p({ children, ...props }: { children?: React.ReactNode }) {
-      return <p className="mb-1 text-xs dark:text-white" {...props}>{children}</p>;
+      return <p className={`mb-1 text-${config.p} dark:text-white`} {...props}>{children}</p>;
     },
     h1({ children, ...props }: { children?: React.ReactNode }) {
-      return <h1 className="text-base font-bold mt-3 mb-1 dark:text-white" {...props}>{children}</h1>;
+      return <h1 className={`text-${config.h1} font-bold mt-3 mb-1 dark:text-white`} {...props}>{children}</h1>;
     },
     h2({ children, ...props }: { children?: React.ReactNode }) {
       // Special styling for ReAct headings
@@ -26,7 +29,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
         if (text.includes('Thought') || text.includes('Action') || text.includes('Observation') || text.includes('Answer')) {
           return (
             <h2
-              className={`text-sm font-bold mt-3 mb-2 p-1 rounded ${
+              className={`text-${config.h2} font-bold mt-3 mb-2 p-1 rounded ${
                 text.includes('Thought') ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
                 text.includes('Action') ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
                 text.includes('Observation') ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' :
@@ -40,28 +43,28 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
           );
         }
       }
-      return <h2 className="text-sm font-bold mt-2 mb-1 dark:text-white" {...props}>{children}</h2>;
+      return <h2 className={`text-${config.h2} font-bold mt-2 mb-1 dark:text-white`} {...props}>{children}</h2>;
     },
     h3({ children, ...props }: { children?: React.ReactNode }) {
-      return <h3 className="text-sm font-semibold mt-2 mb-1 dark:text-white" {...props}>{children}</h3>;
+      return <h3 className={`text-${config.h3} font-semibold mt-2 mb-1 dark:text-white`} {...props}>{children}</h3>;
     },
     h4({ children, ...props }: { children?: React.ReactNode }) {
-      return <h4 className="text-xs font-semibold mt-2 mb-1 dark:text-white" {...props}>{children}</h4>;
+      return <h4 className={`text-${config.h4} font-semibold mt-2 mb-1 dark:text-white`} {...props}>{children}</h4>;
     },
     ul({ children, ...props }: { children?: React.ReactNode }) {
-      return <ul className="list-disc list-inside mb-1 text-xs dark:text-white" {...props}>{children}</ul>;
+      return <ul className={`list-disc list-inside mb-1 text-${config.ul} dark:text-white`} {...props}>{children}</ul>;
     },
     ol({ children, ...props }: { children?: React.ReactNode }) {
-      return <ol className="list-decimal list-inside mb-1 text-xs dark:text-white" {...props}>{children}</ol>;
+      return <ol className={`list-decimal list-inside mb-1 text-${config.ol} dark:text-white`} {...props}>{children}</ol>;
     },
     li({ children, ...props }: { children?: React.ReactNode }) {
-      return <li className="mb-1 text-xs dark:text-white" {...props}>{children}</li>;
+      return <li className={`mb-1 text-${config.li} dark:text-white`} {...props}>{children}</li>;
     },
     a({ children, href, ...props }: { children?: React.ReactNode; href?: string }) {
       return (
         <a
           href={href}
-          className="text-purple-600 dark:text-purple-400 hover:underline"
+          className={`text-${config.a} text-purple-600 dark:text-purple-400 hover:underline`}
           target="_blank"
           rel="noopener noreferrer"
           {...props}
@@ -73,7 +76,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
     blockquote({ children, ...props }: { children?: React.ReactNode }) {
       return (
         <blockquote
-          className="border-l-2 border-gray-300 dark:border-gray-700 pl-2 text-gray-700 dark:text-gray-300 italic my-2"
+          className={`border-l-2 border-gray-300 dark:border-gray-700 pl-2 text-${config.blockquote} text-gray-700 dark:text-gray-300 italic my-2`}
           {...props}
         >
           {children}
@@ -83,7 +86,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
     table({ children, ...props }: { children?: React.ReactNode }) {
       return (
         <div className="overflow-x-auto my-2">
-          <table className="min-w-full text-xs border-collapse" {...props}>
+          <table className={`min-w-full text-${config.table} border-collapse`} {...props}>
             {children}
           </table>
         </div>
@@ -138,7 +141,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
       // Handle code blocks
       if (!inline && match) {
         return (
-          <div className="my-2 rounded-md overflow-hidden text-xs">
+          <div className={`my-2 rounded-md overflow-hidden text-${config.codeBlock}`}>
             <div className="bg-gray-800 text-gray-200 px-4 py-1 text-xs flex justify-between items-center">
               <span>{match[1]}</span>
               <button
@@ -167,7 +170,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
             <SyntaxHighlighter
               language={match[1]}
               style={tomorrow}
-              className="!text-xs"
+              className={`!text-${config.codeBlock}`}
               customStyle={{ margin: 0, borderRadius: '0 0 0.375rem 0.375rem' }}
               showLineNumbers={true}
               wrapLines={true}
@@ -183,7 +186,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
       // Handle inline code
       return (
         <code
-          className={`${className} font-mono bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-pink-500 dark:text-pink-400 text-xs`}
+          className={`${className} font-mono bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-${config.codeInline} text-pink-500 dark:text-pink-400`}
           {...otherProps}
         >
           {children}
