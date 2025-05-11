@@ -1,0 +1,1 @@
+export type SupportedPlatform = 'github' | 'gitlab' | 'bitbucket' | 'gitea';

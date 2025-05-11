@@ -90,6 +90,9 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
             elif type == "bitbucket":
                 # Format: https://{token}@bitbucket.org/owner/repo.git
                 clone_url = urlunparse((parsed.scheme, f"{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
+            elif type == "gitea":
+                # Format: https://{token}@gitea.com/owner/repo.git
+                clone_url = urlunparse((parsed.scheme, f"{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
             logger.info("Using access token for authentication")
 
         # Clone the repository
@@ -536,6 +539,71 @@ def get_bitbucket_file_content(repo_url: str, file_path: str, access_token: str 
     except Exception as e:
         raise ValueError(f"Failed to get file content: {str(e)}")
 
+def get_gitea_file_content(repo_url: str, file_path: str, branch: str = "main", access_token: str = None) -> str:
+    """
+    Retrieves the raw content of a file from a Gitea repository.
+
+    Args:
+        repo_url (str): The Gitea repository URL (e.g., "http://localhost:3000/user/repo")
+        file_path (str): Path to the file in the repo (e.g., "README.md")
+        branch (str): The branch name (default is "main")
+        access_token (str, optional): Personal access token
+
+    Returns:
+        str: The file content
+
+    Raises:
+        ValueError: If the fetch fails
+    """
+    try:
+        parsed_url = urlparse(repo_url)
+        if not parsed_url.scheme or not parsed_url.netloc:
+            raise ValueError("Not a valid Gitea repository URL")
+
+        gitea_domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
+        if parsed_url.port not in (None, 80, 443):
+            gitea_domain += f":{parsed_url.port}"
+        path_parts = parsed_url.path.strip("/").split("/")
+        if len(path_parts) < 2:
+            raise ValueError("Invalid Gitea URL format — expected something like http://localhost:3000/user/repo")
+
+        owner, repo = path_parts[0], path_parts[1].replace(".git", "")
+        encoded_file_path = quote(file_path, safe='')
+        encoded_owner = quote(owner, safe='')
+        encoded_repo = quote(repo, safe='')
+
+        api_url = f"{gitea_domain}/api/v1/repos/{encoded_owner}/{encoded_repo}/contents/{encoded_file_path}?ref={quote(branch)}"
+
+        curl_cmd = ["curl", "-s"]
+        if access_token:
+            curl_cmd.extend(["-H", f"Authorization: token {access_token}"])
+        curl_cmd.append(api_url)
+
+        logger.info(f"Fetching file content from Gitea API: {api_url}")
+        result = subprocess.run(
+            curl_cmd,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        response_json = json.loads(result.stdout.decode("utf-8"))
+
+        if "content" in response_json:
+            import base64
+            return base64.b64decode(response_json["content"]).decode("utf-8")
+        elif "message" in response_json:
+            raise ValueError(f"Gitea API error: {response_json['message']}")
+        else:
+            raise ValueError("Unexpected API response format.")
+
+    except subprocess.CalledProcessError as e:
+        error_msg = e.stderr.decode('utf-8')
+        if access_token and access_token in error_msg:
+            error_msg = error_msg.replace(access_token, "***TOKEN***")
+        raise ValueError(f"Error fetching file content: {error_msg}")
+    except Exception as e:
+        raise ValueError(f"Failed to get file content: {str(e)}")
 
 def get_file_content(repo_url: str, file_path: str, type: str = "github", access_token: str = None) -> str:
     """
@@ -558,6 +626,8 @@ def get_file_content(repo_url: str, file_path: str, type: str = "github", access
         return get_gitlab_file_content(repo_url, file_path, access_token)
     elif type == "bitbucket":
         return get_bitbucket_file_content(repo_url, file_path, access_token)
+    elif type == "gitea":
+        return get_gitea_file_content(repo_url, file_path, access_token)
     else:
         raise ValueError("Unsupported repository URL. Only GitHub and GitLab are supported.")
 
@@ -618,19 +688,7 @@ class DatabaseManager:
             # url
             if repo_url_or_path.startswith("https://") or repo_url_or_path.startswith("http://"):
                 # Extract repo name based on the URL format
-                if type == "github":
-                    # GitHub URL format: https://github.com/owner/repo
-                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
-                elif type == "gitlab":
-                    # GitLab URL format: https://gitlab.com/owner/repo or https://gitlab.com/group/subgroup/repo
-                    # Use the last part of the URL as the repo name
-                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
-                elif type == "bitbucket":
-                    # Bitbucket URL format: https://bitbucket.org/owner/repo
-                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
-                else:
-                    # Generic handling for other Git URLs
-                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
+                repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
 
                 save_repo_dir = os.path.join(root_path, "repos", repo_name)
 
