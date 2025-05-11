@@ -44,6 +44,13 @@ echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 docker-compose up
 ```
 
+(Los comandos de Docker anteriores, así como la configuración de `docker-compose.yml`, montan el directorio `~/.adalflow` de tu host en `/root/.adalflow` dentro del contenedor. Esta ruta se utiliza para almacenar:
+- Repositorios clonados (`~/.adalflow/repos/`)
+- Sus embeddings e índices (`~/.adalflow/databases/`)
+- Contenido de wiki generado y cacheado (`~/.adalflow/wikicache/`)
+
+Esto asegura que tus datos persistan incluso si el contenedor se detiene o se elimina.)
+
 > 💡 **Dónde obtener estas claves:**
 > - Obtén una clave API de Google en [Google AI Studio](https://makersuite.google.com/app/apikey)
 > - Obtén una clave API de OpenAI en [OpenAI Platform](https://platform.openai.com/api-keys)

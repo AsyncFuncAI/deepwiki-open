@@ -2,12 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaCoffee, FaTwitter } from 'react-icons/fa';
+import Link from 'next/link';
+import { FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaCoffee, FaTwitter, FaCog } from 'react-icons/fa';
 import ThemeToggle from '@/components/theme-toggle';
 import Mermaid from '../components/Mermaid';
+import ModelConfigModal from '@/components/ModelConfigModal';
 
 import { useLanguage } from '@/contexts/LanguageContext';
 
+const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
 // Define the demo mermaid charts outside the component
 const DEMO_FLOW_CHART = `graph TD
   A[Code Repository] --> B[DeepWiki]
@@ -36,6 +39,12 @@ const DEMO_SEQUENCE_CHART = `sequenceDiagram
 
   %% Add a note to make text more visible
   Note over User,GitHub: DeepWiki supports sequence diagrams for visualizing interactions`;
+
+// 定义模型的接口
+interface GeneratorModel {
+  display_name: string;
+  // 如果模型对象中还有其他字段，可以在这里添加
+}
 
 export default function Home() {
   const router = useRouter();
@@ -71,28 +80,73 @@ export default function Home() {
 
   const [repositoryInput, setRepositoryInput] = useState('https://github.com/AsyncFuncAI/deepwiki-open');
   const [showTokenInputs, setShowTokenInputs] = useState(false);
-  const [localOllama, setLocalOllama] = useState(false);
-  const [useOpenRouter, setUseOpenRouter] = useState(false);
-  const [openRouterModel, setOpenRouterModel] = useState('openai/gpt-4o');
+  const [generatorModelName, setGeneratorModelName] = useState<string>('google');
+  const [availableModels, setAvailableModels] = useState<{[key: string]: GeneratorModel}>({});
   const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>('github');
   const [accessToken, setAccessToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>(language);
+  const [isModelConfigModalOpen, setIsModelConfigModalOpen] = useState(false);
 
   // Sync the language context with the selectedLanguage state
   useEffect(() => {
     setLanguage(selectedLanguage);
   }, [selectedLanguage, setLanguage]);
 
+  // 获取可用的生成器模型列表
+  useEffect(() => {
+    const fetchGenerators = async () => {
+      try {
+        console.log('Fetching available generators...');
+        const response = await fetch(`${SERVER_BASE_URL}/config/generators`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Response:', response.json);
+          setAvailableModels(data);
+          // 如果模型列表不为空且当前选择的模型不在列表中，则选择默认模型
+          if (Object.keys(data).length > 0 && !data[generatorModelName]) {
+            console.log('Selected model in fetch:', Object.keys(data)[0]);
+            setGeneratorModelName(Object.keys(data)[0]);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching generators:', error);
+      }
+    };
+
+    fetchGenerators();
+  }, [generatorModelName]);
+
   // Parse repository URL/input and extract owner and repo
-  const parseRepositoryInput = (input: string): { owner: string, repo: string, type: string, fullPath?: string } | null => {
+  const parseRepositoryInput = (input: string): { owner: string, repo: string, type: string, fullPath?: string, localPath?: string } | null => {
     input = input.trim();
 
     let owner = '', repo = '', type = 'github', fullPath;
+    let localPath: string | undefined;
 
+    // Handle Windows absolute paths (e.g., C:\path\to\folder)
+    const windowsPathRegex = /^[a-zA-Z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]*$/;
+    if (windowsPathRegex.test(input)) {
+      type = 'local';
+      localPath = input;
+      repo = input.split('\\').pop() || 'local-repo';
+      owner = 'local';
+    }
+    // Handle Unix/Linux absolute paths (e.g., /path/to/folder)
+    else if (input.startsWith('/')) {
+      type = 'local';
+      localPath = input;
+      repo = input.split('/').filter(Boolean).pop() || 'local-repo';
+      owner = 'local';
+    }
     // Handle GitHub URL format
-    if (input.startsWith('https://github.com/')) {
+    else if (input.startsWith('https://github.com/')) {
       type = 'github';
       const parts = input.replace('https://github.com/', '').split('/');
       owner = parts[0] || '';
@@ -140,7 +194,7 @@ export default function Home() {
       return null;
     }
 
-    return { owner, repo, type, fullPath };
+    return { owner, repo, type, fullPath, localPath };
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -158,13 +212,13 @@ export default function Home() {
     const parsedRepo = parseRepositoryInput(repositoryInput);
 
     if (!parsedRepo) {
-      setError('Invalid repository format. Use "owner/repo", "https://github.com/owner/repo", "https://gitlab.com/owner/repo", or "https://bitbucket.org/owner/repo" format.');
+      setError('Invalid repository format. Use "owner/repo", GitHub/GitLab/BitBucket URL, or a local folder path like "/path/to/folder" or "C:\\path\\to\\folder".');
       setIsSubmitting(false);
       return;
     }
-    
-    const { owner, repo, type, fullPath } = parsedRepo;
-    
+
+    const { owner, repo, type, localPath, fullPath } = parsedRepo;
+
     // Store tokens in query params if they exist
     const params = new URLSearchParams();
     if (accessToken) {
@@ -176,15 +230,14 @@ export default function Home() {
         params.append('bitbucket_token', accessToken);
       }
     }
-    if (type !== 'github') {
-      params.append('type', type);
+    // Always include the type parameter
+    params.append('type', type);
+    // Add local path if it exists
+    if (localPath) {
+      params.append('local_path', encodeURIComponent(localPath));
     }
     // Add model parameters
-    params.append('local_ollama', localOllama.toString());
-    params.append('use_openrouter', useOpenRouter.toString());
-    if (useOpenRouter) {
-      params.append('openrouter_model', openRouterModel);
-    }
+    params.append('generator_model_name', generatorModelName);
 
     // Add language parameter
     params.append('language', selectedLanguage);
@@ -213,9 +266,16 @@ export default function Home() {
             <div className="bg-[var(--accent-primary)] p-2 rounded-lg mr-3">
               <FaWikipediaW className="text-2xl text-white" />
             </div>
-            <div>
+            <div className="mr-6">
               <h1 className="text-xl md:text-2xl font-bold text-[var(--accent-primary)]">{t('common.appName')}</h1>
-              <p className="text-xs text-[var(--muted)]">{t('common.tagline')}</p>
+              <div className="flex flex-wrap items-baseline gap-x-2 md:gap-x-3 mt-0.5">
+                <p className="text-xs text-[var(--muted)] whitespace-nowrap">{t('common.tagline')}</p>
+                <div className="hidden md:inline-block">
+                  <Link href="/wiki/projects" className="text-xs font-medium text-[var(--accent-primary)] hover:text-[var(--highlight)] hover:underline whitespace-nowrap">
+                    {t('nav.wikiProjects')}
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -227,7 +287,7 @@ export default function Home() {
                   type="text"
                   value={repositoryInput}
                   onChange={(e) => setRepositoryInput(e.target.value)}
-                  placeholder={t('form.repoPlaceholder')}
+                  placeholder={t('form.repoPlaceholder') || "owner/repo, GitHub/GitLab/BitBucket URL, or local folder path"}
                   className="input-japanese block w-full pl-10 pr-3 py-2.5 border-[var(--border-color)] rounded-lg bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
                 />
                 {error && (
@@ -262,77 +322,106 @@ export default function Home() {
                   <option value="ja">Japanese (日本語)</option>
                   <option value="zh">Mandarin (中文)</option>
                   <option value="es">Spanish (Español)</option>
+                  <option value="kr">Korean (한국어)</option>
+                  <option value="vi">Vietnamese (Tiếng Việt)</option>
                 </select>
               </div>
 
-              {/* Model options */}
+              {/* Model options with improved UI and explanations */}
               <div className="flex-1 min-w-[200px]">
-                <label className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
-                  {t('form.modelOptions')}
-                </label>
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <input
-                      id="local-ollama"
-                      type="checkbox"
-                      checked={localOllama}
-                      onChange={(e) => {
-                        setLocalOllama(e.target.checked);
-                        if (e.target.checked) {
-                          setUseOpenRouter(false);
-                        }
-                      }}
-                      className="h-4 w-4 rounded border-[var(--border-color)] text-[var(--accent-primary)] focus:ring-[var(--accent-primary)]"
-                    />
-                    <label htmlFor="local-ollama" className="ml-2 text-sm text-[var(--foreground)]">
-                      {t('form.localOllama')} <span className="text-xs text-[var(--muted)]">({t('form.experimental')})</span>
-                    </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="generator-model" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
+                    {t('form.modelSelection')}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsModelConfigModalOpen(true)}
+                      className="text-xs flex items-center gap-1 text-[var(--accent-primary)] hover:text-[var(--highlight)] transition-colors"
+                      title={messages.modelConfig?.customizeTitle || "Learn how to customize models"}
+                    >
+                      <FaCog className="text-xs" />
+                      <span>{messages.modelConfig?.customizeButton || "Customize"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.open('https://github.com/AsyncFuncAI/deepwiki-open/blob/main/api/config/generators.json', '_blank')}
+                      className="text-xs text-[var(--accent-primary)] hover:text-[var(--highlight)] transition-colors"
+                      title={messages.modelConfig?.viewConfigTitle || "View generators.json on GitHub"}
+                    >
+                      {messages.modelConfig?.viewConfigButton || "View Config"}
+                    </button>
                   </div>
+                </div>
+                <div className="relative">
+                  <select
+                    id="generator-model"
+                    value={generatorModelName}
+                    onChange={(e) => {
+                      console.log('Selected model:', e.target.value);
+                      setGeneratorModelName(e.target.value)
+                    }}
+                    className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+                    aria-describedby="model-type-description"
+                  >
+                    {Object.entries(availableModels).map(([key, model]) => (
+                      <option key={key} value={key}>
+                        {model.display_name}
+                      </option>
+                    ))}
+                  </select>
+                  <div id="model-type-description" className="absolute right-0 top-0 mt-2 mr-2">
+                    <div className="group relative">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[var(--muted)] cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity absolute right-0 bottom-full mb-2 w-64 bg-[var(--card-bg)] p-2 rounded-md shadow-lg border border-[var(--border-color)] text-xs z-10">
+                        <div className="font-medium mb-1">{messages.modelConfig?.availableModelTypes || "Available Model Types:"}</div>
+                        <ul className="space-y-1">
+                          <li><span className="font-medium">Google:</span> {messages.modelConfig?.googleRequiresShort || "Requires GOOGLE_API_KEY"}</li>
+                          <li><span className="font-medium">Ollama:</span> {messages.modelConfig?.ollamaRequiresShort || "Local models, requires Ollama running"}</li>
+                          <li><span className="font-medium">OpenRouter:</span> {messages.modelConfig?.openrouterRequiresShort || "Requires OPENROUTER_API_KEY"}</li>
+                          <li><span className="font-medium">OpenAI:</span> {messages.modelConfig?.openaiRequiresShort || "Requires OPENAI_API_KEY"}</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* Current model type indicator */}
+                <div className="mt-2 flex items-center">
+                  <div className={`px-2 py-0.5 rounded-full text-xs ${
+                    generatorModelName === 'google' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                    generatorModelName === 'ollama' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                    generatorModelName === 'openrouter' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
+                    'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                  }`}>
+                    {generatorModelName === 'google' ? 'Google API' :
+                     generatorModelName === 'ollama' ? 'Local Ollama' :
+                     generatorModelName === 'openrouter' ? 'OpenRouter API' :
+                     'API'}
+                  </div>
+                  {generatorModelName === 'ollama' && (
+                    <div className="ml-2 text-xs text-[var(--muted)]">
+                      ({messages.modelConfig?.requiresOllamaLocal || "Requires Ollama running locally"})
+                    </div>
+                  )}
+                </div>
 
-                  <div className="flex items-center">
-                    <input
-                      id="use-openrouter"
-                      type="checkbox"
-                      checked={useOpenRouter}
-                      onChange={(e) => {
-                        setUseOpenRouter(e.target.checked);
-                        if (e.target.checked) {
-                          setLocalOllama(false);
-                        }
-                      }}
-                      className="h-4 w-4 rounded border-[var(--border-color)] text-[var(--accent-primary)] focus:ring-[var(--accent-primary)]"
-                    />
-                    <label htmlFor="use-openrouter" className="ml-2 text-sm text-[var(--foreground)]">
-                      {t('form.useOpenRouter')}
-                    </label>
-                  </div>
+                <div className="mt-2 text-xs text-[var(--muted)] flex items-start">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-[var(--muted)] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>
+                    {messages.modelConfig?.configuredIn || "Models are configured in"} <code className="bg-[var(--background)]/50 px-1 rounded">api/config/generators.json</code>.
+                    {messages.modelConfig?.clickHere || "Click"} <button
+                      onClick={() => setIsModelConfigModalOpen(true)}
+                      className="text-[var(--accent-primary)] hover:underline"
+                    >
+                      {messages.modelConfig?.here || "here"}
+                    </button> {messages.modelConfig?.toLearnHow || "to learn how to customize models."}
+                  </span>
                 </div>
               </div>
-
-              {/* OpenRouter model selection - only shown when OpenRouter is selected */}
-              {useOpenRouter && (
-                <div className="w-full">
-                  <label htmlFor="openrouter-model" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
-                    {t('form.openRouterModel')}
-                  </label>
-                  <select
-                    id="openrouter-model"
-                    value={openRouterModel}
-                    onChange={(e) => setOpenRouterModel(e.target.value)}
-                    className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
-                  >
-                    <option value="openai/gpt-4o">OpenAI GPT-4.0</option>
-                    <option value="openai/gpt-4.1">OpenAI GPT-4.1</option>
-                    <option value="openai/o1">OpenAI o1</option>
-                    <option value="openai/o1-mini">OpenAI o1-mini</option>
-                    <option value="anthropic/claude-3-5-sonnet">Anthropic Claude 3.5 Sonnet</option>
-                    <option value="anthropic/claude-3-7-sonnet">Anthropic Claude 3.7 Sonnet</option>
-                    <option value="google/gemini-2.0-flash-001">Google Gemini 2.0 Flash</option>
-                    <option value="meta-llama/llama-3-70b-instruct">Meta Llama 3 70B Instruct</option>
-                    <option value="mistralai/mixtral-8x22b-instruct">Mistral Mixtral 8x22B Instruct</option>
-                  </select>
-                </div>
-              )}
             </div>
 
             {/* Access tokens button */}
@@ -432,6 +521,7 @@ export default function Home() {
               )}
             </div>
           </form>
+
         </div>
       </header>
 
@@ -527,6 +617,12 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Model Configuration Modal */}
+      <ModelConfigModal
+        isOpen={isModelConfigModalOpen}
+        onClose={() => setIsModelConfigModalOpen(false)}
+      />
     </div>
   );
 }

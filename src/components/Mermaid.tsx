@@ -141,7 +141,7 @@ mermaid.initialize({
     .edgeLabel,
     .label,
     text {
-      fill: #333333 !important;
+      fill: #777 !important;
     }
 
     [data-theme="dark"] text[text-anchor][dominant-baseline],

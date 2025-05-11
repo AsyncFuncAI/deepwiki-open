@@ -1,9 +1,11 @@
-from typing import Any, List, Tuple, Dict
-from uuid import uuid4
 import logging
 import re
+from dataclasses import dataclass
+from typing import Any, List, Tuple, Dict
+from uuid import uuid4
+
 import adalflow as adal
-from dataclasses import dataclass, field
+
 
 # Create our own implementation of the conversation classes
 @dataclass
@@ -34,14 +36,10 @@ class CustomConversation:
 
 # Import other adalflow components
 from adalflow.components.retriever.faiss_retriever import FAISSRetriever
-from api.config import configs
+from api.config import app_configs, embedder_config, generator_config
 from api.data_pipeline import DatabaseManager
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
 # Maximum token limit for embedding models
@@ -207,32 +205,23 @@ class RAG(adal.Component):
     """RAG with one repo.
     If you want to load a new repos, call prepare_retriever(repo_url_or_path) first."""
 
-    def __init__(self, use_s3: bool = False, local_ollama: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
+    def __init__(self, use_s3: bool = False, use_local_models: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
         """
         Initialize the RAG component.
 
         Args:
             use_s3: Whether to use S3 for database storage (default: False)
-            local_ollama: Whether to use local Ollama for embedding (default: False)
+            use_local_models: Whether to use local models like Ollama (default: False)
         """
         super().__init__()
-
-        self.local_ollama = local_ollama
 
         # Initialize components
         self.memory = Memory()
 
-        if self.local_ollama:
-            embedder_config = configs["embedder_ollama"]
-            generator_config = configs["generator_ollama"]
-        else:
-            embedder_config = configs["embedder"]
-            generator_config = configs["generator"]
-
         # --- Initialize Embedder ---
         self.embedder = adal.Embedder(
-            model_client=embedder_config["model_client"](),
-            model_kwargs=embedder_config["model_kwargs"],
+            model_client=embedder_config.get_client(),
+            model_kwargs=embedder_config.model_kwargs,
         )
 
         # Patch: ensure query embedding is always single string for Ollama
@@ -273,8 +262,8 @@ IMPORTANT FORMATTING RULES:
                 "system_prompt": system_prompt,
                 "contexts": None,
             },
-            model_client=generator_config["model_client"](),  # Use selected generator config
-            model_kwargs=generator_config["model_kwargs"],    # Use selected generator config
+            model_client=generator_config.get_client(),
+            model_kwargs=generator_config.model_kwargs,
             output_processors=data_parser,
         )
 
@@ -284,7 +273,7 @@ IMPORTANT FORMATTING RULES:
         self.db_manager = DatabaseManager()
         self.transformed_docs = []
 
-    def prepare_retriever(self, repo_url_or_path: str, access_token: str = None, local_ollama: bool = False):
+    def prepare_retriever(self, repo_url_or_path: str, access_token: str = None):
         """
         Prepare the retriever for a repository.
         Will load database from local storage if available.
@@ -292,17 +281,17 @@ IMPORTANT FORMATTING RULES:
         Args:
             repo_url_or_path: URL or local path to the repository
             access_token: Optional access token for private repositories
-            local_ollama: Optional flag to use local Ollama for embedding
         """
         self.initialize_db_manager()
         self.repo_url_or_path = repo_url_or_path
-        self.transformed_docs = self.db_manager.prepare_database(repo_url_or_path, access_token, local_ollama=local_ollama)
+        self.transformed_docs = self.db_manager.prepare_database(repo_url_or_path, access_token)
         logger.info(f"Loaded {len(self.transformed_docs)} documents for retrieval")
 
-        retreive_embedder = self.query_embedder if local_ollama else self.embedder
+        # Select the appropriate embedder based on the current model mode
+        retriever_embedder = self.query_embedder if embedder_config.is_local() else self.embedder
         self.retriever = FAISSRetriever(
-            **configs["retriever"],
-            embedder=retreive_embedder,
+            **app_configs["retriever"],
+            embedder=retriever_embedder,
             documents=self.transformed_docs,
             document_map_func=lambda doc: doc.vector,
         )
@@ -313,7 +302,7 @@ IMPORTANT FORMATTING RULES:
 
         Args:
             query: The user's query
-            language: Language code for response (e.g., 'en', 'ja', 'zh', 'es')
+            language: Language code for response (e.g., 'en', 'ja', 'zh', 'es' ,'kr', 'vi')
 
         Returns:
             Tuple of (RAGAnswer, retrieved_documents)
@@ -332,7 +321,9 @@ IMPORTANT FORMATTING RULES:
                 "en": "English",
                 "ja": "Japanese (日本語)",
                 "zh": "Mandarin Chinese (中文)",
-                "es": "Spanish (Español)"
+                "es": "Spanish (Español)",
+                "kr": "Korean (한국어)",
+                "vi": "Vietnamese (Tiếng Việt)"
             }.get(language, "English")
 
             # Prepare generation parameters
