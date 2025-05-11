@@ -83,13 +83,13 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
             # Determine the repository type and format the URL accordingly
             if type == "github":
                 # Format: https://{token}@github.com/owner/repo.git
-                clone_url = urlunparse((parsed.scheme, f"{access_token}@", parsed.path, '', '', ''))
+                clone_url = urlunparse((parsed.scheme, f"{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
             elif type == "gitlab":
                 # Format: https://oauth2:{token}@gitlab.com/owner/repo.git    
                 clone_url = urlunparse((parsed.scheme, f"oauth2:{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
             elif type == "bitbucket":
                 # Format: https://{token}@bitbucket.org/owner/repo.git
-                clone_url = urlunparse((parsed.scheme, f"{access_token}@", parsed.path, '', '', ''))
+                clone_url = urlunparse((parsed.scheme, f"{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
             logger.info("Using access token for authentication")
 
         # Clone the repository
@@ -392,6 +392,8 @@ def get_gitlab_file_content(repo_url: str, file_path: str, access_token: str = N
             raise ValueError("Not a valid GitLab repository URL")
 
         gitlab_domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
+        if parsed_url.port not in (None, 80, 443):
+            gitlab_domain += f":{parsed_url.port}"
         path_parts = parsed_url.path.strip("/").split("/")
         if len(path_parts) < 2:
             raise ValueError("Invalid GitLab URL format — expected something like https://gitlab.domain.com/group/project")
