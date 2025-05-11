@@ -107,10 +107,10 @@ async def chat_completions_stream(request: ChatCompletionRequest):
             excluded_dirs = None
             excluded_files = None
             if request.excluded_dirs:
-                excluded_dirs = [unquote(dir_path) for dir_path in request.excluded_dirs.split(',')]
+                excluded_dirs = [unquote(dir_path) for dir_path in request.excluded_dirs.split('\n') if dir_path.strip()]
                 logger.info(f"Using custom excluded directories: {excluded_dirs}")
             if request.excluded_files:
-                excluded_files = [unquote(file_pattern) for file_pattern in request.excluded_files.split(',')]
+                excluded_files = [unquote(file_pattern) for file_pattern in request.excluded_files.split('\n') if file_pattern.strip()]
                 logger.info(f"Using custom excluded files: {excluded_files}")
 
             request_rag.prepare_retriever(request.repo_url, access_token, False, excluded_dirs, excluded_files)

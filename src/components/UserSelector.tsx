@@ -65,6 +65,10 @@ export default function UserSelector({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // State for viewing default values
+  const [showDefaultDirs, setShowDefaultDirs] = useState(false);
+  const [showDefaultFiles, setShowDefaultFiles] = useState(false);
+  
   // Fetch model configurations from the backend
   useEffect(() => {
     const fetchModelConfig = async () => {
@@ -100,22 +104,23 @@ export default function UserSelector({
     };
     
     fetchModelConfig();
-  }, [provider, setProvider, setModel]);
+  }, []); 
   
   // Handler for changing provider
   const handleProviderChange = (newProvider: string) => {
     setProvider(newProvider);
-    
-    // Reset custom model state when changing providers
-    setIsCustomModel(false);
-    
-    // Set default model for the selected provider
-    if (modelConfig) {
-      const selectedProvider = modelConfig.providers.find((p: Provider) => p.id === newProvider);
-      if (selectedProvider && selectedProvider.models.length > 0) {
-        setModel(selectedProvider.models[0].id);
+    setTimeout(() => {
+      // Reset custom model state when changing providers
+      setIsCustomModel(false);
+      
+      // Set default model for the selected provider
+      if (modelConfig) {
+        const selectedProvider = modelConfig.providers.find((p: Provider) => p.id === newProvider);
+        if (selectedProvider && selectedProvider.models.length > 0) {
+          setModel(selectedProvider.models[0].id);
+        }
       }
-    }
+    }, 10);
   };
   
   // Default excluded directories from config.py
@@ -255,39 +260,46 @@ next.config.js
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="space-y-2">
+    <div className="flex flex-col gap-3">
+      <div className="space-y-4">
         {error && (
           <div className="text-sm text-red-500 mb-2">{error}</div>
         )}
         
         {/* Provider Selection */}
-        <div className="mb-4">
-          <label htmlFor="provider-dropdown" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+        <div>
+          <label htmlFor="provider-dropdown" className="block text-sm font-medium text-[var(--muted)] mb-1.5">
             {t.form?.modelProvider || 'Model Provider'}
           </label>
-          <select
-            id="provider-dropdown"
-            value={provider}
-            onChange={(e) => handleProviderChange(e.target.value)}
-            className="block w-full rounded-md border-2 border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2.5 text-base focus:border-[var(--accent-primary)] focus:ring-[var(--accent-primary)] focus:ring-opacity-50 transition-all cursor-pointer"
-          >
-            <option value="" disabled>{t.form?.selectProvider || 'Select Provider'}</option>
-            {modelConfig?.providers.map((providerOption) => (
-              <option key={providerOption.id} value={providerOption.id}>
-                {t.form?.[`provider${providerOption.id.charAt(0).toUpperCase() + providerOption.id.slice(1)}`] || providerOption.name}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              id="provider-dropdown"
+              value={provider}
+              onChange={(e) => handleProviderChange(e.target.value)}
+              className="block w-full rounded-md border border-[var(--border-color)]/50 bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-base focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)] focus:ring-opacity-50 transition-all cursor-pointer shadow-sm appearance-none"
+            >
+              <option value="" disabled>{t.form?.selectProvider || 'Select Provider'}</option>
+              {modelConfig?.providers.map((providerOption) => (
+                <option key={providerOption.id} value={providerOption.id}>
+                  {t.form?.[`provider${providerOption.id.charAt(0).toUpperCase() + providerOption.id.slice(1)}`] || providerOption.name}
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[var(--muted)]">
+              <svg className="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+              </svg>
+            </div>
+          </div>
         </div>
 
         {/* Model Selection - consistent height regardless of type */}
-        <div className="mb-4">
-          <label htmlFor={isCustomModel ? "custom-model-input" : "model-dropdown"} className="block text-sm font-medium text-[var(--foreground)] mb-2">
+        <div>
+          <label htmlFor={isCustomModel ? "custom-model-input" : "model-dropdown"} className="block text-sm font-medium text-[var(--muted)] mb-1.5">
             {t.form?.modelSelection || 'Model Selection'}
           </label>
           
-          <div className="h-[50px]"> {/* Fixed height container to prevent layout shift */}
+          <div className="min-h-[50px]"> {/* 改用min-height而非固定height */}
             {isCustomModel ? (
               <input
                 id="custom-model-input"
@@ -298,21 +310,29 @@ next.config.js
                   setModel(e.target.value);
                 }}
                 placeholder={t.form?.customModelPlaceholder || 'Enter custom model name'}
-                className="block w-full rounded-md border-2 border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2.5 text-base focus:border-[var(--accent-primary)] focus:ring-[var(--accent-primary)] focus:ring-opacity-50 transition-all"
+                className="block w-full rounded-md border border-[var(--border-color)]/50 bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-base focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)] focus:ring-opacity-50 transition-all shadow-sm"
               />
             ) : (
-              <select
-                id="model-dropdown"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                className="block w-full rounded-md border-2 border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2.5 text-base focus:border-[var(--accent-primary)] focus:ring-[var(--accent-primary)] focus:ring-opacity-50 transition-all cursor-pointer"
-              >
-                {modelConfig?.providers.find((p: Provider) => p.id === provider)?.models.map((modelOption) => (
-                  <option key={modelOption.id} value={modelOption.id}>
-                    {modelOption.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  id="model-dropdown"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  className="block w-full rounded-md border border-[var(--border-color)]/50 bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-base focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)] focus:ring-opacity-50 transition-all cursor-pointer shadow-sm appearance-none"
+                  disabled={!provider || isLoading || !modelConfig?.providers.find(p => p.id === provider)?.models?.length}
+                >
+                  {modelConfig?.providers.find((p: Provider) => p.id === provider)?.models.map((modelOption) => (
+                    <option key={modelOption.id} value={modelOption.id}>
+                      {modelOption.name}
+                    </option>
+                  )) || <option value="">{t.form?.selectModel || 'Select Model'}</option>}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[var(--muted)]">
+                  <svg className="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                  </svg>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -321,19 +341,38 @@ next.config.js
         {modelConfig?.providers.find((p: Provider) => p.id === provider)?.supportsCustomModel && (
           <div className="mb-2">
             <div className="flex items-center pb-1">
-              <input
-                id="use-custom-model"
-                type="checkbox"
-                checked={isCustomModel}
-                onChange={(e) => {
-                  setIsCustomModel(e.target.checked);
-                  if (e.target.checked) {
+              <div 
+                className="relative flex items-center cursor-pointer"
+                onClick={() => {
+                  const newValue = !isCustomModel;
+                  setIsCustomModel(newValue);
+                  if (newValue) {
                     setCustomModel(model);
                   }
                 }}
-                className="h-5 w-5 border-2 border-[var(--accent-primary)] text-[var(--accent-primary)] focus:ring-[var(--accent-primary)]"
-              />
-              <label htmlFor="use-custom-model" className="ml-2 text-sm font-medium text-[var(--foreground)]">
+              >
+                <input
+                  id="use-custom-model"
+                  type="checkbox"
+                  checked={isCustomModel}
+                  onChange={() => {}}
+                  className="sr-only"
+                />
+                <div className={`w-10 h-5 rounded-full transition-colors ${isCustomModel ? 'bg-[var(--accent-primary)]' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
+                <div className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform transform ${isCustomModel ? 'translate-x-5' : ''}`}></div>
+              </div>
+              <label 
+                htmlFor="use-custom-model" 
+                className="ml-2 text-sm font-medium text-[var(--muted)] cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const newValue = !isCustomModel;
+                  setIsCustomModel(newValue);
+                  if (newValue) {
+                    setCustomModel(model);
+                  }
+                }}
+              >
                 {t.form?.useCustomModel || 'Use custom model'}
               </label>
             </div>
@@ -345,52 +384,68 @@ next.config.js
             <button
               type="button"
               onClick={() => setIsFilterSectionOpen(!isFilterSectionOpen)}
-              className="flex items-center text-sm text-[var(--accent-primary)]"
+              className="flex items-center text-sm text-[var(--accent-primary)] hover:text-[var(--accent-primary)]/80 transition-colors"
             >
-              <span className="mr-1">{isFilterSectionOpen ? '▼' : '►'}</span>
+              <span className="mr-1.5 text-xs">{isFilterSectionOpen ? '▼' : '►'}</span>
               {t.form?.advancedOptions || 'Advanced Options'}
             </button>
             
             {isFilterSectionOpen && (
-              <div className="mt-2 p-2 border border-[var(--border-color)] rounded-md">
-                <div className="mb-3">
-                  <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
+              <div className="mt-3 p-3 border border-[var(--border-color)]/70 rounded-md bg-[var(--background)]/30">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">
                     {t.form?.excludedDirs || 'Excluded Directories'}
                   </label>
                   <textarea
                     value={excludedDirs}
                     onChange={(e) => setExcludedDirs?.(e.target.value)}
                     rows={4}
-                    className="block w-full rounded-md border-2 border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-sm"
+                    className="block w-full rounded-md border border-[var(--border-color)]/50 bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-sm focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-opacity-50 shadow-sm"
                     placeholder={t.form?.enterExcludedDirs || 'Enter excluded directories, one per line...'}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setExcludedDirs?.(defaultExcludedDirs)}
-                    className="mt-1 text-xs text-[var(--accent-primary)]"
-                  >
-                    {t.form?.useDefault || 'Use Default'}
-                  </button>
+                  <div className="flex mt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowDefaultDirs(!showDefaultDirs)}
+                      className="text-xs text-[var(--accent-primary)] hover:text-[var(--accent-primary)]/80 transition-colors"
+                    >
+                      {showDefaultDirs ? (t.form?.hideDefault || 'Hide Default') : (t.form?.viewDefault || 'View Default')}
+                    </button>
+                  </div>
+                  {showDefaultDirs && (
+                    <div className="mt-2 p-2 rounded bg-[var(--background)]/50 text-xs">
+                      <p className="mb-1 text-[var(--muted)]">{t.form?.defaultNote || 'These defaults are already applied. Add your custom exclusions above.'}</p>
+                      <pre className="whitespace-pre-wrap font-mono text-[var(--muted)] overflow-y-auto max-h-32">{defaultExcludedDirs}</pre>
+                    </div>
+                  )}
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
+                  <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">
                     {t.form?.excludedFiles || 'Excluded Files'}
                   </label>
                   <textarea
                     value={excludedFiles}
                     onChange={(e) => setExcludedFiles?.(e.target.value)}
                     rows={4}
-                    className="block w-full rounded-md border-2 border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-sm"
+                    className="block w-full rounded-md border border-[var(--border-color)]/50 bg-[var(--input-bg)] text-[var(--foreground)] px-3 py-2 text-sm focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-opacity-50 shadow-sm"
                     placeholder={t.form?.enterExcludedFiles || 'Enter excluded files, one per line...'}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setExcludedFiles?.(defaultExcludedFiles)}
-                    className="mt-1 text-xs text-[var(--accent-primary)]"
-                  >
-                    {t.form?.useDefault || 'Use Default'}
-                  </button>
+                  <div className="flex mt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowDefaultFiles(!showDefaultFiles)}
+                      className="text-xs text-[var(--accent-primary)] hover:text-[var(--accent-primary)]/80 transition-colors"
+                    >
+                      {showDefaultFiles ? (t.form?.hideDefault || 'Hide Default') : (t.form?.viewDefault || 'View Default')}
+                    </button>
+                  </div>
+                  {showDefaultFiles && (
+                    <div className="mt-2 p-2 rounded bg-[var(--background)]/50 text-xs">
+                      <p className="mb-1 text-[var(--muted)]">{t.form?.defaultNote || 'These defaults are already applied. Add your custom exclusions above.'}</p>
+                      <pre className="whitespace-pre-wrap font-mono text-[var(--muted)] overflow-y-auto max-h-32">{defaultExcludedFiles}</pre>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

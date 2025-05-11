@@ -65,7 +65,11 @@
     "defaultFilters": "Default Excluded Files & Directories",
     "directories": "Directories",
     "files": "Files",
-    "scrollToViewMore": "Scroll to view more"
+    "scrollToViewMore": "Scroll to view more",
+    "changeModel": "Change Model",
+    "defaultNote": "These defaults are already applied. Add your custom exclusions above.",
+    "hideDefault": "Hide Default",
+    "viewDefault": "View Default"
   },
   "footer": {
     "copyright": "DeepWiki - AI-powered documentation for code repositories"

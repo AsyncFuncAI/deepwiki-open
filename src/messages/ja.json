@@ -64,7 +64,11 @@
     "defaultFilters": "デフォルトで除外されるファイルとディレクトリ",
     "directories": "ディレクトリ",
     "files": "ファイル",
-    "scrollToViewMore": "スクロールしてさらに表示"
+    "scrollToViewMore": "スクロールしてさらに表示",
+    "changeModel": "モデルを変更",
+    "defaultNote": "これらのデフォルト設定は既に適用されています。上記に追加の除外項目を入力してください。",
+    "hideDefault": "デフォルトを隠す",
+    "viewDefault": "デフォルトを表示"
   },
   "footer": {
     "copyright": "DeepWiki - コードリポジトリのためのAI駆動ドキュメンテーション"

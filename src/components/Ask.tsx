@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Markdown from './Markdown';
 import { useLanguage } from '@/contexts/LanguageContext';
-import UserSelector from './UserSelector';
+import ModelSelectionModal from './ModelSelectionModal';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -51,7 +51,7 @@ const Ask: React.FC<AskProps> = ({
   const [selectedModel, setSelectedModel] = useState(model);
   const [isCustomSelectedModel, setIsCustomSelectedModel] = useState(isCustomModel);
   const [customSelectedModel, setCustomSelectedModel] = useState(customModel);
-  const [showModelOptions, setShowModelOptions] = useState(false);
+  const [isModelSelectionModalOpen, setIsModelSelectionModalOpen] = useState(false);
 
   // Get language context for translations
   const { messages } = useLanguage();
@@ -501,9 +501,9 @@ const Ask: React.FC<AskProps> = ({
 
         {/* Model options (always available as a collapsible section) */}
         <div className="mb-4">
-          <button
-            onClick={() => setShowModelOptions(prev => !prev)}
-            className="flex items-center justify-between w-full px-4 py-2.5 rounded-md bg-[var(--card-bg)] border border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--highlight-bg)] transition-colors"
+          <div
+            onClick={() => setIsModelSelectionModalOpen(true)}
+            className="flex items-center justify-between w-full px-4 py-2.5 rounded-md bg-[var(--card-bg)] border border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--highlight-bg)] transition-colors cursor-pointer"
           >
             <div className="flex items-center">
               <span className="text-sm">
@@ -512,25 +512,10 @@ const Ask: React.FC<AskProps> = ({
                 <span className="font-medium">{messages.form?.modelSelection || 'Model'}:</span> {isCustomSelectedModel ? customSelectedModel : selectedModel}
               </span>
             </div>
-            <span className="text-[var(--accent-primary)]">
-              {showModelOptions ? '▲' : '▼'}
+            <span className="text-xs text-[var(--accent-primary)] px-2 py-1 rounded border border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/10">
+              {messages.form?.changeModel || 'Change Model'}
             </span>
-          </button>
-          {showModelOptions && (
-            <div className="mt-2">
-              <UserSelector
-                provider={selectedProvider}
-                setProvider={setSelectedProvider}
-                model={selectedModel}
-                setModel={setSelectedModel}
-                isCustomModel={isCustomSelectedModel}
-                setIsCustomModel={setIsCustomSelectedModel}
-                customModel={customSelectedModel}
-                setCustomModel={setCustomSelectedModel}
-                showFileFilters={false}
-              />
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Question input */}
@@ -755,6 +740,24 @@ const Ask: React.FC<AskProps> = ({
           </div>
         )}
       </div>
+
+      {/* Model Selection Modal */}
+      <ModelSelectionModal
+        isOpen={isModelSelectionModalOpen}
+        onClose={() => setIsModelSelectionModalOpen(false)}
+        provider={selectedProvider}
+        setProvider={setSelectedProvider}
+        model={selectedModel}
+        setModel={setSelectedModel}
+        isCustomModel={isCustomSelectedModel}
+        setIsCustomModel={setIsCustomSelectedModel}
+        customModel={customSelectedModel}
+        setCustomModel={setCustomSelectedModel}
+        showFileFilters={false}
+        onApply={() => {
+          console.log('Model selection applied:', selectedProvider, selectedModel);
+        }}
+      />
     </div>
   );
 };

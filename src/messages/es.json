@@ -64,7 +64,11 @@
     "defaultFilters": "Archivos y Directorios Excluidos por Defecto",
     "directories": "Directorios",
     "files": "Archivos",
-    "scrollToViewMore": "Desplazar para ver más"
+    "scrollToViewMore": "Desplazar para ver más",
+    "changeModel": "Cambiar Modelo",
+    "defaultNote": "Estos valores predeterminados ya están aplicados. Agregue sus exclusiones personalizadas arriba.",
+    "hideDefault": "Ocultar Predeterminados",
+    "viewDefault": "Ver Predeterminados"
   },
   "footer": {
     "copyright": "DeepWiki - Documentación impulsada por IA para repositorios de código"

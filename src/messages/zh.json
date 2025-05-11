@@ -64,7 +64,11 @@
     "defaultFilters": "默认排除的文件和目录",
     "directories": "目录",
     "files": "文件",
-    "scrollToViewMore": "可滑动查看更多"
+    "scrollToViewMore": "可滑动查看更多",
+    "changeModel": "修改模型",
+    "defaultNote": "这些默认配置已经被应用。请在上方添加您的自定义排除项。",
+    "hideDefault": "隐藏默认配置",
+    "viewDefault": "查看默认配置"
   },
   "footer": {
     "copyright": "DeepWiki - 为代码仓库提供AI驱动的文档"

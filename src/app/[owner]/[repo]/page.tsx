@@ -8,7 +8,7 @@ import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
 import Ask from '@/components/Ask';
-import UserSelector from '@/components/UserSelector';
+import ModelSelectionModal from '@/components/ModelSelectionModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // Wiki Interfaces
@@ -1291,6 +1291,8 @@ IMPORTANT:
     }
   };
 
+  const [isModelSelectionModalOpen, setIsModelSelectionModalOpen] = useState(false);
+
   return (
     <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
       <style>{wikiStyles}</style>
@@ -1430,49 +1432,14 @@ IMPORTANT:
 
               {/* Refresh Wiki button */}
               <div className="mb-5">
-                {!showModelOptions ? (
-                  <button
-                    onClick={handleRefreshWiki}
-                    disabled={isLoading}
-                    className="flex items-center w-full text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors hover:cursor-pointer"
-                  >
-                    <FaSync className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                    {messages.repoPage?.refreshWiki || 'Refresh Wiki'}
-                  </button>
-                ) : (
-                  <div className="bg-[var(--background)]/50 border border-[var(--border-color)] rounded-lg p-3">
-                    <h5 className="text-xs font-medium mb-2 text-[var(--foreground)]">{messages.form?.modelOptions || 'Model Options'}</h5>
-                    <UserSelector
-                      provider={selectedProviderState}
-                      setProvider={setSelectedProviderState}
-                      model={selectedModelState}
-                      setModel={setSelectedModelState}
-                      isCustomModel={isCustomSelectedModelState}
-                      setIsCustomModel={setIsCustomSelectedModelState}
-                      customModel={customSelectedModelState}
-                      setCustomModel={setCustomSelectedModelState}
-                      showFileFilters={true}
-                      excludedDirs={modelExcludedDirs}
-                      setExcludedDirs={setModelExcludedDirs}
-                      excludedFiles={modelExcludedFiles}
-                      setExcludedFiles={setModelExcludedFiles}
-                    />
-                    <div className="flex justify-between mt-3">
-                      <button
-                        onClick={() => setShowModelOptions(false)}
-                        className="text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 border border-[var(--border-color)] transition-colors"
-                      >
-                        {messages.repoPage?.cancel || 'Cancel'}
-                      </button>
-                      <button
-                        onClick={confirmRefresh}
-                        className="text-xs px-3 py-2 bg-[var(--accent-primary)] text-white rounded-md hover:bg-[var(--accent-primary)]/90 transition-colors"
-                      >
-                        {messages.repoPage?.confirmRefresh || 'Confirm Refresh'}
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <button
+                  onClick={() => setIsModelSelectionModalOpen(true)}
+                  disabled={isLoading}
+                  className="flex items-center w-full text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors hover:cursor-pointer"
+                >
+                  <FaSync className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                  {messages.repoPage?.refreshWiki || 'Refresh Wiki'}
+                </button>
               </div>
 
               {/* Export buttons */}
@@ -1642,6 +1609,25 @@ IMPORTANT:
           <ThemeToggle />
         </div>
       </footer>
+
+      <ModelSelectionModal
+        isOpen={isModelSelectionModalOpen}
+        onClose={() => setIsModelSelectionModalOpen(false)}
+        provider={selectedProviderState}
+        setProvider={setSelectedProviderState}
+        model={selectedModelState}
+        setModel={setSelectedModelState}
+        isCustomModel={isCustomSelectedModelState}
+        setIsCustomModel={setIsCustomSelectedModelState}
+        customModel={customSelectedModelState}
+        setCustomModel={setCustomSelectedModelState}
+        showFileFilters={true}
+        excludedDirs={modelExcludedDirs}
+        setExcludedDirs={setModelExcludedDirs}
+        excludedFiles={modelExcludedFiles}
+        setExcludedFiles={setModelExcludedFiles}
+        onApply={confirmRefresh}
+      />
     </div>
   );
 }

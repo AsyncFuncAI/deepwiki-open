@@ -61,7 +61,11 @@
     "defaultFilters": "Tệp và Thư mục Loại trừ Mặc định",
     "directories": "Thư mục",
     "files": "Tệp",
-    "scrollToViewMore": "Dịch chuyển để xem thêm"
+    "scrollToViewMore": "Dịch chuyển để xem thêm",
+    "changeModel": "Thay đổi mô hình",
+    "defaultNote": "Các giá trị mặc định này đã được áp dụng. Thêm các loại trừ tùy chỉnh của bạn ở trên.",
+    "hideDefault": "Ẩn mặc định",
+    "viewDefault": "Xem mặc định"
   },
   "footer": {
     "copyright": "DeepWiki - Tài liệu hỗ trợ bởi AI cho repository"
