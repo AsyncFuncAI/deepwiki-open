@@ -824,8 +824,13 @@ IMPORTANT:
 
         try {
           // Step 1: Get project info to determine default branch
-          const projectInfoUrl = `${projectDomain}/api/v4/projects/${encodedProjectPath}`;
-        console.log(`Fetching GitLab project info: ${projectInfoUrl}`);
+          let projectInfoUrl: string;
+          try {
+            const validatedUrl = new URL(projectDomain ?? ''); // Validate domain
+            projectInfoUrl = `${validatedUrl.origin}/api/v4/projects/${encodedProjectPath}`;
+          } catch (err) {
+            throw new Error(`Invalid project domain URL: ${projectDomain}`);
+          }
           const projectInfoRes = await fetch(projectInfoUrl, { headers });
 
           if (!projectInfoRes.ok) {
@@ -838,7 +843,7 @@ IMPORTANT:
           let morePages = true;
 
           while (morePages) {
-            const apiUrl = `${projectDomain}/api/v4/projects/${encodedProjectPath}/repository/tree?recursive=true&per_page=100&page=${page}`;
+            const apiUrl = `${projectInfoUrl}/repository/tree?recursive=true&per_page=100&page=${page}`;
             const response = await fetch(apiUrl, { headers });
 
             if (!response.ok) {
@@ -865,7 +870,7 @@ IMPORTANT:
           .join('\n');
 
           // Step 4: Try to fetch README.md content
-          const readmeUrl = `${projectDomain}/api/v4/projects/${encodedProjectPath}/repository/files/README.md/raw`;
+          const readmeUrl = `${projectInfoUrl}/repository/files/README.md/raw`;
             try {
             const readmeResponse = await fetch(readmeUrl, { headers });
               if (readmeResponse.ok) {
