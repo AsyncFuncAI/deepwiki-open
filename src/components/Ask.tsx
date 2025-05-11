@@ -495,27 +495,22 @@ const Ask: React.FC<AskProps> = ({
   return (
     <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-md overflow-hidden shadow-sm">
       <div className="p-4">
-        <h2 className="text-xl font-serif mb-4 text-[var(--accent-primary)]">
-          {messages.ask?.title || 'Ask about this repository'}
-        </h2>
-
-        {/* Model options (always available as a collapsible section) */}
-        <div className="mb-4">
-          <div
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-serif text-[var(--accent-primary)]">
+            {messages.ask?.title || 'Ask about this repository'}
+          </h2>
+          
+          {/* Model selection button next to title */}
+          <button
+            type="button"
             onClick={() => setIsModelSelectionModalOpen(true)}
-            className="flex items-center justify-between w-full px-4 py-2.5 rounded-md bg-[var(--card-bg)] border border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--highlight-bg)] transition-colors cursor-pointer"
+            className="text-xs px-2.5 py-1 rounded border border-[var(--border-color)]/40 bg-[var(--background)]/10 text-[var(--foreground)]/80 hover:bg-[var(--background)]/30 hover:text-[var(--foreground)] transition-colors flex items-center gap-1.5"
           >
-            <div className="flex items-center">
-              <span className="text-sm">
-                <span className="font-medium">{messages.form?.modelProvider || 'Provider'}:</span> {selectedProvider}
-                <span className="mx-2">|</span>
-                <span className="font-medium">{messages.form?.modelSelection || 'Model'}:</span> {isCustomSelectedModel ? customSelectedModel : selectedModel}
-              </span>
-            </div>
-            <span className="text-xs text-[var(--accent-primary)] px-2 py-1 rounded border border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/10">
-              {messages.form?.changeModel || 'Change Model'}
-            </span>
-          </div>
+            <span>{selectedProvider}/{isCustomSelectedModel ? customSelectedModel : selectedModel}</span>
+            <svg className="h-3.5 w-3.5 text-[var(--accent-primary)]/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
         </div>
 
         {/* Question input */}
