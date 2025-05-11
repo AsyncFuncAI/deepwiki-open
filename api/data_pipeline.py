@@ -13,7 +13,7 @@ from adalflow.utils import get_adalflow_default_root_path
 from adalflow.core.db import LocalDB
 from api.config import configs
 from api.ollama_patch import OllamaDocumentProcessor
-from urllib.parse import urlparse, quote
+from urllib.parse import urlparse, urlunparse, quote
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -79,20 +79,17 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
         # Prepare the clone URL with access token if provided
         clone_url = repo_url
         if access_token:
+            parsed = urlparse(repo_url)
             # Determine the repository type and format the URL accordingly
             if type == "github":
                 # Format: https://{token}@github.com/owner/repo.git
-                clone_url = repo_url.replace("https://", f"https://{access_token}@")
+                clone_url = urlunparse((parsed.scheme, f"{access_token}@", parsed.path, '', '', ''))
             elif type == "gitlab":
-                # Format: https://oauth2:{token}@gitlab.com/owner/repo.git
-                if(repo_url.startswith("https://")):
-                    clone_url = repo_url.replace("https://", f"https://oauth2:{access_token}@")
-                else:
-                    # Handle self-hosted GitLab URLs
-                    clone_url = repo_url.replace("http://", f"http://oauth2:{access_token}@")
+                # Format: https://oauth2:{token}@gitlab.com/owner/repo.git    
+                clone_url = urlunparse((parsed.scheme, f"oauth2:{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
             elif type == "bitbucket":
                 # Format: https://{token}@bitbucket.org/owner/repo.git
-                clone_url = repo_url.replace("https://", f"https://{access_token}@")
+                clone_url = urlunparse((parsed.scheme, f"{access_token}@", parsed.path, '', '', ''))
             logger.info("Using access token for authentication")
 
         # Clone the repository
