@@ -10,7 +10,6 @@ import ConfigurationModal from '@/components/ConfigurationModal';
 import { extractUrlPath } from '@/utils/urlDecoder';
 
 import { useLanguage } from '@/contexts/LanguageContext';
-import { RepoIcon } from '@/components/RepoIcon';
 import { SupportedPlatform } from '@/types/SupportedPlatform';
 
 // Define the demo mermaid charts outside the component

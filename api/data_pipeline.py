@@ -80,7 +80,12 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
         clone_url = repo_url
         if access_token:
             parsed = urlparse(repo_url)
-            # Determine the repository type and format the URL accordingly
+            # urlunparse reconstructs a full URL from its components:
+            # (scheme, netloc, path, params, query, fragment)
+            # This allows us to embed the access token directly into the URL's netloc part,
+            # which is commonly used for authentication in Git over HTTPS.
+
+            # Determine the repository type and format the clone URL with the access token
             if type == "github":
                 # Format: https://{token}@github.com/owner/repo.git
                 clone_url = urlunparse((parsed.scheme, f"{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
@@ -629,7 +634,7 @@ def get_file_content(repo_url: str, file_path: str, type: str = "github", access
     elif type == "gitea":
         return get_gitea_file_content(repo_url, file_path, access_token)
     else:
-        raise ValueError("Unsupported repository URL. Only GitHub and GitLab are supported.")
+        raise ValueError("Unsupported repository URL. Only GitHub, GitLab, Bitbucket and Gitea are supported.")
 
 class DatabaseManager:
     """
