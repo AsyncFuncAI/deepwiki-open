@@ -52,6 +52,16 @@ class WikiPage(BaseModel):
     filePaths: List[str]
     importance: str # Should ideally be Literal['high', 'medium', 'low']
     relatedPages: List[str]
+    parentId: Optional[str] = None
+
+class WikiSection(BaseModel):
+    """
+    Model for a wiki section.
+    """
+    id: str
+    title: str
+    pages: List[str]
+    subsections: Optional[List[str]] = None
 
 class ProcessedProjectEntry(BaseModel):
     id: str  # Filename
@@ -70,6 +80,8 @@ class WikiStructureModel(BaseModel):
     title: str
     description: str
     pages: List[WikiPage]
+    sections: Optional[List[WikiSection]] = None
+    rootSections: Optional[List[str]] = None
 
 class WikiCacheData(BaseModel):
     """
@@ -127,20 +139,20 @@ from api.config import configs
 async def get_model_config():
     """
     Get available model providers and their models.
-    
+
     This endpoint returns the configuration of available model providers and their
     respective models that can be used throughout the application.
-    
+
     Returns:
         ModelConfig: A configuration object containing providers and their models
     """
     try:
         logger.info("Fetching model configurations")
-        
+
         # Create providers from the config file
         providers = []
         default_provider = configs.get("default_provider", "google")
-        
+
         # Add provider configuration based on config.py
         for provider_id, provider_config in configs["providers"].items():
             models = []
@@ -148,7 +160,7 @@ async def get_model_config():
             for model_id in provider_config["models"].keys():
                 # Get a more user-friendly display name if possible
                 models.append(Model(id=model_id, name=model_id))
-            
+
             # Add provider with its models
             providers.append(
                 Provider(
@@ -158,14 +170,14 @@ async def get_model_config():
                     models=models
                 )
             )
-            
+
         # Create and return the full configuration
         config = ModelConfig(
             providers=providers,
             defaultProvider=default_provider
         )
         return config
-        
+
     except Exception as e:
         logger.error(f"Error creating model configuration: {str(e)}")
         # Return some default configuration in case of error
@@ -277,7 +289,7 @@ async def get_local_repo_structure(path: str = Query(None, description="Path to 
             status_code=500,
             content={"error": f"Error processing local repository: {str(e)}"}
         )
-    
+
 def generate_markdown_export(repo_url: str, pages: List[WikiPage]) -> str:
     """
     Generate Markdown export of wiki pages.
@@ -507,7 +519,7 @@ async def get_processed_projects():
         if not os.path.exists(WIKI_CACHE_DIR):
             logger.info(f"Cache directory {WIKI_CACHE_DIR} not found. Returning empty list.")
             return []
-        
+
         logger.info(f"Scanning for project cache files in: {WIKI_CACHE_DIR}")
         filenames = await asyncio.to_thread(os.listdir, WIKI_CACHE_DIR) # Use asyncio.to_thread for os.listdir
 
@@ -517,7 +529,7 @@ async def get_processed_projects():
                 try:
                     stats = await asyncio.to_thread(os.stat, file_path) # Use asyncio.to_thread for os.stat
                     parts = filename.replace("deepwiki_cache_", "").replace(".json", "").split('_')
-                    
+
                     # Expecting repo_type_owner_repo_language
                     # Example: deepwiki_cache_github_AsyncFuncAI_deepwiki-open_en.json
                     # parts = [github, AsyncFuncAI, deepwiki-open, en]

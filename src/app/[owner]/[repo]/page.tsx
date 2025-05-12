@@ -3,7 +3,7 @@
 
 import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { FaExclamationTriangle, FaBookOpen, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown, FaListUl, FaSitemap } from 'react-icons/fa';
+import { FaExclamationTriangle, FaBookOpen, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown } from 'react-icons/fa';
 import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
@@ -202,7 +202,6 @@ export default function RepoWikiPage() {
   const isCustomModelParam = searchParams.get('is_custom_model') === 'true';
   const customModelParam = searchParams.get('custom_model') || '';
   const language = searchParams.get('language') || 'en';
-  const isComprehensiveParam = searchParams.get('comprehensive') === 'true';
 
   // Import language context for translations
   const { messages } = useLanguage();
@@ -255,9 +254,8 @@ export default function RepoWikiPage() {
   // State for Ask section visibility
   const [isAskSectionVisible, setIsAskSectionVisible] = useState(true);
 
-  // State for wiki view mode (simple vs comprehensive)
-  // Initialize with the URL param, but we'll update this based on page count
-  const [isComprehensiveView, setIsComprehensiveView] = useState(isComprehensiveParam);
+  // Always use comprehensive view with tree view
+  const isComprehensiveView = true;
 
   // Memoize repo info to avoid triggering updates in callbacks
 
@@ -547,7 +545,6 @@ When designing the wiki structure, include pages that would benefit from visual 
 - State machines
 - Class hierarchies
 
-${isComprehensiveView ? `
 Create a structured wiki with the following main sections:
 - Overview (general information about the project)
 - System Architecture (how the system is designed)
@@ -597,30 +594,6 @@ Return your analysis in the following XML format:
     <!-- More pages as needed -->
   </pages>
 </wiki_structure>
-` : `
-Return your analysis in the following XML format:
-
-<wiki_structure>
-  <title>[Overall title for the wiki]</title>
-  <description>[Brief description of the repository]</description>
-  <pages>
-    <page id="page-1">
-      <title>[Page title]</title>
-      <description>[Brief description of what this page will cover]</description>
-      <importance>high|medium|low</importance>
-      <relevant_files>
-        <file_path>[Path to a relevant file]</file_path>
-        <!-- More file paths as needed -->
-      </relevant_files>
-      <related_pages>
-        <related>page-2</related>
-        <!-- More related page IDs as needed -->
-      </related_pages>
-    </page>
-    <!-- More pages as needed -->
-  </pages>
-</wiki_structure>
-`}
 
 IMPORTANT FORMATTING INSTRUCTIONS:
 - Return ONLY the valid XML structure specified above
@@ -630,7 +603,7 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 - Start directly with <wiki_structure> and end with </wiki_structure>
 
 IMPORTANT:
-1. Create ${isComprehensiveView ? '8-12' : '4-6'} pages that would make a ${isComprehensiveView ? 'comprehensive' : 'concise'} wiki for this repository
+1. Create 8-12 pages that would make a comprehensive wiki for this repository
 2. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
 3. The relevant_files should be actual files from the repository that would be used to generate that page
 4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
@@ -808,16 +781,11 @@ IMPORTANT:
         rootSections: rootSections.length > 0 ? rootSections : undefined
       };
 
-      // Automatically switch to comprehensive view if there are more than 6 pages
-      if (pages.length > 6 && !isComprehensiveView) {
-        console.log(`Automatically switching to comprehensive view due to page count (${pages.length} > 6)`);
-        setIsComprehensiveView(true);
-
-        // Update URL to reflect comprehensive view
-        const url = new URL(window.location.href);
-        url.searchParams.set('comprehensive', 'true');
-        window.history.replaceState({}, '', url.toString());
-      }
+      // Always use comprehensive view
+      // Add comprehensive parameter to URL for consistency
+      const url = new URL(window.location.href);
+      url.searchParams.set('comprehensive', 'true');
+      window.history.replaceState({}, '', url.toString());
 
       setWikiStructure(wikiStructure);
       setCurrentPageId(pages.length > 0 ? pages[0].id : undefined);
@@ -898,7 +866,7 @@ IMPORTANT:
     } finally {
       setStructureRequestInProgress(false);
     }
-  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, pagesInProgress.size, structureRequestInProgress, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, messages.loading, isComprehensiveView]);
+  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, pagesInProgress.size, structureRequestInProgress, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, messages.loading]);
 
   // Fetch repository structure using GitHub or GitLab API
   const fetchRepositoryStructure = useCallback(async () => {
@@ -1282,8 +1250,8 @@ IMPORTANT:
         params.append('excluded_files', modelExcludedFiles);
       }
 
-      // Add comprehensive view parameter
-      params.append('comprehensive', isComprehensiveView.toString());
+      // Always use comprehensive view
+      params.append('comprehensive', 'true');
       const response = await fetch(`/api/wiki_cache?${params.toString()}`, {
         method: 'DELETE',
       });
@@ -1338,7 +1306,7 @@ IMPORTANT:
     // For now, we rely on the standard loadData flow initiated by resetting effectRan and dependencies.
     // This will re-trigger the main data loading useEffect.
     // No direct call to fetchRepositoryStructure here, let the useEffect handle it based on effectRan.current = false.
-  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, messages.loading, activeContentRequests, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, isComprehensiveView]);
+  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, messages.loading, activeContentRequests, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles]);
 
   // Start wiki generation when component mounts
   useEffect(() => {
@@ -1586,180 +1554,117 @@ IMPORTANT:
                 <h3 className="text-base font-medium text-[var(--foreground)] mt-3">{wikiStructure.title}</h3>
               </div>
 
-              {/* View mode tabs */}
-              <div className="px-4 pb-4">
-                <div className="flex rounded-md overflow-hidden bg-[var(--background)]/30">
-                  <button
-                    onClick={() => {
-                      setIsComprehensiveView(false);
-                      // Update URL to reflect simple view
-                      const url = new URL(window.location.href);
-                      url.searchParams.set('comprehensive', 'false');
-                      window.history.replaceState({}, '', url.toString());
-                    }}
-                    className={`flex-1 py-2 px-3 text-sm transition-colors flex items-center justify-center ${
-                      !isComprehensiveView
-                        ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]'
-                        : 'text-[var(--foreground)] hover:bg-[var(--background)]/50'
-                    }`}
-                  >
-                    <FaListUl className="mr-2 text-sm" />
-                    <span>{messages.repoPage?.simpleView || "Simple"}</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsComprehensiveView(true);
-                      // Update URL to reflect comprehensive view
-                      const url = new URL(window.location.href);
-                      url.searchParams.set('comprehensive', 'true');
-                      window.history.replaceState({}, '', url.toString());
+              {/* No view mode tabs - always use comprehensive view */}
 
-                      // If we don't have sections yet but we have pages, generate sections
-                      if (wikiStructure && (!wikiStructure.sections || !wikiStructure.rootSections) && wikiStructure.pages.length > 0) {
-                        // Create sections based on page importance
-                        const highImportanceSection = {
-                          id: 'section-high',
-                          title: 'Core Components',
-                          pages: wikiStructure.pages.filter(p => p.importance === 'high').map(p => p.id),
-                          subsections: []
-                        };
-
-                        const mediumImportanceSection = {
-                          id: 'section-medium',
-                          title: 'Features & Functionality',
-                          pages: wikiStructure.pages.filter(p => p.importance === 'medium').map(p => p.id),
-                          subsections: []
-                        };
-
-                        const lowImportanceSection = {
-                          id: 'section-low',
-                          title: 'Additional Information',
-                          pages: wikiStructure.pages.filter(p => p.importance === 'low').map(p => p.id),
-                          subsections: []
-                        };
-
-                        // Only include sections that have pages
-                        const sections = [];
-                        const rootSections = [];
-
-                        if (highImportanceSection.pages.length > 0) {
-                          sections.push(highImportanceSection);
-                          rootSections.push(highImportanceSection.id);
-                        }
-
-                        if (mediumImportanceSection.pages.length > 0) {
-                          sections.push(mediumImportanceSection);
-                          rootSections.push(mediumImportanceSection.id);
-                        }
-
-                        if (lowImportanceSection.pages.length > 0) {
-                          sections.push(lowImportanceSection);
-                          rootSections.push(lowImportanceSection.id);
-                        }
-
-                        // Update the wiki structure with the new sections
-                        setWikiStructure({
-                          ...wikiStructure,
-                          sections,
-                          rootSections
-                        });
-                      }
-                    }}
-                    className={`flex-1 py-2 px-3 text-sm transition-colors flex items-center justify-center ${
-                      isComprehensiveView
-                        ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]'
-                        : 'text-[var(--foreground)] hover:bg-[var(--background)]/50'
-                    }`}
-                  >
-                    <FaSitemap className="mr-2 text-sm" />
-                    <span>{messages.repoPage?.comprehensiveView || "Comprehensive"}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Wiki navigation - either tree view or flat list */}
+              {/* Wiki navigation - always use tree view */}
               <div className="px-4 py-2">
                 <h4 className="text-sm font-medium text-[var(--muted)] mb-4">
                   {messages.repoPage?.pages || 'Pages'}
                 </h4>
-                {isComprehensiveView ? (
-                  (() => {
-                    // Debug information
-                    console.log("Page component: Comprehensive view is active");
-                    console.log("Page component: Wiki structure sections:", wikiStructure.sections);
-                    console.log("Page component: Wiki structure rootSections:", wikiStructure.rootSections);
+                {(() => {
+                  // Debug information
+                  console.log("Page component: Wiki structure sections:", wikiStructure.sections);
+                  console.log("Page component: Wiki structure rootSections:", wikiStructure.rootSections);
 
-                    // Check if we have valid sections and rootSections
-                    if (wikiStructure.sections && wikiStructure.sections.length > 0 &&
-                        wikiStructure.rootSections && wikiStructure.rootSections.length > 0) {
-                      return (
-                        <WikiTreeView
-                          wikiStructure={{
-                            ...wikiStructure,
-                            sections: wikiStructure.sections,
-                            rootSections: wikiStructure.rootSections
-                          }}
-                          currentPageId={currentPageId}
-                          onPageSelect={handlePageSelect}
-                          messages={messages}
-                        />
-                      );
-                    } else {
-                      console.warn("Page component: Missing sections or rootSections for tree view, falling back to flat list");
-                      return (
-                        <ul className="space-y-2">
-                          {wikiStructure.pages.map(page => (
-                            <li key={page.id}>
-                              <button
-                                className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${currentPageId === page.id
-                                    ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] font-medium'
-                                    : 'text-[var(--foreground)] hover:bg-[var(--background)]/50'
-                                  }`}
-                                onClick={() => handlePageSelect(page.id)}
-                              >
-                                <div className="flex items-center">
-                                  <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
-                                    page.importance === 'high'
-                                      ? 'bg-[#9b7cb9]'
-                                      : page.importance === 'medium'
-                                        ? 'bg-[#d7c4bb]'
-                                        : 'bg-[#e8927c]'
-                                  }`}></div>
-                                  <span className="truncate">{page.title}</span>
-                                </div>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      );
+                  // If we don't have sections yet but we have pages, generate sections
+                  if (wikiStructure && (!wikiStructure.sections || !wikiStructure.rootSections ||
+                      wikiStructure.sections.length === 0 || wikiStructure.rootSections.length === 0) &&
+                      wikiStructure.pages.length > 0) {
+
+                    // Create sections based on page importance
+                    const highImportanceSection = {
+                      id: 'section-high',
+                      title: 'Core Components',
+                      pages: wikiStructure.pages.filter(p => p.importance === 'high').map(p => p.id),
+                      subsections: []
+                    };
+
+                    const mediumImportanceSection = {
+                      id: 'section-medium',
+                      title: 'Features & Functionality',
+                      pages: wikiStructure.pages.filter(p => p.importance === 'medium').map(p => p.id),
+                      subsections: []
+                    };
+
+                    const lowImportanceSection = {
+                      id: 'section-low',
+                      title: 'Additional Information',
+                      pages: wikiStructure.pages.filter(p => p.importance === 'low').map(p => p.id),
+                      subsections: []
+                    };
+
+                    // Only include sections that have pages
+                    const sections = [];
+                    const rootSections = [];
+
+                    if (highImportanceSection.pages.length > 0) {
+                      sections.push(highImportanceSection);
+                      rootSections.push(highImportanceSection.id);
                     }
-                  })()
-                ) : (
-                  <ul className="space-y-2">
-                    {wikiStructure.pages.map(page => (
-                      <li key={page.id}>
-                        <button
-                          className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${currentPageId === page.id
-                              ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] font-medium'
-                              : 'text-[var(--foreground)] hover:bg-[var(--background)]/50'
-                            }`}
-                          onClick={() => handlePageSelect(page.id)}
-                        >
-                          <div className="flex items-center">
-                            <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
-                              page.importance === 'high'
-                                ? 'bg-[#9b7cb9]'
-                                : page.importance === 'medium'
-                                  ? 'bg-[#d7c4bb]'
-                                  : 'bg-[#e8927c]'
-                            }`}></div>
-                            <span className="truncate">{page.title}</span>
-                          </div>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+
+                    if (mediumImportanceSection.pages.length > 0) {
+                      sections.push(mediumImportanceSection);
+                      rootSections.push(mediumImportanceSection.id);
+                    }
+
+                    if (lowImportanceSection.pages.length > 0) {
+                      sections.push(lowImportanceSection);
+                      rootSections.push(lowImportanceSection.id);
+                    }
+
+                    // Update the wiki structure with the new sections
+                    setWikiStructure({
+                      ...wikiStructure,
+                      sections,
+                      rootSections
+                    });
+                  }
+
+                  // Check if we have valid sections and rootSections
+                  if (wikiStructure.sections && wikiStructure.sections.length > 0 &&
+                      wikiStructure.rootSections && wikiStructure.rootSections.length > 0) {
+                    return (
+                      <WikiTreeView
+                        wikiStructure={{
+                          ...wikiStructure,
+                          sections: wikiStructure.sections,
+                          rootSections: wikiStructure.rootSections
+                        }}
+                        currentPageId={currentPageId}
+                        onPageSelect={handlePageSelect}
+                        messages={messages}
+                      />
+                    );
+                  } else {
+                    console.warn("Page component: Missing sections or rootSections for tree view, falling back to flat list");
+                    return (
+                      <ul className="space-y-2">
+                        {wikiStructure.pages.map(page => (
+                          <li key={page.id}>
+                            <button
+                              className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${currentPageId === page.id
+                                  ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] font-medium'
+                                  : 'text-[var(--foreground)] hover:bg-[var(--background)]/50'
+                                }`}
+                              onClick={() => handlePageSelect(page.id)}
+                            >
+                              <div className="flex items-center">
+                                <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
+                                  page.importance === 'high'
+                                    ? 'bg-[#9b7cb9]'
+                                    : page.importance === 'medium'
+                                      ? 'bg-[#d7c4bb]'
+                                      : 'bg-[#e8927c]'
+                                }`}></div>
+                                <span className="truncate">{page.title}</span>
+                              </div>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    );
+                  }
+                })()}
               </div>
 
               {/* Action buttons at bottom */}

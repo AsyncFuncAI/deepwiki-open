@@ -87,7 +87,6 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>(language);
-  const [isComprehensiveWiki, setIsComprehensiveWiki] = useState<boolean>(false);
 
   // Sync the language context with the selectedLanguage state
   useEffect(() => {
@@ -230,8 +229,8 @@ export default function Home() {
     // Add language parameter
     params.append('language', selectedLanguage);
 
-    // Add wiki view mode parameter
-    params.append('comprehensive', isComprehensiveWiki.toString());
+    // Always use comprehensive wiki
+    params.append('comprehensive', 'true');
 
     const queryString = params.toString() ? `?${params.toString()}` : '';
 
@@ -331,62 +330,6 @@ export default function Home() {
                   excludedFiles={excludedFiles}
                   setExcludedFiles={setExcludedFiles}
                 />
-
-                {/* Wiki View Mode Tabs */}
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
-                    {t('form.wikiViewMode') || 'Wiki View Mode'}
-                  </label>
-                  <div className="flex border border-[var(--border-color)]/70 rounded-md overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setIsComprehensiveWiki(false)}
-                      className={`flex-1 py-2 px-4 text-sm font-medium transition-colors ${
-                        !isComprehensiveWiki
-                          ? 'bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] border-b-2 border-[var(--accent-primary)]'
-                          : 'bg-[var(--background)]/50 text-[var(--foreground)] hover:bg-[var(--background)]'
-                      }`}
-                    >
-                      {t('form.simple') || 'Simple Wiki'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsComprehensiveWiki(true)}
-                      className={`flex-1 py-2 px-4 text-sm font-medium transition-colors ${
-                        isComprehensiveWiki
-                          ? 'bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] border-b-2 border-[var(--accent-primary)]'
-                          : 'bg-[var(--background)]/50 text-[var(--foreground)] hover:bg-[var(--background)]'
-                      }`}
-                    >
-                      {t('form.comprehensive') || 'Comprehensive Wiki'}
-                    </button>
-                  </div>
-                  <div className="mt-3 p-3 border border-[var(--border-color)]/70 rounded-md bg-[var(--background)]/30">
-                    {!isComprehensiveWiki ? (
-                      <div className="flex items-start">
-                        <div className="flex-shrink-0 mt-0.5">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-primary)]" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                        <p className="ml-2 text-xs text-[var(--foreground)]">
-                          {t('form.simpleDescription') || 'Generates a simple wiki with a flat list of pages.'}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="flex items-start">
-                        <div className="flex-shrink-0 mt-0.5">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-primary)]" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                        <p className="ml-2 text-xs text-[var(--foreground)]">
-                          {t('form.comprehensiveDescription') || 'Generates a detailed wiki with hierarchical sections and more pages.'}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
             </div>
 
