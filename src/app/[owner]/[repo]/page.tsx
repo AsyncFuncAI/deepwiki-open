@@ -3,7 +3,7 @@
 
 import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { FaExclamationTriangle, FaBookOpen, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown } from 'react-icons/fa';
+import { FaExclamationTriangle, FaBookOpen, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown, FaTimes, FaComments } from 'react-icons/fa';
 import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
@@ -16,6 +16,7 @@ import { extractUrlDomain, extractUrlPath } from '@/utils/urlDecoder';
 import getRepoUrl from '@/utils/getRepoUrl';
 import { WikiStructure } from '@/types/wiki/wikistructure';
 import { WikiPage } from '@/types/wiki/wikipage';
+import WikiSection from '@/types/wiki/wikisection';
 import { RepoIcon } from '@/components/RepoIcon';
 import { SupportedPlatform } from '@/types/SupportedPlatform';
 
@@ -162,7 +163,7 @@ export default function RepoWikiPage() {
 
   // Extract tokens from search params
   const token = searchParams.get('token') || '';
-  const repoType: SupportedPlatform | 'local'  = (searchParams.get('type') as SupportedPlatform | 'local') || 'github';
+  const repoType: SupportedPlatform | 'local' = (searchParams.get('type') as SupportedPlatform | 'local') || 'github';
   const localPath = searchParams.get('local_path') ? decodeURIComponent(searchParams.get('local_path') || '') : undefined;
   const repoUrl = searchParams.get('repo_url') ? decodeURIComponent(searchParams.get('repo_url') || '') : undefined;
   const providerParam = searchParams.get('provider') || '';
@@ -287,7 +288,7 @@ export default function RepoWikiPage() {
         const repoUrl = getRepoUrl(repoInfo);
 
         // Create the prompt content - simplified to avoid message dialogs
- const promptContent =
+        const promptContent =
 `You are an expert technical writer and software architect.
 Your task is to generate a comprehensive and accurate technical wiki page in Markdown format about a specific feature, system, or module within a given software project.
 
@@ -490,7 +491,7 @@ Remember:
         type: repoInfo.type,
         messages: [{
           role: 'user',
-content: `Analyze this GitHub repository ${owner}/${repo} and create a wiki structure for it.
+          content: `Analyze this GitHub repository ${owner}/${repo} and create a wiki structure for it.
 
 1. The complete file tree of the project:
 <file_tree>
@@ -1886,35 +1887,35 @@ IMPORTANT:
               onRef={(ref) => (askComponentRef.current = ref)}
             />
           </div>
-        )}
-        <div className="flex justify-between items-center gap-4 text-center text-[var(--muted)] text-sm h-fit w-full bg-[var(--card-bg)] rounded-lg p-3 shadow-sm border border-[var(--border-color)]">
-          <p className="flex-1 font-serif">
-            {messages.footer?.copyright || 'DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket/Gitea repositories'}
-          </p>
-          <ThemeToggle />
+          <div className="flex justify-between items-center gap-4 text-center text-[var(--muted)] text-sm h-fit w-full bg-[var(--card-bg)] rounded-lg p-3 shadow-sm border border-[var(--border-color)]">
+            <p className="flex-1 font-serif">
+              {messages.footer?.copyright || 'DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket/Gitea repositories'}
+            </p>
+            <ThemeToggle />
+          </div>
         </div>
-      </div>
 
-      <ModelSelectionModal
-        isOpen={isModelSelectionModalOpen}
-        onClose={() => setIsModelSelectionModalOpen(false)}
-        provider={selectedProviderState}
-        setProvider={setSelectedProviderState}
-        model={selectedModelState}
-        setModel={setSelectedModelState}
-        isCustomModel={isCustomSelectedModelState}
-        setIsCustomModel={setIsCustomSelectedModelState}
-        customModel={customSelectedModelState}
-        setCustomModel={setCustomSelectedModelState}
-        isComprehensiveView={isComprehensiveView}
-        setIsComprehensiveView={setIsComprehensiveView}
-        showFileFilters={true}
-        excludedDirs={modelExcludedDirs}
-        setExcludedDirs={setModelExcludedDirs}
-        excludedFiles={modelExcludedFiles}
-        setExcludedFiles={setModelExcludedFiles}
-        onApply={confirmRefresh}
-      />
+        <ModelSelectionModal
+          isOpen={isModelSelectionModalOpen}
+          onClose={() => setIsModelSelectionModalOpen(false)}
+          provider={selectedProviderState}
+          setProvider={setSelectedProviderState}
+          model={selectedModelState}
+          setModel={setSelectedModelState}
+          isCustomModel={isCustomSelectedModelState}
+          setIsCustomModel={setIsCustomSelectedModelState}
+          customModel={customSelectedModelState}
+          setCustomModel={setCustomSelectedModelState}
+          isComprehensiveView={isComprehensiveView}
+          setIsComprehensiveView={setIsComprehensiveView}
+          showFileFilters={true}
+          excludedDirs={modelExcludedDirs}
+          setExcludedDirs={setModelExcludedDirs}
+          excludedFiles={modelExcludedFiles}
+          setExcludedFiles={setModelExcludedFiles}
+          onApply={confirmRefresh}
+        />
+      </div>
     </div>
   );
 }

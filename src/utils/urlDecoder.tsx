@@ -3,7 +3,7 @@ export function extractUrlDomain(input: string): string | null {
         const normalizedInput = input.startsWith('http') ? input : `https://${input}`;
         const url = new URL(normalizedInput);
         let result = `${url.protocol}//${url.hostname}`;
-        if ([null, "80", "443"].includes(url.port)) result += `:${url.port}`;
+        if (![null, "", "80", "443"].includes(url.port)) result += `:${url.port}`;
         return result;
     } catch {
         return null; // Not a valid URL
