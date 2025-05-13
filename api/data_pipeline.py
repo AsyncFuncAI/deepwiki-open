@@ -14,6 +14,7 @@ from adalflow.core.db import LocalDB
 from api.config import configs, DEFAULT_EXCLUDED_DIRS, DEFAULT_EXCLUDED_FILES
 from api.ollama_patch import OllamaDocumentProcessor
 from urllib.parse import urlparse, urlunparse, quote
+import secrets
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -570,7 +571,7 @@ def get_gitea_file_content(repo_url: str, file_path: str, branch: str = "main", 
             gitea_domain += f":{parsed_url.port}"
         path_parts = parsed_url.path.strip("/").split("/")
         if len(path_parts) < 2:
-            raise ValueError("Invalid Gitea URL format — expected something like http://localhost:3000/user/repo")
+            raise ValueError("Invalid Gitea URL format — expected something like http://localhost:3000/user/repo. Please include the owner and repository name.")
 
         owner, repo = path_parts[0], path_parts[1].replace(".git", "")
         encoded_file_path = quote(file_path, safe='')
@@ -604,8 +605,9 @@ def get_gitea_file_content(repo_url: str, file_path: str, branch: str = "main", 
 
     except subprocess.CalledProcessError as e:
         error_msg = e.stderr.decode('utf-8')
-        if access_token and access_token in error_msg:
-            error_msg = error_msg.replace(access_token, "***TOKEN***")
+        if access_token: 
+            sanitized_token = '***TOKEN***'
+            error_msg = error_msg.replace(access_token, sanitized_token) if secrets.compare_digest(access_token, access_token) else error_msg
         raise ValueError(f"Error fetching file content: {error_msg}")
     except Exception as e:
         raise ValueError(f"Failed to get file content: {str(e)}")
