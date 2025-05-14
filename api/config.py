@@ -8,12 +8,17 @@ logger = logging.getLogger(__name__)
 
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
+from api.bedrock_client import BedrockClient
 from adalflow import GoogleGenAIClient, OllamaClient
 
 # Get API keys from environment variables
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
 OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+AWS_REGION = os.environ.get('AWS_REGION')
+AWS_ROLE_ARN = os.environ.get('AWS_ROLE_ARN')
 
 # Set keys in environment (in case they're needed elsewhere in the code)
 if OPENAI_API_KEY:
@@ -22,6 +27,14 @@ if GOOGLE_API_KEY:
     os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
 if OPENROUTER_API_KEY:
     os.environ["OPENROUTER_API_KEY"] = OPENROUTER_API_KEY
+if AWS_ACCESS_KEY_ID:
+    os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY_ID
+if AWS_SECRET_ACCESS_KEY:
+    os.environ["AWS_SECRET_ACCESS_KEY"] = AWS_SECRET_ACCESS_KEY
+if AWS_REGION:
+    os.environ["AWS_REGION"] = AWS_REGION
+if AWS_ROLE_ARN:
+    os.environ["AWS_ROLE_ARN"] = AWS_ROLE_ARN
 
 # Get configuration directory from environment variable, or use default if not set
 CONFIG_DIR = os.environ.get('DEEPWIKI_CONFIG_DIR', None)
@@ -31,7 +44,8 @@ CLIENT_CLASSES = {
     "GoogleGenAIClient": GoogleGenAIClient,
     "OpenAIClient": OpenAIClient,
     "OpenRouterClient": OpenRouterClient,
-    "OllamaClient": OllamaClient
+    "OllamaClient": OllamaClient,
+    "BedrockClient": BedrockClient
 }
 
 # Load JSON configuration file
@@ -67,12 +81,13 @@ def load_generator_config():
             if provider_config.get("client_class") in CLIENT_CLASSES:
                 provider_config["model_client"] = CLIENT_CLASSES[provider_config["client_class"]]
             # Fall back to default mapping based on provider_id
-            elif provider_id in ["google", "openai", "openrouter", "ollama"]:
+            elif provider_id in ["google", "openai", "openrouter", "ollama", "bedrock"]:
                 default_map = {
                     "google": GoogleGenAIClient,
                     "openai": OpenAIClient,
                     "openrouter": OpenRouterClient,
-                    "ollama": OllamaClient
+                    "ollama": OllamaClient,
+                    "bedrock": BedrockClient
                 }
                 provider_config["model_client"] = default_map[provider_id]
             else:
@@ -168,7 +183,7 @@ def get_model_config(provider="google", model=None):
     Get configuration for the specified provider and model
 
     Parameters:
-        provider (str): Model provider ('google', 'openai', 'openrouter', 'ollama')
+        provider (str): Model provider ('google', 'openai', 'openrouter', 'ollama', 'bedrock')
         model (str): Model name, or None to use default model
 
     Returns:

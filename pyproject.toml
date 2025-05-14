@@ -19,5 +19,6 @@ dependencies = [
   "python-dotenv>=1.0.0",
   "openai>=1.76.2",
   "ollama>=0.4.8",
-  "aiohttp>=3.8.4"
+  "aiohttp>=3.8.4",
+  "boto3>=1.34.0"
 ]
