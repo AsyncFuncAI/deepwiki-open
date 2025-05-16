@@ -46,8 +46,15 @@ cd deepwiki-open
 Create a `.env` file in the project root:
 ```
 # No need for API keys when using Ollama locally
-PORT=8001
+Server_PORT=8001
 ```
+
+
+**Note:**  
+- If you run both frontend (React/Next.js) and backend (API server) on the same device, make sure they use different ports.  
+- For example, set `Server_PORT=8001` for the backend and leave the frontend to use its default port 8001.  
+- Then add `SERVER_BASE_URL=http://localhost:8001` in `.env` so the frontend can communicate with the backend.
+- Use `Server_PORT` instead of `PORT` to prevent frontend take it into configuration if frontend and backend running on identical device. 
 
 Start the backend:
 ```bash
