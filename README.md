@@ -44,6 +44,26 @@ echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 docker-compose up
 ```
 
+#### Instructions for Building with Docker
+
+The Dockerfile now automatically detects and adapts to your architecture. By default, it targets ARM64 (Apple Silicon), but you can specify the architecture at build time:
+
+```bash
+# For Apple Silicon Macs (default)
+docker build -f Dockerfile-ollama-local -t deepwiki-local .
+
+# OR for Intel/AMD processors (x86_64)
+docker build --build-arg TARGETARCH=amd64 -f Dockerfile-ollama-local -t deepwiki-local .
+
+# Run the container with your local repository mounted
+# Replace '/path/to/your/repo' with the actual path to your local repository
+docker run -p 3000:3000 -p 8001:8001 --name deepwiki \
+  -v /path/to/your/repo:/app/local-repos/your-repo-name \
+  deepwiki-local
+```
+
+When using with local repositories, make sure to mount them to the `/app/local-repos/` directory inside the container.
+
 > 💡 **Where to get these keys:**
 > - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 > - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
@@ -247,6 +267,58 @@ If you're not using ollama mode, you need to configure an OpenAI API key for emb
 ### Docker Setup
 
 You can use Docker to run DeepWiki:
+
+#### Troubleshooting Common Docker Issues
+
+**Rosetta Error on Apple Silicon Macs**
+```
+rosetta error: failed to open elf at /lib64/ld-linux-x86-64.so.2
+```
+
+This error occurs when trying to run x86_64 binaries in Docker on Apple Silicon Macs. To fix this:
+1. Enable "Use Rosetta for x86_64/amd64 emulation on Apple Silicon" in Docker Desktop settings, OR
+2. Build with ARM64 target (recommended for Apple Silicon):
+   ```bash
+   # Build with ARM64 target (for Apple Silicon - Default)
+   docker build -f Dockerfile-ollama-local -t deepwiki-local .
+   
+   # OR explicitly specify ARM64
+   docker build --build-arg TARGETARCH=arm64 -f Dockerfile-ollama-local -t deepwiki-local .
+   ```
+
+**Missing API Keys Warning**
+```
+Warning: OPENAI_API_KEY and/or GOOGLE_API_KEY environment variables are not set.
+```
+
+The application requires API keys to function fully. Provide them through environment variables or a mounted .env file.
+
+#### Analyzing Local Repositories with Docker
+
+To analyze local repositories using the Docker container:
+
+1. Mount your local repository into the container's `/app/local-repos/` directory
+2. Use the local repository path in the DeepWiki interface
+
+```bash
+# Run the container with a local repository mounted
+docker run -p 3000:3000 -p 8001:8001 --name deepwiki \
+  -v /path/to/your/local/repo:/app/local-repos/repo-name \
+  deepwiki-local
+```
+
+When accessing the DeepWiki interface, use "local" as the owner and "repo-name" as the repository name.
+
+#### Cross-Architecture Support
+
+The project now includes architecture detection in the Dockerfile:
+
+1. **Automatic Detection**: The Dockerfile detects your architecture and defaults to ARM64 for Apple Silicon
+2. **Manual Override**: You can specify the target architecture with `--build-arg TARGETARCH=amd64` or `TARGETARCH=arm64`
+3. **Performance Considerations**:
+   - ARM64 builds are optimized for Apple Silicon Macs and will perform better on M1/M2/M3 chips
+   - AMD64 builds are for Intel/AMD processors or for using with Rosetta 2 emulation
+4. **Rosetta Settings**: If using amd64 builds on Apple Silicon, ensure "Use Rosetta for x86_64/amd64 emulation on Apple Silicon" is enabled in Docker Desktop settings
 
 ```bash
 # Pull the image from GitHub Container Registry

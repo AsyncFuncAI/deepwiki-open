@@ -23,8 +23,19 @@ RUN pip install --no-cache -r api/requirements.txt
 FROM python:3.11-slim AS ollama_base
 RUN apt-get update && apt-get install -y \
     curl
-RUN curl -L https://ollama.com/download/ollama-linux-amd64.tgz -o ollama-linux-amd64.tgz
-RUN tar -C /usr -xzf ollama-linux-amd64.tgz
+# Detect architecture and download appropriate Ollama version
+# ARG TARGETARCH can be set at build time with --build-arg TARGETARCH=arm64 or TARGETARCH=amd64
+ARG TARGETARCH=arm64
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+        echo "Building for ARM64 architecture" && \
+        curl -L https://ollama.com/download/ollama-linux-arm64.tgz -o ollama.tgz; \
+    else \
+        echo "Building for AMD64 architecture" && \
+        curl -L https://ollama.com/download/ollama-linux-amd64.tgz -o ollama.tgz; \
+    fi && \
+    tar -C /usr -xzf ollama.tgz && \
+    rm ollama.tgz
+
 RUN ollama serve > /dev/null 2>&1 & \
     sleep 20 && \
     ollama pull nomic-embed-text && \
