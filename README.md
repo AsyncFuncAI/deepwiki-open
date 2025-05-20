@@ -250,7 +250,6 @@ If you're not using ollama mode, you need to configure an OpenAI API key for emb
 
 You can use Docker to run DeepWiki:
 
-
 ```bash
 # Pull the image from GitHub Container Registry
 docker pull ghcr.io/asyncfuncai/deepwiki-open:latest
