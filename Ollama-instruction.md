@@ -70,6 +70,12 @@ npm run dev
 
 ![Ollama Option](screenshots/Ollama.png)
 
+## Alternative using Dockerfile
+
+1. Build the docker image `docker build -f Dockerfile-ollama-local -t deepwiki:ollama-local .`
+2. Run a docker container `docker run -p 3000:3000 --name deepwiki -v /root/.adalflow deepwiki:ollama-local`
+3. Open http://localhost:3000 in your browser
+
 ## How It Works
 
 When you select "Use Local Ollama", DeepWiki will:
