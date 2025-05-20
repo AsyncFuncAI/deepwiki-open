@@ -78,13 +78,13 @@ npm run dev
    # For regular use
    docker run -p 3000:3000 -p 8001:8001 --name deepwiki \
      -v ~/.adalflow:/root/.adalflow \
-     deepwiki-local
+     deepwiki:ollama-local
    
    # For local repository analysis
    docker run -p 3000:3000 -p 8001:8001 --name deepwiki \
      -v ~/.adalflow:/root/.adalflow \
      -v /path/to/your/repo:/app/local-repos/repo-name \
-     deepwiki-local
+     deepwiki:ollama-local
    ```
 
 3. When using local repositories in the interface: use `/app/local-repos/repo-name` as the local repository path.

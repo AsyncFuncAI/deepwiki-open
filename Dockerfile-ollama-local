@@ -26,13 +26,18 @@ RUN apt-get update && apt-get install -y \
 # Detect architecture and download appropriate Ollama version
 # ARG TARGETARCH can be set at build time with --build-arg TARGETARCH=arm64 or TARGETARCH=amd64
 ARG TARGETARCH=arm64
-RUN if [ "$TARGETARCH" = "arm64" ]; then \
-        echo "Building for ARM64 architecture" && \
-        curl -L https://ollama.com/download/ollama-linux-arm64.tgz -o ollama.tgz; \
+RUN OLLAMA_ARCH="" && \
+    if [ "$TARGETARCH" = "arm64" ]; then \
+        echo "Building for ARM64 architecture." && \
+        OLLAMA_ARCH="arm64"; \
+    elif [ "$TARGETARCH" = "amd64" ]; then \
+        echo "Building for AMD64 architecture." && \
+        OLLAMA_ARCH="amd64"; \
     else \
-        echo "Building for AMD64 architecture" && \
-        curl -L https://ollama.com/download/ollama-linux-amd64.tgz -o ollama.tgz; \
+        echo "Error: Unsupported architecture '$TARGETARCH'. Supported architectures are 'arm64' and 'amd64'." >&2 && \
+        exit 1; \
     fi && \
+    curl -L "https://ollama.com/download/ollama-linux-${OLLAMA_ARCH}.tgz" -o ollama.tgz && \
     tar -C /usr -xzf ollama.tgz && \
     rm ollama.tgz
 
