@@ -1,7 +1,5 @@
 # DeepWiki-Open
 
-[English](./README.md) | [简体中文](./README.zh.md) | [日本語](./README.ja.md) | [Español](./README.es.md) | [한국어](./README.kr.md) | [Tiếng Việt](./README.vi.md)
- 
 ![DeepWiki Banner](screenshots/Deepwiki.png)
  
 **DeepWiki**는 제가 직접 구현한 프로젝트로, GitHub, GitLab 또는 BitBucket 저장소에 대해 아름답고 대화형 위키를 자동 생성합니다! 저장소 이름만 입력하면 DeepWiki가 다음을 수행합니다:
@@ -15,6 +13,8 @@
  
 [![Twitter/X](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://x.com/sashimikun_void)
 [![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/VQMBGR8u5v)
+ 
+[English](./README.md) | [简体中文](./README.zh.md) | [日本語](./README.ja.md) | [Español](./README.es.md) | [한국어](./README.kr.md) | [Tiếng Việt](./README.vi.md)
  
 ## ✨ 주요 기능
  
