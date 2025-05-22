@@ -23,13 +23,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Get API keys from environment variables
-google_api_key = os.environ.get('GOOGLE_API_KEY')
+google_api_key = os.environ.get('GOOGLE_API_KEY') or os.environ.get("GEMINI_API_KEY")
 
 # Configure Google Generative AI
 if google_api_key:
     genai.configure(api_key=google_api_key)
 else:
-    logger.warning("GOOGLE_API_KEY not found in environment variables")
+    logger.warning("GOOGLE_API_KEY or GEMINI_API_KEY not found in environment variables")
 
 # Models for the API
 class ChatMessage(BaseModel):

@@ -26,6 +26,7 @@ Create a `.env` file in the project root:
 ```
 # Required API Keys
 GOOGLE_API_KEY=your_google_api_key        # Required for Google Gemini models
+GEMINI_API_KEY=your_gemini_api_key        # Alternative key for Gemini models
 OPENAI_API_KEY=your_openai_api_key        # Required for embeddings and OpenAI models
 
 # Optional API Keys
@@ -50,7 +51,7 @@ If you're not using Ollama mode, you need to configure an OpenAI API key for emb
 ##### Provider-Based Model Selection
 DeepWiki supports multiple LLM providers. The environment variables above are required depending on which providers you want to use:
 
-- **Google Gemini**: Requires `GOOGLE_API_KEY`
+- **Google Gemini**: Requires `GOOGLE_API_KEY` or `GEMINI_API_KEY`
 - **OpenAI**: Requires `OPENAI_API_KEY`
 - **OpenRouter**: Requires `OPENROUTER_API_KEY`
 - **Ollama**: No API key required (runs locally)
@@ -83,7 +84,7 @@ DeepWiki now uses JSON configuration files to manage various system components i
    - Specifies text splitter settings for document chunking
 
 3. **`repo.json`**: Configuration for repository handling
-   - Located in `api/config/` by default 
+   - Located in `api/config/` by default
    - Contains file filters to exclude certain files and directories
    - Defines repository size limits and processing rules
 

@@ -39,6 +39,7 @@ cd deepwiki-open
 # Create a .env file with your API keys
 echo "GOOGLE_API_KEY=your_google_api_key" > .env
 echo "OPENAI_API_KEY=your_openai_api_key" >> .env
+echo "GEMINI_API_KEY=your_gemini_api_key" >> .env
 # Optional: Add OpenRouter API key if you want to use OpenRouter models
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 
@@ -184,6 +185,7 @@ Each provider requires its corresponding API key environment variables:
 ```
 # API Keys
 GOOGLE_API_KEY=your_google_api_key        # Required for Google Gemini models
+C=your_google_api_key        # Required for Google Gemini models
 OPENAI_API_KEY=your_openai_api_key        # Required for OpenAI models
 OPENROUTER_API_KEY=your_openrouter_api_key # Required for OpenRouter models
 
