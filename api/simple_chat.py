@@ -50,12 +50,46 @@ app.add_middleware(
 
 # Models for the API
 class ChatMessage(BaseModel):
+    """
+    Represents a single message in a chat conversation.
+
+    Attributes:
+        role (str): The role of the message sender, typically 'user' or 'assistant'.
+        content (str): The textual content of the message.
+    """
     role: str  # 'user' or 'assistant'
     content: str
 
 class ChatCompletionRequest(BaseModel):
     """
-    Model for requesting a chat completion.
+    Defines the request structure for initiating a chat completion stream.
+
+    This model includes all necessary information to process a chat request,
+    such as repository details, conversation history, file context, access tokens,
+    and model/provider preferences.
+
+    Attributes:
+        repo_url (str): The URL of the code repository to be used as context for the chat.
+        messages (List[ChatMessage]): A list of `ChatMessage` objects representing the
+                                      conversation history.
+        filePath (Optional[str]): An optional path to a specific file within the
+                                  repository. If provided, its content might be
+                                  included in the prompt or used to focus the RAG.
+        token (Optional[str]): A personal access token for accessing private repositories.
+        type (Optional[str]): The type of the repository (e.g., 'github', 'gitlab',
+                              'bitbucket'). Defaults to "github".
+        provider (str): The LLM provider to use (e.g., "google", "openai",
+                        "openrouter", "ollama"). Defaults to "google".
+        model (Optional[str]): The specific model name for the chosen provider.
+                               If None, a default model for the provider may be used.
+        language (Optional[str]): The preferred language for the response (e.g., 'en', 'ja').
+                                  Defaults to "en".
+        excluded_dirs (Optional[str]): A comma-separated string of directory paths
+                                       to exclude during RAG processing. Paths are
+                                       URL-decoded.
+        excluded_files (Optional[str]): A comma-separated string of file patterns
+                                        (glob-style) to exclude during RAG processing.
+                                        Patterns are URL-decoded.
     """
     repo_url: str = Field(..., description="URL of the repository to query")
     messages: List[ChatMessage] = Field(..., description="List of chat messages")
@@ -72,8 +106,42 @@ class ChatCompletionRequest(BaseModel):
     excluded_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to exclude from processing")
 
 @app.post("/chat/completions/stream")
-async def chat_completions_stream(request: ChatCompletionRequest):
-    """Stream a chat completion response directly using Google Generative AI"""
+async def chat_completions_stream(request: ChatCompletionRequest) -> StreamingResponse:
+    """
+    Handles streaming chat completions based on repository context and user queries.
+
+    This endpoint orchestrates the entire RAG (Retrieval Augmented Generation)
+    and chat process. It:
+    1. Initializes a RAG instance for the request.
+    2. Prepares a retriever for the specified repository, handling custom exclusions.
+    3. Validates the incoming chat messages.
+    4. Builds conversation history for the RAG memory.
+    5. Detects and manages "Deep Research" requests, modifying prompts accordingly.
+    6. Retrieves relevant documents using RAG if the input isn't too large.
+    7. Fetches specific file content if `filePath` is provided.
+    8. Constructs a detailed prompt incorporating system instructions, conversation
+       history, file content (if any), and RAG context (if any).
+    9. Calls the appropriate LLM provider (Google, Ollama, OpenRouter, OpenAI)
+       to generate a streaming response.
+    10. Includes a fallback mechanism to retry without RAG context if a token
+        limit error occurs.
+
+    Args:
+        request (ChatCompletionRequest): The request object containing all necessary
+                                         parameters for the chat completion.
+
+    Returns:
+        StreamingResponse: A FastAPI `StreamingResponse` that streams the generated
+                           chat completion back to the client.
+
+    Raises:
+        HTTPException:
+            - 400 (Bad Request): If no messages are provided or if the last message
+                                 is not from the user.
+            - 500 (Internal Server Error): If there's an error preparing the retriever,
+                                         or any other unhandled exception occurs during
+                                         the streaming process.
+    """
     try:
         # Check if request contains very large input
         input_too_large = False
@@ -491,6 +559,20 @@ This file contains...
 
         # Create a streaming response
         async def response_stream():
+            """
+            Asynchronously generates and streams the chat response.
+
+            This inner function is responsible for making the actual call to the
+            selected LLM provider (Google, Ollama, OpenRouter, OpenAI) and
+            yielding chunks of the response as they are received. It also
+            implements a fallback mechanism: if a token limit error occurs with
+            the full context, it retries the call with a simplified prompt
+            (omitting RAG context).
+
+            Yields:
+                str: Chunks of the generated text from the LLM. If an error occurs,
+                     it may yield an error message string.
+            """
             try:
                 if request.provider == "ollama":
                     # Get the response and handle it properly using the previously created api_kwargs
@@ -529,7 +611,7 @@ This file contains...
                     except Exception as e_openai:
                         logger.error(f"Error with Openai API: {str(e_openai)}")
                         yield f"\nError with Openai API: {str(e_openai)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
-                else:
+                else: # Default to Google provider
                     # Generate streaming response
                     response = model.generate_content(prompt, stream=True)
                     # Stream the response
@@ -538,40 +620,37 @@ This file contains...
                             yield chunk.text
 
             except Exception as e_outer:
-                logger.error(f"Error in streaming response: {str(e_outer)}")
+                logger.error(f"Error in streaming response: {str(e_outer)}", exc_info=True)
                 error_message = str(e_outer)
 
                 # Check for token limit errors
-                if "maximum context length" in error_message or "token limit" in error_message or "too many tokens" in error_message:
+                if "maximum context length" in error_message.lower() or \
+                   "token limit" in error_message.lower() or \
+                   "too many tokens" in error_message.lower() or \
+                   "context_length_exceeded" in error_message.lower():
                     # If we hit a token limit error, try again without context
                     logger.warning("Token limit exceeded, retrying without context")
                     try:
                         # Create a simplified prompt without context
+                        # This system_prompt is defined in the outer scope of chat_completions_stream
                         simplified_prompt = f"/no_think {system_prompt}\n\n"
-                        if conversation_history:
+                        if conversation_history: # conversation_history from outer scope
                             simplified_prompt += f"<conversation_history>\n{conversation_history}</conversation_history>\n\n"
 
                         # Include file content in the fallback prompt if it was retrieved
-                        if request.filePath and file_content:
+                        if request.filePath and file_content: # file_content from outer scope
                             simplified_prompt += f"<currentFileContent path=\"{request.filePath}\">\n{file_content}\n</currentFileContent>\n\n"
 
                         simplified_prompt += "<note>Answering without retrieval augmentation due to input size constraints.</note>\n\n"
-                        simplified_prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
+                        simplified_prompt += f"<query>\n{query}\n</query>\n\nAssistant: " # query from outer scope
 
                         if request.provider == "ollama":
                             simplified_prompt += " /no_think"
-
-                            # Create new api_kwargs with the simplified prompt
+                            # model and model_kwargs are from the outer scope
                             fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
-                                input=simplified_prompt,
-                                model_kwargs=model_kwargs,
-                                model_type=ModelType.LLM
+                                input=simplified_prompt, model_kwargs=model_kwargs, model_type=ModelType.LLM
                             )
-
-                            # Get the response using the simplified prompt
                             fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
-
-                            # Handle streaming fallback_response from Ollama
                             async for chunk in fallback_response:
                                 text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
                                 if text and not text.startswith('model=') and not text.startswith('created_at='):
@@ -579,64 +658,51 @@ This file contains...
                                     yield text
                         elif request.provider == "openrouter":
                             try:
-                                # Create new api_kwargs with the simplified prompt
                                 fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
-                                    input=simplified_prompt,
-                                    model_kwargs=model_kwargs,
-                                    model_type=ModelType.LLM
+                                    input=simplified_prompt, model_kwargs=model_kwargs, model_type=ModelType.LLM
                                 )
-
-                                # Get the response using the simplified prompt
                                 logger.info("Making fallback OpenRouter API call")
                                 fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
-
-                                # Handle streaming fallback_response from OpenRouter
                                 async for chunk in fallback_response:
                                     yield chunk
-                            except Exception as e_fallback:
-                                logger.error(f"Error with OpenRouter API fallback: {str(e_fallback)}")
-                                yield f"\nError with OpenRouter API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENROUTER_API_KEY environment variable with a valid API key."
+                            except Exception as e_fallback_openrouter:
+                                logger.error(f"Error with OpenRouter API fallback: {str(e_fallback_openrouter)}")
+                                yield f"\nError with OpenRouter API fallback: {str(e_fallback_openrouter)}\n\nPlease check that you have set the OPENROUTER_API_KEY environment variable with a valid API key."
                         elif request.provider == "openai":
                             try:
-                                # Create new api_kwargs with the simplified prompt
                                 fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
-                                    input=simplified_prompt,
-                                    model_kwargs=model_kwargs,
-                                    model_type=ModelType.LLM
+                                    input=simplified_prompt, model_kwargs=model_kwargs, model_type=ModelType.LLM
                                 )
-
-                                # Get the response using the simplified prompt
-                                logger.info("Making fallback Openai API call")
+                                logger.info("Making fallback OpenAI API call")
                                 fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
-
-                                # Handle streaming fallback_response from Openai
-                                async for chunk in fallback_response:
-                                    text = chunk if isinstance(chunk, str) else getattr(chunk, 'text', str(chunk))
-                                    yield text
-                            except Exception as e_fallback:
-                                logger.error(f"Error with Openai API fallback: {str(e_fallback)}")
-                                yield f"\nError with Openai API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
-                        else:
-                            # Initialize Google Generative AI model
-                            model_config = get_model_config(request.provider, request.model)
-                            fallback_model = genai.GenerativeModel(
-                                model_name=model_config["model"],
+                                async for chunk in fallback_response: # Assuming response is stream of text or objects with text
+                                    choices = getattr(chunk, "choices", [])
+                                    if len(choices) > 0:
+                                        delta = getattr(choices[0], "delta", None)
+                                        if delta is not None:
+                                            text_content = getattr(delta, "content", None)
+                                            if text_content is not None:
+                                                yield text_content
+                            except Exception as e_fallback_openai:
+                                logger.error(f"Error with OpenAI API fallback: {str(e_fallback_openai)}")
+                                yield f"\nError with OpenAI API fallback: {str(e_fallback_openai)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
+                        else: # Default to Google provider for fallback
+                            # model_config is from outer scope
+                            fallback_model_instance = genai.GenerativeModel(
+                                model_name=model_config["model"], # model_config from outer scope
                                 generation_config={
-                                    "temperature": model_config["model_kwargs"].get("temperature", 0.7),
-                                    "top_p": model_config["model_kwargs"].get("top_p", 0.8),
-                                    "top_k": model_config["model_kwargs"].get("top_k", 40)
+                                    "temperature": model_config["temperature"],
+                                    "top_p": model_config["top_p"],
+                                    "top_k": model_config["top_k"]
                                 }
                             )
-
-                            # Get streaming response using simplified prompt
-                            fallback_response = fallback_model.generate_content(simplified_prompt, stream=True)
-                            # Stream the fallback response
+                            fallback_response = fallback_model_instance.generate_content(simplified_prompt, stream=True)
                             for chunk in fallback_response:
                                 if hasattr(chunk, 'text'):
                                     yield chunk.text
-                    except Exception as e2:
-                        logger.error(f"Error in fallback streaming response: {str(e2)}")
-                        yield f"\nI apologize, but your request is too large for me to process. Please try a shorter query or break it into smaller parts."
+                    except Exception as e2_fallback_generic:
+                        logger.error(f"Error in fallback streaming response: {str(e2_fallback_generic)}", exc_info=True)
+                        yield f"\nI apologize, but your request is too large for me to process, even after simplification. Please try a shorter query or break it into smaller parts."
                 else:
                     # For other errors, return the error message
                     yield f"\nError: {error_message}"
@@ -644,14 +710,26 @@ This file contains...
         # Return streaming response
         return StreamingResponse(response_stream(), media_type="text/event-stream")
 
-    except HTTPException:
+    except HTTPException: # Re-raise HTTPExceptions directly to be handled by FastAPI
         raise
-    except Exception as e_handler:
-        error_msg = f"Error in streaming chat completion: {str(e_handler)}"
-        logger.error(error_msg)
+    except Exception as e_handler: # Catch any other unexpected errors
+        error_msg = f"Critical error in chat completion stream handler: {str(e_handler)}"
+        logger.error(error_msg, exc_info=True)
+        # It's tricky to return a StreamingResponse with an error message if the stream hasn't started.
+        # If error happens before stream starts, HTTPException is better.
+        # If it happens within the stream, the stream itself should yield error messages.
+        # This current placement will catch errors before response_stream() is even returned.
         raise HTTPException(status_code=500, detail=error_msg)
 
 @app.get("/")
 async def root():
-    """Root endpoint to check if the API is running"""
+    """
+    Root endpoint for the Simple Chat API.
+
+    Provides a basic status message indicating that the API is running and
+    directs users to the API documentation.
+
+    Returns:
+        dict: A dictionary with "status" and "message" keys.
+    """
     return {"status": "API is running", "message": "Navigate to /docs for API documentation"}

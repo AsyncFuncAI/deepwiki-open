@@ -18,59 +18,135 @@ from adalflow.core.types import (
 log = logging.getLogger(__name__)
 
 class OpenRouterClient(ModelClient):
-    __doc__ = r"""A component wrapper for the OpenRouter API client.
+    """
+    A client for interacting with the OpenRouter API.
 
-    OpenRouter provides a unified API that gives access to hundreds of AI models through a single endpoint.
-    The API is compatible with OpenAI's API format with a few small differences.
+    OpenRouter provides a unified interface to access a variety of AI models
+    from different providers. This client is designed to be compatible with
+    AdalFlow components like `Generator`. It uses `requests` for synchronous
+    operations (if a `call` method were implemented) and `aiohttp` for
+    asynchronous operations (`acall`).
 
-    Visit https://openrouter.ai/docs for more details.
+    The API key is expected to be set in the `OPENROUTER_API_KEY` environment
+    variable.
+
+    Attributes:
+        sync_client (Dict[str, Optional[str]]): A dictionary holding the API key
+            and base URL for synchronous calls.
+        async_client (Optional[Dict[str, Optional[str]]]): A dictionary holding
+            the API key and base URL for asynchronous calls. Initialized when
+            `acall` is first used or `init_async_client` is called.
 
     Example:
         ```python
+        from adalflow import Generator
         from api.openrouter_client import OpenRouterClient
 
+        # Ensure OPENROUTER_API_KEY is set in your environment
         client = OpenRouterClient()
-        generator = adal.Generator(
+        generator = Generator(
             model_client=client,
-            model_kwargs={"model": "openai/gpt-4o"}
+            model_kwargs={"model": "openai/gpt-4o"} # Example model
         )
+        response = await generator.acall(prompt_kwargs={"input_str": "Tell me a joke."})
+        # Process response
         ```
+
+    References:
+        OpenRouter API Documentation: https://openrouter.ai/docs
     """
 
-    def __init__(self, *args, **kwargs) -> None:
-        """Initialize the OpenRouter client."""
-        super().__init__(*args, **kwargs)
-        self.sync_client = self.init_sync_client()
-        self.async_client = None  # Initialize async client only when needed
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Initializes the OpenRouterClient.
 
-    def init_sync_client(self):
-        """Initialize the synchronous OpenRouter client."""
+        Sets up placeholders for synchronous and asynchronous client configurations.
+        The actual configuration (API key, base URL) is loaded by `init_sync_client`
+        and `init_async_client`.
+
+        Args:
+            *args: Positional arguments to pass to the parent `ModelClient`.
+            **kwargs: Keyword arguments to pass to the parent `ModelClient`.
+        """
+        super().__init__(*args, **kwargs)
+        self.sync_client: Dict[str, Optional[str]] = self.init_sync_client()
+        self.async_client: Optional[Dict[str, Optional[str]]] = None  # Initialize async client only when needed
+
+    def init_sync_client(self) -> Dict[str, Optional[str]]:
+        """
+        Initializes configuration for synchronous OpenRouter API calls.
+
+        Since OpenRouter doesn't have a dedicated Python SDK for synchronous
+        operations in the same way some other services do, this method prepares
+        a dictionary containing the API key (from `OPENROUTER_API_KEY` env var)
+        and the base API URL. This dictionary would typically be used with a
+        library like `requests`.
+
+        Returns:
+            Dict[str, Optional[str]]: A dictionary with "api_key" and "base_url".
+                                      The "api_key" will be None if not found.
+        """
         api_key = os.environ.get("OPENROUTER_API_KEY")
         if not api_key:
-            log.warning("OPENROUTER_API_KEY not found in environment variables")
+            log.warning("OPENROUTER_API_KEY not found in environment variables. Calls will likely fail.")
 
-        # OpenRouter doesn't have a dedicated client library, so we'll use requests directly
         return {
             "api_key": api_key,
             "base_url": "https://openrouter.ai/api/v1"
         }
 
-    def init_async_client(self):
-        """Initialize the asynchronous OpenRouter client."""
+    def init_async_client(self) -> Dict[str, Optional[str]]:
+        """
+        Initializes configuration for asynchronous OpenRouter API calls.
+
+        Similar to `init_sync_client`, this prepares a dictionary with the API key
+        and base URL. This configuration is intended for use with an asynchronous
+        HTTP client library like `aiohttp`.
+
+        Returns:
+            Dict[str, Optional[str]]: A dictionary with "api_key" and "base_url".
+                                      The "api_key" will be None if not found.
+        """
         api_key = os.environ.get("OPENROUTER_API_KEY")
         if not api_key:
-            log.warning("OPENROUTER_API_KEY not found in environment variables")
+            log.warning("OPENROUTER_API_KEY not found in environment variables. Async calls will likely fail.")
 
-        # For async, we'll use aiohttp
         return {
             "api_key": api_key,
             "base_url": "https://openrouter.ai/api/v1"
         }
 
     def convert_inputs_to_api_kwargs(
-        self, input: Any, model_kwargs: Dict = None, model_type: ModelType = None
-    ) -> Dict:
-        """Convert AdalFlow inputs to OpenRouter API format."""
+        self,
+        input: Any,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        model_type: Optional[ModelType] = None
+    ) -> Dict[str, Any]:
+        """
+        Converts AdalFlow standard inputs to the format expected by the OpenRouter API.
+
+        For LLM (Language Model) types, it formats the input into OpenAI-compatible
+        "messages" structure. A default model ("openai/gpt-3.5-turbo") is used
+        if not specified in `model_kwargs`.
+        Embeddings are currently not supported.
+
+        Args:
+            input (Any): The input data. For LLMs, this can be a string (which will
+                         be wrapped as a user message) or a list of message dictionaries.
+            model_kwargs (Optional[Dict[str, Any]]): Additional keyword arguments for the model,
+                                         including "model" name. Defaults to None.
+            model_type (Optional[ModelType]): The type of model operation (e.g., LLM, EMBEDDING).
+                                   Defaults to None.
+
+        Returns:
+            Dict[str, Any]: A dictionary of arguments ready to be sent to the
+                            OpenRouter API (typically as JSON body).
+
+        Raises:
+            ValueError: If the input format is unsupported for the given `model_type`,
+                        or if `model_type` itself is unsupported.
+            NotImplementedError: If `model_type` is EMBEDDING, as it's not supported.
+        """
         model_kwargs = model_kwargs or {}
 
         if model_type == ModelType.LLM:
@@ -103,13 +179,42 @@ class OpenRouterClient(ModelClient):
             # OpenRouter doesn't support embeddings directly
             # We could potentially use a specific model through OpenRouter for embeddings
             # but for now, we'll raise an error
-            raise NotImplementedError("OpenRouter client does not support embeddings yet")
+            raise NotImplementedError("OpenRouter client does not currently support embeddings directly.")
 
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
-    async def acall(self, api_kwargs: Dict = None, model_type: ModelType = None) -> Any:
-        """Make an asynchronous call to the OpenRouter API."""
+    async def acall(self, api_kwargs: Optional[Dict[str, Any]] = None, model_type: Optional[ModelType] = None) -> Any:
+        """
+        Makes an asynchronous call to the OpenRouter API.
+
+        Currently, this method primarily supports LLM chat completions. It constructs
+        the request with appropriate headers (including Authorization with API key)
+        and uses `aiohttp` to make the POST request. The response is expected to be
+        a non-streaming JSON from OpenRouter, from which the content is extracted.
+        If the API key is missing, it yields an error message.
+        It also includes logic to handle and attempt to format XML-like content
+        if detected in the response, specifically for `<wiki_structure>`.
+
+        Args:
+            api_kwargs (Optional[Dict[str, Any]]): A dictionary of arguments for the API call,
+                                       typically prepared by `convert_inputs_to_api_kwargs`.
+                                       Defaults to None.
+            model_type (Optional[ModelType]): The type of model operation. Currently, only
+                                   `ModelType.LLM` is fully implemented.
+                                   Defaults to None.
+
+        Returns:
+            Any: For `ModelType.LLM`, it returns an async generator that yields
+                 the response content as a string. If an error occurs (e.g., missing API key,
+                 API error, connection error), the generator yields an error message string.
+                 For other model types or errors, it may yield an error message string.
+
+        Note:
+            The method sets `stream=False` in `api_kwargs` as it processes the
+            full response from OpenRouter rather than handling a true SSE stream from it.
+            The returned generator typically yields a single complete string or error.
+        """
         if not self.async_client:
             self.async_client = self.init_async_client()
 
@@ -388,8 +493,28 @@ class OpenRouterClient(ModelClient):
             log.error(f"Error processing OpenRouter completion response: {str(e_proc)}")
             raise
 
-    def _process_streaming_response(self, response):
-        """Process a streaming response from OpenRouter."""
+    def _process_streaming_response(self, response: requests.Response) -> Generator[str, None, None]:
+        """
+        Processes a streaming HTTP response, expecting Server-Sent Events (SSE).
+
+        This method iterates over the content of a `requests.Response` object,
+        decoding chunks, buffering lines, and parsing SSE "data:" lines.
+        It attempts to load JSON from the data field and extracts content.
+
+        Args:
+            response (requests.Response): The streaming HTTP response object from
+                                          a `requests.get(..., stream=True)` call.
+
+        Yields:
+            str: Content strings extracted from the SSE stream. If errors occur
+                 during chunk processing or JSON parsing, error messages may be yielded.
+
+        Note:
+            This method seems designed for a synchronous streaming scenario using
+            `requests`. The `OpenRouterClient`'s `acall` method uses `aiohttp`
+            and implements its own async streaming logic, so this method might
+            be unused or intended for a synchronous `call` method.
+        """
         try:
             log.info("Starting to process streaming response from OpenRouter")
             buffer = ""
@@ -452,12 +577,35 @@ class OpenRouterClient(ModelClient):
             log.error(f"Error in streaming response: {str(e_stream)}")
             yield f"Error in streaming response: {str(e_stream)}"
 
-    async def _process_async_streaming_response(self, response):
-        """Process an asynchronous streaming response from OpenRouter."""
+    async def _process_async_streaming_response(self, response: aiohttp.ClientResponse) -> Generator[str, None, None]:
+        """
+        Processes an asynchronous streaming HTTP response, expecting Server-Sent Events (SSE).
+
+        This method iterates over the content of an `aiohttp.ClientResponse` object,
+        decoding chunks, buffering lines, and parsing SSE "data:" lines.
+        It attempts to load JSON from the data field and extracts content.
+
+        Args:
+            response (aiohttp.ClientResponse): The streaming HTTP response object
+                                               from an `aiohttp` request.
+
+        Yields:
+            str: Content strings extracted from the SSE stream. If errors occur,
+                 error messages may be yielded.
+
+        Note:
+            The `OpenRouterClient`'s `acall` method currently implements its own
+            logic for handling the (non-streaming) response from OpenRouter and then
+            yielding it as if it were a stream. This helper method, if intended for
+            true SSE from OpenRouter, might be based on an assumption that OpenRouter
+            provides SSE streams in a way that `acall` does not currently leverage.
+            If OpenRouter's `stream=True` parameter behaves like OpenAI's, this
+            method would be more relevant for parsing that.
+        """
         buffer = ""
         try:
             log.info("Starting to process async streaming response from OpenRouter")
-            async for chunk in response.content:
+            async for chunk in response.content: # type: ignore # Assuming response.content is an AsyncIterator[bytes]
                 try:
                     # Convert bytes to string and add to buffer
                     if isinstance(chunk, bytes):

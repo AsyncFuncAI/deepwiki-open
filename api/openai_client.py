@@ -56,8 +56,19 @@ T = TypeVar("T")
 
 # completion parsing functions and you can combine them into one singple chat completion parser
 def get_first_message_content(completion: ChatCompletion) -> str:
-    r"""When we only need the content of the first message.
-    It is the default parser for chat completion."""
+    """
+    Extracts the content of the first message from an OpenAI ChatCompletion object.
+
+    This is often used as a default parser when only the primary response text
+    from the assistant is needed.
+
+    Args:
+        completion (ChatCompletion): The ChatCompletion object returned by the
+                                     OpenAI API.
+
+    Returns:
+        str: The content string of the first choice's message.
+    """
     log.debug(f"raw completion: {completion}")
     return completion.choices[0].message.content
 
@@ -84,29 +95,82 @@ def estimate_token_count(text: str) -> int:
     return len(tokens)
 
 
-def parse_stream_response(completion: ChatCompletionChunk) -> str:
-    r"""Parse the response of the stream API."""
-    return completion.choices[0].delta.content
+def parse_stream_response(completion: ChatCompletionChunk) -> Optional[str]:
+    """
+    Parses a single chunk from an OpenAI chat completion stream.
+
+    Extracts the content from the 'delta' of the first choice in the chunk.
+
+    Args:
+        completion (ChatCompletionChunk): A chunk object from the streaming API response.
+
+    Returns:
+        Optional[str]: The text content of the chunk, or None if not present.
+    """
+    choice = completion.choices[0] if completion.choices else None
+    if choice and choice.delta:
+        return choice.delta.content
+    return None
 
 
-def handle_streaming_response(generator: Stream[ChatCompletionChunk]):
-    r"""Handle the streaming response."""
-    for completion in generator:
-        log.debug(f"Raw chunk completion: {completion}")
-        parsed_content = parse_stream_response(completion)
-        yield parsed_content
+def handle_streaming_response(generator: Stream[ChatCompletionChunk]) -> Generator[str, None, None]:
+    """
+    Handles a streaming response from OpenAI's chat completion API.
+
+    Iterates through the generator of `ChatCompletionChunk` objects, parses
+    each chunk to extract the content, and yields the content.
+
+    Args:
+        generator (Stream[ChatCompletionChunk]): An iterator yielding
+                                                       `ChatCompletionChunk` objects.
+
+    Yields:
+        str: The text content from each chunk of the streaming response.
+    """
+    for completion_chunk in generator:
+        log.debug(f"Raw chunk completion: {completion_chunk}")
+        parsed_content = parse_stream_response(completion_chunk)
+        if parsed_content is not None:
+            yield parsed_content
 
 
 def get_all_messages_content(completion: ChatCompletion) -> List[str]:
-    r"""When the n > 1, get all the messages content."""
-    return [c.message.content for c in completion.choices]
+    """
+    Extracts the content of all messages when `n > 1` in ChatCompletion.
+
+    If multiple completion choices were requested (by setting `n` > 1 in the API
+    call), this function collects the content from each choice's message.
+
+    Args:
+        completion (ChatCompletion): The ChatCompletion object.
+
+    Returns:
+        List[str]: A list of content strings, one for each choice.
+    """
+    return [c.message.content for c in completion.choices if c.message and c.message.content is not None]
 
 
 def get_probabilities(completion: ChatCompletion) -> List[List[TokenLogProb]]:
-    r"""Get the probabilities of each token in the completion."""
-    log_probs = []
+    """
+    Extracts token log probabilities from a ChatCompletion object.
+
+    Iterates through each choice in the completion and then through the log
+    probabilities for each token in the content of that choice.
+
+    Args:
+        completion (ChatCompletion): The ChatCompletion object, which must have
+                                     logprobs enabled in the request.
+
+    Returns:
+        List[List[TokenLogProb]]: A list of lists, where each inner list contains
+                                  `TokenLogProb` objects (token and its log probability)
+                                  for a corresponding choice in the completion.
+                                  Returns an empty list if logprobs are not available.
+    """
+    log_probs: List[List[TokenLogProb]] = []
     for c in completion.choices:
-        content = c.logprobs.content
+        if c.logprobs and c.logprobs.content:
+            content = c.logprobs.content
         print(content)
         log_probs_for_choice = []
         for openai_token_logprob in content:
@@ -118,9 +182,13 @@ def get_probabilities(completion: ChatCompletion) -> List[List[TokenLogProb]]:
 
 
 class OpenAIClient(ModelClient):
-    __doc__ = r"""A component wrapper for the OpenAI API client.
+    """
+    A component wrapper for the OpenAI API client.
 
-    Supports both embedding and chat completion APIs, including multimodal capabilities.
+    This class provides a standardized interface for interacting with OpenAI's
+    APIs, including embeddings, chat completions (text generation), and image
+    generation. It handles synchronous and asynchronous calls, API key management,
+    input/output parsing, and error handling with backoff/retry mechanisms.
 
     Users can:
     1. Simplify use of ``Embedder`` and ``Generator`` components by passing `OpenAIClient()` as the `model_client`.
@@ -142,37 +210,54 @@ class OpenAIClient(ModelClient):
         - n: Number of images to generate (1 for DALL-E 3, 1-10 for DALL-E 2)
         - response_format: `"url"` or `"b64_json"`
 
-    Args:
-        api_key (Optional[str], optional): OpenAI API key. Defaults to `None`.
-        chat_completion_parser (Callable[[Completion], Any], optional): A function to parse the chat completion into a `str`. Defaults to `None`.
-            The default parser is `get_first_message_content`.
-        base_url (str): The API base URL to use when initializing the client.
-            Defaults to `"https://api.openai.com"`, but can be customized for third-party API providers or self-hosted models.
-        env_api_key_name (str): The environment variable name for the API key. Defaults to `"OPENAI_API_KEY"`.
+    It is recommended to set the necessary API key (e.g., `OPENAI_API_KEY`)
+    as an environment variable rather than passing it directly as an argument.
 
-    References:
-        - OpenAI API Overview: https://platform.openai.com/docs/introduction
-        - Embeddings Guide: https://platform.openai.com/docs/guides/embeddings
-        - Chat Completion Models: https://platform.openai.com/docs/guides/text-generation
-        - Vision Models: https://platform.openai.com/docs/guides/vision
-        - Image Generation: https://platform.openai.com/docs/guides/images
+    Attributes:
+        sync_client (OpenAI): The synchronous OpenAI API client.
+        async_client (Optional[AsyncOpenAI]): The asynchronous OpenAI API client,
+            initialized on first async call.
+        chat_completion_parser (Callable): A function to parse chat completion
+            responses. Defaults to `get_first_message_content`.
+        base_url (str): The base URL for the OpenAI API.
+        _input_type (Literal["text", "messages"]): Specifies how input to LLMs
+            should be formatted. "text" wraps plain string input as a user message,
+            while "messages" expects a pre-formatted message structure (used with
+            system prompts).
+        _api_kwargs (Dict): Stores API arguments for the most recent call.
     """
 
     def __init__(
         self,
         api_key: Optional[str] = None,
-        chat_completion_parser: Callable[[Completion], Any] = None,
+        chat_completion_parser: Optional[Callable[[Union[ChatCompletion, Stream[ChatCompletionChunk]]], Any]] = None,
         input_type: Literal["text", "messages"] = "text",
         base_url: Optional[str] = None,
         env_base_url_name: str = "OPENAI_API_BASE",
         env_api_key_name: str = "OPENAI_API_KEY",
     ):
-        r"""It is recommended to set the OPENAI_API_KEY environment variable instead of passing it as an argument.
+        """
+        Initializes the OpenAIClient.
 
         Args:
-            api_key (Optional[str], optional): OpenAI API key. Defaults to None.
-            base_url (str): The API base URL to use when initializing the client.
-            env_api_key_name (str): The environment variable name for the API key. Defaults to `"OPENAI_API_KEY"`.
+            api_key (Optional[str]): The OpenAI API key. If None, it's sourced from
+                the environment variable specified by `env_api_key_name`.
+                Defaults to None.
+            chat_completion_parser (Optional[Callable]): A function to parse chat
+                completion results. If None, `get_first_message_content` is used
+                for non-streaming and `handle_streaming_response` for streaming.
+                Defaults to None.
+            input_type (Literal["text", "messages"]): Determines how input is
+                processed for LLM calls. "text" assumes raw string input,
+                "messages" expects a structured format (often including a system
+                prompt). Defaults to "text".
+            base_url (Optional[str]): The base URL for the OpenAI API. If None,
+                it's sourced from the environment variable `env_base_url_name` or
+                defaults to "https://api.openai.com/v1". Defaults to None.
+            env_base_url_name (str): The name of the environment variable for the
+                API base URL. Defaults to "OPENAI_API_BASE".
+            env_api_key_name (str): The name of the environment variable for the
+                API key. Defaults to "OPENAI_API_KEY".
         """
         super().__init__()
         self._api_key = api_key
@@ -187,79 +272,141 @@ class OpenAIClient(ModelClient):
         self._input_type = input_type
         self._api_kwargs = {}  # add api kwargs when the OpenAI Client is called
 
-    def init_sync_client(self):
+    def init_sync_client(self) -> OpenAI:
+        """
+        Initializes and returns a synchronous OpenAI API client.
+
+        Retrieves the API key from instance variable or environment.
+
+        Returns:
+            OpenAI: An instance of the synchronous OpenAI client.
+
+        Raises:
+            ValueError: If the API key is not found.
+        """
         api_key = self._api_key or os.getenv(self._env_api_key_name)
         if not api_key:
             raise ValueError(
-                f"Environment variable {self._env_api_key_name} must be set"
+                f"Environment variable {self._env_api_key_name} must be set for OpenAIClient."
             )
         return OpenAI(api_key=api_key, base_url=self.base_url)
 
-    def init_async_client(self):
+    def init_async_client(self) -> AsyncOpenAI:
+        """
+        Initializes and returns an asynchronous OpenAI API client.
+
+        Retrieves the API key from instance variable or environment.
+
+        Returns:
+            AsyncOpenAI: An instance of the asynchronous OpenAI client.
+
+        Raises:
+            ValueError: If the API key is not found.
+        """
         api_key = self._api_key or os.getenv(self._env_api_key_name)
         if not api_key:
             raise ValueError(
-                f"Environment variable {self._env_api_key_name} must be set"
+                f"Environment variable {self._env_api_key_name} must be set for OpenAIClient."
             )
         return AsyncOpenAI(api_key=api_key, base_url=self.base_url)
 
-    # def _parse_chat_completion(self, completion: ChatCompletion) -> "GeneratorOutput":
-    #     # TODO: raw output it is better to save the whole completion as a source of truth instead of just the message
-    #     try:
-    #         data = self.chat_completion_parser(completion)
-    #         usage = self.track_completion_usage(completion)
-    #         return GeneratorOutput(
-    #             data=data, error=None, raw_response=str(data), usage=usage
-    #         )
-    #     except Exception as e:
-    #         log.error(f"Error parsing the completion: {e}")
-    #         return GeneratorOutput(data=None, error=str(e), raw_response=completion)
-
     def parse_chat_completion(
         self,
-        completion: Union[ChatCompletion, Generator[ChatCompletionChunk, None, None]],
-    ) -> "GeneratorOutput":
-        """Parse the completion, and put it into the raw_response."""
-        log.debug(f"completion: {completion}, parser: {self.chat_completion_parser}")
-        try:
-            data = self.chat_completion_parser(completion)
-        except Exception as e:
-            log.error(f"Error parsing the completion: {e}")
-            return GeneratorOutput(data=None, error=str(e), raw_response=completion)
+        completion: Union[ChatCompletion, Stream[ChatCompletionChunk]],
+    ) -> GeneratorOutput:
+        """
+        Parses the raw chat completion response from the OpenAI API.
 
+        This method uses the `self.chat_completion_parser` (which defaults to
+        `get_first_message_content` for non-streaming or
+        `handle_streaming_response` for streaming) to extract the primary data.
+        It also attempts to track token usage.
+
+        Args:
+            completion (Union[ChatCompletion, Stream[ChatCompletionChunk]]):
+                The raw response object from the OpenAI API. This can be a
+                `ChatCompletion` object for non-streaming calls or a
+                `Stream[ChatCompletionChunk]` for streaming calls.
+
+        Returns:
+            GeneratorOutput: An Adalflow `GeneratorOutput` object containing the
+                             parsed data (or error information) and usage statistics.
+                             The `raw_response` field of `GeneratorOutput` will contain
+                             the parsed data string or the stream handler's output.
+        """
+        log.debug(f"completion: {completion}, parser: {self.chat_completion_parser}")
+        parsed_data: Any
         try:
-            usage = self.track_completion_usage(completion)
-            return GeneratorOutput(
-                data=None, error=None, raw_response=data, usage=usage
-            )
+            # For streaming, chat_completion_parser is handle_streaming_response,
+            # which returns a generator. For non-streaming, it's get_first_message_content.
+            parsed_data = self.chat_completion_parser(completion)
         except Exception as e:
-            log.error(f"Error tracking the completion usage: {e}")
-            return GeneratorOutput(data=None, error=str(e), raw_response=data)
+            log.error(f"Error parsing the completion: {e}", exc_info=True)
+            return GeneratorOutput(data=None, error=str(e), raw_response=str(completion))
+
+        # For streaming, parsed_data is a generator. For non-streaming, it's a string.
+        # The raw_response should ideally be the string or the stream content.
+        # Token usage tracking might be difficult for streams until fully consumed.
+        usage: Optional[CompletionUsage] = None
+        if isinstance(completion, ChatCompletion) and hasattr(completion, 'usage') and completion.usage:
+            try:
+                usage = self.track_completion_usage(completion)
+            except Exception as e:
+                log.error(f"Error tracking completion usage: {e}", exc_info=True)
+                # Proceed without usage if tracking fails for some reason
+        
+        # If it's a stream, the actual content is in parsed_data (the generator)
+        # If not streaming, parsed_data is the string content.
+        return GeneratorOutput(
+            data=parsed_data, # This will be the generator for streams, or string for non-streams
+            error=None,
+            raw_response=str(parsed_data) if not isinstance(parsed_data, Generator) else "streaming_content", # Represent stream
+            usage=usage
+        )
+
 
     def track_completion_usage(
         self,
-        completion: Union[ChatCompletion, Generator[ChatCompletionChunk, None, None]],
-    ) -> CompletionUsage:
+        completion: ChatCompletion, # Streaming usage is harder to track accurately here
+    ) -> Optional[CompletionUsage]:
+        """
+        Tracks token usage from a non-streaming ChatCompletion response.
 
-        try:
-            usage: CompletionUsage = CompletionUsage(
-                completion_tokens=completion.usage.completion_tokens,
-                prompt_tokens=completion.usage.prompt_tokens,
-                total_tokens=completion.usage.total_tokens,
-            )
-            return usage
-        except Exception as e:
-            log.error(f"Error tracking the completion usage: {e}")
-            return CompletionUsage(
-                completion_tokens=None, prompt_tokens=None, total_tokens=None
-            )
+        Args:
+            completion (ChatCompletion): The ChatCompletion object.
+
+        Returns:
+            Optional[CompletionUsage]: A `CompletionUsage` object if usage data
+                                       is available, otherwise None.
+        """
+        if hasattr(completion, 'usage') and completion.usage:
+            try:
+                usage = CompletionUsage(
+                    completion_tokens=completion.usage.completion_tokens,
+                    prompt_tokens=completion.usage.prompt_tokens,
+                    total_tokens=completion.usage.total_tokens,
+                )
+                return usage
+            except Exception as e:
+                log.error(f"Error processing completion.usage object: {e}", exc_info=True)
+        return None
+
 
     def parse_embedding_response(
         self, response: CreateEmbeddingResponse
     ) -> EmbedderOutput:
-        r"""Parse the embedding response to a structure Adalflow components can understand.
+        """
+        Parses the embedding API response into Adalflow's `EmbedderOutput`.
 
-        Should be called in ``Embedder``.
+        This method should be called within an `Embedder` component that uses
+        this `OpenAIClient`.
+
+        Args:
+            response (CreateEmbeddingResponse): The raw response object from
+                                                OpenAI's embeddings API.
+        Returns:
+            EmbedderOutput: An Adalflow `EmbedderOutput` object containing the
+                            embedding data or error information.
         """
         try:
             return parse_embedding_response(response)
@@ -381,21 +528,37 @@ class OpenAIClient(ModelClient):
 
         return final_model_kwargs
 
-    def parse_image_generation_response(self, response: List[Image]) -> GeneratorOutput:
-        """Parse the image generation response into a GeneratorOutput."""
+    def parse_image_generation_response(self, response_data: List[Image]) -> GeneratorOutput:
+        """
+        Parses the response from OpenAI's image generation API.
+
+        Extracts image URLs or Base64 encoded JSON data from the list of `Image`
+        objects returned by the API.
+
+        Args:
+            response_data (List[Image]): A list of `Image` objects from the
+                                         OpenAI image generation API response.
+
+        Returns:
+            GeneratorOutput: An Adalflow `GeneratorOutput` object. The `data`
+                             attribute contains a list of image URLs/Base64 strings,
+                             or a single URL/string if only one image was generated.
+                             `raw_response` contains the string representation of the
+                             original API response.
+        """
         try:
             # Extract URLs or base64 data from the response
-            data = [img.url or img.b64_json for img in response]
+            data = [img.url or img.b64_json for img in response_data]
             # For single image responses, unwrap from list
             if len(data) == 1:
                 data = data[0]
             return GeneratorOutput(
-                data=data,
-                raw_response=str(response),
+                data=data, # This will be List[str] or str
+                raw_response=str(response_data), # String representation of List[Image]
             )
         except Exception as e:
-            log.error(f"Error parsing image generation response: {e}")
-            return GeneratorOutput(data=None, error=str(e), raw_response=str(response))
+            log.error(f"Error parsing image generation response: {e}", exc_info=True)
+            return GeneratorOutput(data=None, error=str(e), raw_response=str(response_data))
 
     @backoff.on_exception(
         backoff.expo,
@@ -406,14 +569,39 @@ class OpenAIClient(ModelClient):
             UnprocessableEntityError,
             BadRequestError,
         ),
-        max_time=5,
+        max_time=5, # Max time for backoff in seconds
     )
-    def call(self, api_kwargs: Dict = {}, model_type: ModelType = ModelType.UNDEFINED):
+    def call(self, api_kwargs: Dict = {}, model_type: ModelType = ModelType.UNDEFINED) -> Any:
         """
-        kwargs is the combined input and model_kwargs.  Support streaming call.
+        Makes a synchronous call to the OpenAI API.
+
+        This method routes the request to the appropriate OpenAI API endpoint
+        (embeddings, chat completions, or image generation) based on `model_type`.
+        It handles both streaming and non-streaming chat completions. For non-streaming
+        chat completions, it simulates the behavior by accumulating chunks from a
+        streaming call.
+
+        Args:
+            api_kwargs (Dict): A dictionary of arguments to be passed directly to the
+                               OpenAI API. These are typically prepared by
+                               `convert_inputs_to_api_kwargs`.
+            model_type (ModelType): The type of model operation to perform
+                                    (EMBEDDER, LLM, IMAGE_GENERATION).
+
+        Returns:
+            Any: The raw response from the OpenAI API. This could be:
+                 - `CreateEmbeddingResponse` for embeddings.
+                 - `Stream[ChatCompletionChunk]` for streaming LLM calls.
+                 - `ChatCompletion` (mocked from stream) for non-streaming LLM calls.
+                 - `List[Image]` for image generation calls.
+
+        Raises:
+            ValueError: If `model_type` is not supported.
+            OpenAI API errors (e.g., APITimeoutError, RateLimitError) may be raised
+            by the underlying `openai` library, subject to backoff/retry.
         """
         log.info(f"api_kwargs: {api_kwargs}")
-        self._api_kwargs = api_kwargs
+        self._api_kwargs = api_kwargs # Store for potential later inspection or parsing
         if model_type == ModelType.EMBEDDER:
             return self.sync_client.embeddings.create(**api_kwargs)
         elif model_type == ModelType.LLM:
@@ -483,16 +671,37 @@ class OpenAIClient(ModelClient):
             UnprocessableEntityError,
             BadRequestError,
         ),
-        max_time=5,
+        max_time=5, # Max time for backoff in seconds
     )
     async def acall(
         self, api_kwargs: Dict = {}, model_type: ModelType = ModelType.UNDEFINED
-    ):
+    ) -> Any:
         """
-        kwargs is the combined input and model_kwargs
+        Makes an asynchronous call to the OpenAI API.
+
+        Similar to `call`, this method routes requests to the appropriate API
+        endpoint based on `model_type`. It initializes the asynchronous client
+        (`self.async_client`) on its first invocation.
+
+        Args:
+            api_kwargs (Dict): Arguments for the OpenAI API call, prepared by
+                               `convert_inputs_to_api_kwargs`.
+            model_type (ModelType): The type of operation (EMBEDDER, LLM,
+                                    IMAGE_GENERATION).
+
+        Returns:
+            Any: The raw asynchronous response from the OpenAI API. This could be:
+                 - Coroutine resolving to `CreateEmbeddingResponse` for embeddings.
+                 - AsyncGenerator (`AsyncStream[ChatCompletionChunk]`) for LLM calls
+                   (OpenAI's async client returns an awaitable stream directly).
+                 - Coroutine resolving to `List[Image]` for image generation calls.
+
+        Raises:
+            ValueError: If `model_type` is not supported.
+            OpenAI API errors may be raised, subject to backoff/retry.
         """
         # store the api kwargs in the client
-        self._api_kwargs = api_kwargs
+        self._api_kwargs = api_kwargs # Store for potential later inspection or parsing
         if self.async_client is None:
             self.async_client = self.init_async_client()
         if model_type == ModelType.EMBEDDER:
@@ -518,16 +727,40 @@ class OpenAIClient(ModelClient):
             raise ValueError(f"model_type {model_type} is not supported")
 
     @classmethod
-    def from_dict(cls: type[T], data: Dict[str, Any]) -> T:
+    def from_dict(cls: Type[T], data: Dict[str, Any]) -> T:
+        """
+        Creates an `OpenAIClient` instance from a dictionary representation.
+
+        Overrides the base `from_dict` to ensure that synchronous and asynchronous
+        clients are re-initialized after object creation from the dictionary.
+
+        Args:
+            data (Dict[str, Any]): A dictionary containing the serialized state
+                                   of an `OpenAIClient`.
+
+        Returns:
+            T: An instance of `OpenAIClient` (or a subclass).
+        """
         obj = super().from_dict(data)
         # recreate the existing clients
-        obj.sync_client = obj.init_sync_client()
-        obj.async_client = obj.init_async_client()
+        if isinstance(obj, OpenAIClient): # Ensure it's the correct type
+            obj.sync_client = obj.init_sync_client()
+            # Async client is typically lazy-loaded, but can be init'd here if needed
+            # obj.async_client = obj.init_async_client() # Or keep it None to lazy load
         return obj
 
     def to_dict(self) -> Dict[str, Any]:
-        r"""Convert the component to a dictionary."""
-        # TODO: not exclude but save yes or no for recreating the clients
+        """
+        Serializes the `OpenAIClient` instance to a dictionary.
+
+        Excludes non-serializable attributes like the actual client objects
+        (`sync_client`, `async_client`) to prevent errors during serialization
+        (e.g., with JSON). These clients will be re-initialized by `from_dict`.
+
+        Returns:
+            Dict[str, Any]: A dictionary representation of the component's state.
+        """
+        # TODO: not exclude but save yes or no for recreating the clients (Potentially save flags or config used to init them)
         exclude = [
             "sync_client",
             "async_client",
@@ -536,16 +769,18 @@ class OpenAIClient(ModelClient):
         return output
 
     def _encode_image(self, image_path: str) -> str:
-        """Encode image to base64 string.
+        """
+        Encodes an image file to a Base64 string.
 
         Args:
-            image_path: Path to image file.
+            image_path (str): The local file system path to the image.
 
         Returns:
-            Base64 encoded image string.
+            str: The Base64 encoded string representation of the image.
 
         Raises:
-            ValueError: If the file cannot be read or doesn't exist.
+            ValueError: If the image file is not found, cannot be read due to
+                        permission issues, or if any other error occurs during encoding.
         """
         try:
             with open(image_path, "rb") as image_file:
@@ -560,14 +795,27 @@ class OpenAIClient(ModelClient):
     def _prepare_image_content(
         self, image_source: Union[str, Dict[str, Any]], detail: str = "auto"
     ) -> Dict[str, Any]:
-        """Prepare image content for API request.
+        """
+        Prepares the image content structure for multimodal API requests.
+
+        If `image_source` is a string, it's treated as either a URL (if it starts
+        with "http://" or "https://") or a local file path. Local image files
+        are Base64 encoded and formatted as a data URL. If `image_source` is
+        already a dictionary (assumed to be correctly pre-formatted), it's
+        returned as is.
 
         Args:
-            image_source: Either a path to local image or a URL.
-            detail: Image detail level ('auto', 'low', or 'high').
+            image_source (Union[str, Dict[str, Any]]): The source of the image.
+                Can be a URL string, a local file path string, or a dictionary
+                already formatted for the API (e.g., `{"type": "image_url", ...}`).
+            detail (str, optional): The level of detail for image processing,
+                applicable if `image_source` is a URL or path.
+                Can be 'auto', 'low', or 'high'. Defaults to "auto".
 
         Returns:
-            Formatted image content for API request.
+            Dict[str, Any]: A dictionary formatted for the OpenAI API's image
+                            content block. For example:
+                            `{"type": "image_url", "image_url": {"url": "...", "detail": "..."}}`
         """
         if isinstance(image_source, str):
             if image_source.startswith(("http://", "https://")):
@@ -575,8 +823,9 @@ class OpenAIClient(ModelClient):
                     "type": "image_url",
                     "image_url": {"url": image_source, "detail": detail},
                 }
-            else:
+            else: # Assumed to be a local file path
                 base64_image = self._encode_image(image_source)
+                # Assuming JPEG, might need to determine actual image type for production
                 return {
                     "type": "image_url",
                     "image_url": {
@@ -584,6 +833,7 @@ class OpenAIClient(ModelClient):
                         "detail": detail,
                     },
                 }
+        # If image_source is already a dict, assume it's correctly formatted
         return image_source
 
 

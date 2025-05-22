@@ -18,19 +18,29 @@ from urllib.parse import urlparse, urlunparse, quote
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Maximum token limit for OpenAI embedding models
+# MAX_EMBEDDING_TOKENS: Defines the maximum number of tokens supported by the
+# primary embedding models (e.g., OpenAI's text-embedding-3-small).
+# This is used to skip overly large documents that might cause errors or
+# excessive processing time during embedding.
 MAX_EMBEDDING_TOKENS = 8192
 
 def count_tokens(text: str, local_ollama: bool = False) -> int:
     """
-    Count the number of tokens in a text string using tiktoken.
+    Counts the number of tokens in a given text string using `tiktoken`.
+
+    Selects the appropriate `tiktoken` encoding based on whether local Ollama
+    embeddings are being used ("cl100k_base") or a default OpenAI model like
+    "text-embedding-3-small". Falls back to a simple character-based
+    approximation if `tiktoken` fails.
 
     Args:
-        text (str): The text to count tokens for.
-        local_ollama (bool, optional): Whether using local Ollama embeddings. Default is False.
+        text (str): The input text string for which tokens need to be counted.
+        local_ollama (bool, optional): If True, uses "cl100k_base" encoding
+            suitable for many Ollama models. Otherwise, uses encoding for
+            "text-embedding-3-small". Defaults to False.
 
     Returns:
-        int: The number of tokens in the text.
+        int: The estimated number of tokens in the text.
     """
     try:
         if local_ollama:
@@ -45,17 +55,34 @@ def count_tokens(text: str, local_ollama: bool = False) -> int:
         # Rough approximation: 4 characters per token
         return len(text) // 4
 
-def download_repo(repo_url: str, local_path: str, type: str = "github", access_token: str = None) -> str:
+def download_repo(repo_url: str, local_path: str, type: str = "github", access_token: Optional[str] = None) -> str:
     """
-    Downloads a Git repository (GitHub, GitLab, or Bitbucket) to a specified local path.
+    Downloads a Git repository to a specified local path using `git clone`.
+
+    Supports GitHub, GitLab, and Bitbucket repository types for constructing
+    authenticated clone URLs if an access token is provided. If the target
+    directory already exists and is not empty, it skips cloning and uses the
+    existing repository.
 
     Args:
         repo_url (str): The URL of the Git repository to clone.
         local_path (str): The local directory where the repository will be cloned.
-        access_token (str, optional): Access token for private repositories.
+                          This directory will be created if it doesn't exist.
+        type (str, optional): The type of the Git repository provider.
+                              Supported values: "github", "gitlab", "bitbucket".
+                              Defaults to "github". This affects how the access
+                              token is embedded in the clone URL.
+        access_token (Optional[str], optional): An access token for cloning
+                                                private repositories. Defaults to None.
 
     Returns:
-        str: The output message from the `git` command.
+        str: A message indicating the outcome, either success (including path to
+             existing repo) or the standard output from the `git clone` command.
+
+    Raises:
+        ValueError: If `git clone` fails (e.g., authentication error, repo not found),
+                    or if an unexpected error occurs during the process. The error
+                    message from git stderr is included, with tokens sanitized.
     """
     try:
         # Check if Git is installed
@@ -114,25 +141,44 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
     except Exception as e:
         raise ValueError(f"An unexpected error occurred: {str(e)}")
 
-# Alias for backward compatibility
+# Alias for backward compatibility for any external callers if they used the old name.
 download_github_repo = download_repo
 
-def read_all_documents(path: str, local_ollama: bool = False, excluded_dirs: List[str] = None, excluded_files: List[str] = None):
+def read_all_documents(
+    path: str,
+    local_ollama: bool = False,
+    excluded_dirs: Optional[List[str]] = None,
+    excluded_files: Optional[List[str]] = None
+) -> List[Document]:
     """
-    Recursively reads all documents in a directory and its subdirectories.
+    Recursively reads all relevant documents from a specified directory path.
+
+    It prioritizes code files (e.g., .py, .js) then documentation files (.md, .txt).
+    Files and directories can be excluded based on provided lists, which supplement
+    globally configured exclusions (DEFAULT_EXCLUDED_DIRS, DEFAULT_EXCLUDED_FILES,
+    and exclusions from `api.config.configs`). Documents are skipped if their
+    token count exceeds a certain threshold (MAX_EMBEDDING_TOKENS * 10 for code,
+    MAX_EMBEDDING_TOKENS for docs).
 
     Args:
-        path (str): The root directory path.
-        local_ollama (bool): Whether to use local Ollama for token counting. Default is False.
-        excluded_dirs (List[str], optional): List of directories to exclude from processing.
-            Overrides the default configuration if provided.
-        excluded_files (List[str], optional): List of file patterns to exclude from processing.
-            Overrides the default configuration if provided.
+        path (str): The root directory from which to read documents.
+        local_ollama (bool, optional): Flag to indicate if local Ollama token counting
+                                       should be used. Defaults to False.
+        excluded_dirs (Optional[List[str]], optional): A list of directory names to
+                                                       explicitly exclude. These are added
+                                                       to default and config exclusions.
+                                                       Defaults to None.
+        excluded_files (Optional[List[str]], optional): A list of file names/patterns
+                                                        to explicitly exclude. These are
+                                                        added to default and config
+                                                        exclusions. Defaults to None.
 
     Returns:
-        list: A list of Document objects with metadata.
+        List[Document]: A list of `adalflow.core.types.Document` objects, each
+                        containing the text content and metadata (file_path, type,
+                        is_code, is_implementation, title, token_count).
     """
-    documents = []
+    documents: List[Document] = []
     # File extensions to look for, prioritizing code files
     code_extensions = [".py", ".js", ".ts", ".java", ".cpp", ".c", ".go", ".rs",
                        ".jsx", ".tsx", ".html", ".css", ".php", ".swift", ".cs"]
@@ -270,13 +316,25 @@ def read_all_documents(path: str, local_ollama: bool = False, excluded_dirs: Lis
 
 def prepare_data_pipeline(local_ollama: bool = False):
     """
-    Creates and returns the data transformation pipeline.
+    Creates and configures the data transformation pipeline for processing documents.
+
+    The pipeline consists of:
+    1. A `TextSplitter` to break down documents into smaller chunks, configured
+       via `api.config.configs["text_splitter"]`.
+    2. An embedding component:
+        - If `local_ollama` is True, it uses an `OllamaDocumentProcessor` with an
+          `adal.Embedder` configured for Ollama (from `configs["embedder_ollama"]`).
+        - Otherwise, it uses `adalflow.components.data_process.ToEmbeddings` with an
+          `adal.Embedder` configured for a remote service like OpenAI
+          (from `configs["embedder"]`).
 
     Args:
-        local_ollama (bool): Whether to use local Ollama for embedding (default: False)
+        local_ollama (bool, optional): If True, configures the pipeline to use
+                                       Ollama for embeddings. Defaults to False.
 
     Returns:
-        adal.Sequential: The data transformation pipeline
+        adal.Sequential: An Adalflow sequential pipeline object ready to process
+                         a list of `Document` objects.
     """
     splitter = TextSplitter(**configs["text_splitter"])
 
@@ -306,12 +364,29 @@ def transform_documents_and_save_to_db(
     documents: List[Document], db_path: str, local_ollama: bool = False
 ) -> LocalDB:
     """
-    Transforms a list of documents and saves them to a local database.
+    Transforms a list of documents using a data pipeline and saves them to a local DB.
+
+    The process involves:
+    1. Preparing a data transformation pipeline (text splitting and embedding)
+       using `prepare_data_pipeline`.
+    2. Initializing a `LocalDB` instance.
+    3. Registering the transformer with the database.
+    4. Loading the raw documents into the database.
+    5. Applying the transformation.
+    6. Saving the state of the database (including transformed documents) to the
+       specified `db_path`.
 
     Args:
-        documents (list): A list of `Document` objects.
-        db_path (str): The path to the local database file.
-        local_ollama (bool): Whether to use local Ollama for embedding (default: False)
+        documents (List[Document]): A list of `adalflow.core.types.Document` objects
+                                    to be processed and saved.
+        db_path (str): The file path where the local database state will be saved.
+                       The directory for this path will be created if it doesn't exist.
+        local_ollama (bool, optional): Flag passed to `prepare_data_pipeline` to
+                                       determine the embedding model type.
+                                       Defaults to False.
+
+    Returns:
+        LocalDB: The `LocalDB` instance containing the transformed and saved documents.
     """
     # Get the data transformer
     data_transformer = prepare_data_pipeline(local_ollama)
@@ -327,18 +402,30 @@ def transform_documents_and_save_to_db(
 
 def get_github_file_content(repo_url: str, file_path: str, access_token: str = None) -> str:
     """
-    Retrieves the content of a file from a GitHub repository using the GitHub API.
+    Retrieves the content of a specific file from a GitHub repository via the GitHub API.
+
+    This function constructs the appropriate GitHub API URL, makes a request using
+    `curl` (potentially with an access token for authentication), and then parses
+    the JSON response to extract and decode the Base64 encoded file content.
 
     Args:
-        repo_url (str): The URL of the GitHub repository (e.g., "https://github.com/username/repo")
-        file_path (str): The path to the file within the repository (e.g., "src/main.py")
-        access_token (str, optional): GitHub personal access token for private repositories
+        repo_url (str): The full URL of the GitHub repository (e.g.,
+                        "https://github.com/username/repo").
+        file_path (str): The path to the file within the repository
+                         (e.g., "src/main.py").
+        access_token (Optional[str], optional): A GitHub personal access token for
+                                                accessing private repositories.
+                                                Defaults to None.
 
     Returns:
-        str: The content of the file as a string
+        str: The decoded content of the file as a string.
 
     Raises:
-        ValueError: If the file cannot be fetched or if the URL is not a valid GitHub URL
+        ValueError: If the provided `repo_url` is invalid, if the GitHub API
+                    returns an error (e.g., file not found, authentication issue),
+                    if the API response is not in the expected format, or if any
+                    other error occurs during the process (e.g., `curl` command failure).
+                    Access tokens in error messages from subprocesses are sanitized.
     """
     try:
         # Extract owner and repo name from GitHub URL
@@ -401,18 +488,30 @@ def get_github_file_content(repo_url: str, file_path: str, access_token: str = N
 
 def get_gitlab_file_content(repo_url: str, file_path: str, access_token: str = None) -> str:
     """
-    Retrieves the content of a file from a GitLab repository (cloud or self-hosted).
+    Retrieves the content of a file from a GitLab repository using the GitLab API.
+
+    This function handles both cloud-hosted (gitlab.com) and self-hosted GitLab
+    instances. It constructs the API URL for fetching raw file content,
+    makes a request using `curl` (authenticating with an access token if provided),
+    and returns the decoded file content.
 
     Args:
-        repo_url (str): The GitLab repo URL (e.g., "https://gitlab.com/username/repo" or "http://localhost/group/project")
-        file_path (str): File path within the repository (e.g., "src/main.py")
-        access_token (str, optional): GitLab personal access token
+        repo_url (str): The URL of the GitLab repository (e.g.,
+                        "https://gitlab.com/username/repo" or
+                        "http://your.gitlab.instance/group/project").
+        file_path (str): The path to the file within the repository (e.g., "src/main.py").
+        access_token (Optional[str], optional): A GitLab personal access, project,
+                                                or group access token with `read_api`
+                                                scope. Defaults to None.
 
     Returns:
-        str: File content
+        str: The decoded content of the file as a string.
 
     Raises:
-        ValueError: If anything fails
+        ValueError: If the `repo_url` is invalid, the GitLab API returns an error
+                    (e.g., file not found, authentication issue), or if any other
+                    error occurs (e.g., `curl` command failure). Access tokens in
+                    error messages are sanitized.
     """
     try:
         # Parse and validate the URL
@@ -476,15 +575,27 @@ def get_gitlab_file_content(repo_url: str, file_path: str, access_token: str = N
 
 def get_bitbucket_file_content(repo_url: str, file_path: str, access_token: str = None) -> str:
     """
-    Retrieves the content of a file from a Bitbucket repository using the Bitbucket API.
+    Retrieves the content of a file from a Bitbucket repository via the Bitbucket API.
+
+    Constructs the Bitbucket API URL for accessing raw file content at a specific
+    branch (defaults to 'main'), executes a `curl` command (with Bearer token
+    authentication if an access token is provided), and returns the file content.
 
     Args:
-        repo_url (str): The URL of the Bitbucket repository (e.g., "https://bitbucket.org/username/repo")
-        file_path (str): The path to the file within the repository (e.g., "src/main.py")
-        access_token (str, optional): Bitbucket personal access token for private repositories
+        repo_url (str): The URL of the Bitbucket repository (e.g.,
+                        "https://bitbucket.org/username/repo").
+        file_path (str): The path to the file within the repository (e.g., "src/main.py").
+        access_token (Optional[str], optional): A Bitbucket personal access token or
+                                                an app password with repository read
+                                                permissions. Defaults to None.
 
     Returns:
-        str: The content of the file as a string
+        str: The decoded content of the file as a string.
+
+    Raises:
+        ValueError: If the `repo_url` is invalid, the Bitbucket API returns an HTTP error
+                    (404 for not found, 401/403 for auth/permission issues, 500 for
+                    server error), or if any other exception occurs (e.g., `curl` failure).
     """
     try:
         # Extract owner and repo name from Bitbucket URL
@@ -539,18 +650,26 @@ def get_bitbucket_file_content(repo_url: str, file_path: str, access_token: str 
 
 def get_file_content(repo_url: str, file_path: str, type: str = "github", access_token: str = None) -> str:
     """
-    Retrieves the content of a file from a Git repository (GitHub or GitLab).
+    Retrieves the content of a file from a Git repository, dispatching to the
+    appropriate provider-specific function (GitHub, GitLab, Bitbucket).
 
     Args:
-        repo_url (str): The URL of the repository
-        file_path (str): The path to the file within the repository
-        access_token (str, optional): Access token for private repositories
+        repo_url (str): The URL of the repository.
+        file_path (str): The path to the file within the repository.
+        type (str, optional): The type of the repository provider. Supported values:
+                              "github", "gitlab", "bitbucket". Defaults to "github".
+        access_token (Optional[str], optional): An access token for authenticating
+                                                with the repository provider's API.
+                                                Defaults to None.
 
     Returns:
-        str: The content of the file as a string
+        str: The content of the specified file as a string.
 
     Raises:
-        ValueError: If the file cannot be fetched or if the URL is not valid
+        ValueError: If the specified `type` is not supported, or if any errors
+                    occur during the call to the provider-specific content
+                    retrieval function (e.g., invalid URL, file not found,
+                    authentication failure).
     """
     if type == "github":
         return get_github_file_content(repo_url, file_path, access_token)
@@ -563,51 +682,113 @@ def get_file_content(repo_url: str, file_path: str, type: str = "github", access
 
 class DatabaseManager:
     """
-    Manages the creation, loading, transformation, and persistence of LocalDB instances.
+    Manages the lifecycle of document databases for code repositories.
+
+    This class handles the creation of local storage paths, downloading/locating
+    repository code, processing documents within the repository, and managing
+    the Adalflow `LocalDB` instance for storing and retrieving transformed
+    (split and embedded) documents.
+
+    Attributes:
+        db (Optional[LocalDB]): The Adalflow local database instance. Initialized
+                                to None.
+        repo_url_or_path (Optional[str]): The URL or local file system path of the
+                                          repository being managed. Initialized to None.
+        repo_paths (Optional[Dict[str, str]]): A dictionary storing key paths related
+                                               to the repository, such as where its
+                                               code is stored (`save_repo_dir`) and
+                                               where its database is persisted
+                                               (`save_db_file`). Initialized to None.
     """
 
     def __init__(self):
-        self.db = None
-        self.repo_url_or_path = None
-        self.repo_paths = None
+        """Initializes a DatabaseManager with no active database or repository."""
+        self.db: Optional[LocalDB] = None
+        self.repo_url_or_path: Optional[str] = None
+        self.repo_paths: Optional[Dict[str, str]] = None
 
-    def prepare_database(self, repo_url_or_path: str, type: str = "github", access_token: str = None, local_ollama: bool = False,
-                       excluded_dirs: List[str] = None, excluded_files: List[str] = None) -> List[Document]:
+    def prepare_database(
+        self,
+        repo_url_or_path: str,
+        type: str = "github",
+        access_token: Optional[str] = None,
+        local_ollama: bool = False,
+        excluded_dirs: Optional[List[str]] = None,
+        excluded_files: Optional[List[str]] = None
+    ) -> List[Document]:
         """
-        Create a new database from the repository.
+        Prepares a complete document database for a specified repository.
+
+        This is a high-level method that orchestrates:
+        1. Resetting any existing database state within the manager.
+        2. Setting up the local directory structure for the repository's code
+           and its database file (via `_create_repo`). This includes downloading
+           the repository if it's remote and not already present.
+        3. Preparing the database index (via `prepare_db_index`), which involves
+           reading documents, transforming them (splitting and embedding), and
+           saving them to a local persistent store.
 
         Args:
-            repo_url_or_path (str): The URL or local path of the repository
-            access_token (str, optional): Access token for private repositories
-            local_ollama (bool): Whether to use local Ollama for embedding (default: False)
-            excluded_dirs (List[str], optional): List of directories to exclude from processing
-            excluded_files (List[str], optional): List of file patterns to exclude from processing
+            repo_url_or_path (str): The URL (e.g., GitHub, GitLab) or local file
+                                    system path of the repository.
+            type (str, optional): The type of the repository if `repo_url_or_path`
+                                  is a URL (e.g., "github", "gitlab", "bitbucket").
+                                  Defaults to "github".
+            access_token (Optional[str], optional): Access token for private remote
+                                                    repositories. Defaults to None.
+            local_ollama (bool, optional): If True, configures underlying processes
+                                           to use Ollama for embeddings.
+                                           Defaults to False.
+            excluded_dirs (Optional[List[str]], optional): List of directory names
+                                                           to exclude during document
+                                                           processing.
+            excluded_files (Optional[List[str]], optional): List of file name patterns
+                                                            to exclude during document
+                                                            processing.
 
         Returns:
-            List[Document]: List of Document objects
+            List[Document]: A list of transformed (split and embedded) documents
+                            from the prepared database.
         """
         self.reset_database()
         self._create_repo(repo_url_or_path, type, access_token)
-        return self.prepare_db_index(local_ollama=local_ollama, excluded_dirs=excluded_dirs, excluded_files=excluded_files)
+        return self.prepare_db_index(
+            local_ollama=local_ollama,
+            excluded_dirs=excluded_dirs,
+            excluded_files=excluded_files
+        )
 
     def reset_database(self):
         """
-        Reset the database to its initial state.
+        Resets the internal state of the DatabaseManager.
+
+        Sets `db`, `repo_url_or_path`, and `repo_paths` attributes to `None`,
+        effectively clearing any loaded repository or database information.
         """
         self.db = None
         self.repo_url_or_path = None
         self.repo_paths = None
 
-    def _create_repo(self, repo_url_or_path: str, type: str = "github", access_token: str = None) -> None:
+    def _create_repo(self, repo_url_or_path: str, type: str = "github", access_token: Optional[str] = None) -> None:
         """
-        Download and prepare all paths.
-        Paths:
-        ~/.adalflow/repos/{repo_name} (for url, local path will be the same)
-        ~/.adalflow/databases/{repo_name}.pkl
+        Sets up local directories for repository code and its database file.
+
+        If `repo_url_or_path` is a URL, it determines the repository name, creates
+        a directory structure like `~/.adalflow/repos/{repo_name}` for code and
+        `~/.adalflow/databases/{repo_name}.pkl` for the database, and downloads
+        the repository if it's not already present. If it's a local path, it uses
+        that path for code and derives a database path.
 
         Args:
-            repo_url_or_path (str): The URL or local path of the repository
-            access_token (str, optional): Access token for private repositories
+            repo_url_or_path (str): URL or local path of the repository.
+            type (str, optional): Type of repository if URL (e.g., "github").
+                                  Defaults to "github".
+            access_token (Optional[str], optional): Access token for private remote
+                                                    repositories. Defaults to None.
+
+        Raises:
+            Exception: If any error occurs during directory creation or repository
+                       downloading.
         """
         logger.info(f"Preparing repo storage for {repo_url_or_path}...")
 
@@ -659,17 +840,40 @@ class DatabaseManager:
             logger.error(f"Failed to create repository structure: {e}")
             raise
 
-    def prepare_db_index(self, local_ollama: bool = False, excluded_dirs: List[str] = None, excluded_files: List[str] = None) -> List[Document]:
+    def prepare_db_index(
+        self,
+        local_ollama: bool = False,
+        excluded_dirs: Optional[List[str]] = None,
+        excluded_files: Optional[List[str]] = None
+    ) -> List[Document]:
         """
-        Prepare the indexed database for the repository.
+        Prepares or loads the indexed document database for the current repository.
+
+        It first checks if a persisted database file exists at the path specified
+        in `self.repo_paths["save_db_file"]`. If found, it attempts to load this
+        database and its transformed documents.
+        If the database doesn't exist or loading fails, it proceeds to:
+        1. Read all documents from the repository's source code directory
+           (using `read_all_documents`), applying specified exclusions.
+        2. Transform these documents (splitting and embedding) and save the resulting
+           database to the persistent file path (using
+           `transform_documents_and_save_to_db`).
 
         Args:
-            local_ollama (bool): Whether to use local Ollama for embedding (default: False)
-            excluded_dirs (List[str], optional): List of directories to exclude from processing
-            excluded_files (List[str], optional): List of file patterns to exclude from processing
+            local_ollama (bool, optional): Flag indicating whether to use Ollama for
+                                           embeddings. Passed to underlying functions.
+                                           Defaults to False.
+            excluded_dirs (Optional[List[str]], optional): List of directory names
+                                                           to exclude. Passed to
+                                                           `read_all_documents`.
+            excluded_files (Optional[List[str]], optional): List of file patterns
+                                                            to exclude. Passed to
+                                                            `read_all_documents`.
 
         Returns:
-            List[Document]: List of Document objects
+            List[Document]: A list of the transformed (split and embedded)
+                            `adalflow.core.types.Document` objects from the
+                            database.
         """
         # check the database
         if self.repo_paths and os.path.exists(self.repo_paths["save_db_file"]):
@@ -700,16 +904,24 @@ class DatabaseManager:
         logger.info(f"Total transformed documents: {len(transformed_docs)}")
         return transformed_docs
 
-    def prepare_retriever(self, repo_url_or_path: str, type: str = "github", access_token: str = None):
+    def prepare_retriever(self, repo_url_or_path: str, type: str = "github", access_token: Optional[str] = None) -> List[Document]:
         """
-        Prepare the retriever for a repository.
-        This is a compatibility method for the isolated API.
+        Prepares the database for a repository, primarily for retriever setup.
+
+        Note: This method is described as a "compatibility method for the isolated API".
+        It directly calls `prepare_database` with the provided arguments.
+        The name suggests it's intended for contexts where a "retriever" is being
+        set up, and this method ensures the underlying data for that retriever is ready.
 
         Args:
-            repo_url_or_path (str): The URL or local path of the repository
-            access_token (str, optional): Access token for private repositories
+            repo_url_or_path (str): The URL or local path of the repository.
+            type (str, optional): The type of the repository (e.g., "github").
+                                  Defaults to "github".
+            access_token (Optional[str], optional): Access token for private
+                                                    repositories. Defaults to None.
 
         Returns:
-            List[Document]: List of Document objects
+            List[Document]: A list of transformed `Document` objects from the
+                            prepared database, ready to be used by a retriever.
         """
         return self.prepare_database(repo_url_or_path, type, access_token)

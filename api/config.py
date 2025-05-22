@@ -2,20 +2,24 @@ import os
 import json
 import logging
 from pathlib import Path
-from typing import List
+from typing import List, Dict, Any, Optional, Type
 
 logger = logging.getLogger(__name__)
 
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
-from adalflow import GoogleGenAIClient, OllamaClient
+from adalflow import GoogleGenAIClient, OllamaClient # type: ignore
+# Assuming adalflow might not have stubs or is dynamically loaded,
+# using type: ignore to suppress potential import errors in static analysis.
 
-# Get API keys from environment variables
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
-GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
-OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
+# API Keys: Loaded from environment variables. These are used to authenticate
+# with various LLM and embedding service providers.
+OPENAI_API_KEY: Optional[str] = os.environ.get('OPENAI_API_KEY')
+GOOGLE_API_KEY: Optional[str] = os.environ.get('GOOGLE_API_KEY')
+OPENROUTER_API_KEY: Optional[str] = os.environ.get('OPENROUTER_API_KEY')
 
-# Set keys in environment (in case they're needed elsewhere in the code)
+# Ensure API keys, if found, are set in the environment. This can be helpful
+# if libraries used internally rely on these specific environment variable names.
 if OPENAI_API_KEY:
     os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 if GOOGLE_API_KEY:
@@ -23,11 +27,15 @@ if GOOGLE_API_KEY:
 if OPENROUTER_API_KEY:
     os.environ["OPENROUTER_API_KEY"] = OPENROUTER_API_KEY
 
-# Get configuration directory from environment variable, or use default if not set
-CONFIG_DIR = os.environ.get('DEEPWIKI_CONFIG_DIR', None)
+# CONFIG_DIR: Specifies a custom directory for configuration files. If not set
+# via the 'DEEPWIKI_CONFIG_DIR' environment variable, it defaults to None,
+# in which case config files are loaded from a 'config' subdirectory relative
+# to this script.
+CONFIG_DIR: Optional[str] = os.environ.get('DEEPWIKI_CONFIG_DIR', None)
 
-# Client class mapping
-CLIENT_CLASSES = {
+# CLIENT_CLASSES: A mapping from string identifiers (used in JSON configs)
+# to actual client class objects for various LLM providers.
+CLIENT_CLASSES: Dict[str, Type[Any]] = {
     "GoogleGenAIClient": GoogleGenAIClient,
     "OpenAIClient": OpenAIClient,
     "OpenRouterClient": OpenRouterClient,
@@ -35,7 +43,23 @@ CLIENT_CLASSES = {
 }
 
 # Load JSON configuration file
-def load_json_config(filename):
+def load_json_config(filename: str) -> Dict[str, Any]:
+    """
+    Loads a JSON configuration file.
+
+    The function determines the path to the configuration file based on the
+    `CONFIG_DIR` environment variable. If `CONFIG_DIR` is set, it looks for
+    `filename` in that directory. Otherwise, it defaults to looking in a
+    'config' subdirectory relative to the current script's location.
+
+    Args:
+        filename (str): The name of the JSON configuration file (e.g., "generator.json").
+
+    Returns:
+        Dict[str, Any]: A dictionary containing the loaded JSON data. Returns an
+                        empty dictionary if the file is not found or if any error
+                        occurs during loading (errors are logged).
+    """
     try:
         # If environment variable is set, use the directory specified by it
         if CONFIG_DIR:
@@ -50,14 +74,27 @@ def load_json_config(filename):
             logger.warning(f"Configuration file {config_path} does not exist")
             return {}
 
-        with open(config_path, 'r') as f:
+        with open(config_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
-        logger.error(f"Error loading configuration file {filename}: {str(e)}")
+        logger.error(f"Error loading configuration file {filename}: {str(e)}", exc_info=True)
         return {}
 
 # Load generator model configuration
-def load_generator_config():
+def load_generator_config() -> Dict[str, Any]:
+    """
+    Loads and processes the generator model configuration from "generator.json".
+
+    This function loads the base configuration and then dynamically assigns the
+    appropriate model client class (e.g., `GoogleGenAIClient`, `OpenAIClient`)
+    to each provider defined in the configuration. It uses the `CLIENT_CLASSES`
+    mapping for this purpose.
+
+    Returns:
+        Dict[str, Any]: The processed generator configuration dictionary.
+                        Provider entries will have a "model_client" key populated
+                        with the corresponding client class.
+    """
     generator_config = load_json_config("generator.json")
 
     # Add client classes to each provider
@@ -81,7 +118,22 @@ def load_generator_config():
     return generator_config
 
 # Load embedder configuration
-def load_embedder_config():
+def load_embedder_config() -> Dict[str, Any]:
+    """
+    Loads and processes the embedder configuration from "embedder.json".
+
+    This function loads settings related to embedding models, including those
+    for general use ("embedder") and specifically for Ollama ("embedder_ollama").
+    It dynamically assigns the appropriate model client class to these embedder
+    configurations based on the "client_class" field specified in the JSON
+    and the `CLIENT_CLASSES` mapping.
+
+    Returns:
+        Dict[str, Any]: The processed embedder configuration dictionary. Embedder
+                        entries (like "embedder", "embedder_ollama") will have
+                        a "model_client" key populated if a valid "client_class"
+                        was specified.
+    """
     embedder_config = load_json_config("embedder.json")
 
     # Process client classes
@@ -90,14 +142,29 @@ def load_embedder_config():
             class_name = embedder_config[key]["client_class"]
             if class_name in CLIENT_CLASSES:
                 embedder_config[key]["model_client"] = CLIENT_CLASSES[class_name]
+            else:
+                logger.warning(f"Unknown client class '{class_name}' specified for embedder config key '{key}'.")
+
 
     return embedder_config
 
 # Load repository and file filters configuration
-def load_repo_config():
+def load_repo_config() -> Dict[str, Any]:
+    """
+    Loads repository-specific configurations from "repo.json".
+
+    This typically includes settings for file filtering (excluded directories
+    and files) and other repository-related parameters.
+
+    Returns:
+        Dict[str, Any]: The repository configuration dictionary.
+    """
     return load_json_config("repo.json")
 
-# Default excluded directories and files
+# DEFAULT_EXCLUDED_DIRS: A list of directory patterns commonly excluded from
+# code analysis and RAG processing. These are used as a baseline and can be
+# supplemented by configurations in "repo.json" or runtime parameters.
+# Patterns are typically relative paths (e.g., "./.venv/").
 DEFAULT_EXCLUDED_DIRS: List[str] = [
     # Virtual environments and package managers
     "./.venv/", "./venv/", "./env/", "./virtualenv/",
@@ -138,41 +205,63 @@ DEFAULT_EXCLUDED_FILES: List[str] = [
     "packages/*/dist", "packages/*/build", ".output"
 ]
 
-# Initialize empty configuration
-configs = {}
+# Initialize empty configuration dictionary that will be populated.
+configs: Dict[str, Any] = {}
 
-# Load all configuration files
+# Load all individual configuration components.
 generator_config = load_generator_config()
 embedder_config = load_embedder_config()
 repo_config = load_repo_config()
 
-# Update configuration
+# Populate the main 'configs' dictionary.
+# Start with generator configurations (providers and default provider).
 if generator_config:
     configs["default_provider"] = generator_config.get("default_provider", "google")
     configs["providers"] = generator_config.get("providers", {})
 
-# Update embedder configuration
+# Add embedder-related configurations (embedder settings, retriever, text_splitter).
 if embedder_config:
     for key in ["embedder", "embedder_ollama", "retriever", "text_splitter"]:
         if key in embedder_config:
             configs[key] = embedder_config[key]
 
-# Update repository configuration
+# Add repository-specific configurations (file filters, etc.).
 if repo_config:
-    for key in ["file_filters", "repository"]:
+    for key in ["file_filters", "repository"]: # Add other relevant keys from repo.json if any
         if key in repo_config:
             configs[key] = repo_config[key]
 
-def get_model_config(provider="google", model=None):
+def get_model_config(provider: str = "google", model: Optional[str] = None) -> Dict[str, Any]:
     """
-    Get configuration for the specified provider and model
+    Retrieves the configuration for a specific LLM provider and model.
 
-    Parameters:
-        provider (str): Model provider ('google', 'openai', 'openrouter', 'ollama')
-        model (str): Model name, or None to use default model
+    This function accesses the globally loaded `configs` dictionary. It fetches
+    the configuration for the given `provider`, and then for the specified `model`
+    within that provider. If `model` is None, it attempts to use the default
+    model for that provider.
+
+    The returned configuration includes the `model_client` class and `model_kwargs`
+    (which contains the model name and any other parameters for the model).
+    It handles provider-specific parameter structures, particularly for Ollama.
+
+    Args:
+        provider (str, optional): The name of the model provider (e.g., "google",
+                                  "openai", "ollama"). Defaults to "google".
+        model (Optional[str], optional): The specific model name. If None, the
+                                         provider's default model is used.
+                                         Defaults to None.
 
     Returns:
-        dict: Configuration containing model_client, model and other parameters
+        Dict[str, Any]: A dictionary containing:
+            - "model_client": The client class for the provider.
+            - "model_kwargs": A dictionary of arguments for the model, including
+                              the model name and other parameters.
+
+    Raises:
+        ValueError: If the provider configuration is not loaded, the specified
+                    provider is not found, the model client is not specified for
+                    the provider, or no default model is specified when `model`
+                    is None.
     """
     # Get provider configuration
     if "providers" not in configs:
