@@ -164,7 +164,7 @@ class OpenAIClient(ModelClient):
         chat_completion_parser: Callable[[Completion], Any] = None,
         input_type: Literal["text", "messages"] = "text",
         base_url: Optional[str] = None,
-        env_base_url_name: str = "OPENAI_API_BASE",
+        env_base_url_name: str = "OPENAI_BASE_URL",
         env_api_key_name: str = "OPENAI_API_KEY",
     ):
         r"""It is recommended to set the OPENAI_API_KEY environment variable instead of passing it as an argument.
@@ -426,10 +426,10 @@ class OpenAIClient(ModelClient):
                 # Make a copy of api_kwargs to avoid modifying the original
                 streaming_kwargs = api_kwargs.copy()
                 streaming_kwargs["stream"] = True
-                
+
                 # Get streaming response
                 stream_response = self.sync_client.chat.completions.create(**streaming_kwargs)
-                
+
                 # Accumulate all content from the stream
                 accumulated_content = ""
                 id = ""
