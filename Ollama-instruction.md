@@ -118,7 +118,7 @@ When you select "Use Local Ollama", DeepWiki will:
 
 ## Advanced: Using Different Models
 
-If you want to try different models, you can modify the `api/config.py` file:
+If you want to try different models, you can modify the `api/config/generator.json` file:
 
 ```python
 "generator_ollama": {
