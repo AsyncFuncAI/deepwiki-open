@@ -188,7 +188,7 @@ OPENAI_API_KEY=your_openai_api_key        # Required for OpenAI models
 OPENROUTER_API_KEY=your_openrouter_api_key # Required for OpenRouter models
 
 # OpenAI API Base URL Configuration
-OPENAI_API_BASE=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
+OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
 
 # Configuration Directory
 DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # Optional, for custom config file location

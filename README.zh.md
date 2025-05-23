@@ -272,7 +272,7 @@ OPENAI_API_KEY=你的OpenAI密钥        # 使用 OpenAI 模型必需
 OPENROUTER_API_KEY=你的OpenRouter密钥 # 使用 OpenRouter 模型必需
 
 # OpenAI API 基础 URL 配置
-OPENAI_API_BASE=https://自定义API端点.com/v1  # 可选，用于自定义 OpenAI API 端点
+OPENAI_BASE_URL=https://自定义API端点.com/v1  # 可选，用于自定义 OpenAI API 端点
 ```
 
 ### 为服务提供者设计的自定义模型选择
@@ -306,7 +306,7 @@ OPENAI_API_KEY=your_openai_api_key        # OpenAI模型必需
 OPENROUTER_API_KEY=your_openrouter_api_key # OpenRouter模型必需
 
 # OpenAI API基础URL配置
-OPENAI_API_BASE=https://custom-api-endpoint.com/v1  # 可选，用于自定义OpenAI API端点
+OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # 可选，用于自定义OpenAI API端点
 
 # 配置目录
 DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # 可选，用于自定义配置文件位置

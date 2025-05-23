@@ -193,7 +193,7 @@ OPENAI_API_KEY=tu_clave_api_openai        # Requerida para modelos OpenAI
 OPENROUTER_API_KEY=tu_clave_api_openrouter # Requerida para modelos OpenRouter
 
 # Configuración de URL Base de OpenAI API
-OPENAI_API_BASE=https://punto-final-personalizado.com/v1  # Opcional, para endpoints personalizados de OpenAI API
+OPENAI_BASE_URL=https://punto-final-personalizado.com/v1  # Opcional, para endpoints personalizados de OpenAI API
 
 # Directorio de Configuración
 DEEPWIKI_CONFIG_DIR=/ruta/a/directorio/config/personalizado  # Opcional, para ubicación personalizada de archivos de configuración

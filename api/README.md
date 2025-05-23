@@ -32,7 +32,7 @@ OPENAI_API_KEY=your_openai_api_key        # Required for embeddings and OpenAI m
 OPENROUTER_API_KEY=your_openrouter_api_key  # Required only if using OpenRouter models
 
 # OpenAI API Configuration
-OPENAI_API_BASE=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
+OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
 
 # Server Configuration
 PORT=8001  # Optional, defaults to 8001
@@ -56,7 +56,7 @@ DeepWiki supports multiple LLM providers. The environment variables above are re
 - **Ollama**: No API key required (runs locally)
 
 ##### Custom OpenAI API Endpoints
-The `OPENAI_API_BASE` variable allows you to specify a custom endpoint for the OpenAI API. This is useful for:
+The `OPENAI_BASE_URL` variable allows you to specify a custom endpoint for the OpenAI API. This is useful for:
 
 - Enterprise users with private API channels
 - Organizations using self-hosted or custom-deployed LLM services
@@ -64,7 +64,7 @@ The `OPENAI_API_BASE` variable allows you to specify a custom endpoint for the O
 
 **Example:** you can use the endpoint which support the OpenAI protocol provided by any organization
 ```
-OPENAI_API_BASE=https://custom-openai-endpoint.com/v1
+OPENAI_BASE_URL=https://custom-openai-endpoint.com/v1
 ```
 
 ##### Configuration Files
@@ -83,7 +83,7 @@ DeepWiki now uses JSON configuration files to manage various system components i
    - Specifies text splitter settings for document chunking
 
 3. **`repo.json`**: Configuration for repository handling
-   - Located in `api/config/` by default 
+   - Located in `api/config/` by default
    - Contains file filters to exclude certain files and directories
    - Defines repository size limits and processing rules
 

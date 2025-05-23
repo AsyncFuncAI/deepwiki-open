@@ -315,7 +315,7 @@ OPENAI_API_KEY=あなたのOpenAI鍵            # OpenAIモデルに必要
 OPENROUTER_API_KEY=あなたのOpenRouter鍵    # OpenRouterモデルに必要
 
 # OpenAI APIベースURL設定
-OPENAI_API_BASE=https://カスタムAPIエンドポイント.com/v1  # オプション、カスタムOpenAI APIエンドポイント用
+OPENAI_BASE_URL=https://カスタムAPIエンドポイント.com/v1  # オプション、カスタムOpenAI APIエンドポイント用
 ```
 
 ### サービスプロバイダー向けのカスタムモデル選択
