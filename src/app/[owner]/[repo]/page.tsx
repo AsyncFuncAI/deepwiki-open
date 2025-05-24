@@ -1053,11 +1053,15 @@ IMPORTANT:
         }
       } else if (repoInfo.type === 'github') {
         // GitHub API approach
-        // Try to get the tree data for common branch names
+        // Try to get the tree data for the default branch
         let treeData = null;
         let apiErrorDetails = '';
 
-        for (const branch of ['main', 'master']) {
+        // Get default branch from repo info
+        const repoResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+        const defaultBranch = (await repoResponse.json()).default_branch || 'main';
+
+        for (const branch of [defaultBranch]) {
           const apiUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
           const headers = createGithubHeaders(token);
 
