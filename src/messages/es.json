@@ -79,7 +79,9 @@
     "changeModel": "Cambiar Modelo",
     "defaultNote": "Estos valores predeterminados ya están aplicados. Agregue sus exclusiones personalizadas arriba.",
     "hideDefault": "Ocultar Predeterminados",
-    "viewDefault": "Ver Predeterminados"
+    "viewDefault": "Ver Predeterminados",
+    "authorizationCode": "Código de Autorización",
+    "authorizationRequired": "Generar Wiki requiere código de autorización"
   },
   "footer": {
     "copyright": "DeepWiki - Documentación impulsada por IA para repositorios de código"

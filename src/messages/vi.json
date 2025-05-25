@@ -79,7 +79,9 @@
     "changeModel": "Thay đổi mô hình",
     "defaultNote": "Các giá trị mặc định này đã được áp dụng. Thêm các loại trừ tùy chỉnh của bạn ở trên.",
     "hideDefault": "Ẩn mặc định",
-    "viewDefault": "Xem mặc định"
+    "viewDefault": "Xem mặc định",
+    "authorizationCode": "Mã xác thực",
+    "authorizationRequired": "Mã xác thực cần thiết để tạo Wiki"
   },
   "footer": {
     "copyright": "DeepWiki - Tài liệu hỗ trợ bởi AI cho repository"

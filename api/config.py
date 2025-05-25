@@ -23,6 +23,11 @@ if GOOGLE_API_KEY:
 if OPENROUTER_API_KEY:
     os.environ["OPENROUTER_API_KEY"] = OPENROUTER_API_KEY
 
+# Wiki authentication settings
+raw_auth_mode = os.environ.get('DEEPWIKI_AUTH_MODE', 'False')
+WIKI_AUTH_MODE = raw_auth_mode.lower() in ['true', '1', 't']
+WIKI_AUTH_CODE = os.environ.get('DEEPWIKI_AUTH_CODE', '')
+
 # Get configuration directory from environment variable, or use default if not set
 CONFIG_DIR = os.environ.get('DEEPWIKI_CONFIG_DIR', None)
 
