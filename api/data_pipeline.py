@@ -139,7 +139,7 @@ def read_all_documents(path: str, local_ollama: bool = False, excluded_dirs: Lis
     """
     documents = []
     # File extensions to look for, prioritizing code files
-    code_extensions = [".py", ".js", ".ts", ".java", ".cpp", ".c", ".go", ".rs",
+    code_extensions = [".py", ".js", ".ts", ".java", ".cpp", ".c", ".h", ".hpp", ".go", ".rs",
                        ".jsx", ".tsx", ".html", ".css", ".php", ".swift", ".cs"]
     doc_extensions = [".md", ".txt", ".rst", ".json", ".yaml", ".yml"]
 
