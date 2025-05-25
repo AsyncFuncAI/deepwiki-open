@@ -243,10 +243,24 @@ The OpenAI Client's base_url configuration is designed primarily for enterprise 
 | `GOOGLE_API_KEY` | Google Gemini API key for AI generation | No | Required only if you want to use Google Gemini models
 | `OPENAI_API_KEY` | OpenAI API key for embeddings | Yes | Note: This is required even if you're not using OpenAI models, as it's used for embeddings. |
 | `OPENROUTER_API_KEY` | OpenRouter API key for alternative models | No | Required only if you want to use OpenRouter models |
+| `DEEPWIKI_AUTH_MODE` | Set to `true` or `1` to enable authorization mode. | No | Defaults to `false`. If enabled, `DEEPWIKI_AUTH_CODE` is required. |
+| `DEEPWIKI_AUTH_CODE` | The secret code required for wiki generation when `DEEPWIKI_AUTH_MODE` is enabled. | No | Only used if `DEEPWIKI_AUTH_MODE` is `true` or `1`. |
 | `PORT` | Port for the API server (default: 8001) | No | If you host API and frontend on the same machine, make sure change port of `SERVER_BASE_URL` accordingly |
 | `SERVER_BASE_URL` | Base URL for the API server (default: http://localhost:8001) | No |
 
 If you're not using ollama mode, you need to configure an OpenAI API key for embeddings. Other API keys are only required when configuring and using models from the corresponding providers.
+
+## Authorization Mode
+
+DeepWiki can be configured to run in an authorization mode, where wiki generation requires a valid authorization code. This is useful if you want to control who can use the generation feature.
+Restricts frontend initiation and protects cache deletion, but doesn't fully prevent backend generation if API endpoints are hit directly.
+
+To enable authorization mode, set the following environment variables:
+
+- `DEEPWIKI_AUTH_MODE`: Set this to `true` or `1`. When enabled, the frontend will display an input field for the authorization code.
+- `DEEPWIKI_AUTH_CODE`: Set this to the desired secret code. Restricts frontend initiation and protects cache deletion, but doesn't fully prevent backend generation if API endpoints are hit directly.
+
+If `DEEPWIKI_AUTH_MODE` is not set or is set to `false` (or any other value than `true`/`1`), the authorization feature will be disabled, and no code will be required.
 
 ### Docker Setup
 

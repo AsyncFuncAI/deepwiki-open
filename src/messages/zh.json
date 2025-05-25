@@ -79,7 +79,9 @@
     "changeModel": "修改模型",
     "defaultNote": "这些默认配置已经被应用。请在上方添加您的自定义排除项。",
     "hideDefault": "隐藏默认配置",
-    "viewDefault": "查看默认配置"
+    "viewDefault": "查看默认配置",
+    "authorizationCode": "授权码",
+    "authorizationRequired": "生成wiki页面需要填写授权码"
   },
   "footer": {
     "copyright": "DeepWiki - 为代码仓库提供AI驱动的文档"

@@ -243,6 +243,11 @@ export default function RepoWikiPage() {
   const [isAskModalOpen, setIsAskModalOpen] = useState(false);
   const askComponentRef = useRef<{ clearConversation: () => void } | null>(null);
 
+  // Authentication state
+  const [authRequired, setAuthRequired] = useState<boolean>(false);
+  const [authCode, setAuthCode] = useState<string>('');
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+
   // Memoize repo info to avoid triggering updates in callbacks
 
   // Add useEffect to handle scroll reset
@@ -253,6 +258,29 @@ export default function RepoWikiPage() {
       wikiContent.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [currentPageId]);
+
+  // Fetch authentication status on component mount
+  useEffect(() => {
+    const fetchAuthStatus = async () => {
+      try {
+        setIsAuthLoading(true);
+        const response = await fetch('/api/auth/status');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setAuthRequired(data.auth_required);
+      } catch (err) {
+        console.error("Failed to fetch auth status:", err);
+        // Assuming auth is required if fetch fails to avoid blocking UI for safety
+        setAuthRequired(true);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+
+    fetchAuthStatus();
+  }, []);
 
   // Generate content for a wiki page
   const generatePageContent = useCallback(async (page: WikiPage, owner: string, repo: string) => {
@@ -1376,6 +1404,7 @@ IMPORTANT:
         is_custom_model: isCustomSelectedModelState.toString(),
         custom_model: customSelectedModelState,
         comprehensive: isComprehensiveView.toString(),
+        authorization_code: authCode,
       });
 
       // Add file filters configuration
@@ -1385,8 +1414,17 @@ IMPORTANT:
       if (modelExcludedFiles) {
         params.append('excluded_files', modelExcludedFiles);
       }
+
+      if(authRequired && !authCode) {
+        console.warn("Authorization code is required");
+        return;
+      }
+
       const response = await fetch(`/api/wiki_cache?${params.toString()}`, {
         method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+        }
       });
 
       if (response.ok) {
@@ -1398,11 +1436,17 @@ IMPORTANT:
         console.warn(`Failed to clear server-side wiki cache (status: ${response.status}): ${errorText}. Proceeding with refresh anyway.`);
         // Optionally, inform the user about the cache clear failure but that refresh will still attempt
         // setError(\`Cache clear failed: ${errorText}. Trying to refresh...\`);
+        if(response.status == 401) {
+          setIsLoading(false);
+          throw new Error('Failed to validate the authorization code');
+        }
       }
     } catch (err) {
       console.warn('Error calling DELETE /api/wiki_cache:', err);
+      setIsLoading(false);
       // Optionally, inform the user about the cache clear error
       // setError(\`Error clearing cache: ${err instanceof Error ? err.message : String(err)}. Trying to refresh...\`);
+      throw err;
     }
 
     // Proceed with the rest of the refresh logic
@@ -1999,6 +2043,10 @@ IMPORTANT:
         excludedFiles={modelExcludedFiles}
         setExcludedFiles={setModelExcludedFiles}
         onApply={confirmRefresh}
+        authRequired={authRequired}
+        authCode={authCode}
+        setAuthCode={setAuthCode}
+        isAuthLoading={isAuthLoading}
       />
     </div>
   );

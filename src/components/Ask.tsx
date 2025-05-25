@@ -824,6 +824,8 @@ const Ask: React.FC<AskProps> = ({
         onApply={() => {
           console.log('Model selection applied:', selectedProvider, selectedModel);
         }}
+        authRequired={false}
+        isAuthLoading={false}
       />
     </div>
   );
