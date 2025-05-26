@@ -41,8 +41,8 @@ echo "GOOGLE_API_KEY=your_google_api_key" > .env
 echo "OPENAI_API_KEY=your_openai_api_key" >> .env
 # Optional: Add OpenRouter API key if you want to use OpenRouter models
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
-# Optional: Add Ollama host if not local
-echo "OLLAMA_HOST=https://your_ollama_host" >> .env
+# Optional: Add Ollama host if not local. defaults to http://localhost:11434
+echo "OLLAMA_HOST=your_ollama_host" >> .env
 
 # Run with Docker Compose
 docker-compose up
@@ -65,8 +65,8 @@ GOOGLE_API_KEY=your_google_api_key
 OPENAI_API_KEY=your_openai_api_key
 # Optional: Add this if you want to use OpenRouter models
 OPENROUTER_API_KEY=your_openrouter_api_key
-# Optional: Add Ollama host if not local
-OLLAMA_HOST=https://your_ollama_host
+# Optional: Add Ollama host if not local. default: http://localhost:11434
+OLLAMA_HOST=your_ollama_host
 ```
 
 #### Step 2: Start the Backend
@@ -195,7 +195,7 @@ OPENROUTER_API_KEY=your_openrouter_api_key # Required for OpenRouter models
 OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
 
 # Ollama host
-OLLAMA_HOST=https://your_ollama_host # Optional, if Ollama is not local
+OLLAMA_HOST=your_ollama_host # Optional, if Ollama is not local. default: http://localhost:11434
 
 # Configuration Directory
 DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # Optional, for custom config file location
@@ -299,7 +299,7 @@ You can also mount a .env file to the container:
 echo "GOOGLE_API_KEY=your_google_api_key" > .env
 echo "OPENAI_API_KEY=your_openai_api_key" >> .env
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
-echo "OLLAMA_HOST=https://your_ollama_host" >> .env
+echo "OLLAMA_HOST=your_ollama_host" >> .env
 
 # Run the container with the .env file mounted
 docker run -p 8001:8001 -p 3000:3000 \
