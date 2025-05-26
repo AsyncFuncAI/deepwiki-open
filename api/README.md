@@ -34,6 +34,9 @@ OPENROUTER_API_KEY=your_openrouter_api_key  # Required only if using OpenRouter 
 # OpenAI API Configuration
 OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
 
+# Ollama host
+OLLAMA_HOST=https://your_ollama_host"  # Optional: Add Ollama host if not local. default: http://localhost:11434
+
 # Server Configuration
 PORT=8001  # Optional, defaults to 8001
 ```
