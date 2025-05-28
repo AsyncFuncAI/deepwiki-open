@@ -123,6 +123,10 @@ class ModelConfig(BaseModel):
 
 from api.config import configs
 
+@app.get("/lang/config")
+async def get_lang_config():
+    return configs["lang_config"]
+
 @app.get("/models/config", response_model=ModelConfig)
 async def get_model_config():
     """
@@ -424,6 +428,11 @@ async def get_cached_wiki(
     """
     Retrieves cached wiki data (structure and generated pages) for a repository.
     """
+    # Language validation
+    supported_langs = configs["lang_config"]["supported_languages"]
+    if not supported_langs.__contains__(language):
+        language = configs["lang_config"]["default"]
+
     logger.info(f"Attempting to retrieve wiki cache for {owner}/{repo} ({repo_type}), lang: {language}")
     cached_data = await read_wiki_cache(owner, repo, repo_type, language)
     if cached_data:
@@ -439,6 +448,12 @@ async def store_wiki_cache(request_data: WikiCacheRequest):
     """
     Stores generated wiki data (structure and pages) to the server-side cache.
     """
+    # Language validation
+    supported_langs = configs["lang_config"]["supported_languages"]
+
+    if not supported_langs.__contains__(request_data.language):
+        request_data.language = configs["lang_config"]["default"]
+
     logger.info(f"Attempting to save wiki cache for {request_data.owner}/{request_data.repo} ({request_data.repo_type}), lang: {request_data.language}")
     success = await save_wiki_cache(request_data)
     if success:
@@ -456,6 +471,11 @@ async def delete_wiki_cache(
     """
     Deletes a specific wiki cache from the file system.
     """
+    # Language validation
+    supported_langs = configs["lang_config"]["supported_languages"]
+    if not supported_langs.__contains__(language):
+        raise HTTPException(status_code=400, detail="Language is not supported")
+
     logger.info(f"Attempting to delete wiki cache for {owner}/{repo} ({repo_type}), lang: {language}")
     cache_path = get_wiki_cache_path(owner, repo, repo_type, language)
 

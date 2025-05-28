@@ -13,6 +13,7 @@ interface ConfigurationModalProps {
   // Language selection
   selectedLanguage: string;
   setSelectedLanguage: (value: string) => void;
+  supportedLanguages: Record<string, string>;
 
   // Wiki type options
   isComprehensiveView: boolean;
@@ -57,6 +58,7 @@ export default function ConfigurationModal({
   repositoryInput,
   selectedLanguage,
   setSelectedLanguage,
+  supportedLanguages,
   isComprehensiveView,
   setIsComprehensiveView,
   provider,
@@ -132,12 +134,9 @@ export default function ConfigurationModal({
                 onChange={(e) => setSelectedLanguage(e.target.value)}
                 className="input-japanese block w-full px-3 py-2 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
               >
-                <option value="en">English</option>
-                <option value="ja">Japanese (日本語)</option>
-                <option value="zh">Mandarin (中文)</option>
-                <option value="es">Spanish (Español)</option>
-                <option value="kr">Korean (한국어)</option>
-                <option value="vi">Vietnamese (Tiếng Việt)</option>
+                {
+                  Object.entries(supportedLanguages).map(([key, value])=> <option key={key} value={key}>{value}</option>)
+                }
               </select>
             </div>
 

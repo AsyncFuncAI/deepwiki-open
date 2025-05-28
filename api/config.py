@@ -97,6 +97,40 @@ def load_embedder_config():
 def load_repo_config():
     return load_json_config("repo.json")
 
+# Load language configuration
+def load_lang_config():
+    default_config = {
+        "supported_languages": {
+            "en": "English",
+            "ja": "Japanese (日本語)",
+            "zh": "Mandarin Chinese (中文)",
+            "es": "Spanish (Español)",
+            "kr": "Korean (한국어)",
+            "vi": "Vietnamese (Tiếng Việt)"
+        },
+        "default": "en"
+    }
+    try:
+        # If environment variable is set, use the directory specified by it
+        if CONFIG_DIR:
+            config_path = Path(CONFIG_DIR) / "lang.json"
+        else:
+            # Otherwise use default directory
+            config_path = Path(__file__).parent / "config" / "lang.json"
+
+        logger.info(f"Loading language configuration from {config_path}")
+
+        if not config_path.exists():
+            logger.warning(f"Language configuration file {config_path} does not exist")
+            return default_config
+        return load_json_config(config_path)
+    except json.JSONDecodeError as e:
+        logger.error(f"Error decoding JSON from language configuration file {config_path}: {str(e)}")
+        return default_config
+    except Exception as e:
+        logger.error(f"Error loading language configuration file {config_path}: {str(e)}")
+        return default_config
+
 # Default excluded directories and files
 DEFAULT_EXCLUDED_DIRS: List[str] = [
     # Virtual environments and package managers
@@ -145,6 +179,7 @@ configs = {}
 generator_config = load_generator_config()
 embedder_config = load_embedder_config()
 repo_config = load_repo_config()
+lang_config = load_lang_config()
 
 # Update configuration
 if generator_config:
@@ -162,6 +197,11 @@ if repo_config:
     for key in ["file_filters", "repository"]:
         if key in repo_config:
             configs[key] = repo_config[key]
+
+# Update language configuration
+if lang_config:
+    configs["lang_config"] = lang_config
+
 
 def get_model_config(provider="google", model=None):
     """
