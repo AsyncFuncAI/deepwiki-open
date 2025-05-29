@@ -11,6 +11,7 @@ import re
 import glob
 from adalflow.utils import get_adalflow_default_root_path
 from adalflow.core.db import LocalDB
+from typing import Optional # Added import
 from api.config import configs, DEFAULT_EXCLUDED_DIRS, DEFAULT_EXCLUDED_FILES
 from api.ollama_patch import OllamaDocumentProcessor
 from urllib.parse import urlparse, urlunparse, quote
@@ -20,6 +21,12 @@ logger = logging.getLogger(__name__)
 
 # Maximum token limit for OpenAI embedding models
 MAX_EMBEDDING_TOKENS = 8192
+
+def _get_effective_chunk_setting(param_value: Optional[bool]) -> bool:
+    """Resolves the effective chunk_for_fine_tuning setting."""
+    if param_value is None:
+        return configs.get('fine_tuning_data_prep_default', False)
+    return param_value
 
 def count_tokens(text: str, local_ollama: bool = False) -> int:
     """
@@ -118,7 +125,7 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
 download_github_repo = download_repo
 
 def read_all_documents(path: str, local_ollama: bool = False, excluded_dirs: List[str] = None, excluded_files: List[str] = None,
-                      included_dirs: List[str] = None, included_files: List[str] = None):
+                      included_dirs: List[str] = None, included_files: List[str] = None, chunk_for_fine_tuning: Optional[bool] = None):
     """
     Recursively reads all documents in a directory and its subdirectories.
 
@@ -133,10 +140,13 @@ def read_all_documents(path: str, local_ollama: bool = False, excluded_dirs: Lis
             When provided, only files in these directories will be processed.
         included_files (List[str], optional): List of file patterns to include exclusively.
             When provided, only files matching these patterns will be processed.
+        chunk_for_fine_tuning (bool, optional): Whether to prepare data for fine-tuning.
+            Defaults to the value of 'enable_fine_tuning_data_prep_default' in embedder.json (False if not set).
 
     Returns:
         list: A list of Document objects with metadata.
     """
+    chunk_for_fine_tuning = _get_effective_chunk_setting(chunk_for_fine_tuning)
     documents = []
     # File extensions to look for, prioritizing code files
     code_extensions = [".py", ".js", ".ts", ".java", ".cpp", ".c", ".h", ".hpp", ".go", ".rs",
@@ -283,12 +293,14 @@ def read_all_documents(path: str, local_ollama: bool = False, excluded_dirs: Lis
 
                     # Check token count
                     token_count = count_tokens(content, local_ollama)
-                    if token_count > MAX_EMBEDDING_TOKENS * 10:
-                        logger.warning(f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit")
+                    # Adjust token limit if chunk_for_fine_tuning is True
+                    current_token_limit = float('inf') if chunk_for_fine_tuning else MAX_EMBEDDING_TOKENS * 10
+                    if token_count > current_token_limit:
+                        logger.warning(f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit ({current_token_limit})")
                         continue
 
                     doc = Document(
-                        text=content,
+                        text=content,  # Full content is used
                         meta_data={
                             "file_path": relative_path,
                             "type": ext[1:],
@@ -317,12 +329,14 @@ def read_all_documents(path: str, local_ollama: bool = False, excluded_dirs: Lis
 
                     # Check token count
                     token_count = count_tokens(content, local_ollama)
-                    if token_count > MAX_EMBEDDING_TOKENS:
-                        logger.warning(f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit")
+                    # Adjust token limit if chunk_for_fine_tuning is True
+                    current_token_limit = float('inf') if chunk_for_fine_tuning else MAX_EMBEDDING_TOKENS
+                    if token_count > current_token_limit:
+                        logger.warning(f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit ({current_token_limit})")
                         continue
 
                     doc = Document(
-                        text=content,
+                        text=content,  # Full content is used
                         meta_data={
                             "file_path": relative_path,
                             "type": ext[1:],
@@ -339,16 +353,23 @@ def read_all_documents(path: str, local_ollama: bool = False, excluded_dirs: Lis
     logger.info(f"Found {len(documents)} documents")
     return documents
 
-def prepare_data_pipeline(local_ollama: bool = False):
+def prepare_data_pipeline(local_ollama: bool = False, chunk_for_fine_tuning: Optional[bool] = None):
     """
     Creates and returns the data transformation pipeline.
 
     Args:
         local_ollama (bool): Whether to use local Ollama for embedding (default: False)
+        chunk_for_fine_tuning (bool, optional): Whether to prepare for fine-tuning.
+            Defaults to the value of 'enable_fine_tuning_data_prep_default' in embedder.json (False if not set).
+            If True, an empty pipeline is returned.
 
     Returns:
-        adal.Sequential: The data transformation pipeline
+        adal.Sequential: The data transformation pipeline, or an empty one if chunk_for_fine_tuning is True.
     """
+    chunk_for_fine_tuning = _get_effective_chunk_setting(chunk_for_fine_tuning)
+    if chunk_for_fine_tuning:
+        return adal.Sequential()  # Return an empty pipeline
+
     splitter = TextSplitter(**configs["text_splitter"])
 
     if local_ollama:
@@ -374,7 +395,7 @@ def prepare_data_pipeline(local_ollama: bool = False):
     return data_transformer
 
 def transform_documents_and_save_to_db(
-    documents: List[Document], db_path: str, local_ollama: bool = False
+    documents: List[Document], db_path: str, local_ollama: bool = False, chunk_for_fine_tuning: Optional[bool] = None
 ) -> LocalDB:
     """
     Transforms a list of documents and saves them to a local database.
@@ -383,15 +404,23 @@ def transform_documents_and_save_to_db(
         documents (list): A list of `Document` objects.
         db_path (str): The path to the local database file.
         local_ollama (bool): Whether to use local Ollama for embedding (default: False)
+        chunk_for_fine_tuning (bool, optional): Whether to save raw documents for fine-tuning.
+            Defaults to the value of 'enable_fine_tuning_data_prep_default' in embedder.json (False if not set).
+            If True, transformation is skipped.
     """
+    chunk_for_fine_tuning = _get_effective_chunk_setting(chunk_for_fine_tuning)
     # Get the data transformer
-    data_transformer = prepare_data_pipeline(local_ollama)
+    data_transformer = prepare_data_pipeline(local_ollama, chunk_for_fine_tuning)
 
     # Save the documents to a local database
     db = LocalDB()
-    db.register_transformer(transformer=data_transformer, key="split_and_embed")
-    db.load(documents)
-    db.transform(key="split_and_embed")
+    db.load(documents)  # Load documents first
+
+    if not chunk_for_fine_tuning:
+        # Register transformer and transform only if not for fine-tuning
+        db.register_transformer(transformer=data_transformer, key="split_and_embed")
+        db.transform(key="split_and_embed")
+
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     db.save_state(filepath=db_path)
     return db
@@ -644,7 +673,7 @@ class DatabaseManager:
 
     def prepare_database(self, repo_url_or_path: str, type: str = "github", access_token: str = None, local_ollama: bool = False,
                        excluded_dirs: List[str] = None, excluded_files: List[str] = None,
-                       included_dirs: List[str] = None, included_files: List[str] = None) -> List[Document]:
+                       included_dirs: List[str] = None, included_files: List[str] = None, chunk_for_fine_tuning: Optional[bool] = None) -> List[Document]:
         """
         Create a new database from the repository.
 
@@ -656,14 +685,17 @@ class DatabaseManager:
             excluded_files (List[str], optional): List of file patterns to exclude from processing
             included_dirs (List[str], optional): List of directories to include exclusively
             included_files (List[str], optional): List of file patterns to include exclusively
+            chunk_for_fine_tuning (bool, optional): Whether to prepare data for fine-tuning.
+                Defaults to the value of 'enable_fine_tuning_data_prep_default' in embedder.json (False if not set).
 
         Returns:
             List[Document]: List of Document objects
         """
+        chunk_for_fine_tuning = _get_effective_chunk_setting(chunk_for_fine_tuning)
         self.reset_database()
         self._create_repo(repo_url_or_path, type, access_token)
         return self.prepare_db_index(local_ollama=local_ollama, excluded_dirs=excluded_dirs, excluded_files=excluded_files,
-                                   included_dirs=included_dirs, included_files=included_files)
+                                   included_dirs=included_dirs, included_files=included_files, chunk_for_fine_tuning=chunk_for_fine_tuning)
 
     def reset_database(self):
         """
@@ -735,7 +767,7 @@ class DatabaseManager:
             raise
 
     def prepare_db_index(self, local_ollama: bool = False, excluded_dirs: List[str] = None, excluded_files: List[str] = None,
-                        included_dirs: List[str] = None, included_files: List[str] = None) -> List[Document]:
+                        included_dirs: List[str] = None, included_files: List[str] = None, chunk_for_fine_tuning: Optional[bool] = None) -> List[Document]:
         """
         Prepare the indexed database for the repository.
 
@@ -745,10 +777,13 @@ class DatabaseManager:
             excluded_files (List[str], optional): List of file patterns to exclude from processing
             included_dirs (List[str], optional): List of directories to include exclusively
             included_files (List[str], optional): List of file patterns to include exclusively
+            chunk_for_fine_tuning (bool, optional): Whether to prepare data for fine-tuning.
+                Defaults to the value of 'enable_fine_tuning_data_prep_default' in embedder.json (False if not set).
 
         Returns:
             List[Document]: List of Document objects
         """
+        chunk_for_fine_tuning = _get_effective_chunk_setting(chunk_for_fine_tuning)
         # check the database
         if self.repo_paths and os.path.exists(self.repo_paths["save_db_file"]):
             logger.info("Loading existing database...")
@@ -770,14 +805,21 @@ class DatabaseManager:
             excluded_dirs=excluded_dirs,
             excluded_files=excluded_files,
             included_dirs=included_dirs,
-            included_files=included_files
+            included_files=included_files,
+            chunk_for_fine_tuning=chunk_for_fine_tuning
         )
         self.db = transform_documents_and_save_to_db(
-            documents, self.repo_paths["save_db_file"], local_ollama=local_ollama
+            documents, self.repo_paths["save_db_file"], local_ollama=local_ollama, chunk_for_fine_tuning=chunk_for_fine_tuning
         )
         logger.info(f"Total documents: {len(documents)}")
-        transformed_docs = self.db.get_transformed_data(key="split_and_embed")
-        logger.info(f"Total transformed documents: {len(transformed_docs)}")
+        # If chunk_for_fine_tuning is True, transformed_docs will be the same as documents
+        # as transformation is skipped. Otherwise, get the transformed data.
+        if not chunk_for_fine_tuning:
+            transformed_docs = self.db.get_transformed_data(key="split_and_embed")
+            logger.info(f"Total transformed documents: {len(transformed_docs)}")
+        else:
+            transformed_docs = documents # These are the raw documents from read_all_documents
+            logger.info(f"Total raw documents prepared for fine-tuning: {len(transformed_docs)}")
         return transformed_docs
 
     def prepare_retriever(self, repo_url_or_path: str, type: str = "github", access_token: str = None):

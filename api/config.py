@@ -105,6 +105,9 @@ def load_embedder_config():
             class_name = embedder_config[key]["client_class"]
             if class_name in CLIENT_CLASSES:
                 embedder_config[key]["model_client"] = CLIENT_CLASSES[class_name]
+    
+    # The fine-tuning data prep default setting is now exclusively handled
+    # in the main config merging section for robustness.
 
     return embedder_config
 
@@ -171,6 +174,8 @@ if embedder_config:
     for key in ["embedder", "embedder_ollama", "retriever", "text_splitter"]:
         if key in embedder_config:
             configs[key] = embedder_config[key]
+    # Ensure fine_tuning_data_prep_default is explicitly set from embedder_config
+    configs['fine_tuning_data_prep_default'] = embedder_config.get('enable_fine_tuning_data_prep_default', False)
 
 # Update repository configuration
 if repo_config:
