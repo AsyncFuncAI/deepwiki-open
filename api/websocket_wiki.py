@@ -9,7 +9,7 @@ from adalflow.core.types import ModelType
 from fastapi import WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import BaseModel, Field
 
-from api.config import get_model_config
+from api.config import get_model_config, configs
 from api.data_pipeline import count_tokens, get_file_content
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
@@ -246,15 +246,9 @@ async def handle_websocket_chat(websocket: WebSocket):
         repo_type = request.type
 
         # Get language information
-        language_code = request.language or "en"
-        language_name = {
-            "en": "English",
-            "ja": "Japanese (日本語)",
-            "zh": "Mandarin Chinese (中文)",
-            "es": "Spanish (Español)",
-            "kr": "Korean (한국어)",
-            "vi": "Vietnamese (Tiếng Việt)"
-        }.get(language_code, "English")
+        language_code = request.language or configs["lang_config"]["default"]
+        supported_langs = configs["lang_config"]["supported_languages"]
+        language_name = supported_langs.get(language_code, "English")
 
         # Create system prompt
         if is_deep_research:

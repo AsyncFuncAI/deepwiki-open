@@ -9,6 +9,7 @@ type LanguageContextType = {
   language: string;
   setLanguage: (lang: string) => void;
   messages: Messages;
+  supportedLanguages: Record<string, string>;
 };
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -18,6 +19,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<string>('en');
   const [messages, setMessages] = useState<Messages>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [supportedLanguages, setSupportedLanguages] = useState({})
+  const [defaultLanguage, setDefaultLanguage] = useState('en')
 
   // Helper function to detect browser language
   const detectBrowserLanguage = (): string => {
@@ -63,59 +66,90 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Load language preference from localStorage on mount
   useEffect(() => {
-    const loadLanguage = async () => {
+    const getSupportedLanguages = async () => {
       try {
-        // Only access localStorage in the browser
-        let storedLanguage;
-        if (typeof window !== 'undefined') {
-          storedLanguage = localStorage.getItem('language');
-
-          // If no language is stored, detect browser language
-          if (!storedLanguage) {
-            console.log('No language in localStorage, detecting browser language');
-            storedLanguage = detectBrowserLanguage();
-
-            // Store the detected language
-            localStorage.setItem('language', storedLanguage);
-          }
-        } else {
-          console.log('Running on server-side, using default language');
-          storedLanguage = 'en';
+        const response = await fetch('/api/lang/config');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-
-        const validLanguage = locales.includes(storedLanguage as any) ? storedLanguage : 'en';
-
-        // Load messages for the language
-        const langMessages = (await import(`../messages/${validLanguage}.json`)).default;
-
-        setLanguageState(validLanguage);
-        setMessages(langMessages);
-
-        // Update HTML lang attribute (only in browser)
-        if (typeof document !== 'undefined') {
-          document.documentElement.lang = validLanguage;
-        }
-      } catch (error) {
-        console.error('Failed to load language:', error);
-        // Fallback to English
-        console.log('Falling back to English due to error');
-        const enMessages = (await import('../messages/en.json')).default;
-        setMessages(enMessages);
-      } finally {
-        setIsLoading(false);
+        const data = await response.json();
+        setSupportedLanguages(data.supported_languages);
+        setDefaultLanguage(data.default);
+      } catch (err) {
+        console.error("Failed to fetch auth status:", err);
+        // Assuming auth is required if fetch fails to avoid blocking UI for safety
+        const defaultSupportedLanguages = {
+          "en": "English",
+          "ja": "Japanese (日本語)",
+          "zh": "Mandarin Chinese (中文)",
+          "es": "Spanish (Español)",
+          "kr": "Korean (한국어)",
+          "vi": "Vietnamese (Tiếng Việt)"
+        };
+        setSupportedLanguages(defaultSupportedLanguages);
+        setDefaultLanguage("en");
       }
-    };
-
-    loadLanguage();
+    }
+    getSupportedLanguages();
   }, []);
+
+  useEffect(() => {
+    if (Object.keys(supportedLanguages).length > 0) {
+      const loadLanguage = async () => {
+        try {
+          // Only access localStorage in the browser
+          let storedLanguage;
+          if (typeof window !== 'undefined') {
+            storedLanguage = localStorage.getItem('language');
+    
+            // If no language is stored, detect browser language
+            if (!storedLanguage) {
+              console.log('No language in localStorage, detecting browser language');
+              storedLanguage = detectBrowserLanguage();
+    
+              // Store the detected language
+              localStorage.setItem('language', storedLanguage);
+            }
+          } else {
+            console.log('Running on server-side, using default language');
+            storedLanguage = 'en';
+          }
+    
+          console.log('Supported languages loaded, validating language:', storedLanguage);
+          const validLanguage = Object.keys(supportedLanguages).includes(storedLanguage as any) ? storedLanguage : defaultLanguage;
+          console.log('Valid language determined:', validLanguage);
+    
+          // Load messages for the language
+          const langMessages = (await import(`../messages/${validLanguage}.json`)).default;
+    
+          setLanguageState(validLanguage);
+          setMessages(langMessages);
+    
+          // Update HTML lang attribute (only in browser)
+          if (typeof document !== 'undefined') {
+            document.documentElement.lang = validLanguage;
+          }
+        } catch (error) {
+          console.error('Failed to load language:', error);
+          // Fallback to English
+          console.log('Falling back to English due to error');
+          const enMessages = (await import('../messages/en.json')).default;
+          setMessages(enMessages);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
+      loadLanguage();
+    }
+  }, [supportedLanguages, defaultLanguage]);
 
   // Update language and load new messages
   const setLanguage = async (lang: string) => {
     try {
       console.log('Setting language to:', lang);
-      const validLanguage = locales.includes(lang as any) ? lang : 'en';
+      const validLanguage = Object.keys(supportedLanguages).includes(lang as any) ? lang : defaultLanguage;
 
       // Load messages for the new language
       const langMessages = (await import(`../messages/${validLanguage}.json`)).default;
@@ -149,7 +183,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, messages }}>
+    <LanguageContext.Provider value={{ language, setLanguage, messages, supportedLanguages }}>
       {children}
     </LanguageContext.Provider>
   );

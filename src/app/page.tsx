@@ -42,7 +42,7 @@ const DEMO_SEQUENCE_CHART = `sequenceDiagram
 
 export default function Home() {
   const router = useRouter();
-  const { language, setLanguage, messages } = useLanguage();
+  const { language, setLanguage, messages, supportedLanguages } = useLanguage();
 
   // Create a simple translation function
   const t = (key: string, params: Record<string, string | number> = {}): string => {
@@ -302,6 +302,7 @@ export default function Home() {
             repositoryInput={repositoryInput}
             selectedLanguage={selectedLanguage}
             setSelectedLanguage={setSelectedLanguage}
+            supportedLanguages={supportedLanguages}
             isComprehensiveView={isComprehensiveView}
             setIsComprehensiveView={setIsComprehensiveView}
             provider={provider}
