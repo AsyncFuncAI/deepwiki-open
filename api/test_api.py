@@ -1,8 +1,14 @@
 import requests
 import json
 import sys
+import pytest
 
-def test_streaming_endpoint(repo_url, query, file_path=None):
+@pytest.fixture
+def repo_url():
+    """A pytest fixture for the repository URL."""
+    return "https://example.com/dummy_repo.git"
+
+def test_streaming_endpoint(repo_url, query="What is a stream?", file_path=None):
     """
     Test the streaming endpoint with a given repository URL and query.
     
@@ -56,15 +62,3 @@ def test_streaming_endpoint(repo_url, query, file_path=None):
     
     except Exception as e:
         print(f"Error: {str(e)}")
-
-if __name__ == "__main__":
-    # Get command line arguments
-    if len(sys.argv) < 3:
-        print("Usage: python test_api.py <repo_url> <query> [file_path]")
-        sys.exit(1)
-    
-    repo_url = sys.argv[1]
-    query = sys.argv[2]
-    file_path = sys.argv[3] if len(sys.argv) > 3 else None
-    
-    test_streaming_endpoint(repo_url, query, file_path)

@@ -1,4 +1,6 @@
 {
+  "_comment_enable_fine_tuning_data_prep_default": "Sets the default behavior for data preparation. If true, data pipeline functions will default to preparing data for fine-tuning (e.g., not chunking, not embedding). If false (default), they will prepare data for RAG (chunking and embedding). This can be overridden by explicit parameters in function calls.",
+  "enable_fine_tuning_data_prep_default": false,
   "embedder": {
     "client_class": "OpenAIClient",
     "batch_size": 500,

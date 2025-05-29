@@ -398,7 +398,7 @@ IMPORTANT FORMATTING RULES:
         """
         self.initialize_db_manager()
         self.repo_url_or_path = repo_url_or_path
-        self.transformed_docs = self.db_manager.prepare_database(
+        self.transformed_docs, _ = self.db_manager.prepare_database( # Unpack the tuple, ignoring the status message
             repo_url_or_path,
             type,
             access_token,
