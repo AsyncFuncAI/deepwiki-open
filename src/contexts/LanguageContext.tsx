@@ -50,9 +50,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         // Check for traditional Chinese variants
         if (browserLang.includes('TW') || browserLang.includes('HK')) {
           console.log('Traditional Chinese variant detected');
-          return 'zh'; // Use Mandarin for traditional Chinese
+          return 'zh-tw'; // Use Traditional Chinese for Taiwan/Hong Kong
         }
-        return 'zh'; // Use Mandarin for simplified Chinese
+        return 'zh'; // Use Simplified Chinese for mainland China
       }
 
       console.log('Language not supported, defaulting to English');

@@ -50,7 +50,7 @@ class ChatCompletionRequest(BaseModel):
     provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama)")
     model: Optional[str] = Field(None, description="Model name for the specified provider")
 
-    language: Optional[str] = Field("en", description="Language for content generation (e.g., 'en', 'ja', 'zh', 'es', 'kr', 'vi')")
+    language: Optional[str] = Field("en", description="Language for content generation (e.g., 'en', 'ja', 'zh', 'zh-tw', 'es', 'kr', 'vi')")
     excluded_dirs: Optional[str] = Field(None, description="Comma-separated list of directories to exclude from processing")
     excluded_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to exclude from processing")
     included_dirs: Optional[str] = Field(None, description="Comma-separated list of directories to include exclusively")
@@ -251,6 +251,7 @@ async def handle_websocket_chat(websocket: WebSocket):
             "en": "English",
             "ja": "Japanese (日本語)",
             "zh": "Mandarin Chinese (中文)",
+            "zh-tw": "Traditional Chinese (繁體中文)",
             "es": "Spanish (Español)",
             "kr": "Korean (한국어)",
             "vi": "Vietnamese (Tiếng Việt)"
