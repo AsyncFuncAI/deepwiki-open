@@ -15,6 +15,8 @@ from api.config import configs, DEFAULT_EXCLUDED_DIRS, DEFAULT_EXCLUDED_FILES
 from api.ollama_patch import OllamaDocumentProcessor
 from urllib.parse import urlparse, urlunparse, quote
 
+from api.tools.embedder import get_embedder
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -366,14 +368,7 @@ def prepare_data_pipeline(is_ollama_embedder: bool = None):
     splitter = TextSplitter(**configs["text_splitter"])
     embedder_config = get_embedder_config()
 
-    if not embedder_config:
-        raise ValueError("No embedder configuration found")
-
-    # Create embedder based on configuration
-    embedder = adal.Embedder(
-        model_client=embedder_config["model_client"](),
-        model_kwargs=embedder_config["model_kwargs"],
-    )
+    embedder = get_embedder(is_local_ollama=is_ollama_embedder)
 
     if is_ollama_embedder:
         # Use Ollama document processor for single-document processing

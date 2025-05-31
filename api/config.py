@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import re
 from pathlib import Path
 from typing import List
 
@@ -48,6 +49,23 @@ CLIENT_CLASSES = {
     "BedrockClient": BedrockClient
 }
 
+def replace_env_placeholders(config):
+    """
+    Recursively replace placeholders like "${ENV_VAR}" in dict values (when value is str) with environment variable values.
+    """
+    pattern = re.compile(r"\$\{([A-Z0-9_]+)\}")
+    if isinstance(config, dict):
+        return {
+            k: replace_env_placeholders(v) if isinstance(v, dict) else (
+                pattern.sub(lambda m: os.environ.get(m.group(1), m.group(0)), v) if isinstance(v, str) else v
+            )
+            for k, v in config.items()
+        }
+    elif isinstance(config, list):
+        return [replace_env_placeholders(item) for item in config]
+    else:
+        return config
+
 # Load JSON configuration file
 def load_json_config(filename):
     try:
@@ -65,7 +83,9 @@ def load_json_config(filename):
             return {}
 
         with open(config_path, 'r') as f:
-            return json.load(f)
+            config = json.load(f)
+            config = replace_env_placeholders(config)
+            return config
     except Exception as e:
         logger.error(f"Error loading configuration file {filename}: {str(e)}")
         return {}
