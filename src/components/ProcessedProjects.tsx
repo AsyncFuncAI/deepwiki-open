@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { FaSearch, FaTimes, FaTh, FaList } from 'react-icons/fa';
+import { FaTimes, FaTh, FaList } from 'react-icons/fa';
 
 // Interface should match the structure from the API
 interface ProcessedProject {
@@ -19,7 +19,7 @@ interface ProcessedProjectsProps {
   showHeader?: boolean;
   maxItems?: number;
   className?: string;
-  messages?: any; // Translation messages
+  messages?: Record<string, Record<string, string>>; // Translation messages with proper typing
 }
 
 export default function ProcessedProjects({ 

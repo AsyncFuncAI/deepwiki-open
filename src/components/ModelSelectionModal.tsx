@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import UserSelector from './UserSelector';
 import WikiTypeSelector from './WikiTypeSelector';
+import TokenInput from './TokenInput';
 
 interface ModelSelectionModalProps {
   isOpen: boolean;
@@ -16,7 +17,7 @@ interface ModelSelectionModalProps {
   setIsCustomModel: (value: boolean) => void;
   customModel: string;
   setCustomModel: (value: string) => void;
-  onApply: () => void;
+  onApply: (token?: string) => void;
 
   // Wiki type options
   isComprehensiveView: boolean;
@@ -33,6 +34,10 @@ interface ModelSelectionModalProps {
   setIncludedFiles?: (value: string) => void;
   showFileFilters?: boolean;
   showWikiType: boolean;
+  
+  // Token input for refresh
+  showTokenInput?: boolean;
+  repositoryType?: 'github' | 'gitlab' | 'bitbucket';
 }
 
 export default function ModelSelectionModal({
@@ -59,6 +64,8 @@ export default function ModelSelectionModal({
   setIncludedFiles,
   showFileFilters = false,
   showWikiType = true,
+  showTokenInput = false,
+  repositoryType = 'github',
 }: ModelSelectionModalProps) {
   const { messages: t } = useLanguage();
 
@@ -72,6 +79,11 @@ export default function ModelSelectionModal({
   const [localExcludedFiles, setLocalExcludedFiles] = useState(excludedFiles);
   const [localIncludedDirs, setLocalIncludedDirs] = useState(includedDirs);
   const [localIncludedFiles, setLocalIncludedFiles] = useState(includedFiles);
+  
+  // Token input state
+  const [localAccessToken, setLocalAccessToken] = useState('');
+  const [localSelectedPlatform, setLocalSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>(repositoryType);
+  const [showTokenSection, setShowTokenSection] = useState(showTokenInput);
 
   // Reset local state when modal is opened
   useEffect(() => {
@@ -85,8 +97,11 @@ export default function ModelSelectionModal({
       setLocalExcludedFiles(excludedFiles);
       setLocalIncludedDirs(includedDirs);
       setLocalIncludedFiles(includedFiles);
+      setLocalSelectedPlatform(repositoryType);
+      setLocalAccessToken('');
+      setShowTokenSection(showTokenInput);
     }
-  }, [isOpen, provider, model, isCustomModel, customModel, isComprehensiveView, excludedDirs, excludedFiles, includedDirs, includedFiles]);
+  }, [isOpen, provider, model, isCustomModel, customModel, isComprehensiveView, excludedDirs, excludedFiles, includedDirs, includedFiles, repositoryType, showTokenInput]);
 
   // Handler for applying changes
   const handleApply = () => {
@@ -99,7 +114,13 @@ export default function ModelSelectionModal({
     if (setExcludedFiles) setExcludedFiles(localExcludedFiles);
     if (setIncludedDirs) setIncludedDirs(localIncludedDirs);
     if (setIncludedFiles) setIncludedFiles(localIncludedFiles);
-    onApply();
+    
+    // Pass token to onApply if needed
+    if (showTokenInput) {
+      onApply(localAccessToken);
+    } else {
+      onApply();
+    }
     onClose();
   };
 
@@ -158,6 +179,22 @@ export default function ModelSelectionModal({
               includedFiles={localIncludedFiles}
               setIncludedFiles={showFileFilters ? (value: string) => setLocalIncludedFiles(value) : undefined}
             />
+
+            {/* Token Input Section for refresh */}
+            {showTokenInput && (
+              <>
+                <div className="my-4 border-t border-[var(--border-color)]/30"></div>
+                <TokenInput
+                  selectedPlatform={localSelectedPlatform}
+                  setSelectedPlatform={setLocalSelectedPlatform}
+                  accessToken={localAccessToken}
+                  setAccessToken={setLocalAccessToken}
+                  showTokenSection={showTokenSection}
+                  onToggleTokenSection={() => setShowTokenSection(!showTokenSection)}
+                  allowPlatformChange={false} // Don't allow platform change during refresh
+                />
+              </>
+            )}
           </div>
 
           {/* Modal footer */}
