@@ -604,6 +604,17 @@ const Ask: React.FC<AskProps> = ({
     }
   };
 
+  const [buttonWidth, setButtonWidth] = useState(0);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Measure button width and update state
+  useEffect(() => {
+    if (buttonRef.current) {
+      const width = buttonRef.current.offsetWidth;
+      setButtonWidth(width);
+    }
+  }, [messages.ask?.askButton, isLoading]);
+
   return (
     <div>
       <div className="p-4">
@@ -630,10 +641,12 @@ const Ask: React.FC<AskProps> = ({
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder={messages.ask?.placeholder || 'What would you like to know about this codebase?'}
-              className="block w-full rounded-md border border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-5 py-3.5 pr-32 text-base shadow-sm focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-primary)]/30 focus:outline-none transition-all"
+              className="block w-full rounded-md border border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-5 py-3.5 text-base shadow-sm focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-primary)]/30 focus:outline-none transition-all"
+              style={{ paddingRight: `${buttonWidth + 24}px` }}
               disabled={isLoading}
             />
             <button
+              ref={buttonRef}
               type="submit"
               disabled={isLoading || !question.trim()}
               className={`absolute right-3 top-1/2 transform -translate-y-1/2 px-4 py-2 rounded-md font-medium text-sm ${
