@@ -352,3 +352,18 @@ OpenAI 客户端的 base_url 配置主要为拥有私有 API 渠道的企业用�
 - 支持与第三方 OpenAI API 兼容服务的集成
 
 **即将推出**：在未来的更新中，DeepWiki 将支持一种模式，用户需要在请求中提供自己的 API 密钥。这将允许拥有私有渠道的企业客户使用其现有的 API 安排，而不是与 DeepWiki 部署共享凭据。
+
+## 🧩 使用 OpenAI 兼容的 Embedding 模型（如阿里巴巴 Qwen）
+
+如果你希望使用 OpenAI 以外、但兼容 OpenAI 接口的 embedding 模型（如阿里巴巴 Qwen），请参考以下步骤：
+
+1. 用 `api/config/embedder_openai_compatible.json` 的内容替换 `api/config/embedder.json`。
+2. 在项目根目录的 `.env` 文件中，配置相应的环境变量，例如：
+   ```
+   OPENAI_API_KEY=你的_api_key
+   OPENAI_API_BASE_URL=你的_openai_兼容接口地址
+   ```
+3. 程序会自动用环境变量的值替换 embedder.json 里的占位符。
+
+这样即可无缝切换到 OpenAI 兼容的 embedding 服务，无需修改代码。
+
