@@ -443,7 +443,8 @@ def get_github_file_content(repo_url: str, file_path: str, access_token: str = N
 
         # Use GitHub API to get file content
         # The API endpoint for getting file content is: /repos/{owner}/{repo}/contents/{path}
-        api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{file_path}"
+        api_base_url = os.getenv("GITHUB_API_BASE_URL", "https://api.github.com")
+        api_url = f"https://{api_base_url}/repos/{owner}/{repo}/contents/{file_path}"
 
         # Prepare curl command with authentication if token is provided
         curl_cmd = ["curl", "-s"]
