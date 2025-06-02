@@ -1057,8 +1057,9 @@ IMPORTANT:
         let treeData = null;
         let apiErrorDetails = '';
 
+        const apiBaseUrl = process.env.GITHUB_API_BASE_URL || 'https://api.github.com';
         for (const branch of ['main', 'master']) {
-          const apiUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+          const apiUrl = `${apiBaseUrl}/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
           const headers = createGithubHeaders(token);
 
           console.log(`Fetching repository structure from branch: ${branch}`);
@@ -1099,7 +1100,7 @@ IMPORTANT:
         try {
           const headers = createGithubHeaders(token);
 
-          const readmeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
+          const readmeResponse = await fetch(`${apiBaseUrl}/repos/${owner}/${repo}/readme`, {
             headers
           });
 
