@@ -94,17 +94,17 @@ const getCacheKey = (owner: string, repo: string, repoType: string, language: st
 
 // Helper function to add tokens and other parameters to request body
 const addTokensToRequestBody = (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  requestBody: Record<string, any>,
-  token: string,
-  repoType: string,
-  provider: string = '',
-  model: string = '',
-  isCustomModel: boolean = false,
-  customModel: string = '',
-  language: string = 'en',
-  excludedDirs?: string,
-  excludedFiles?: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    requestBody: Record<string, any>,
+    token: string,
+    repoType: string,
+    provider: string = '',
+    model: string = '',
+    isCustomModel: boolean = false,
+    customModel: string = '',
+    language: string = 'en',
+    excludedDirs?: string,
+    excludedFiles?: string,
 ): void => {
   if (token !== '') {
     requestBody.token = token;
@@ -201,7 +201,7 @@ export default function RepoWikiPage() {
   // State variables
   const [isLoading, setIsLoading] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState<string | undefined>(
-    messages.loading?.initializing || 'Initializing wiki generation...'
+      messages.loading?.initializing || 'Initializing wiki generation...'
   );
   const [error, setError] = useState<string | null>(null);
   const [wikiStructure, setWikiStructure] = useState<WikiStructure | undefined>();
@@ -254,6 +254,24 @@ export default function RepoWikiPage() {
     }
   }, [currentPageId]);
 
+  // Closing modal when escape button is pressed
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsAskModalOpen(false);
+      }
+    };
+
+    if (isAskModalOpen) {
+      window.addEventListener('keydown', handleEsc);
+    }
+
+    // Cleanup on unmount or when modal closes
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [isAskModalOpen]);
+
   // Generate content for a wiki page
   const generatePageContent = useCallback(async (page: WikiPage, owner: string, repo: string) => {
     return new Promise<void>(async (resolve) => {
@@ -301,8 +319,8 @@ export default function RepoWikiPage() {
         const repoUrl = getRepoUrl(repoInfo);
 
         // Create the prompt content - simplified to avoid message dialogs
- const promptContent =
-`You are an expert technical writer and software architect.
+        const promptContent =
+            `You are an expert technical writer and software architect.
 Your task is to generate a comprehensive and accurate technical wiki page in Markdown format about a specific feature, system, or module within a given software project.
 
 You will be given:
@@ -376,11 +394,11 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
 9.  **Conclusion/Summary:** End with a brief summary paragraph if appropriate for "${page.title}", reiterating the key aspects covered and their significance within the project.
 
 IMPORTANT: Generate the content in ${language === 'en' ? 'English' :
-            language === 'ja' ? 'Japanese (日本語)' :
-            language === 'zh' ? 'Mandarin Chinese (中文)' :
-            language === 'es' ? 'Spanish (Español)' :
-            language === 'kr' ? 'Korean (한국어)' :
-            language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'} language.
+                language === 'ja' ? 'Japanese (日本語)' :
+                    language === 'zh' ? 'Mandarin Chinese (中文)' :
+                        language === 'es' ? 'Spanish (Español)' :
+                            language === 'kr' ? 'Korean (한국어)' :
+                                language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'} language.
 
 Remember:
 - Ground every claim in the provided source files.
@@ -571,7 +589,7 @@ Remember:
         type: repoInfo.type,
         messages: [{
           role: 'user',
-content: `Analyze this GitHub repository ${owner}/${repo} and create a wiki structure for it.
+          content: `Analyze this GitHub repository ${owner}/${repo} and create a wiki structure for it.
 
 1. The complete file tree of the project:
 <file_tree>
@@ -586,11 +604,11 @@ ${readme}
 I want to create a wiki for this repository. Determine the most logical structure for a wiki based on the repository's content.
 
 IMPORTANT: The wiki content will be generated in ${language === 'en' ? 'English' :
-            language === 'ja' ? 'Japanese (日本語)' :
-            language === 'zh' ? 'Mandarin Chinese (中文)' :
-            language === 'es' ? 'Spanish (Español)' :
-            language === 'kr' ? 'Korean (한国語)' :
-            language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'} language.
+              language === 'ja' ? 'Japanese (日本語)' :
+                  language === 'zh' ? 'Mandarin Chinese (中文)' :
+                      language === 'es' ? 'Spanish (Español)' :
+                          language === 'kr' ? 'Korean (한国語)' :
+                              language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'} language.
 
 When designing the wiki structure, include pages that would benefit from visual diagrams, such as:
 - Architecture overviews
@@ -808,7 +826,7 @@ IMPORTANT:
         const elements = xmlDoc.querySelectorAll('*');
         if (elements.length > 0) {
           console.log('First 5 element names:',
-            Array.from(elements).slice(0, 5).map(el => el.nodeName).join(', '));
+              Array.from(elements).slice(0, 5).map(el => el.nodeName).join(', '));
         }
 
         // We'll continue anyway since the XML might still be usable
@@ -843,8 +861,8 @@ IMPORTANT:
 
         const title = titleEl ? titleEl.textContent || '' : '';
         const importance = importanceEl ?
-          (importanceEl.textContent === 'high' ? 'high' :
-            importanceEl.textContent === 'medium' ? 'medium' : 'low') : 'medium';
+            (importanceEl.textContent === 'high' ? 'high' :
+                importanceEl.textContent === 'medium' ? 'medium' : 'low') : 'medium';
 
         const filePaths: string[] = [];
         filePathEls.forEach(el => {
@@ -958,23 +976,23 @@ IMPORTANT:
 
               // Start generating content for this page
               generatePageContent(page, owner, repo)
-                .finally(() => {
-                  // When done (success or error), decrement active count and process more
-                  activeRequests--;
-                  console.log(`Finished page ${page.title} (${activeRequests} active, ${queue.length} remaining)`);
+                  .finally(() => {
+                    // When done (success or error), decrement active count and process more
+                    activeRequests--;
+                    console.log(`Finished page ${page.title} (${activeRequests} active, ${queue.length} remaining)`);
 
-                  // Check if all work is done (queue empty and no active requests)
-                  if (queue.length === 0 && activeRequests === 0) {
-                    console.log("All page generation tasks completed.");
-                    setIsLoading(false);
-                    setLoadingMessage(undefined);
-                  } else {
-                    // Only process more if there are items remaining and we're under capacity
-                    if (queue.length > 0 && activeRequests < MAX_CONCURRENT) {
-                      processQueue();
+                    // Check if all work is done (queue empty and no active requests)
+                    if (queue.length === 0 && activeRequests === 0) {
+                      console.log("All page generation tasks completed.");
+                      setIsLoading(false);
+                      setLoadingMessage(undefined);
+                    } else {
+                      // Only process more if there are items remaining and we're under capacity
+                      if (queue.length > 0 && activeRequests < MAX_CONCURRENT) {
+                        processQueue();
+                      }
                     }
-                  }
-                });
+                  });
             }
           }
 
@@ -1091,9 +1109,9 @@ IMPORTANT:
 
         // Convert tree data to a string representation
         fileTreeData = treeData.tree
-          .filter((item: { type: string; path: string }) => item.type === 'blob')
-          .map((item: { type: string; path: string }) => item.path)
-          .join('\n');
+            .filter((item: { type: string; path: string }) => item.type === 'blob')
+            .map((item: { type: string; path: string }) => item.path)
+            .join('\n');
 
         // Try to fetch README.md content
         try {
@@ -1149,7 +1167,7 @@ IMPORTANT:
             const response = await fetch(apiUrl, { headers });
 
             if (!response.ok) {
-                const errorData = await response.text();
+              const errorData = await response.text();
               throw new Error(`Error fetching GitLab repository structure (page ${page}): ${errorData}`);
             }
 
@@ -1159,31 +1177,31 @@ IMPORTANT:
             const nextPage = response.headers.get('x-next-page');
             morePages = !!nextPage;
             page = nextPage ? parseInt(nextPage, 10) : page + 1;
-        }
+          }
 
           if (!Array.isArray(filesData) || filesData.length === 0) {
             throw new Error('Could not fetch repository structure. Repository might be empty or inaccessible.');
-        }
+          }
 
           // Step 3: Format file paths
-        fileTreeData = filesData
-          .filter((item: { type: string; path: string }) => item.type === 'blob')
-          .map((item: { type: string; path: string }) => item.path)
-          .join('\n');
+          fileTreeData = filesData
+              .filter((item: { type: string; path: string }) => item.type === 'blob')
+              .map((item: { type: string; path: string }) => item.path)
+              .join('\n');
 
           // Step 4: Try to fetch README.md content
           const readmeUrl = `${projectInfoUrl}/repository/files/README.md/raw`;
-            try {
+          try {
             const readmeResponse = await fetch(readmeUrl, { headers });
-              if (readmeResponse.ok) {
-                readmeContent = await readmeResponse.text();
-                console.log('Successfully fetched GitLab README.md');
-              } else {
+            if (readmeResponse.ok) {
+              readmeContent = await readmeResponse.text();
+              console.log('Successfully fetched GitLab README.md');
+            } else {
               console.warn(`Could not fetch GitLab README.md status: ${readmeResponse.status}`);
-              }
-            } catch (err) {
-            console.warn(`Error fetching GitLab README.md:`, err);
             }
+          } catch (err) {
+            console.warn(`Error fetching GitLab README.md:`, err);
+          }
         } catch (err) {
           console.error("Error during GitLab repository tree retrieval:", err);
           throw err;
@@ -1246,9 +1264,9 @@ IMPORTANT:
 
         // Convert files data to a string representation
         fileTreeData = filesData.values
-          .filter((item: { type: string; path: string }) => item.type === 'commit_file')
-          .map((item: { type: string; path: string }) => item.path)
-          .join('\n');
+            .filter((item: { type: string; path: string }) => item.type === 'commit_file')
+            .map((item: { type: string; path: string }) => item.path)
+            .join('\n');
 
         // Try to fetch README.md content
         try {
@@ -1525,7 +1543,7 @@ IMPORTANT:
                 for (const [categoryId, categoryPages] of pageClusters.entries()) {
                   if (categoryPages.length > 0) {
                     const category = categories.find(c => c.id === categoryId) ||
-                                    { id: categoryId, title: categoryId === 'other' ? 'Other' : categoryId.charAt(0).toUpperCase() + categoryId.slice(1) };
+                        { id: categoryId, title: categoryId === 'other' ? 'Other' : categoryId.charAt(0).toUpperCase() + categoryId.slice(1) };
 
                     const sectionId = `section-${categoryId}`;
                     sections.push({
@@ -1625,7 +1643,7 @@ IMPORTANT:
           !cacheLoadedSuccessfully.current) {
 
         const allPagesHaveContent = wikiStructure.pages.every(page =>
-          generatedPages[page.id] && generatedPages[page.id].content && generatedPages[page.id].content !== 'Loading...');
+            generatedPages[page.id] && generatedPages[page.id].content && generatedPages[page.id].content !== 'Loading...');
 
         if (allPagesHaveContent) {
           console.log('Attempting to save wiki data to server cache via Next.js proxy');
@@ -1679,328 +1697,328 @@ IMPORTANT:
   const [isModelSelectionModalOpen, setIsModelSelectionModalOpen] = useState(false);
 
   return (
-    <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
-      <style>{wikiStyles}</style>
+      <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
+        <style>{wikiStyles}</style>
 
-      <header className="max-w-[90%] xl:max-w-[1400px] mx-auto mb-8 h-fit w-full">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-[var(--accent-primary)] hover:text-[var(--highlight)] flex items-center gap-1.5 transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)] pb-0.5">
-              <FaHome /> {messages.repoPage?.home || 'Home'}
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-1 max-w-[90%] xl:max-w-[1400px] mx-auto overflow-y-auto">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
-            <div className="relative mb-6">
-              <div className="absolute -inset-4 bg-[var(--accent-primary)]/10 rounded-full blur-md animate-pulse"></div>
-              <div className="relative flex items-center justify-center">
-                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse"></div>
-                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-75 mx-2"></div>
-                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-150"></div>
-              </div>
-            </div>
-            <p className="text-[var(--foreground)] text-center mb-3 font-serif">
-              {loadingMessage || messages.common?.loading || 'Loading...'}
-              {isExporting && (messages.loading?.preparingDownload || ' Please wait while we prepare your download...')}
-            </p>
-
-            {/* Progress bar for page generation */}
-            {wikiStructure && (
-              <div className="w-full max-w-md mt-3">
-                <div className="bg-[var(--background)]/50 rounded-full h-2 mb-3 overflow-hidden border border-[var(--border-color)]">
-                  <div
-                    className="bg-[var(--accent-primary)] h-2 rounded-full transition-all duration-300 ease-in-out"
-                    style={{
-                      width: `${Math.max(5, 100 * (wikiStructure.pages.length - pagesInProgress.size) / wikiStructure.pages.length)}%`
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-[var(--muted)] text-center">
-                  {language === 'ja'
-                    ? `${wikiStructure.pages.length}ページ中${wikiStructure.pages.length - pagesInProgress.size}ページ完了`
-                    : messages.repoPage?.pagesCompleted
-                        ? messages.repoPage.pagesCompleted
-                            .replace('{completed}', (wikiStructure.pages.length - pagesInProgress.size).toString())
-                            .replace('{total}', wikiStructure.pages.length.toString())
-                        : `${wikiStructure.pages.length - pagesInProgress.size} of ${wikiStructure.pages.length} pages completed`}
-                </p>
-
-                {/* Show list of in-progress pages */}
-                {pagesInProgress.size > 0 && (
-                  <div className="mt-4 text-xs">
-                    <p className="text-[var(--muted)] mb-2">
-                      {messages.repoPage?.currentlyProcessing || 'Currently processing:'}
-                    </p>
-                    <ul className="text-[var(--foreground)] space-y-1">
-                      {Array.from(pagesInProgress).slice(0, 3).map(pageId => {
-                        const page = wikiStructure.pages.find(p => p.id === pageId);
-                        return page ? <li key={pageId} className="truncate border-l-2 border-[var(--accent-primary)]/30 pl-2">{page.title}</li> : null;
-                      })}
-                      {pagesInProgress.size > 3 && (
-                        <li className="text-[var(--muted)]">
-                          {language === 'ja'
-                            ? `...他に${pagesInProgress.size - 3}ページ`
-                            : messages.repoPage?.andMorePages
-                                ? messages.repoPage.andMorePages.replace('{count}', (pagesInProgress.size - 3).toString())
-                                : `...and ${pagesInProgress.size - 3} more`}
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        ) : error ? (
-          <div className="bg-[var(--highlight)]/5 border border-[var(--highlight)]/30 rounded-lg p-5 mb-4 shadow-sm">
-            <div className="flex items-center text-[var(--highlight)] mb-3">
-              <FaExclamationTriangle className="mr-2" />
-              <span className="font-bold font-serif">{messages.repoPage?.errorTitle || messages.common?.error || 'Error'}</span>
-            </div>
-            <p className="text-[var(--foreground)] text-sm mb-3">{error}</p>
-            <p className="text-[var(--muted)] text-xs">
-              {messages.repoPage?.errorMessageDefault || 'Please check that your repository exists and is public. Valid formats are "owner/repo", "https://github.com/owner/repo", "https://gitlab.com/owner/repo", "https://bitbucket.org/owner/repo", or local folder paths like "C:\\path\\to\\folder" or "/path/to/folder".'}
-            </p>
-            <div className="mt-5">
-              <Link
-                href="/"
-                className="btn-japanese px-5 py-2 inline-flex items-center gap-1.5"
-              >
-                <FaHome className="text-sm" />
-                {messages.repoPage?.backToHome || 'Back to Home'}
+        <header className="max-w-[90%] xl:max-w-[1400px] mx-auto mb-8 h-fit w-full">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Link href="/" className="text-[var(--accent-primary)] hover:text-[var(--highlight)] flex items-center gap-1.5 transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)] pb-0.5">
+                <FaHome /> {messages.repoPage?.home || 'Home'}
               </Link>
             </div>
           </div>
-        ) : wikiStructure ? (
-          <div className="h-full overflow-y-auto flex flex-col lg:flex-row gap-4 w-full overflow-hidden bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
-            {/* Wiki Navigation */}
-            <div className="h-full w-full lg:w-[280px] xl:w-[320px] flex-shrink-0 bg-[var(--background)]/50 rounded-lg rounded-r-none p-5 border-b lg:border-b-0 lg:border-r border-[var(--border-color)] overflow-y-auto">
-              <h3 className="text-lg font-bold text-[var(--foreground)] mb-3 font-serif">{wikiStructure.title}</h3>
-              <p className="text-[var(--muted)] text-sm mb-5 leading-relaxed">{wikiStructure.description}</p>
+        </header>
 
-              {/* Display repository info */}
-              <div className="text-xs text-[var(--muted)] mb-5 flex items-center">
-                {repoInfo.type === 'local' ? (
-                  <div className="flex items-center">
-                    <FaFolder className="mr-2" />
-                    <span className="break-all">{repoInfo.localPath}</span>
+        <main className="flex-1 max-w-[90%] xl:max-w-[1400px] mx-auto overflow-y-auto">
+          {isLoading ? (
+              <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
+                <div className="relative mb-6">
+                  <div className="absolute -inset-4 bg-[var(--accent-primary)]/10 rounded-full blur-md animate-pulse"></div>
+                  <div className="relative flex items-center justify-center">
+                    <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse"></div>
+                    <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-75 mx-2"></div>
+                    <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-150"></div>
                   </div>
-                ) : (
-                  <>
-                    {repoInfo.type === 'github' ? (
-                      <FaGithub className="mr-2" />
-                    ) : repoInfo.type === 'gitlab' ? (
-                      <FaGitlab className="mr-2" />
-                    ) : (
-                      <FaBitbucket className="mr-2" />
-                    )}
-                    <a
-                      href={repoInfo.repoUrl ?? ''}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-[var(--accent-primary)] transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)]"
-                    >
-                      {repoInfo.owner}/{repoInfo.repo}
-                    </a>
-                  </>
+                </div>
+                <p className="text-[var(--foreground)] text-center mb-3 font-serif">
+                  {loadingMessage || messages.common?.loading || 'Loading...'}
+                  {isExporting && (messages.loading?.preparingDownload || ' Please wait while we prepare your download...')}
+                </p>
+
+                {/* Progress bar for page generation */}
+                {wikiStructure && (
+                    <div className="w-full max-w-md mt-3">
+                      <div className="bg-[var(--background)]/50 rounded-full h-2 mb-3 overflow-hidden border border-[var(--border-color)]">
+                        <div
+                            className="bg-[var(--accent-primary)] h-2 rounded-full transition-all duration-300 ease-in-out"
+                            style={{
+                              width: `${Math.max(5, 100 * (wikiStructure.pages.length - pagesInProgress.size) / wikiStructure.pages.length)}%`
+                            }}
+                        />
+                      </div>
+                      <p className="text-xs text-[var(--muted)] text-center">
+                        {language === 'ja'
+                            ? `${wikiStructure.pages.length}ページ中${wikiStructure.pages.length - pagesInProgress.size}ページ完了`
+                            : messages.repoPage?.pagesCompleted
+                                ? messages.repoPage.pagesCompleted
+                                    .replace('{completed}', (wikiStructure.pages.length - pagesInProgress.size).toString())
+                                    .replace('{total}', wikiStructure.pages.length.toString())
+                                : `${wikiStructure.pages.length - pagesInProgress.size} of ${wikiStructure.pages.length} pages completed`}
+                      </p>
+
+                      {/* Show list of in-progress pages */}
+                      {pagesInProgress.size > 0 && (
+                          <div className="mt-4 text-xs">
+                            <p className="text-[var(--muted)] mb-2">
+                              {messages.repoPage?.currentlyProcessing || 'Currently processing:'}
+                            </p>
+                            <ul className="text-[var(--foreground)] space-y-1">
+                              {Array.from(pagesInProgress).slice(0, 3).map(pageId => {
+                                const page = wikiStructure.pages.find(p => p.id === pageId);
+                                return page ? <li key={pageId} className="truncate border-l-2 border-[var(--accent-primary)]/30 pl-2">{page.title}</li> : null;
+                              })}
+                              {pagesInProgress.size > 3 && (
+                                  <li className="text-[var(--muted)]">
+                                    {language === 'ja'
+                                        ? `...他に${pagesInProgress.size - 3}ページ`
+                                        : messages.repoPage?.andMorePages
+                                            ? messages.repoPage.andMorePages.replace('{count}', (pagesInProgress.size - 3).toString())
+                                            : `...and ${pagesInProgress.size - 3} more`}
+                                  </li>
+                              )}
+                            </ul>
+                          </div>
+                      )}
+                    </div>
                 )}
               </div>
-
-              {/* Wiki Type Indicator */}
-              <div className="mb-3 flex items-center text-xs text-[var(--muted)]">
-                <span className="mr-2">Wiki Type:</span>
-                <span className={`px-2 py-0.5 rounded-full ${isComprehensiveView
-                  ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30'
-                  : 'bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)]'}`}>
-                  {isComprehensiveView
-                    ? (messages.form?.comprehensive || 'Comprehensive')
-                    : (messages.form?.concise || 'Concise')}
-                </span>
+          ) : error ? (
+              <div className="bg-[var(--highlight)]/5 border border-[var(--highlight)]/30 rounded-lg p-5 mb-4 shadow-sm">
+                <div className="flex items-center text-[var(--highlight)] mb-3">
+                  <FaExclamationTriangle className="mr-2" />
+                  <span className="font-bold font-serif">{messages.repoPage?.errorTitle || messages.common?.error || 'Error'}</span>
+                </div>
+                <p className="text-[var(--foreground)] text-sm mb-3">{error}</p>
+                <p className="text-[var(--muted)] text-xs">
+                  {messages.repoPage?.errorMessageDefault || 'Please check that your repository exists and is public. Valid formats are "owner/repo", "https://github.com/owner/repo", "https://gitlab.com/owner/repo", "https://bitbucket.org/owner/repo", or local folder paths like "C:\\path\\to\\folder" or "/path/to/folder".'}
+                </p>
+                <div className="mt-5">
+                  <Link
+                      href="/"
+                      className="btn-japanese px-5 py-2 inline-flex items-center gap-1.5"
+                  >
+                    <FaHome className="text-sm" />
+                    {messages.repoPage?.backToHome || 'Back to Home'}
+                  </Link>
+                </div>
               </div>
+          ) : wikiStructure ? (
+              <div className="h-full overflow-y-auto flex flex-col lg:flex-row gap-4 w-full overflow-hidden bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
+                {/* Wiki Navigation */}
+                <div className="h-full w-full lg:w-[280px] xl:w-[320px] flex-shrink-0 bg-[var(--background)]/50 rounded-lg rounded-r-none p-5 border-b lg:border-b-0 lg:border-r border-[var(--border-color)] overflow-y-auto">
+                  <h3 className="text-lg font-bold text-[var(--foreground)] mb-3 font-serif">{wikiStructure.title}</h3>
+                  <p className="text-[var(--muted)] text-sm mb-5 leading-relaxed">{wikiStructure.description}</p>
 
-              {/* Refresh Wiki button */}
-              <div className="mb-5">
+                  {/* Display repository info */}
+                  <div className="text-xs text-[var(--muted)] mb-5 flex items-center">
+                    {repoInfo.type === 'local' ? (
+                        <div className="flex items-center">
+                          <FaFolder className="mr-2" />
+                          <span className="break-all">{repoInfo.localPath}</span>
+                        </div>
+                    ) : (
+                        <>
+                          {repoInfo.type === 'github' ? (
+                              <FaGithub className="mr-2" />
+                          ) : repoInfo.type === 'gitlab' ? (
+                              <FaGitlab className="mr-2" />
+                          ) : (
+                              <FaBitbucket className="mr-2" />
+                          )}
+                          <a
+                              href={repoInfo.repoUrl ?? ''}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:text-[var(--accent-primary)] transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)]"
+                          >
+                            {repoInfo.owner}/{repoInfo.repo}
+                          </a>
+                        </>
+                    )}
+                  </div>
+
+                  {/* Wiki Type Indicator */}
+                  <div className="mb-3 flex items-center text-xs text-[var(--muted)]">
+                    <span className="mr-2">Wiki Type:</span>
+                    <span className={`px-2 py-0.5 rounded-full ${isComprehensiveView
+                        ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30'
+                        : 'bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)]'}`}>
+                  {isComprehensiveView
+                      ? (messages.form?.comprehensive || 'Comprehensive')
+                      : (messages.form?.concise || 'Concise')}
+                </span>
+                  </div>
+
+                  {/* Refresh Wiki button */}
+                  <div className="mb-5">
+                    <button
+                        onClick={() => setIsModelSelectionModalOpen(true)}
+                        disabled={isLoading}
+                        className="flex items-center w-full text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors hover:cursor-pointer"
+                    >
+                      <FaSync className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                      {messages.repoPage?.refreshWiki || 'Refresh Wiki'}
+                    </button>
+                  </div>
+
+                  {/* Export buttons */}
+                  {Object.keys(generatedPages).length > 0 && (
+                      <div className="mb-5">
+                        <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3 font-serif">
+                          {messages.repoPage?.exportWiki || 'Export Wiki'}
+                        </h4>
+                        <div className="flex flex-col gap-2">
+                          <button
+                              onClick={() => exportWiki('markdown')}
+                              disabled={isExporting}
+                              className="btn-japanese flex items-center text-xs px-3 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <FaDownload className="mr-2" />
+                            {messages.repoPage?.exportAsMarkdown || 'Export as Markdown'}
+                          </button>
+                          <button
+                              onClick={() => exportWiki('json')}
+                              disabled={isExporting}
+                              className="flex items-center text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors"
+                          >
+                            <FaFileExport className="mr-2" />
+                            {messages.repoPage?.exportAsJson || 'Export as JSON'}
+                          </button>
+                        </div>
+                        {exportError && (
+                            <div className="mt-2 text-xs text-[var(--highlight)]">
+                              {exportError}
+                            </div>
+                        )}
+                      </div>
+                  )}
+
+                  <h4 className="text-md font-semibold text-[var(--foreground)] mb-3 font-serif">
+                    {messages.repoPage?.pages || 'Pages'}
+                  </h4>
+                  <WikiTreeView
+                      wikiStructure={wikiStructure}
+                      currentPageId={currentPageId}
+                      onPageSelect={handlePageSelect}
+                      messages={messages.repoPage}
+                  />
+                </div>
+
+                {/* Wiki Content */}
+                <div id="wiki-content" className="w-full flex-grow p-6 lg:p-8 overflow-y-auto">
+                  {currentPageId && generatedPages[currentPageId] ? (
+                      <div className="max-w-[900px] xl:max-w-[1000px] mx-auto">
+                        <h3 className="text-xl font-bold text-[var(--foreground)] mb-4 break-words font-serif">
+                          {generatedPages[currentPageId].title}
+                        </h3>
+
+
+
+                        <div className="prose prose-sm md:prose-base lg:prose-lg max-w-none">
+                          <Markdown
+                              content={generatedPages[currentPageId].content}
+                          />
+                        </div>
+
+                        {generatedPages[currentPageId].relatedPages.length > 0 && (
+                            <div className="mt-8 pt-4 border-t border-[var(--border-color)]">
+                              <h4 className="text-sm font-semibold text-[var(--muted)] mb-3">
+                                {messages.repoPage?.relatedPages || 'Related Pages:'}
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {generatedPages[currentPageId].relatedPages.map(relatedId => {
+                                  const relatedPage = wikiStructure.pages.find(p => p.id === relatedId);
+                                  return relatedPage ? (
+                                      <button
+                                          key={relatedId}
+                                          className="bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-xs text-[var(--accent-primary)] px-3 py-1.5 rounded-md transition-colors truncate max-w-full border border-[var(--accent-primary)]/20"
+                                          onClick={() => handlePageSelect(relatedId)}
+                                      >
+                                        {relatedPage.title}
+                                      </button>
+                                  ) : null;
+                                })}
+                              </div>
+                            </div>
+                        )}
+                      </div>
+                  ) : (
+                      <div className="flex flex-col items-center justify-center p-8 text-[var(--muted)] h-full">
+                        <div className="relative mb-4">
+                          <div className="absolute -inset-2 bg-[var(--accent-primary)]/5 rounded-full blur-md"></div>
+                          <FaBookOpen className="text-4xl relative z-10" />
+                        </div>
+                        <p className="font-serif">
+                          {messages.repoPage?.selectPagePrompt || 'Select a page from the navigation to view its content'}
+                        </p>
+                      </div>
+                  )}
+                </div>
+              </div>
+          ) : null}
+        </main>
+
+        <footer className="max-w-[90%] xl:max-w-[1400px] mx-auto mt-8 flex flex-col gap-4 w-full">
+          <div className="flex justify-between items-center gap-4 text-center text-[var(--muted)] text-sm h-fit w-full bg-[var(--card-bg)] rounded-lg p-3 shadow-sm border border-[var(--border-color)]">
+            <p className="flex-1 font-serif">
+              {messages.footer?.copyright || 'DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories'}
+            </p>
+            <ThemeToggle />
+          </div>
+        </footer>
+
+        {/* Floating Chat Button */}
+        {!isLoading && wikiStructure && (
+            <button
+                onClick={() => setIsAskModalOpen(true)}
+                className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[var(--accent-primary)] text-white shadow-lg flex items-center justify-center hover:bg-[var(--accent-primary)]/90 transition-all z-50"
+                aria-label={messages.ask?.title || 'Ask about this repository'}
+            >
+              <FaComments className="text-xl" />
+            </button>
+        )}
+
+        {/* Ask Modal - Always render but conditionally show/hide */}
+        <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 transition-opacity duration-300 ${isAskModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          <div className="bg-[var(--card-bg)] rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col">
+          <div className="flex items-center justify-end p-3 absolute top-0 right-0 z-10">
                 <button
-                  onClick={() => setIsModelSelectionModalOpen(true)}
-                  disabled={isLoading}
-                  className="flex items-center w-full text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors hover:cursor-pointer"
+                    onClick={() => {
+                      // Just close the modal without clearing the conversation
+                      setIsAskModalOpen(false);
+                    }}
+                    className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors bg-[var(--card-bg)]/80 rounded-full p-2"
+                    aria-label="Close"
                 >
-                  <FaSync className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                  {messages.repoPage?.refreshWiki || 'Refresh Wiki'}
+                  <FaTimes className="text-xl" />
                 </button>
               </div>
-
-              {/* Export buttons */}
-              {Object.keys(generatedPages).length > 0 && (
-                <div className="mb-5">
-                  <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3 font-serif">
-                    {messages.repoPage?.exportWiki || 'Export Wiki'}
-                  </h4>
-                  <div className="flex flex-col gap-2">
-                    <button
-                      onClick={() => exportWiki('markdown')}
-                      disabled={isExporting}
-                      className="btn-japanese flex items-center text-xs px-3 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <FaDownload className="mr-2" />
-                      {messages.repoPage?.exportAsMarkdown || 'Export as Markdown'}
-                    </button>
-                    <button
-                      onClick={() => exportWiki('json')}
-                      disabled={isExporting}
-                      className="flex items-center text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors"
-                    >
-                      <FaFileExport className="mr-2" />
-                      {messages.repoPage?.exportAsJson || 'Export as JSON'}
-                    </button>
-                  </div>
-                  {exportError && (
-                    <div className="mt-2 text-xs text-[var(--highlight)]">
-                      {exportError}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <h4 className="text-md font-semibold text-[var(--foreground)] mb-3 font-serif">
-                {messages.repoPage?.pages || 'Pages'}
-              </h4>
-              <WikiTreeView
-                wikiStructure={wikiStructure}
-                currentPageId={currentPageId}
-                onPageSelect={handlePageSelect}
-                messages={messages.repoPage}
+          <div className="flex-1 overflow-y-auto p-4">
+              <Ask
+                  repoInfo={repoInfo}
+                  provider={selectedProviderState}
+                  model={selectedModelState}
+                  isCustomModel={isCustomSelectedModelState}
+                  customModel={customSelectedModelState}
+                  language={language}
+                  onRef={(ref) => (askComponentRef.current = ref)}
               />
             </div>
-
-            {/* Wiki Content */}
-            <div id="wiki-content" className="w-full flex-grow p-6 lg:p-8 overflow-y-auto">
-              {currentPageId && generatedPages[currentPageId] ? (
-                <div className="max-w-[900px] xl:max-w-[1000px] mx-auto">
-                  <h3 className="text-xl font-bold text-[var(--foreground)] mb-4 break-words font-serif">
-                    {generatedPages[currentPageId].title}
-                  </h3>
-
-
-
-                  <div className="prose prose-sm md:prose-base lg:prose-lg max-w-none">
-                    <Markdown
-                      content={generatedPages[currentPageId].content}
-                    />
-                  </div>
-
-                  {generatedPages[currentPageId].relatedPages.length > 0 && (
-                    <div className="mt-8 pt-4 border-t border-[var(--border-color)]">
-                      <h4 className="text-sm font-semibold text-[var(--muted)] mb-3">
-                        {messages.repoPage?.relatedPages || 'Related Pages:'}
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {generatedPages[currentPageId].relatedPages.map(relatedId => {
-                          const relatedPage = wikiStructure.pages.find(p => p.id === relatedId);
-                          return relatedPage ? (
-                            <button
-                              key={relatedId}
-                              className="bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-xs text-[var(--accent-primary)] px-3 py-1.5 rounded-md transition-colors truncate max-w-full border border-[var(--accent-primary)]/20"
-                              onClick={() => handlePageSelect(relatedId)}
-                            >
-                              {relatedPage.title}
-                            </button>
-                          ) : null;
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center p-8 text-[var(--muted)] h-full">
-                  <div className="relative mb-4">
-                    <div className="absolute -inset-2 bg-[var(--accent-primary)]/5 rounded-full blur-md"></div>
-                    <FaBookOpen className="text-4xl relative z-10" />
-                  </div>
-                  <p className="font-serif">
-                    {messages.repoPage?.selectPagePrompt || 'Select a page from the navigation to view its content'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-      </main>
-
-      <footer className="max-w-[90%] xl:max-w-[1400px] mx-auto mt-8 flex flex-col gap-4 w-full">
-        <div className="flex justify-between items-center gap-4 text-center text-[var(--muted)] text-sm h-fit w-full bg-[var(--card-bg)] rounded-lg p-3 shadow-sm border border-[var(--border-color)]">
-          <p className="flex-1 font-serif">
-            {messages.footer?.copyright || 'DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories'}
-          </p>
-          <ThemeToggle />
-        </div>
-      </footer>
-
-      {/* Floating Chat Button */}
-      {!isLoading && wikiStructure && (
-        <button
-          onClick={() => setIsAskModalOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[var(--accent-primary)] text-white shadow-lg flex items-center justify-center hover:bg-[var(--accent-primary)]/90 transition-all z-50"
-          aria-label={messages.ask?.title || 'Ask about this repository'}
-        >
-          <FaComments className="text-xl" />
-        </button>
-      )}
-
-      {/* Ask Modal - Always render but conditionally show/hide */}
-      <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 transition-opacity duration-300 ${isAskModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <div className="bg-[var(--card-bg)] rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col">
-          <div className="flex items-center justify-end p-3 absolute top-0 right-0 z-10">
-            <button
-              onClick={() => {
-                // Just close the modal without clearing the conversation
-                setIsAskModalOpen(false);
-              }}
-              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors bg-[var(--card-bg)]/80 rounded-full p-2"
-              aria-label="Close"
-            >
-              <FaTimes className="text-xl" />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4">
-            <Ask
-              repoInfo={repoInfo}
-              provider={selectedProviderState}
-              model={selectedModelState}
-              isCustomModel={isCustomSelectedModelState}
-              customModel={customSelectedModelState}
-              language={language}
-              onRef={(ref) => (askComponentRef.current = ref)}
-            />
           </div>
         </div>
+
+        <ModelSelectionModal
+            isOpen={isModelSelectionModalOpen}
+            onClose={() => setIsModelSelectionModalOpen(false)}
+            provider={selectedProviderState}
+            setProvider={setSelectedProviderState}
+            model={selectedModelState}
+            setModel={setSelectedModelState}
+            isCustomModel={isCustomSelectedModelState}
+            setIsCustomModel={setIsCustomSelectedModelState}
+            customModel={customSelectedModelState}
+            setCustomModel={setCustomSelectedModelState}
+            isComprehensiveView={isComprehensiveView}
+            setIsComprehensiveView={setIsComprehensiveView}
+            showFileFilters={true}
+            excludedDirs={modelExcludedDirs}
+            setExcludedDirs={setModelExcludedDirs}
+            excludedFiles={modelExcludedFiles}
+            setExcludedFiles={setModelExcludedFiles}
+            onApply={confirmRefresh}
+            showWikiType={true}
+        />
       </div>
-
-      <ModelSelectionModal
-        isOpen={isModelSelectionModalOpen}
-        onClose={() => setIsModelSelectionModalOpen(false)}
-        provider={selectedProviderState}
-        setProvider={setSelectedProviderState}
-        model={selectedModelState}
-        setModel={setSelectedModelState}
-        isCustomModel={isCustomSelectedModelState}
-        setIsCustomModel={setIsCustomSelectedModelState}
-        customModel={customSelectedModelState}
-        setCustomModel={setCustomSelectedModelState}
-        isComprehensiveView={isComprehensiveView}
-        setIsComprehensiveView={setIsComprehensiveView}
-        showFileFilters={true}
-        excludedDirs={modelExcludedDirs}
-        setExcludedDirs={setModelExcludedDirs}
-        excludedFiles={modelExcludedFiles}
-        setExcludedFiles={setModelExcludedFiles}
-        onApply={confirmRefresh}
-        showWikiType={true}
-      />
-    </div>
   );
 }
