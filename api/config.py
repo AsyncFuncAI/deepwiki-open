@@ -1,8 +1,9 @@
 import os
 import json
 import logging
+import re
 from pathlib import Path
-from typing import List
+from typing import List, Union, Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,36 @@ CLIENT_CLASSES = {
     "BedrockClient": BedrockClient
 }
 
+def replace_env_placeholders(config: Union[Dict[str, Any], List[Any], str, Any]) -> Union[Dict[str, Any], List[Any], str, Any]:
+    """
+    Recursively replace placeholders like "${ENV_VAR}" in string values
+    within a nested configuration structure (dicts, lists, strings)
+    with environment variable values. Logs a warning if a placeholder is not found.
+    """
+    pattern = re.compile(r"\$\{([A-Z0-9_]+)\}")
+
+    def replacer(match: re.Match[str]) -> str:
+        env_var_name = match.group(1)
+        original_placeholder = match.group(0)
+        env_var_value = os.environ.get(env_var_name)
+        if env_var_value is None:
+            logger.warning(
+                f"Environment variable placeholder '{original_placeholder}' was not found in the environment. "
+                f"The placeholder string will be used as is."
+            )
+            return original_placeholder
+        return env_var_value
+
+    if isinstance(config, dict):
+        return {k: replace_env_placeholders(v) for k, v in config.items()}
+    elif isinstance(config, list):
+        return [replace_env_placeholders(item) for item in config]
+    elif isinstance(config, str):
+        return pattern.sub(replacer, config)
+    else:
+        # Handles numbers, booleans, None, etc.
+        return config
+
 # Load JSON configuration file
 def load_json_config(filename):
     try:
@@ -65,7 +96,9 @@ def load_json_config(filename):
             return {}
 
         with open(config_path, 'r') as f:
-            return json.load(f)
+            config = json.load(f)
+            config = replace_env_placeholders(config)
+            return config
     except Exception as e:
         logger.error(f"Error loading configuration file {filename}: {str(e)}")
         return {}

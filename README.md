@@ -241,6 +241,20 @@ The OpenAI Client's base_url configuration is designed primarily for enterprise 
 
 **Coming Soon**: In future updates, DeepWiki will support a mode where users need to provide their own API keys in requests. This will allow enterprise customers with private channels to use their existing API arrangements without sharing credentials with the DeepWiki deployment.
 
+## 🧩 Using OpenAI-Compatible Embedding Models (e.g., Alibaba Qwen)
+
+If you want to use embedding models compatible with the OpenAI API (such as Alibaba Qwen), follow these steps:
+
+1. Replace the contents of `api/config/embedder.json` with those from `api/config/embedder_openai_compatible.json`.
+2. In your project root `.env` file, set the relevant environment variables, for example:
+   ```
+   OPENAI_API_KEY=your_api_key
+   OPENAI_API_BASE_URL=your_openai_compatible_endpoint
+   ```
+3. The program will automatically substitute placeholders in embedder.json with the values from your environment variables.
+
+This allows you to seamlessly switch to any OpenAI-compatible embedding service without code changes.
+
 ## 🛠️ Advanced Setup
 
 ### Environment Variables

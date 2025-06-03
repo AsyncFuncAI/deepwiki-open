@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, {useState, useRef, useEffect} from 'react';
 import {FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Markdown from './Markdown';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -8,6 +8,18 @@ import RepoInfo from '@/types/repoinfo';
 import getRepoUrl from '@/utils/getRepoUrl';
 import ModelSelectionModal from './ModelSelectionModal';
 import { createChatWebSocket, closeWebSocket, ChatCompletionRequest } from '@/utils/websocketClient';
+
+interface Model {
+  id: string;
+  name: string;
+}
+
+interface Provider {
+  id: string;
+  name: string;
+  models: Model[];
+  supportsCustomModel?: boolean;
+}
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -92,6 +104,38 @@ const Ask: React.FC<AskProps> = ({
       closeWebSocket(webSocketRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const fetchDefaultModel = async () => {
+      try {
+        setIsLoading(true);
+
+        const response = await fetch('/api/models/config');
+
+        if (!response.ok) {
+          throw new Error(`Error fetching model configurations: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        setSelectedProvider(data.defaultProvider);
+
+        // Find the default provider and set its default model
+        const selectedProvider = data.providers.find((p:Provider) => p.id === data.defaultProvider);
+        if (selectedProvider && selectedProvider.models.length > 0) {
+          setSelectedModel(selectedProvider.models[0].id);
+        }
+      } catch (err) {
+        console.error('Failed to fetch model configurations:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if(provider == '' || model == '') {
+      fetchDefaultModel()
+    }
+  }, [provider, model]);
 
   const clearConversation = () => {
     setQuestion('');
@@ -560,6 +604,17 @@ const Ask: React.FC<AskProps> = ({
     }
   };
 
+  const [buttonWidth, setButtonWidth] = useState(0);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Measure button width and update state
+  useEffect(() => {
+    if (buttonRef.current) {
+      const width = buttonRef.current.offsetWidth;
+      setButtonWidth(width);
+    }
+  }, [messages.ask?.askButton, isLoading]);
+
   return (
     <div>
       <div className="p-4">
@@ -587,9 +642,11 @@ const Ask: React.FC<AskProps> = ({
               onChange={(e) => setQuestion(e.target.value)}
               placeholder={messages.ask?.placeholder || 'What would you like to know about this codebase?'}
               className="block w-full rounded-md border border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-5 py-3.5 text-base shadow-sm focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-primary)]/30 focus:outline-none transition-all"
+              style={{ paddingRight: `${buttonWidth + 24}px` }}
               disabled={isLoading}
             />
             <button
+              ref={buttonRef}
               type="submit"
               disabled={isLoading || !question.trim()}
               className={`absolute right-3 top-1/2 transform -translate-y-1/2 px-4 py-2 rounded-md font-medium text-sm ${
@@ -824,6 +881,7 @@ const Ask: React.FC<AskProps> = ({
         onApply={() => {
           console.log('Model selection applied:', selectedProvider, selectedModel);
         }}
+        showWikiType={false}
       />
     </div>
   );

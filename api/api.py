@@ -77,6 +77,7 @@ class WikiCacheData(BaseModel):
     """
     wiki_structure: WikiStructureModel
     generated_pages: Dict[str, WikiPage]
+    repo_url: Optional[str] = None  # Add repo_url to cache
 
 class WikiCacheRequest(BaseModel):
     """
@@ -88,6 +89,7 @@ class WikiCacheRequest(BaseModel):
     language: str
     wiki_structure: WikiStructureModel
     generated_pages: Dict[str, WikiPage]
+    repo_url: Optional[str] = None  # Add repo_url to cache request
 
 class WikiExportRequest(BaseModel):
     """
@@ -389,7 +391,8 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
     try:
         payload = WikiCacheData(
             wiki_structure=data.wiki_structure,
-            generated_pages=data.generated_pages
+            generated_pages=data.generated_pages,
+            repo_url=data.repo_url
         )
         # Log size of data to be cached for debugging (avoid logging full content if large)
         try:
