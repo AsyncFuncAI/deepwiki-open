@@ -289,6 +289,8 @@ Then simply run:
 docker-compose up
 ```
 
+**Logging Path Security Considerations:** In production environments, ensure the `api/logs` directory and any custom log file path are secured with appropriate filesystem permissions and access controls. The application enforces that `LOG_FILE_PATH` resides within the project's `api/logs` directory to prevent path traversal or unauthorized writes.
+
 ## 🛠️ Advanced Setup
 
 ### Environment Variables
