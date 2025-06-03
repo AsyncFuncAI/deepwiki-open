@@ -255,6 +255,40 @@ If you want to use embedding models compatible with the OpenAI API (such as Alib
 
 This allows you to seamlessly switch to any OpenAI-compatible embedding service without code changes.
 
+### Logging
+
+DeepWiki uses Python's built-in `logging` module for diagnostic output. You can configure the verbosity and log file destination via environment variables:
+
+| Variable        | Description                                                        | Default                      |
+|-----------------|--------------------------------------------------------------------|------------------------------|
+| `LOG_LEVEL`     | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).             | INFO                         |
+| `LOG_FILE_PATH` | Path to the log file. If set, logs will be written to this file.   | `api/logs/application.log`   |
+
+To enable debug logging and direct logs to a custom file:
+```bash
+export LOG_LEVEL=DEBUG
+export LOG_FILE_PATH=./debug.log
+python -m api.main
+```
+Or with Docker Compose:
+```bash
+LOG_LEVEL=DEBUG LOG_FILE_PATH=./debug.log docker-compose up
+```
+
+When running with Docker Compose, the container's `api/logs` directory is bind-mounted to `./api/logs` on your host (see the `volumes` section in `docker-compose.yml`), ensuring log files persist across restarts.
+
+Alternatively, you can store these settings in your `.env` file:
+
+```bash
+LOG_LEVEL=DEBUG
+LOG_FILE_PATH=./debug.log
+```
+Then simply run:
+
+```bash
+docker-compose up
+```
+
 ## 🛠️ Advanced Setup
 
 ### Environment Variables

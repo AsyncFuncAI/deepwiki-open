@@ -18,11 +18,10 @@ from api.openrouter_client import OpenRouterClient
 from api.bedrock_client import BedrockClient
 from api.rag import RAG
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Unified logging setup
+from api.logging_config import setup_logging
+
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # Get API keys from environment variables
