@@ -10,9 +10,9 @@ def setup_logging(format: str = None):
     """
     # Determine log directory and default file path
     base_dir = Path(__file__).parent
-    log_dir = base_dir / "logs"
+    log_dir = os.path.join(base_dir, "logs")
     log_dir.mkdir(parents=True, exist_ok=True)
-    default_log_file = log_dir / "application.log"
+    default_log_file = os.path.join(log_dir, "application.log")
 
     # Get log level and file path from environment
     log_level_str = os.environ.get("LOG_LEVEL", "INFO").upper()
