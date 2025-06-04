@@ -59,24 +59,17 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.GHCR_IMAGE }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,format=short
-            type=ref,event=branch
-            type=ref,event=pr
-            latest
 
       - name: Create empty .env file for build
         run: touch .env
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: ${{ matrix.platform }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.GHCR_IMAGE }},push-by-digest=true,name-canonical=true,push=true,oci-mediatypes=true
           cache-from: type=gha,scope=${{ github.repository }}-${{ github.ref_name }}-${{ matrix.platform }}
@@ -122,8 +115,12 @@ jobs:
           annotations: |
             type=org.opencontainers.image.description,value=${{ github.event.repository.description || 'No description provided' }}
           tags: |
-            type=raw,value=main,enable=${{ github.ref_name == 'main' }}
-            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+            type=ref,event=branch
+            type=ref,event=pr
+            latest
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
