@@ -229,7 +229,7 @@ class RAG(adal.Component):
 
         # Initialize components
         self.memory = Memory()
-        self.embedder = get_embedder(is_local_ollama=self.is_ollama_embedder)
+        self.embedder = get_embedder()
 
         # Patch: ensure query embedding is always single string for Ollama
         def single_string_embedder(query):
