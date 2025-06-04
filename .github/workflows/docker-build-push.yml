@@ -39,7 +39,6 @@ jobs:
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
           echo "GHCR_IMAGE=ghcr.io/${GITHUB_REPOSITORY@L}" >> $GITHUB_ENV
-
       
       - name: Checkout repository
         uses: actions/checkout@v4
