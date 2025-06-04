@@ -11,7 +11,6 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  GHCR_IMAGE: ghcr.io/${{ tolower(github.repository) }}
   
 concurrency:
   # This concurrency group ensures that only one job in the group runs at a time.
@@ -39,6 +38,8 @@ jobs:
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+          echo "GHCR_IMAGE=ghcr.io/${GITHUB_REPOSITORY@L}" >> $GITHUB_ENV
+
       
       - name: Checkout repository
         uses: actions/checkout@v4
