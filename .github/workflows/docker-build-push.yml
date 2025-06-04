@@ -102,6 +102,11 @@ jobs:
     needs:
       - build-and-push
     steps:
+      - name: Prepare environment
+        id: prepare
+        run: |
+          echo "GHCR_IMAGE=ghcr.io/${GITHUB_REPOSITORY@L}" >> $GITHUB_ENV
+      
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
