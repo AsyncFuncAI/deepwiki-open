@@ -79,7 +79,9 @@
     "changeModel": "Thay đổi mô hình",
     "defaultNote": "Các giá trị mặc định này đã được áp dụng. Thêm các loại trừ tùy chỉnh của bạn ở trên.",
     "hideDefault": "Ẩn mặc định",
-    "viewDefault": "Xem mặc định"
+    "viewDefault": "Xem mặc định",
+    "authorizationCode": "Mã xác thực",
+    "authorizationRequired": "Mã xác thực cần thiết để tạo Wiki"
   },
   "footer": {
     "copyright": "DeepWiki - Tài liệu hỗ trợ bởi AI cho repository"
@@ -113,5 +115,18 @@
   },
   "nav": {
     "wikiProjects": "Danh sách dự án"
+  },
+  "projects": {
+    "title": "Dự án Wiki đã xử lý",
+    "searchPlaceholder": "Tìm kiếm dự án theo tên, chủ sở hữu hoặc repository...",
+    "noProjects": "Không tìm thấy dự án nào trong bộ nhớ đệm máy chủ. Bộ nhớ đệm có thể trống hoặc máy chủ gặp sự cố.",
+    "noSearchResults": "Không có dự án nào phù hợp với tiêu chí tìm kiếm của bạn.",
+    "processedOn": "Xử lý vào:",
+    "loadingProjects": "Đang tải dự án...",
+    "errorLoading": "Lỗi khi tải dự án:",
+    "backToHome": "Về trang chủ",
+    "browseExisting": "Duyệt dự án hiện có",
+    "existingProjects": "Dự án hiện có",
+    "recentProjects": "Dự án gần đây"
   }
 }

@@ -47,6 +47,8 @@ Create a `.env` file in the project root:
 ```
 # No need for API keys when using Ollama locally
 PORT=8001
+# Optionally, provide OLLAMA_HOST if Ollama is not local
+OLLAMA_HOST=your_ollama_host # (default: http://localhost:11434)
 ```
 
 Start the backend:
@@ -78,11 +80,13 @@ npm run dev
    # For regular use
    docker run -p 3000:3000 -p 8001:8001 --name deepwiki \
      -v ~/.adalflow:/root/.adalflow \
+     -e OLLAMA_HOST=your_ollama_host \
      deepwiki:ollama-local
    
    # For local repository analysis
    docker run -p 3000:3000 -p 8001:8001 --name deepwiki \
      -v ~/.adalflow:/root/.adalflow \
+     -e OLLAMA_HOST=your_ollama_host \
      -v /path/to/your/repo:/app/local-repos/repo-name \
      deepwiki:ollama-local
    ```

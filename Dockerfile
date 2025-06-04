@@ -10,7 +10,13 @@ RUN npm ci --legacy-peer-deps
 FROM node_base AS node_builder
 WORKDIR /app
 COPY --from=node_deps /app/node_modules ./node_modules
-COPY --exclude=./api . .
+# Copy only necessary files for Next.js build
+COPY package.json package-lock.json next.config.ts tsconfig.json tailwind.config.js postcss.config.mjs ./
+COPY src/ ./src/
+COPY public/ ./public/
+# Increase Node.js memory limit for build and disable telemetry
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN NODE_ENV=production npm run build
 
 FROM python:3.11-slim AS py_deps

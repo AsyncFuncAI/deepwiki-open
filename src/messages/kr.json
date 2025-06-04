@@ -79,7 +79,9 @@
       "changeModel": "모델 변경",
       "defaultNote": "이 기본 설정은 이미 적용되었습니다. 위에 사용자 지정 제외 항목을 추가하세요.",
       "hideDefault": "기본값 숨기기",
-      "viewDefault": "기본값 보기"
+      "viewDefault": "기본값 보기",
+      "authorizationCode": "인증코드",
+      "authorizationRequired": "Wiki 생성에는 인증코드가 필요합니다"
     },
     "footer": {
       "copyright": "DeepWiki - 코드 저장소를 위한 AI 기반 문서화"
@@ -113,5 +115,18 @@
     },
     "nav": {
       "wikiProjects": "프로젝트 목록"
+    },
+    "projects": {
+      "title": "처리된 위키 프로젝트",
+      "searchPlaceholder": "프로젝트 이름, 소유자 또는 저장소로 검색...",
+      "noProjects": "서버 캐시에서 프로젝트를 찾을 수 없습니다. 캐시가 비어있거나 서버에 문제가 발생했을 수 있습니다.",
+      "noSearchResults": "검색 조건에 맞는 프로젝트가 없습니다.",
+      "processedOn": "처리 날짜:",
+      "loadingProjects": "프로젝트 로딩 중...",
+      "errorLoading": "프로젝트 로딩 오류:",
+      "backToHome": "홈으로 돌아가기",
+      "browseExisting": "기존 프로젝트 탐색",
+      "existingProjects": "기존 프로젝트",
+      "recentProjects": "최근 프로젝트"
     }
   }

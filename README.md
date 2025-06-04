@@ -41,6 +41,8 @@ echo "GOOGLE_API_KEY=your_google_api_key" > .env
 echo "OPENAI_API_KEY=your_openai_api_key" >> .env
 # Optional: Add OpenRouter API key if you want to use OpenRouter models
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
+# Optional: Add Ollama host if not local. defaults to http://localhost:11434
+echo "OLLAMA_HOST=your_ollama_host" >> .env
 
 # Run with Docker Compose
 docker-compose up
@@ -63,6 +65,8 @@ GOOGLE_API_KEY=your_google_api_key
 OPENAI_API_KEY=your_openai_api_key
 # Optional: Add this if you want to use OpenRouter models
 OPENROUTER_API_KEY=your_openrouter_api_key
+# Optional: Add Ollama host if not local. default: http://localhost:11434
+OLLAMA_HOST=your_ollama_host
 ```
 
 #### Step 2: Start the Backend
@@ -190,6 +194,9 @@ OPENROUTER_API_KEY=your_openrouter_api_key # Required for OpenRouter models
 # OpenAI API Base URL Configuration
 OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
 
+# Ollama host
+OLLAMA_HOST=your_ollama_host # Optional, if Ollama is not local. default: http://localhost:11434
+
 # Configuration Directory
 DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # Optional, for custom config file location
 ```
@@ -234,19 +241,84 @@ The OpenAI Client's base_url configuration is designed primarily for enterprise 
 
 **Coming Soon**: In future updates, DeepWiki will support a mode where users need to provide their own API keys in requests. This will allow enterprise customers with private channels to use their existing API arrangements without sharing credentials with the DeepWiki deployment.
 
+## 🧩 Using OpenAI-Compatible Embedding Models (e.g., Alibaba Qwen)
+
+If you want to use embedding models compatible with the OpenAI API (such as Alibaba Qwen), follow these steps:
+
+1. Replace the contents of `api/config/embedder.json` with those from `api/config/embedder_openai_compatible.json`.
+2. In your project root `.env` file, set the relevant environment variables, for example:
+   ```
+   OPENAI_API_KEY=your_api_key
+   OPENAI_API_BASE_URL=your_openai_compatible_endpoint
+   ```
+3. The program will automatically substitute placeholders in embedder.json with the values from your environment variables.
+
+This allows you to seamlessly switch to any OpenAI-compatible embedding service without code changes.
+
+### Logging
+
+DeepWiki uses Python's built-in `logging` module for diagnostic output. You can configure the verbosity and log file destination via environment variables:
+
+| Variable        | Description                                                        | Default                      |
+|-----------------|--------------------------------------------------------------------|------------------------------|
+| `LOG_LEVEL`     | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).             | INFO                         |
+| `LOG_FILE_PATH` | Path to the log file. If set, logs will be written to this file.   | `api/logs/application.log`   |
+
+To enable debug logging and direct logs to a custom file:
+```bash
+export LOG_LEVEL=DEBUG
+export LOG_FILE_PATH=./debug.log
+python -m api.main
+```
+Or with Docker Compose:
+```bash
+LOG_LEVEL=DEBUG LOG_FILE_PATH=./debug.log docker-compose up
+```
+
+When running with Docker Compose, the container's `api/logs` directory is bind-mounted to `./api/logs` on your host (see the `volumes` section in `docker-compose.yml`), ensuring log files persist across restarts.
+
+Alternatively, you can store these settings in your `.env` file:
+
+```bash
+LOG_LEVEL=DEBUG
+LOG_FILE_PATH=./debug.log
+```
+Then simply run:
+
+```bash
+docker-compose up
+```
+
+**Logging Path Security Considerations:** In production environments, ensure the `api/logs` directory and any custom log file path are secured with appropriate filesystem permissions and access controls. The application enforces that `LOG_FILE_PATH` resides within the project's `api/logs` directory to prevent path traversal or unauthorized writes.
+
 ## 🛠️ Advanced Setup
 
 ### Environment Variables
 
-| Variable | Description | Required | Note |
-|----------|-------------|----------|------|
-| `GOOGLE_API_KEY` | Google Gemini API key for AI generation | No | Required only if you want to use Google Gemini models
-| `OPENAI_API_KEY` | OpenAI API key for embeddings | Yes | Note: This is required even if you're not using OpenAI models, as it's used for embeddings. |
-| `OPENROUTER_API_KEY` | OpenRouter API key for alternative models | No | Required only if you want to use OpenRouter models |
-| `PORT` | Port for the API server (default: 8001) | No | If you host API and frontend on the same machine, make sure change port of `SERVER_BASE_URL` accordingly |
-| `SERVER_BASE_URL` | Base URL for the API server (default: http://localhost:8001) | No |
+| Variable             | Description                                                  | Required | Note                                                                                                     |
+|----------------------|--------------------------------------------------------------|----------|----------------------------------------------------------------------------------------------------------|
+| `GOOGLE_API_KEY`     | Google Gemini API key for AI generation                      | No | Required only if you want to use Google Gemini models                                                    
+| `OPENAI_API_KEY`     | OpenAI API key for embeddings                                | Yes | Note: This is required even if you're not using OpenAI models, as it's used for embeddings.              |
+| `OPENROUTER_API_KEY` | OpenRouter API key for alternative models                    | No | Required only if you want to use OpenRouter models                                                       |
+| `OLLAMA_HOST`        | Ollama Host (default: http://localhost:11434)                | No | Required only if you want to use external Ollama server                                                  |
+| `PORT`               | Port for the API server (default: 8001)                      | No | If you host API and frontend on the same machine, make sure change port of `SERVER_BASE_URL` accordingly |
+| `SERVER_BASE_URL`    | Base URL for the API server (default: http://localhost:8001) | No |
+| `DEEPWIKI_AUTH_MODE` | Set to `true` or `1` to enable authorization mode. | No | Defaults to `false`. If enabled, `DEEPWIKI_AUTH_CODE` is required. |
+| `DEEPWIKI_AUTH_CODE` | The secret code required for wiki generation when `DEEPWIKI_AUTH_MODE` is enabled. | No | Only used if `DEEPWIKI_AUTH_MODE` is `true` or `1`. |
 
 If you're not using ollama mode, you need to configure an OpenAI API key for embeddings. Other API keys are only required when configuring and using models from the corresponding providers.
+
+## Authorization Mode
+
+DeepWiki can be configured to run in an authorization mode, where wiki generation requires a valid authorization code. This is useful if you want to control who can use the generation feature.
+Restricts frontend initiation and protects cache deletion, but doesn't fully prevent backend generation if API endpoints are hit directly.
+
+To enable authorization mode, set the following environment variables:
+
+- `DEEPWIKI_AUTH_MODE`: Set this to `true` or `1`. When enabled, the frontend will display an input field for the authorization code.
+- `DEEPWIKI_AUTH_CODE`: Set this to the desired secret code. Restricts frontend initiation and protects cache deletion, but doesn't fully prevent backend generation if API endpoints are hit directly.
+
+If `DEEPWIKI_AUTH_MODE` is not set or is set to `false` (or any other value than `true`/`1`), the authorization feature will be disabled, and no code will be required.
 
 ### Docker Setup
 
@@ -261,6 +333,7 @@ docker run -p 8001:8001 -p 3000:3000 \
   -e GOOGLE_API_KEY=your_google_api_key \
   -e OPENAI_API_KEY=your_openai_api_key \
   -e OPENROUTER_API_KEY=your_openrouter_api_key \
+  -e OLLAMA_HOST=your_ollama_host \
   -v ~/.adalflow:/root/.adalflow \
   ghcr.io/asyncfuncai/deepwiki-open:latest
 ```
@@ -290,6 +363,7 @@ You can also mount a .env file to the container:
 echo "GOOGLE_API_KEY=your_google_api_key" > .env
 echo "OPENAI_API_KEY=your_openai_api_key" >> .env
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
+echo "OLLAMA_HOST=your_ollama_host" >> .env
 
 # Run the container with the .env file mounted
 docker run -p 8001:8001 -p 3000:3000 \
@@ -322,6 +396,7 @@ docker run -p 8001:8001 -p 3000:3000 \
   -e GOOGLE_API_KEY=your_google_api_key \
   -e OPENAI_API_KEY=your_openai_api_key \
   -e OPENROUTER_API_KEY=your_openrouter_api_key \
+  -e OLLAMA_HOST=your_ollama_host \
   deepwiki-open
 ```
 

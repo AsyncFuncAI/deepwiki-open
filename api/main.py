@@ -7,25 +7,10 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# --- Unified Logging Configuration ---
-# Determine the project's base directory (assuming main.py is in 'api' subdirectory)
-# Adjust if your structure is different, e.g., if main.py is at the root.
-# This assumes 'api/main.py', so logs will be in 'api/logs/application.log'
-LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
-os.makedirs(LOG_DIR, exist_ok=True)
-LOG_FILE_PATH = os.path.join(LOG_DIR, "application.log")
+from api.logging_config import setup_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(lineno)d %(filename)s:%(funcName)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_FILE_PATH),
-        logging.StreamHandler()  # Also keep logging to console
-    ],
-    force=True  # Ensure this configuration takes precedence and clears any existing handlers
-)
-
-# Get a logger for this main module (optional, but good practice)
+# Setup logging with detailed format for main
+setup_logging(format="%(asctime)s - %(lineno)d %(filename)s:%(funcName)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # Add the current directory to the path so we can import the api package
@@ -48,9 +33,11 @@ if __name__ == "__main__":
     logger.info(f"Starting Streaming API on port {port}")
 
     # Run the FastAPI app with uvicorn
+    # Disable reload in production/Docker environment
+    is_development = os.environ.get("NODE_ENV") != "production"
     uvicorn.run(
         "api.api:app",
         host="0.0.0.0",
         port=port,
-        reload=True
+        reload=is_development
     )

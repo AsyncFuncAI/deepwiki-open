@@ -14,6 +14,10 @@ from adalflow.core.db import LocalDB
 from api.config import configs, DEFAULT_EXCLUDED_DIRS, DEFAULT_EXCLUDED_FILES
 from api.ollama_patch import OllamaDocumentProcessor
 from urllib.parse import urlparse, urlunparse, quote
+import requests
+from requests.exceptions import RequestException
+
+from api.tools.embedder import get_embedder
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -21,19 +25,25 @@ logger = logging.getLogger(__name__)
 # Maximum token limit for OpenAI embedding models
 MAX_EMBEDDING_TOKENS = 8192
 
-def count_tokens(text: str, local_ollama: bool = False) -> int:
+def count_tokens(text: str, is_ollama_embedder: bool = None) -> int:
     """
     Count the number of tokens in a text string using tiktoken.
 
     Args:
         text (str): The text to count tokens for.
-        local_ollama (bool, optional): Whether using local Ollama embeddings. Default is False.
+        is_ollama_embedder (bool, optional): Whether using Ollama embeddings.
+                                           If None, will be determined from configuration.
 
     Returns:
         int: The number of tokens in the text.
     """
     try:
-        if local_ollama:
+        # Determine if using Ollama embedder if not specified
+        if is_ollama_embedder is None:
+            from api.config import is_ollama_embedder as check_ollama
+            is_ollama_embedder = check_ollama()
+
+        if is_ollama_embedder:
             encoding = tiktoken.get_encoding("cl100k_base")
         else:
             encoding = tiktoken.encoding_for_model("text-embedding-3-small")
@@ -117,14 +127,15 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
 # Alias for backward compatibility
 download_github_repo = download_repo
 
-def read_all_documents(path: str, local_ollama: bool = False, excluded_dirs: List[str] = None, excluded_files: List[str] = None,
+def read_all_documents(path: str, is_ollama_embedder: bool = None, excluded_dirs: List[str] = None, excluded_files: List[str] = None,
                       included_dirs: List[str] = None, included_files: List[str] = None):
     """
     Recursively reads all documents in a directory and its subdirectories.
 
     Args:
         path (str): The root directory path.
-        local_ollama (bool): Whether to use local Ollama for token counting. Default is False.
+        is_ollama_embedder (bool, optional): Whether using Ollama embeddings for token counting.
+                                           If None, will be determined from configuration.
         excluded_dirs (List[str], optional): List of directories to exclude from processing.
             Overrides the default configuration if provided.
         excluded_files (List[str], optional): List of file patterns to exclude from processing.
@@ -139,7 +150,7 @@ def read_all_documents(path: str, local_ollama: bool = False, excluded_dirs: Lis
     """
     documents = []
     # File extensions to look for, prioritizing code files
-    code_extensions = [".py", ".js", ".ts", ".java", ".cpp", ".c", ".go", ".rs",
+    code_extensions = [".py", ".js", ".ts", ".java", ".cpp", ".c", ".h", ".hpp", ".go", ".rs",
                        ".jsx", ".tsx", ".html", ".css", ".php", ".swift", ".cs"]
     doc_extensions = [".md", ".txt", ".rst", ".json", ".yaml", ".yml"]
 
@@ -282,7 +293,7 @@ def read_all_documents(path: str, local_ollama: bool = False, excluded_dirs: Lis
                     )
 
                     # Check token count
-                    token_count = count_tokens(content, local_ollama)
+                    token_count = count_tokens(content, is_ollama_embedder)
                     if token_count > MAX_EMBEDDING_TOKENS * 10:
                         logger.warning(f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit")
                         continue
@@ -316,7 +327,7 @@ def read_all_documents(path: str, local_ollama: bool = False, excluded_dirs: Lis
                     relative_path = os.path.relpath(file_path, path)
 
                     # Check token count
-                    token_count = count_tokens(content, local_ollama)
+                    token_count = count_tokens(content, is_ollama_embedder)
                     if token_count > MAX_EMBEDDING_TOKENS:
                         logger.warning(f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit")
                         continue
@@ -339,33 +350,36 @@ def read_all_documents(path: str, local_ollama: bool = False, excluded_dirs: Lis
     logger.info(f"Found {len(documents)} documents")
     return documents
 
-def prepare_data_pipeline(local_ollama: bool = False):
+def prepare_data_pipeline(is_ollama_embedder: bool = None):
     """
     Creates and returns the data transformation pipeline.
 
     Args:
-        local_ollama (bool): Whether to use local Ollama for embedding (default: False)
+        is_ollama_embedder (bool, optional): Whether to use Ollama for embedding.
+                                           If None, will be determined from configuration.
 
     Returns:
         adal.Sequential: The data transformation pipeline
     """
-    splitter = TextSplitter(**configs["text_splitter"])
+    from api.config import get_embedder_config, is_ollama_embedder as check_ollama
 
-    if local_ollama:
-        # Use Ollama embedder
-        embedder = adal.Embedder(
-            model_client=configs["embedder_ollama"]["model_client"](),
-            model_kwargs=configs["embedder_ollama"]["model_kwargs"],
-        )
+    # Determine if using Ollama embedder if not specified
+    if is_ollama_embedder is None:
+        is_ollama_embedder = check_ollama()
+
+    splitter = TextSplitter(**configs["text_splitter"])
+    embedder_config = get_embedder_config()
+
+    embedder = get_embedder(is_local_ollama=is_ollama_embedder)
+
+    if is_ollama_embedder:
+        # Use Ollama document processor for single-document processing
         embedder_transformer = OllamaDocumentProcessor(embedder=embedder)
     else:
-        # Use OpenAI embedder
-        embedder = adal.Embedder(
-            model_client=configs["embedder"]["model_client"](),
-            model_kwargs=configs["embedder"]["model_kwargs"],
-        )
+        # Use batch processing for other embedders
+        batch_size = embedder_config.get("batch_size", 500)
         embedder_transformer = ToEmbeddings(
-            embedder=embedder, batch_size=configs["embedder"]["batch_size"]
+            embedder=embedder, batch_size=batch_size
         )
 
     data_transformer = adal.Sequential(
@@ -374,7 +388,7 @@ def prepare_data_pipeline(local_ollama: bool = False):
     return data_transformer
 
 def transform_documents_and_save_to_db(
-    documents: List[Document], db_path: str, local_ollama: bool = False
+    documents: List[Document], db_path: str, is_ollama_embedder: bool = None
 ) -> LocalDB:
     """
     Transforms a list of documents and saves them to a local database.
@@ -382,10 +396,11 @@ def transform_documents_and_save_to_db(
     Args:
         documents (list): A list of `Document` objects.
         db_path (str): The path to the local database file.
-        local_ollama (bool): Whether to use local Ollama for embedding (default: False)
+        is_ollama_embedder (bool, optional): Whether to use Ollama for embedding.
+                                           If None, will be determined from configuration.
     """
     # Get the data transformer
-    data_transformer = prepare_data_pipeline(local_ollama)
+    data_transformer = prepare_data_pipeline(is_ollama_embedder)
 
     # Save the documents to a local database
     db = LocalDB()
@@ -427,21 +442,20 @@ def get_github_file_content(repo_url: str, file_path: str, access_token: str = N
         # The API endpoint for getting file content is: /repos/{owner}/{repo}/contents/{path}
         api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{file_path}"
 
-        # Prepare curl command with authentication if token is provided
-        curl_cmd = ["curl", "-s"]
+        # Fetch file content from GitHub API
+        headers = {}
         if access_token:
-            curl_cmd.extend(["-H", f"Authorization: token {access_token}"])
-        curl_cmd.append(api_url)
-
+            headers["Authorization"] = f"token {access_token}"
         logger.info(f"Fetching file content from GitHub API: {api_url}")
-        result = subprocess.run(
-            curl_cmd,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        content_data = json.loads(result.stdout.decode("utf-8"))
+        try:
+            response = requests.get(api_url, headers=headers)
+            response.raise_for_status()
+        except RequestException as e:
+            raise ValueError(f"Error fetching file content: {e}")
+        try:
+            content_data = response.json()
+        except json.JSONDecodeError:
+            raise ValueError("Invalid response from GitHub API")
 
         # Check if we got an error response
         if "message" in content_data and "documentation_url" in content_data:
@@ -459,14 +473,6 @@ def get_github_file_content(repo_url: str, file_path: str, access_token: str = N
         else:
             raise ValueError("File content not found in GitHub API response")
 
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr.decode('utf-8')
-        # Sanitize error message to remove any tokens
-        if access_token and access_token in error_msg:
-            error_msg = error_msg.replace(access_token, "***TOKEN***")
-        raise ValueError(f"Error fetching file content: {error_msg}")
-    except json.JSONDecodeError:
-        raise ValueError("Invalid response from GitHub API")
     except Exception as e:
         raise ValueError(f"Failed to get file content: {str(e)}")
 
@@ -509,20 +515,17 @@ def get_gitlab_file_content(repo_url: str, file_path: str, access_token: str = N
         default_branch = 'main'
 
         api_url = f"{gitlab_domain}/api/v4/projects/{encoded_project_path}/repository/files/{encoded_file_path}/raw?ref={default_branch}"
-        curl_cmd = ["curl", "-s"]
+        # Fetch file content from GitLab API
+        headers = {}
         if access_token:
-            curl_cmd.extend(["-H", f"PRIVATE-TOKEN: {access_token}"])
-        curl_cmd.append(api_url)
-
+            headers["PRIVATE-TOKEN"] = access_token
         logger.info(f"Fetching file content from GitLab API: {api_url}")
-        result = subprocess.run(
-            curl_cmd,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        content = result.stdout.decode("utf-8")
+        try:
+            response = requests.get(api_url, headers=headers)
+            response.raise_for_status()
+            content = response.text
+        except RequestException as e:
+            raise ValueError(f"Error fetching file content: {e}")
 
         # Check for GitLab error response (JSON instead of raw file)
         if content.startswith("{") and '"message":' in content:
@@ -531,17 +534,10 @@ def get_gitlab_file_content(repo_url: str, file_path: str, access_token: str = N
                 if "message" in error_data:
                     raise ValueError(f"GitLab API error: {error_data['message']}")
             except json.JSONDecodeError:
-                # If it's not valid JSON, it's probably the file content
                 pass
 
         return content
 
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr.decode('utf-8')
-        # Sanitize error message to remove any tokens
-        if access_token and access_token in error_msg:
-            error_msg = error_msg.replace(access_token, "***TOKEN***")
-        raise ValueError(f"Error fetching file content: {error_msg}")
     except Exception as e:
         raise ValueError(f"Failed to get file content: {str(e)}")
 
@@ -573,37 +569,30 @@ def get_bitbucket_file_content(repo_url: str, file_path: str, access_token: str 
         # The API endpoint for getting file content is: /2.0/repositories/{owner}/{repo}/src/{branch}/{path}
         api_url = f"https://api.bitbucket.org/2.0/repositories/{owner}/{repo}/src/main/{file_path}"
 
-        # Prepare curl command with authentication if token is provided
-        curl_cmd = ["curl", "-s"]
+        # Fetch file content from Bitbucket API
+        headers = {}
         if access_token:
-            curl_cmd.extend(["-H", f"Authorization: Bearer {access_token}"])
-        curl_cmd.append(api_url)
-
+            headers["Authorization"] = f"Bearer {access_token}"
         logger.info(f"Fetching file content from Bitbucket API: {api_url}")
-        result = subprocess.run(
-            curl_cmd,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        # Bitbucket API returns the raw file content directly
-        content = result.stdout.decode("utf-8")
-        return content
-
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr.decode('utf-8')
-        if e.returncode == 22:  # curl uses 22 to indicate an HTTP error occurred
-            if "HTTP/1.1 404" in error_msg:
+        try:
+            response = requests.get(api_url, headers=headers)
+            if response.status_code == 200:
+                content = response.text
+            elif response.status_code == 404:
                 raise ValueError("File not found on Bitbucket. Please check the file path and repository.")
-            elif "HTTP/1.1 401" in error_msg:
+            elif response.status_code == 401:
                 raise ValueError("Unauthorized access to Bitbucket. Please check your access token.")
-            elif "HTTP/1.1 403" in error_msg:
+            elif response.status_code == 403:
                 raise ValueError("Forbidden access to Bitbucket. You might not have permission to access this file.")
-            elif "HTTP/1.1 500" in error_msg:
+            elif response.status_code == 500:
                 raise ValueError("Internal server error on Bitbucket. Please try again later.")
             else:
-                raise ValueError(f"Error fetching file content: {error_msg}")
+                response.raise_for_status()
+                content = response.text
+            return content
+        except RequestException as e:
+            raise ValueError(f"Error fetching file content: {e}")
+
     except Exception as e:
         raise ValueError(f"Failed to get file content: {str(e)}")
 
@@ -642,7 +631,7 @@ class DatabaseManager:
         self.repo_url_or_path = None
         self.repo_paths = None
 
-    def prepare_database(self, repo_url_or_path: str, type: str = "github", access_token: str = None, local_ollama: bool = False,
+    def prepare_database(self, repo_url_or_path: str, type: str = "github", access_token: str = None, is_ollama_embedder: bool = None,
                        excluded_dirs: List[str] = None, excluded_files: List[str] = None,
                        included_dirs: List[str] = None, included_files: List[str] = None) -> List[Document]:
         """
@@ -651,7 +640,8 @@ class DatabaseManager:
         Args:
             repo_url_or_path (str): The URL or local path of the repository
             access_token (str, optional): Access token for private repositories
-            local_ollama (bool): Whether to use local Ollama for embedding (default: False)
+            is_ollama_embedder (bool, optional): Whether to use Ollama for embedding.
+                                               If None, will be determined from configuration.
             excluded_dirs (List[str], optional): List of directories to exclude from processing
             excluded_files (List[str], optional): List of file patterns to exclude from processing
             included_dirs (List[str], optional): List of directories to include exclusively
@@ -662,7 +652,7 @@ class DatabaseManager:
         """
         self.reset_database()
         self._create_repo(repo_url_or_path, type, access_token)
-        return self.prepare_db_index(local_ollama=local_ollama, excluded_dirs=excluded_dirs, excluded_files=excluded_files,
+        return self.prepare_db_index(is_ollama_embedder=is_ollama_embedder, excluded_dirs=excluded_dirs, excluded_files=excluded_files,
                                    included_dirs=included_dirs, included_files=included_files)
 
     def reset_database(self):
@@ -734,13 +724,14 @@ class DatabaseManager:
             logger.error(f"Failed to create repository structure: {e}")
             raise
 
-    def prepare_db_index(self, local_ollama: bool = False, excluded_dirs: List[str] = None, excluded_files: List[str] = None,
+    def prepare_db_index(self, is_ollama_embedder: bool = None, excluded_dirs: List[str] = None, excluded_files: List[str] = None,
                         included_dirs: List[str] = None, included_files: List[str] = None) -> List[Document]:
         """
         Prepare the indexed database for the repository.
 
         Args:
-            local_ollama (bool): Whether to use local Ollama for embedding (default: False)
+            is_ollama_embedder (bool, optional): Whether to use Ollama for embedding.
+                                               If None, will be determined from configuration.
             excluded_dirs (List[str], optional): List of directories to exclude from processing
             excluded_files (List[str], optional): List of file patterns to exclude from processing
             included_dirs (List[str], optional): List of directories to include exclusively
@@ -766,14 +757,14 @@ class DatabaseManager:
         logger.info("Creating new database...")
         documents = read_all_documents(
             self.repo_paths["save_repo_dir"],
-            local_ollama=local_ollama,
+            is_ollama_embedder=is_ollama_embedder,
             excluded_dirs=excluded_dirs,
             excluded_files=excluded_files,
             included_dirs=included_dirs,
             included_files=included_files
         )
         self.db = transform_documents_and_save_to_db(
-            documents, self.repo_paths["save_db_file"], local_ollama=local_ollama
+            documents, self.repo_paths["save_db_file"], is_ollama_embedder=is_ollama_embedder
         )
         logger.info(f"Total documents: {len(documents)}")
         transformed_docs = self.db.get_transformed_data(key="split_and_embed")

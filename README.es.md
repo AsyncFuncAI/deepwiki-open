@@ -239,6 +239,20 @@ La configuración de base_url del Cliente OpenAI está diseñada principalmente 
 
 **Próximamente**: En futuras actualizaciones, DeepWiki soportará un modo donde los usuarios deberán proporcionar sus propias claves API en las solicitudes. Esto permitirá a los clientes empresariales con canales privados utilizar sus disposiciones API existentes sin compartir credenciales con el despliegue de DeepWiki.
 
+## 🧩 Uso de modelos de embedding compatibles con OpenAI (por ejemplo, Alibaba Qwen)
+
+Si deseas usar modelos de embedding compatibles con la API de OpenAI (como Alibaba Qwen), sigue estos pasos:
+
+1. Sustituye el contenido de `api/config/embedder.json` por el de `api/config/embedder_openai_compatible.json`.
+2. En el archivo `.env` de la raíz del proyecto, configura las variables de entorno necesarias, por ejemplo:
+   ```
+   OPENAI_API_KEY=tu_api_key
+   OPENAI_API_BASE_URL=tu_endpoint_compatible_openai
+   ```
+3. El programa sustituirá automáticamente los placeholders de embedder.json por los valores de tus variables de entorno.
+
+Así puedes cambiar fácilmente a cualquier servicio de embedding compatible con OpenAI sin modificar el código.
+
 ## 🤖 Funciones de Preguntas e Investigación Profunda
 
 ### Función de Preguntas
@@ -317,3 +331,4 @@ Este proyecto está licenciado bajo la Licencia MIT - consulta el archivo [LICEN
 ## ⭐ Historial de Estrellas
 
 [![Gráfico de Historial de Estrellas](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
+

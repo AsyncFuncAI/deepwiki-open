@@ -79,7 +79,9 @@
     "changeModel": "モデルを変更",
     "defaultNote": "これらのデフォルト設定は既に適用されています。上記に追加の除外項目を入力してください。",
     "hideDefault": "デフォルトを隠す",
-    "viewDefault": "デフォルトを表示"
+    "viewDefault": "デフォルトを表示",
+    "authorizationCode": "認証コード",
+    "authorizationRequired": "Wiki生成には認証コードが必要です"
   },
   "footer": {
     "copyright": "DeepWiki - コードリポジトリのためのAI駆動ドキュメンテーション"
@@ -113,5 +115,18 @@
   },
   "nav": {
     "wikiProjects": "プロジェクト一覧"
+  },
+  "projects": {
+    "title": "処理済みWikiプロジェクト",
+    "searchPlaceholder": "プロジェクト名、所有者、リポジトリで検索...",
+    "noProjects": "サーバーキャッシュにプロジェクトが見つかりません。キャッシュが空であるか、サーバーで問題が発生した可能性があります。",
+    "noSearchResults": "検索条件に一致するプロジェクトがありません。",
+    "processedOn": "処理日時:",
+    "loadingProjects": "プロジェクトを読み込み中...",
+    "errorLoading": "プロジェクトの読み込みエラー:",
+    "backToHome": "ホームに戻る",
+    "browseExisting": "既存プロジェクトを閲覧",
+    "existingProjects": "既存プロジェクト",
+    "recentProjects": "最近のプロジェクト"
   }
 }

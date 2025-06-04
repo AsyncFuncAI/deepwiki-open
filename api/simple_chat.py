@@ -11,17 +11,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from api.config import get_model_config
+from api.config import get_model_config, configs
 from api.data_pipeline import count_tokens, get_file_content
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
+from api.bedrock_client import BedrockClient
 from api.rag import RAG
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Unified logging setup
+from api.logging_config import setup_logging
+
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # Get API keys from environment variables
@@ -64,7 +64,7 @@ class ChatCompletionRequest(BaseModel):
     type: Optional[str] = Field("github", description="Type of repository (e.g., 'github', 'gitlab', 'bitbucket')")
 
     # model parameters
-    provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama)")
+    provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama, bedrock)")
     model: Optional[str] = Field(None, description="Model name for the specified provider")
 
     language: Optional[str] = Field("en", description="Language for content generation (e.g., 'en', 'ja', 'zh', 'es', 'kr', 'vi')")
@@ -245,15 +245,9 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         repo_type = request.type
 
         # Get language information
-        language_code = request.language or "en"
-        language_name = {
-            "en": "English",
-            "ja": "Japanese (日本語)",
-            "zh": "Mandarin Chinese (中文)",
-            "es": "Spanish (Español)",
-            "kr": "Korean (한국어)",
-            "vi": "Vietnamese (Tiếng Việt)"
-        }.get(language_code, "English")
+        language_code = request.language or configs["lang_config"]["default"]
+        supported_langs = configs["lang_config"]["supported_languages"]
+        language_name = supported_langs.get(language_code, "English")
 
         # Create system prompt
         if is_deep_research:
@@ -500,6 +494,27 @@ This file contains...
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM
             )
+        elif request.provider == "bedrock":
+            logger.info(f"Using AWS Bedrock with model: {request.model}")
+
+            # Check if AWS credentials are set
+            if not os.environ.get("AWS_ACCESS_KEY_ID") or not os.environ.get("AWS_SECRET_ACCESS_KEY"):
+                logger.warning("AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY environment variables are not set, but continuing with request")
+                # We'll let the BedrockClient handle this and return an error message
+
+            # Initialize Bedrock client
+            model = BedrockClient()
+            model_kwargs = {
+                "model": request.model,
+                "temperature": model_config["temperature"],
+                "top_p": model_config["top_p"]
+            }
+
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=prompt,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
         else:
             # Initialize Google Generative AI model
             model = genai.GenerativeModel(
@@ -551,6 +566,20 @@ This file contains...
                     except Exception as e_openai:
                         logger.error(f"Error with Openai API: {str(e_openai)}")
                         yield f"\nError with Openai API: {str(e_openai)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
+                elif request.provider == "bedrock":
+                    try:
+                        # Get the response and handle it properly using the previously created api_kwargs
+                        logger.info("Making AWS Bedrock API call")
+                        response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                        # Handle response from Bedrock (not streaming yet)
+                        if isinstance(response, str):
+                            yield response
+                        else:
+                            # Try to extract text from the response
+                            yield str(response)
+                    except Exception as e_bedrock:
+                        logger.error(f"Error with AWS Bedrock API: {str(e_bedrock)}")
+                        yield f"\nError with AWS Bedrock API: {str(e_bedrock)}\n\nPlease check that you have set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables with valid credentials."
                 else:
                     # Generate streaming response
                     response = model.generate_content(prompt, stream=True)
@@ -638,6 +667,28 @@ This file contains...
                             except Exception as e_fallback:
                                 logger.error(f"Error with Openai API fallback: {str(e_fallback)}")
                                 yield f"\nError with Openai API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
+                        elif request.provider == "bedrock":
+                            try:
+                                # Create new api_kwargs with the simplified prompt
+                                fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
+                                    input=simplified_prompt,
+                                    model_kwargs=model_kwargs,
+                                    model_type=ModelType.LLM
+                                )
+
+                                # Get the response using the simplified prompt
+                                logger.info("Making fallback AWS Bedrock API call")
+                                fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
+
+                                # Handle response from Bedrock
+                                if isinstance(fallback_response, str):
+                                    yield fallback_response
+                                else:
+                                    # Try to extract text from the response
+                                    yield str(fallback_response)
+                            except Exception as e_fallback:
+                                logger.error(f"Error with AWS Bedrock API fallback: {str(e_fallback)}")
+                                yield f"\nError with AWS Bedrock API fallback: {str(e_fallback)}\n\nPlease check that you have set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables with valid credentials."
                         else:
                             # Initialize Google Generative AI model
                             model_config = get_model_config(request.provider, request.model)

@@ -79,7 +79,9 @@
     "changeModel": "Cambiar Modelo",
     "defaultNote": "Estos valores predeterminados ya están aplicados. Agregue sus exclusiones personalizadas arriba.",
     "hideDefault": "Ocultar Predeterminados",
-    "viewDefault": "Ver Predeterminados"
+    "viewDefault": "Ver Predeterminados",
+    "authorizationCode": "Código de Autorización",
+    "authorizationRequired": "Generar Wiki requiere código de autorización"
   },
   "footer": {
     "copyright": "DeepWiki - Documentación impulsada por IA para repositorios de código"
@@ -113,5 +115,18 @@
   },
   "nav": {
     "wikiProjects": "Lista de Proyectos"
+  },
+  "projects": {
+    "title": "Proyectos Wiki Procesados",
+    "searchPlaceholder": "Buscar proyectos por nombre, propietario o repositorio...",
+    "noProjects": "No se encontraron proyectos en la caché del servidor. La caché podría estar vacía o el servidor encontró un problema.",
+    "noSearchResults": "Ningún proyecto coincide con sus criterios de búsqueda.",
+    "processedOn": "Procesado el:",
+    "loadingProjects": "Cargando proyectos...",
+    "errorLoading": "Error al cargar proyectos:",
+    "backToHome": "Volver al Inicio",
+    "browseExisting": "Explorar Proyectos Existentes",
+    "existingProjects": "Proyectos Existentes",
+    "recentProjects": "Proyectos Recientes"
   }
 }

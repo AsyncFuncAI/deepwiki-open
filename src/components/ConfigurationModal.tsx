@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import UserSelector from './UserSelector';
+import TokenInput from './TokenInput';
+
 interface ConfigurationModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -13,6 +15,7 @@ interface ConfigurationModalProps {
   // Language selection
   selectedLanguage: string;
   setSelectedLanguage: (value: string) => void;
+  supportedLanguages: Record<string, string>;
 
   // Wiki type options
   isComprehensiveView: boolean;
@@ -49,6 +52,12 @@ interface ConfigurationModalProps {
   // Form submission
   onSubmit: () => void;
   isSubmitting: boolean;
+
+  // Authentication
+  authRequired?: boolean;
+  authCode?: string;
+  setAuthCode?: (code: string) => void;
+  isAuthLoading?: boolean;
 }
 
 export default function ConfigurationModal({
@@ -57,6 +66,7 @@ export default function ConfigurationModal({
   repositoryInput,
   selectedLanguage,
   setSelectedLanguage,
+  supportedLanguages,
   isComprehensiveView,
   setIsComprehensiveView,
   provider,
@@ -80,7 +90,11 @@ export default function ConfigurationModal({
   includedFiles,
   setIncludedFiles,
   onSubmit,
-  isSubmitting
+  isSubmitting,
+  authRequired,
+  authCode,
+  setAuthCode,
+  isAuthLoading
 }: ConfigurationModalProps) {
   const { messages: t } = useLanguage();
 
@@ -132,12 +146,9 @@ export default function ConfigurationModal({
                 onChange={(e) => setSelectedLanguage(e.target.value)}
                 className="input-japanese block w-full px-3 py-2 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
               >
-                <option value="en">English</option>
-                <option value="ja">Japanese (日本語)</option>
-                <option value="zh">Mandarin (中文)</option>
-                <option value="es">Spanish (Español)</option>
-                <option value="kr">Korean (한국어)</option>
-                <option value="vi">Vietnamese (Tiếng Việt)</option>
+                {
+                  Object.entries(supportedLanguages).map(([key, value])=> <option key={key} value={key}>{value}</option>)
+                }
               </select>
             </div>
 
@@ -220,80 +231,46 @@ export default function ConfigurationModal({
               />
             </div>
 
-            {/* Access token section */}
-            <div className="mb-4">
-              <button
-                type="button"
-                onClick={() => setShowTokenSection(!showTokenSection)}
-                className="text-sm text-[var(--accent-primary)] hover:text-[var(--highlight)] flex items-center transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)] pb-0.5 mb-2"
-              >
-                {showTokenSection ? t.form?.hideTokens || 'Hide Access Tokens' : t.form?.addTokens || 'Add Access Tokens for Private Repositories'}
-              </button>
+            {/* Access token section using TokenInput component */}
+            <TokenInput
+              selectedPlatform={selectedPlatform}
+              setSelectedPlatform={setSelectedPlatform}
+              accessToken={accessToken}
+              setAccessToken={setAccessToken}
+              showTokenSection={showTokenSection}
+              onToggleTokenSection={() => setShowTokenSection(!showTokenSection)}
+              allowPlatformChange={true}
+            />
 
-              {showTokenSection && (
-                <div className="mt-2 p-4 bg-[var(--background)]/50 rounded-md border border-[var(--border-color)]">
-                  <div className="mb-3">
-                    <label className="block text-xs font-medium text-[var(--foreground)] mb-2">
-                      {t.form?.selectPlatform || 'Select Platform'}
-                    </label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPlatform('github')}
-                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${selectedPlatform === 'github'
-                          ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
-                          : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
-                          }`}
-                      >
-                        <span className="text-sm">GitHub</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPlatform('gitlab')}
-                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${selectedPlatform === 'gitlab'
-                          ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
-                          : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
-                          }`}
-                      >
-                        <span className="text-sm">GitLab</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPlatform('bitbucket')}
-                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${selectedPlatform === 'bitbucket'
-                          ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
-                          : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
-                          }`}
-                      >
-                        <span className="text-sm">Bitbucket</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="access-token" className="block text-xs font-medium text-[var(--foreground)] mb-2">
-                      {t.form?.personalAccessToken || 'Personal Access Token'}
-                    </label>
-                    <input
-                      id="access-token"
-                      type="password"
-                      value={accessToken}
-                      onChange={(e) => setAccessToken(e.target.value)}
-                      placeholder={t.form?.tokenPlaceholder || 'Enter your access token'}
-                      className="input-japanese block w-full px-3 py-2 rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)] text-sm"
-                    />
-                    <div className="flex items-center mt-2 text-xs text-[var(--muted)]">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-[var(--muted)]"
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {t.form?.tokenSecurityNote || 'Your token is stored locally and never sent to our servers.'}
-                    </div>
-                  </div>
+            {/* Authorization Code Input */}
+            {isAuthLoading && (
+              <div className="mb-4 p-3 bg-[var(--background)]/50 rounded-md border border-[var(--border-color)] text-sm text-[var(--muted)]">
+                Loading authentication status...
+              </div>
+            )}
+            {!isAuthLoading && authRequired && (
+              <div className="mb-4 p-4 bg-[var(--background)]/50 rounded-md border border-[var(--border-color)]">
+                <label htmlFor="authCode" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                  {t.form?.authorizationCode || 'Authorization Code'}
+                </label>
+                <input
+                  type="password"
+                  id="authCode"
+                  value={authCode || ''}
+                  onChange={(e) => setAuthCode?.(e.target.value)}
+                  className="input-japanese block w-full px-3 py-2 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+                  placeholder="Enter your authorization code"
+                />
+                 <div className="flex items-center mt-2 text-xs text-[var(--muted)]">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-[var(--muted)]"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                   {t.form?.authorizationRequired || 'Authentication is required to generate the wiki.'}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Modal footer */}

@@ -7,7 +7,9 @@ import { FaWikipediaW, FaGithub, FaCoffee, FaTwitter } from 'react-icons/fa';
 import ThemeToggle from '@/components/theme-toggle';
 import Mermaid from '../components/Mermaid';
 import ConfigurationModal from '@/components/ConfigurationModal';
+import ProcessedProjects from '@/components/ProcessedProjects';
 import { extractUrlPath } from '@/utils/urlDecoder';
+import { useProcessedProjects } from '@/hooks/useProcessedProjects';
 
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -42,7 +44,8 @@ const DEMO_SEQUENCE_CHART = `sequenceDiagram
 
 export default function Home() {
   const router = useRouter();
-  const { language, setLanguage, messages } = useLanguage();
+  const { language, setLanguage, messages, supportedLanguages } = useLanguage();
+  const { projects, isLoading: projectsLoading } = useProcessedProjects();
 
   // Create a simple translation function
   const t = (key: string, params: Record<string, string | number> = {}): string => {
@@ -93,10 +96,38 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>(language);
 
+  // Authentication state
+  const [authRequired, setAuthRequired] = useState<boolean>(false);
+  const [authCode, setAuthCode] = useState<string>('');
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+
   // Sync the language context with the selectedLanguage state
   useEffect(() => {
     setLanguage(selectedLanguage);
   }, [selectedLanguage, setLanguage]);
+
+  // Fetch authentication status on component mount
+  useEffect(() => {
+    const fetchAuthStatus = async () => {
+      try {
+        setIsAuthLoading(true);
+        const response = await fetch('/api/auth/status');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setAuthRequired(data.auth_required);
+      } catch (err) {
+        console.error("Failed to fetch auth status:", err);
+        // Assuming auth is required if fetch fails to avoid blocking UI for safety
+        setAuthRequired(true);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+
+    fetchAuthStatus();
+  }, []);
 
   // Parse repository URL/input and extract owner and repo
   const parseRepositoryInput = (input: string): {
@@ -178,7 +209,39 @@ export default function Home() {
     setIsConfigModalOpen(true);
   };
 
-  const handleGenerateWiki = () => {
+  const validateAuthCode = async () => {
+    try {
+      if(authRequired) {
+        if(!authCode) {
+          return false;
+        }
+        const response = await fetch('/api/auth/validate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({'code': authCode})
+        });
+        if (!response.ok) {
+          return false;
+        }
+        const data = await response.json();
+        return data.success || false;
+      }
+    } catch {
+      return false;
+    }
+    return true;
+  };
+
+  const handleGenerateWiki = async () => {
+
+    // Check authorization code
+    const validation = await validateAuthCode();
+    if(!validation) {
+      throw new Error('Failed to validate the authorization code');
+    }
+
     // Prevent multiple submissions
     if (isSubmitting) {
       console.log('Form submission already in progress, ignoring duplicate click');
@@ -302,6 +365,7 @@ export default function Home() {
             repositoryInput={repositoryInput}
             selectedLanguage={selectedLanguage}
             setSelectedLanguage={setSelectedLanguage}
+            supportedLanguages={supportedLanguages}
             isComprehensiveView={isComprehensiveView}
             setIsComprehensiveView={setIsComprehensiveView}
             provider={provider}
@@ -326,6 +390,10 @@ export default function Home() {
             setIncludedFiles={setIncludedFiles}
             onSubmit={handleGenerateWiki}
             isSubmitting={isSubmitting}
+            authRequired={authRequired}
+            authCode={authCode}
+            setAuthCode={setAuthCode}
+            isAuthLoading={isAuthLoading}
           />
 
         </div>
@@ -334,23 +402,51 @@ export default function Home() {
       <main className="flex-1 max-w-6xl mx-auto w-full overflow-y-auto">
         <div
           className="min-h-full flex flex-col items-center p-8 pt-10 bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
-          {/* Header section */}
-          <div className="flex flex-col items-center w-full max-w-2xl mb-8">
-            <div className="flex flex-col sm:flex-row items-center mb-6 gap-4">
-              <div className="relative">
-                <div className="absolute -inset-1 bg-[var(--accent-primary)]/20 rounded-full blur-md"></div>
-                <FaWikipediaW className="text-5xl text-[var(--accent-primary)] relative z-10" />
-              </div>
-              <div className="text-center sm:text-left">
-                <h2 className="text-2xl font-bold text-[var(--foreground)] font-serif mb-1">{t('home.welcome')}</h2>
-                <p className="text-[var(--accent-primary)] text-sm max-w-md">{t('home.welcomeTagline')}</p>
-              </div>
-            </div>
 
-            <p className="text-[var(--foreground)] text-center mb-8 text-lg leading-relaxed">
-              {t('home.description')}
-            </p>
-          </div>
+          {/* Conditionally show processed projects or welcome content */}
+          {!projectsLoading && projects.length > 0 ? (
+            <div className="w-full">
+              {/* Header section for existing projects */}
+              <div className="flex flex-col items-center w-full max-w-2xl mb-8 mx-auto">
+                <div className="flex flex-col sm:flex-row items-center mb-6 gap-4">
+                  <div className="relative">
+                    <div className="absolute -inset-1 bg-[var(--accent-primary)]/20 rounded-full blur-md"></div>
+                    <FaWikipediaW className="text-5xl text-[var(--accent-primary)] relative z-10" />
+                  </div>
+                  <div className="text-center sm:text-left">
+                    <h2 className="text-2xl font-bold text-[var(--foreground)] font-serif mb-1">{t('projects.existingProjects')}</h2>
+                    <p className="text-[var(--accent-primary)] text-sm max-w-md">{t('projects.browseExisting')}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Show processed projects */}
+              <ProcessedProjects
+                showHeader={false}
+                maxItems={6}
+                messages={messages}
+                className="w-full"
+              />
+            </div>
+          ) : (
+            <>
+              {/* Header section */}
+              <div className="flex flex-col items-center w-full max-w-2xl mb-8">
+                <div className="flex flex-col sm:flex-row items-center mb-6 gap-4">
+                  <div className="relative">
+                    <div className="absolute -inset-1 bg-[var(--accent-primary)]/20 rounded-full blur-md"></div>
+                    <FaWikipediaW className="text-5xl text-[var(--accent-primary)] relative z-10" />
+                  </div>
+                  <div className="text-center sm:text-left">
+                    <h2 className="text-2xl font-bold text-[var(--foreground)] font-serif mb-1">{t('home.welcome')}</h2>
+                    <p className="text-[var(--accent-primary)] text-sm max-w-md">{t('home.welcomeTagline')}</p>
+                  </div>
+                </div>
+
+                <p className="text-[var(--foreground)] text-center mb-8 text-lg leading-relaxed">
+                  {t('home.description')}
+                </p>
+              </div>
 
           {/* Quick Start section - redesigned for better spacing */}
           <div
@@ -413,6 +509,8 @@ export default function Home() {
               </div>
             </div>
           </div>
+            </>
+          )}
         </div>
       </main>
 

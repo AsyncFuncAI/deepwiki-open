@@ -14,6 +14,7 @@
   --card-bg: #fffaf0; /* Slightly warmer than background */
   --highlight: #e8927c; /* Soft coral (Akane) */
   --muted: #a59e8c; /* Soft gray-brown (Nezumi) */
+  --link-color: #7c5aa0; /* Slightly darker purple for links */
 }
 
 html[data-theme='dark'] {
@@ -27,6 +28,7 @@ html[data-theme='dark'] {
   --card-bg: #222222; /* Slightly lighter than background */
   --highlight: #e57373; /* Soft red */
   --muted: #8c8c8c; /* Muted gray */
+  --link-color: #b19cd9; /* Lighter purple for dark mode links */
 }
 
 @theme inline {
@@ -116,4 +118,26 @@ html[data-theme='dark'] .paper-texture {
 
 .card-japanese:hover {
   box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+/* Line clamp utilities */
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.line-clamp-3 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
