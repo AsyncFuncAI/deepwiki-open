@@ -245,6 +245,11 @@ export default function RepoWikiPage() {
   const [isAskModalOpen, setIsAskModalOpen] = useState(false);
   const askComponentRef = useRef<{ clearConversation: () => void } | null>(null);
 
+  // Authentication state
+  const [authRequired, setAuthRequired] = useState<boolean>(false);
+  const [authCode, setAuthCode] = useState<string>('');
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+
   // Memoize repo info to avoid triggering updates in callbacks
 
   // Add useEffect to handle scroll reset
@@ -255,6 +260,29 @@ export default function RepoWikiPage() {
       wikiContent.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [currentPageId]);
+
+  // Fetch authentication status on component mount
+  useEffect(() => {
+    const fetchAuthStatus = async () => {
+      try {
+        setIsAuthLoading(true);
+        const response = await fetch('/api/auth/status');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setAuthRequired(data.auth_required);
+      } catch (err) {
+        console.error("Failed to fetch auth status:", err);
+        // Assuming auth is required if fetch fails to avoid blocking UI for safety
+        setAuthRequired(true);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+
+    fetchAuthStatus();
+  }, []);
 
   // Generate content for a wiki page
   const generatePageContent = useCallback(async (page: WikiPage, owner: string, repo: string) => {
@@ -1378,6 +1406,7 @@ IMPORTANT:
         is_custom_model: isCustomSelectedModelState.toString(),
         custom_model: customSelectedModelState,
         comprehensive: isComprehensiveView.toString(),
+        authorization_code: authCode,
       });
 
       // Add file filters configuration
@@ -1387,8 +1416,17 @@ IMPORTANT:
       if (modelExcludedFiles) {
         params.append('excluded_files', modelExcludedFiles);
       }
+
+      if(authRequired && !authCode) {
+        console.warn("Authorization code is required");
+        return;
+      }
+
       const response = await fetch(`/api/wiki_cache?${params.toString()}`, {
         method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+        }
       });
 
       if (response.ok) {
@@ -1400,11 +1438,17 @@ IMPORTANT:
         console.warn(`Failed to clear server-side wiki cache (status: ${response.status}): ${errorText}. Proceeding with refresh anyway.`);
         // Optionally, inform the user about the cache clear failure but that refresh will still attempt
         // setError(\`Cache clear failed: ${errorText}. Trying to refresh...\`);
+        if(response.status == 401) {
+          setIsLoading(false);
+          throw new Error('Failed to validate the authorization code');
+        }
       }
     } catch (err) {
       console.warn('Error calling DELETE /api/wiki_cache:', err);
+      setIsLoading(false);
       // Optionally, inform the user about the cache clear error
       // setError(\`Error clearing cache: ${err instanceof Error ? err.message : String(err)}. Trying to refresh...\`);
+      throw err;
     }
 
     // Update token if provided
@@ -1451,7 +1495,7 @@ IMPORTANT:
     // For now, we rely on the standard loadData flow initiated by resetting effectRan and dependencies.
     // This will re-trigger the main data loading useEffect.
     // No direct call to fetchRepositoryStructure here, let the useEffect handle it based on effectRan.current = false.
-  }, [effectiveRepoInfo, language, messages.loading, activeContentRequests, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, isComprehensiveView]);
+  }, [effectiveRepoInfo, language, messages.loading, activeContentRequests, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, isComprehensiveView, authCode, authRequired]);
 
   // Start wiki generation when component mounts
   useEffect(() => {
@@ -1632,7 +1676,7 @@ IMPORTANT:
 
     // Clean up function for this effect is not strictly necessary for loadData,
     // but keeping the main unmount cleanup in the other useEffect
-  }, [effectiveRepoInfo.owner, effectiveRepoInfo.repo, effectiveRepoInfo.type, language, fetchRepositoryStructure, messages.loading?.fetchingCache, isComprehensiveView]);
+  }, [effectiveRepoInfo, effectiveRepoInfo.owner, effectiveRepoInfo.repo, effectiveRepoInfo.type, language, fetchRepositoryStructure, messages.loading?.fetchingCache, isComprehensiveView]);
 
   // Save wiki to server-side cache when generation is complete
   useEffect(() => {
@@ -1689,7 +1733,7 @@ IMPORTANT:
     };
 
     saveCache();
-  }, [isLoading, error, wikiStructure, generatedPages, effectiveRepoInfo.owner, effectiveRepoInfo.repo, effectiveRepoInfo.type, language, isComprehensiveView]);
+  }, [isLoading, error, wikiStructure, generatedPages, effectiveRepoInfo.owner, effectiveRepoInfo.repo, effectiveRepoInfo.type, effectiveRepoInfo.repoUrl, repoUrl, language, isComprehensiveView]);
 
   const handlePageSelect = (pageId: string) => {
     if (currentPageId != pageId) {
@@ -2023,6 +2067,10 @@ IMPORTANT:
         showWikiType={true}
         showTokenInput={effectiveRepoInfo.type !== 'local' && !currentToken} // Show token input if not local and no current token
         repositoryType={effectiveRepoInfo.type as 'github' | 'gitlab' | 'bitbucket'}
+        authRequired={authRequired}
+        authCode={authCode}
+        setAuthCode={setAuthCode}
+        isAuthLoading={isAuthLoading}
       />
     </div>
   );

@@ -882,6 +882,8 @@ const Ask: React.FC<AskProps> = ({
           console.log('Model selection applied:', selectedProvider, selectedModel);
         }}
         showWikiType={false}
+        authRequired={false}
+        isAuthLoading={false}
       />
     </div>
   );

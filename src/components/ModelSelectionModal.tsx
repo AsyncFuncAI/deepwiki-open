@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
+import React, {useEffect, useState} from 'react';
+import {useLanguage} from '@/contexts/LanguageContext';
 import UserSelector from './UserSelector';
 import WikiTypeSelector from './WikiTypeSelector';
 import TokenInput from './TokenInput';
@@ -38,6 +38,11 @@ interface ModelSelectionModalProps {
   // Token input for refresh
   showTokenInput?: boolean;
   repositoryType?: 'github' | 'gitlab' | 'bitbucket';
+  // Authentication
+  authRequired?: boolean;
+  authCode?: string;
+  setAuthCode?: (code: string) => void;
+  isAuthLoading?: boolean;
 }
 
 export default function ModelSelectionModal({
@@ -63,6 +68,10 @@ export default function ModelSelectionModal({
   includedFiles = '',
   setIncludedFiles,
   showFileFilters = false,
+  authRequired = false,
+  authCode = '',
+  setAuthCode,
+  isAuthLoading,
   showWikiType = true,
   showTokenInput = false,
   repositoryType = 'github',
@@ -194,6 +203,35 @@ export default function ModelSelectionModal({
                   allowPlatformChange={false} // Don't allow platform change during refresh
                 />
               </>
+            )}
+            {/* Authorization Code Input */}
+            {isAuthLoading && (
+                <div className="mb-4 p-3 bg-[var(--background)]/50 rounded-md border border-[var(--border-color)] text-sm text-[var(--muted)]">
+                  Loading authentication status...
+                </div>
+            )}
+            {!isAuthLoading && authRequired && (
+                <div className="mb-4 p-4 bg-[var(--background)]/50 rounded-md border border-[var(--border-color)]">
+                  <label htmlFor="authCode" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                    {t.form?.authorizationCode || 'Authorization Code'}
+                  </label>
+                  <input
+                      type="password"
+                      id="authCode"
+                      value={authCode || ''}
+                      onChange={(e) => setAuthCode?.(e.target.value)}
+                      className="input-japanese block w-full px-3 py-2 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+                      placeholder="Enter your authorization code"
+                  />
+                  <div className="flex items-center mt-2 text-xs text-[var(--muted)]">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-[var(--muted)]"
+                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {t.form?.authorizationRequired || 'Authentication is required to generate the wiki.'}
+                  </div>
+                </div>
             )}
           </div>
 

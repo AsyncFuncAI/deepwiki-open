@@ -19,13 +19,14 @@ interface DeleteProjectCachePayload {
 }
 
 /** Type guard to validate DeleteProjectCachePayload at runtime */
-function isDeleteProjectCachePayload(obj: any): obj is DeleteProjectCachePayload {
+function isDeleteProjectCachePayload(obj: unknown): obj is DeleteProjectCachePayload {
   return (
     obj != null &&
-    typeof obj.owner === 'string' && obj.owner.trim() !== '' &&
-    typeof obj.repo === 'string' && obj.repo.trim() !== '' &&
-    typeof obj.repo_type === 'string' && obj.repo_type.trim() !== '' &&
-    typeof obj.language === 'string' && obj.language.trim() !== ''
+    typeof obj === 'object' &&
+    'owner' in obj && typeof (obj as Record<string, unknown>).owner === 'string' && ((obj as Record<string, unknown>).owner as string).trim() !== '' &&
+    'repo' in obj && typeof (obj as Record<string, unknown>).repo === 'string' && ((obj as Record<string, unknown>).repo as string).trim() !== '' &&
+    'repo_type' in obj && typeof (obj as Record<string, unknown>).repo_type === 'string' && ((obj as Record<string, unknown>).repo_type as string).trim() !== '' &&
+    'language' in obj && typeof (obj as Record<string, unknown>).language === 'string' && ((obj as Record<string, unknown>).language as string).trim() !== ''
   );
 }
 

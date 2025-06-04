@@ -96,10 +96,38 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>(language);
 
+  // Authentication state
+  const [authRequired, setAuthRequired] = useState<boolean>(false);
+  const [authCode, setAuthCode] = useState<string>('');
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+
   // Sync the language context with the selectedLanguage state
   useEffect(() => {
     setLanguage(selectedLanguage);
   }, [selectedLanguage, setLanguage]);
+
+  // Fetch authentication status on component mount
+  useEffect(() => {
+    const fetchAuthStatus = async () => {
+      try {
+        setIsAuthLoading(true);
+        const response = await fetch('/api/auth/status');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setAuthRequired(data.auth_required);
+      } catch (err) {
+        console.error("Failed to fetch auth status:", err);
+        // Assuming auth is required if fetch fails to avoid blocking UI for safety
+        setAuthRequired(true);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+
+    fetchAuthStatus();
+  }, []);
 
   // Parse repository URL/input and extract owner and repo
   const parseRepositoryInput = (input: string): {
@@ -181,7 +209,39 @@ export default function Home() {
     setIsConfigModalOpen(true);
   };
 
-  const handleGenerateWiki = () => {
+  const validateAuthCode = async () => {
+    try {
+      if(authRequired) {
+        if(!authCode) {
+          return false;
+        }
+        const response = await fetch('/api/auth/validate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({'code': authCode})
+        });
+        if (!response.ok) {
+          return false;
+        }
+        const data = await response.json();
+        return data.success || false;
+      }
+    } catch {
+      return false;
+    }
+    return true;
+  };
+
+  const handleGenerateWiki = async () => {
+
+    // Check authorization code
+    const validation = await validateAuthCode();
+    if(!validation) {
+      throw new Error('Failed to validate the authorization code');
+    }
+
     // Prevent multiple submissions
     if (isSubmitting) {
       console.log('Form submission already in progress, ignoring duplicate click');
@@ -329,6 +389,10 @@ export default function Home() {
             setIncludedFiles={setIncludedFiles}
             onSubmit={handleGenerateWiki}
             isSubmitting={isSubmitting}
+            authRequired={authRequired}
+            authCode={authCode}
+            setAuthCode={setAuthCode}
+            isAuthLoading={isAuthLoading}
           />
 
         </div>

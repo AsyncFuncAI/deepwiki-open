@@ -37,6 +37,11 @@ if AWS_REGION:
 if AWS_ROLE_ARN:
     os.environ["AWS_ROLE_ARN"] = AWS_ROLE_ARN
 
+# Wiki authentication settings
+raw_auth_mode = os.environ.get('DEEPWIKI_AUTH_MODE', 'False')
+WIKI_AUTH_MODE = raw_auth_mode.lower() in ['true', '1', 't']
+WIKI_AUTH_CODE = os.environ.get('DEEPWIKI_AUTH_CODE', '')
+
 # Get configuration directory from environment variable, or use default if not set
 CONFIG_DIR = os.environ.get('DEEPWIKI_CONFIG_DIR', None)
 
