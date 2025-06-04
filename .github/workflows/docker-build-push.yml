@@ -94,8 +94,9 @@ jobs:
   merge:
     name: Merge Docker manifests
     runs-on: ubuntu-latest
-    if: ${{ env.SHOULD_PUSH_DOCKER }}
+    if: env.SHOULD_PUSH_DOCKER
     permissions:
+      contents: read
       packages: write
 
     needs:
