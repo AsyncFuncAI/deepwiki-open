@@ -64,3 +64,5 @@ yarn-error.log*
 next-env.d.ts
 
 .idea/
+
+env_var.yaml

@@ -1,0 +1,56 @@
+runtime: custom
+env: flex
+
+# You can create multiple services within an App Engine application.
+# This service will be named 'default'. You can change it if needed.
+service: deepwiki-open
+
+# Resources for the instance. You might need to adjust these based on your application's needs.
+resources:
+  cpu: 2
+  memory_gb: 4
+  disk_size_gb: 20
+
+# Automatic scaling settings.
+# App Engine will automatically scale the number of instances based on traffic.
+manual_scaling:
+  instances: 1 # Start with one instance, adjust as needed
+
+# # Network settings - this allows traffic to your instances.
+# network:
+#   forwarded_ports:
+#     - 8001 # The port your Python backend runs on (as per your Dockerfile)
+#   session_affinity: false
+
+# # Health checks (optional but recommended)
+# # Liveness check to ensure your app is running
+# liveness_check:
+#   path: "/" # Or a specific health check endpoint for your frontend
+#   check_interval_sec: 30
+#   timeout_sec: 4
+#   failure_threshold: 2
+#   success_threshold: 2
+
+# # Readiness check to ensure your app is ready to serve traffic
+# readiness_check:
+#   path: "/" # Or a specific health check endpoint for your frontend
+#   check_interval_sec: 30
+#   timeout_sec: 4
+#   failure_threshold: 2
+#   success_threshold: 2
+#   app_start_timeout_sec: 300
+
+# Environment variables can be set here if needed,
+# but your Dockerfile already handles .env loading.
+includes:
+  - env_var.yaml
+
+# Specify that we are using a Dockerfile in the current directory.
+# App Engine will look for a file named "Dockerfile" by default.
+# Since yours is named "Dockerfile-appengine", we need to ensure gcloud uses it.
+# This is typically handled by the gcloud deploy command itself if app.yaml doesn't explicitly point to it,
+# or by ensuring your Dockerfile is named "Dockerfile".
+# For clarity with `gcloud app deploy`, it's often simpler to ensure your primary Dockerfile for App Engine is named `Dockerfile`.
+# However, if you want to keep `Dockerfile-appengine`, you'll specify it during deployment.
+
+# The entrypoint is defined in your Dockerfile's CMD instruction.

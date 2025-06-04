@@ -39,8 +39,15 @@ if missing_vars:
     logger.warning("Some functionality may not work correctly without these variables.")
 
 if __name__ == "__main__":
-    # Get port from environment variable or use default
-    port = int(os.environ.get("PORT", 8001))
+    import argparse
+    
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Start the Streaming API server')
+    parser.add_argument('--port', type=int, default=8001, help='Port number to run the server on (default: 8001)')
+    args = parser.parse_args()
+    
+    # Use the port from command line argument, fallback to environment variable, then default
+    port = args.port
 
     # Import the app here to ensure environment variables are set first
     from api.api import app
