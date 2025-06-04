@@ -11,7 +11,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  GHCR_IMAGE: ghcr.io/${{ github.repository }}
+  GHCR_IMAGE: ghcr.io/${{ tolower(github.repository) }}
   
 concurrency:
   # This concurrency group ensures that only one job in the group runs at a time.
@@ -91,7 +91,7 @@ jobs:
           retention-days: 1
   
   merge:
-    name: Merge Docker manifests
+    name: merge Docker manifests
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
     permissions:
