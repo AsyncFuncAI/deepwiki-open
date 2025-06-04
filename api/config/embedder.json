@@ -8,12 +8,6 @@
       "encoding_format": "float"
     }
   },
-  "embedder_ollama": {
-    "client_class": "OllamaClient",
-    "model_kwargs": {
-      "model": "nomic-embed-text"
-    }
-  },
   "retriever": {
     "top_k": 20
   },

@@ -3,11 +3,8 @@ import adalflow as adal
 from api.config import configs
 
 
-def get_embedder(is_local_ollama: bool = False) -> adal.Embedder:
-    if is_local_ollama:
-        embedder_config = configs["embedder_ollama"]
-    else:
-        embedder_config = configs["embedder"]
+def get_embedder() -> adal.Embedder:
+    embedder_config = configs["embedder"]
 
     # --- Initialize Embedder ---
     model_client_class = embedder_config["model_client"]
