@@ -14,6 +14,14 @@
       "model": "nomic-embed-text"
     }
   },
+  "embedder_google": {
+    "client_class": "GoogleEmbedderClient",
+    "batch_size": 100,
+    "model_kwargs": {
+      "model": "text-embedding-004",
+      "task_type": "SEMANTIC_SIMILARITY"
+    }
+  },
   "retriever": {
     "top_k": 20
   },
