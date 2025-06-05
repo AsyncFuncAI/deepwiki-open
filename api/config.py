@@ -186,6 +186,7 @@ def load_lang_config():
             "en": "English",
             "ja": "Japanese (日本語)",
             "zh": "Mandarin Chinese (中文)",
+            "zh-tw": "Traditional Chinese (繁體中文)",
             "es": "Spanish (Español)",
             "kr": "Korean (한국어)",
             "vi": "Vietnamese (Tiếng Việt)"
