@@ -1,3 +1,8 @@
+---
+title: API Reference
+sidebar_label: API Reference
+---
+
 # 🚀 DeepWiki API
 
 This is the backend API for DeepWiki, providing smart code analysis and AI-powered documentation generation.
