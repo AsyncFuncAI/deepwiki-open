@@ -9,6 +9,9 @@ load_dotenv()
 
 from api.logging_config import setup_logging
 
+# Prevent recursive log writes caused by watchfiles detecting changes to the log file itself
+logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
+
 # Setup logging with detailed format for main
 setup_logging(format="%(asctime)s - %(lineno)d %(filename)s:%(funcName)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
