@@ -1,0 +1,13 @@
+{
+  "embedder_azure": {
+    "client_class": "AzureOpenAIClient",
+    "batch_size": 500,
+    "model_kwargs": {
+      "model": "text-embedding-ada-002",
+      "encoding_format": "float",
+      "azure_endpoint": "https://your-azure-endpoint.openai.azure.com",
+      "api_key": "your-azure-api-key",
+      "api_version": "2023-05-15"
+    }
+  }
+}
