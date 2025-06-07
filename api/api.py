@@ -10,17 +10,12 @@ from pydantic import BaseModel, Field
 import google.generativeai as genai
 import asyncio
 
-# Get a logger for this module
+# Configure logging
+from api.logging_config import setup_logging
+
+setup_logging()
 logger = logging.getLogger(__name__)
 
-# Get API keys from environment variables
-google_api_key = os.environ.get('GOOGLE_API_KEY')
-
-# Configure Google Generative AI
-if google_api_key:
-    genai.configure(api_key=google_api_key)
-else:
-    logger.warning("GOOGLE_API_KEY not found in environment variables")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -528,29 +523,29 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    """Root endpoint to check if the API is running"""
+    """Root endpoint to check if the API is running and list available endpoints dynamically."""
+    # Collect routes dynamically from the FastAPI app
+    endpoints = {}
+    for route in app.routes:
+        if hasattr(route, "methods") and hasattr(route, "path"):
+            # Skip docs and static routes
+            if route.path in ["/openapi.json", "/docs", "/redoc", "/favicon.ico"]:
+                continue
+            # Group endpoints by first path segment
+            path_parts = route.path.strip("/").split("/")
+            group = path_parts[0].capitalize() if path_parts[0] else "Root"
+            method_list = list(route.methods - {"HEAD", "OPTIONS"})
+            for method in method_list:
+                endpoints.setdefault(group, []).append(f"{method} {route.path}")
+
+    # Optionally, sort endpoints for readability
+    for group in endpoints:
+        endpoints[group].sort()
+
     return {
         "message": "Welcome to Streaming API",
         "version": "1.0.0",
-        "endpoints": {
-            "Chat": [
-                "POST /chat/completions/stream - Streaming chat completion (HTTP)",
-                "WebSocket /ws/chat - WebSocket chat completion",
-            ],
-            "Wiki": [
-                "POST /export/wiki - Export wiki content as Markdown or JSON",
-                "GET /api/wiki_cache - Retrieve cached wiki data",
-                "POST /api/wiki_cache - Store wiki data to cache",
-                "GET /auth/status - Check if wiki authentication is enabled",
-                "POST /auth/validate - Check if wiki authentication is valid"
-            ],
-            "LocalRepo": [
-                "GET /local_repo/structure - Get structure of a local repository (with path parameter)",
-            ],
-            "Health": [
-                "GET /health - Health check endpoint"
-            ]
-        }
+        "endpoints": endpoints
     }
 
 # --- Processed Projects Endpoint --- (New Endpoint)
