@@ -9,6 +9,7 @@ const notoSansJP = Noto_Sans_JP({
   variable: "--font-geist-sans",
   subsets: ["latin"],
   weight: ["400", "500", "700"],
+  preload: false,
   display: "swap",
 });
 
@@ -16,12 +17,14 @@ const notoSerifJP = Noto_Serif_JP({
   variable: "--font-serif-jp",
   subsets: ["latin"],
   weight: ["400", "500", "700"],
+  preload: false,
   display: "swap",
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 export const metadata: Metadata = {

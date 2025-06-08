@@ -23,7 +23,7 @@
       }
     },
     "openai": {
-      "default_model": "gpt-4o",
+      "default_model": "qwen-turbo",
       "supportsCustomModel": true,
       "models": {
         "gpt-4o": {
@@ -43,6 +43,22 @@
           "top_p": 0.8
         },
         "o4-mini": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "qwen-turbo": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "qwen-plus": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "qwen-max": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "qwen-max-longcontext": {
           "temperature": 0.7,
           "top_p": 0.8
         }
@@ -109,6 +125,13 @@
             "temperature": 0.7,
             "top_p": 0.8,
             "num_ctx": 32000
+          }
+        },
+        "nomic-embed-text": {
+          "options": {
+            "temperature": 0.7,
+            "top_p": 0.8,
+            "num_ctx": 8192
           }
         }
       }

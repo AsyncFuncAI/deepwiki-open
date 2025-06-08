@@ -33,6 +33,8 @@ const nextConfig: NextConfig = {
     };
     return config;
   },
+  // 字体配置
+  optimizeFonts: true,
   async rewrites() {
     return [
       {
