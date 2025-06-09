@@ -26,6 +26,7 @@
 - **Ask Feature**: Chat with your repository using RAG-powered AI to get accurate answers
 - **DeepResearch**: Multi-turn research process that thoroughly investigates complex topics
 - **Multiple Model Providers**: Support for Google Gemini, OpenAI, OpenRouter, and local Ollama models
+- **Flexible Embeddings**: Choose between OpenAI, Google AI, or local Ollama embeddings for optimal performance
 
 ## 🚀 Quick Start (Super Easy!)
 
@@ -39,6 +40,8 @@ cd deepwiki-open
 # Create a .env file with your API keys
 echo "GOOGLE_API_KEY=your_google_api_key" > .env
 echo "OPENAI_API_KEY=your_openai_api_key" >> .env
+# Optional: Use Google AI embeddings instead of OpenAI (recommended if using Google models)
+echo "DEEPWIKI_EMBEDDER_TYPE=google" >> .env
 # Optional: Add OpenRouter API key if you want to use OpenRouter models
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 # Optional: Add Ollama host if not local. defaults to http://localhost:11434
@@ -63,6 +66,8 @@ Create a `.env` file in the project root with these keys:
 ```
 GOOGLE_API_KEY=your_google_api_key
 OPENAI_API_KEY=your_openai_api_key
+# Optional: Use Google AI embeddings (recommended if using Google models)
+DEEPWIKI_EMBEDDER_TYPE=google
 # Optional: Add this if you want to use OpenRouter models
 OPENROUTER_API_KEY=your_openrouter_api_key
 # Optional: Add Ollama host if not local. default: http://localhost:11434
@@ -255,6 +260,89 @@ If you want to use embedding models compatible with the OpenAI API (such as Alib
 
 This allows you to seamlessly switch to any OpenAI-compatible embedding service without code changes.
 
+## 🧠 Using Google AI Embeddings
+
+DeepWiki now supports Google AI's latest embedding models as an alternative to OpenAI embeddings. This provides better integration when you're already using Google Gemini models for text generation.
+
+### Features
+
+- **Latest Model**: Uses Google's `text-embedding-004` model
+- **Same API Key**: Uses your existing `GOOGLE_API_KEY` (no additional setup required)
+- **Better Integration**: Optimized for use with Google Gemini text generation models
+- **Task-Specific**: Supports semantic similarity, retrieval, and classification tasks
+- **Batch Processing**: Efficient processing of multiple texts
+
+### How to Enable Google AI Embeddings
+
+**Option 1: Environment Variable (Recommended)**
+
+Set the embedder type in your `.env` file:
+
+```bash
+# Your existing Google API key
+GOOGLE_API_KEY=your_google_api_key
+
+# Enable Google AI embeddings
+DEEPWIKI_EMBEDDER_TYPE=google
+```
+
+**Option 2: Docker Environment**
+
+```bash
+docker run -p 8001:8001 -p 3000:3000 \
+  -e GOOGLE_API_KEY=your_google_api_key \
+  -e DEEPWIKI_EMBEDDER_TYPE=google \
+  -v ~/.adalflow:/root/.adalflow \
+  ghcr.io/asyncfuncai/deepwiki-open:latest
+```
+
+**Option 3: Docker Compose**
+
+Add to your `.env` file:
+
+```bash
+GOOGLE_API_KEY=your_google_api_key
+DEEPWIKI_EMBEDDER_TYPE=google
+```
+
+Then run:
+
+```bash
+docker-compose up
+```
+
+### Available Embedder Types
+
+| Type | Description | API Key Required | Notes |
+|------|-------------|------------------|-------|
+| `openai` | OpenAI embeddings (default) | `OPENAI_API_KEY` | Uses `text-embedding-3-small` model |
+| `google` | Google AI embeddings | `GOOGLE_API_KEY` | Uses `text-embedding-004` model |
+| `ollama` | Local Ollama embeddings | None | Requires local Ollama installation |
+
+### Why Use Google AI Embeddings?
+
+- **Consistency**: If you're using Google Gemini for text generation, using Google embeddings provides better semantic consistency
+- **Performance**: Google's latest embedding model offers excellent performance for retrieval tasks
+- **Cost**: Competitive pricing compared to OpenAI
+- **No Additional Setup**: Uses the same API key as your text generation models
+
+### Switching Between Embedders
+
+You can easily switch between different embedding providers:
+
+```bash
+# Use OpenAI embeddings (default)
+export DEEPWIKI_EMBEDDER_TYPE=openai
+
+# Use Google AI embeddings
+export DEEPWIKI_EMBEDDER_TYPE=google
+
+# Use local Ollama embeddings
+export DEEPWIKI_EMBEDDER_TYPE=ollama
+```
+
+**Note**: When switching embedders, you may need to regenerate your repository embeddings as different models produce different vector spaces.
+
 ### Logging
 
 DeepWiki uses Python's built-in `logging` module for diagnostic output. You can configure the verbosity and log file destination via environment variables:
@@ -297,16 +385,22 @@ docker-compose up
 
 | Variable             | Description                                                  | Required | Note                                                                                                     |
 |----------------------|--------------------------------------------------------------|----------|----------------------------------------------------------------------------------------------------------|
-| `GOOGLE_API_KEY`     | Google Gemini API key for AI generation                      | No | Required only if you want to use Google Gemini models                                                    
-| `OPENAI_API_KEY`     | OpenAI API key for embeddings                                | Yes | Note: This is required even if you're not using OpenAI models, as it's used for embeddings.              |
+| `GOOGLE_API_KEY`     | Google Gemini API key for AI generation and embeddings      | No | Required for Google Gemini models and Google AI embeddings                                               
+| `OPENAI_API_KEY`     | OpenAI API key for embeddings and models                     | Conditional | Required if using OpenAI embeddings or models                                                            |
 | `OPENROUTER_API_KEY` | OpenRouter API key for alternative models                    | No | Required only if you want to use OpenRouter models                                                       |
 | `OLLAMA_HOST`        | Ollama Host (default: http://localhost:11434)                | No | Required only if you want to use external Ollama server                                                  |
+| `DEEPWIKI_EMBEDDER_TYPE` | Embedder type: `openai`, `google`, or `ollama` (default: `openai`) | No | Controls which embedding provider to use                                                              |
 | `PORT`               | Port for the API server (default: 8001)                      | No | If you host API and frontend on the same machine, make sure change port of `SERVER_BASE_URL` accordingly |
 | `SERVER_BASE_URL`    | Base URL for the API server (default: http://localhost:8001) | No |
 | `DEEPWIKI_AUTH_MODE` | Set to `true` or `1` to enable authorization mode. | No | Defaults to `false`. If enabled, `DEEPWIKI_AUTH_CODE` is required. |
 | `DEEPWIKI_AUTH_CODE` | The secret code required for wiki generation when `DEEPWIKI_AUTH_MODE` is enabled. | No | Only used if `DEEPWIKI_AUTH_MODE` is `true` or `1`. |
 
-If you're not using ollama mode, you need to configure an OpenAI API key for embeddings. Other API keys are only required when configuring and using models from the corresponding providers.
+**API Key Requirements:**
+- If using `DEEPWIKI_EMBEDDER_TYPE=openai` (default): `OPENAI_API_KEY` is required
+- If using `DEEPWIKI_EMBEDDER_TYPE=google`: `GOOGLE_API_KEY` is required  
+- If using `DEEPWIKI_EMBEDDER_TYPE=ollama`: No API key required (local processing)
+
+Other API keys are only required when configuring and using models from the corresponding providers.
 
 ## Authorization Mode
 
