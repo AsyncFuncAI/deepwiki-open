@@ -370,7 +370,7 @@ def prepare_data_pipeline(is_ollama_embedder: bool = None):
     splitter = TextSplitter(**configs["text_splitter"])
     embedder_config = get_embedder_config()
 
-    embedder = get_embedder(is_local_ollama=is_ollama_embedder)
+    embedder = get_embedder()
 
     if is_ollama_embedder:
         # Use Ollama document processor for single-document processing

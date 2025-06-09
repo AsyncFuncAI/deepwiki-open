@@ -9,26 +9,18 @@ from adalflow.core.types import ModelType
 from fastapi import WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import BaseModel, Field
 
-from api.config import get_model_config, configs
+from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY
 from api.data_pipeline import count_tokens, get_file_content
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.rag import RAG
 
-# Unified logging setup
+# Configure logging
 from api.logging_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
-# Get API keys from environment variables
-google_api_key = os.environ.get('GOOGLE_API_KEY')
-
-# Configure Google Generative AI
-if google_api_key:
-    genai.configure(api_key=google_api_key)
-else:
-    logger.warning("GOOGLE_API_KEY not found in environment variables")
 
 # Models for the API
 class ChatMessage(BaseModel):
@@ -455,8 +447,8 @@ This file contains...
             logger.info(f"Using OpenRouter with model: {request.model}")
 
             # Check if OpenRouter API key is set
-            if not os.environ.get("OPENROUTER_API_KEY"):
-                logger.warning("OPENROUTER_API_KEY environment variable is not set, but continuing with request")
+            if not OPENROUTER_API_KEY:
+                logger.warning("OPENROUTER_API_KEY not configured, but continuing with request")
                 # We'll let the OpenRouterClient handle this and return a friendly error message
 
             model = OpenRouterClient()
@@ -476,8 +468,8 @@ This file contains...
             logger.info(f"Using Openai protocol with model: {request.model}")
 
             # Check if an API key is set for Openai
-            if not os.environ.get("OPENAI_API_KEY"):
-                logger.warning("OPENAI_API_KEY environment variable is not set, but continuing with request")
+            if not OPENAI_API_KEY:
+                logger.warning("OPENAI_API_KEY not configured, but continuing with request")
                 # We'll let the OpenAIClient handle this and return an error message
 
             # Initialize Openai client

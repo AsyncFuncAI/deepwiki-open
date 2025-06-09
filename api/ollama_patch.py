@@ -6,7 +6,7 @@ import adalflow as adal
 from adalflow.core.types import Document
 from adalflow.core.component import DataComponent
 
-# Unified logging setup
+# Configure logging
 from api.logging_config import setup_logging
 
 setup_logging()
