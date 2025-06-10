@@ -14,7 +14,7 @@
 [![Twitter/X](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://x.com/sashimikun_void)
 [![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/VQMBGR8u5v)
 
-[English](./README.md) | [简体中文](./README.zh.md) | [日本語](./README.ja.md) | [Español](./README.es.md) | [한국어](./README.kr.md) | [Tiếng Việt](./README.vi.md)
+[English](./README.md) | [简体中文](./README.zh.md) | [繁體中文](./README.zh-tw.md) | [日本語](./README.ja.md) | [Español](./README.es.md) | [한국어](./README.kr.md) | [Tiếng Việt](./README.vi.md) | [Português Brasileiro](./README.pt-br.md)
 
 ## ✨ Features
 
@@ -241,6 +241,56 @@ The OpenAI Client's base_url configuration is designed primarily for enterprise 
 
 **Coming Soon**: In future updates, DeepWiki will support a mode where users need to provide their own API keys in requests. This will allow enterprise customers with private channels to use their existing API arrangements without sharing credentials with the DeepWiki deployment.
 
+## 🧩 Using OpenAI-Compatible Embedding Models (e.g., Alibaba Qwen)
+
+If you want to use embedding models compatible with the OpenAI API (such as Alibaba Qwen), follow these steps:
+
+1. Replace the contents of `api/config/embedder.json` with those from `api/config/embedder_openai_compatible.json`.
+2. In your project root `.env` file, set the relevant environment variables, for example:
+   ```
+   OPENAI_API_KEY=your_api_key
+   OPENAI_API_BASE_URL=your_openai_compatible_endpoint
+   ```
+3. The program will automatically substitute placeholders in embedder.json with the values from your environment variables.
+
+This allows you to seamlessly switch to any OpenAI-compatible embedding service without code changes.
+
+### Logging
+
+DeepWiki uses Python's built-in `logging` module for diagnostic output. You can configure the verbosity and log file destination via environment variables:
+
+| Variable        | Description                                                        | Default                      |
+|-----------------|--------------------------------------------------------------------|------------------------------|
+| `LOG_LEVEL`     | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).             | INFO                         |
+| `LOG_FILE_PATH` | Path to the log file. If set, logs will be written to this file.   | `api/logs/application.log`   |
+
+To enable debug logging and direct logs to a custom file:
+```bash
+export LOG_LEVEL=DEBUG
+export LOG_FILE_PATH=./debug.log
+python -m api.main
+```
+Or with Docker Compose:
+```bash
+LOG_LEVEL=DEBUG LOG_FILE_PATH=./debug.log docker-compose up
+```
+
+When running with Docker Compose, the container's `api/logs` directory is bind-mounted to `./api/logs` on your host (see the `volumes` section in `docker-compose.yml`), ensuring log files persist across restarts.
+
+Alternatively, you can store these settings in your `.env` file:
+
+```bash
+LOG_LEVEL=DEBUG
+LOG_FILE_PATH=./debug.log
+```
+Then simply run:
+
+```bash
+docker-compose up
+```
+
+**Logging Path Security Considerations:** In production environments, ensure the `api/logs` directory and any custom log file path are secured with appropriate filesystem permissions and access controls. The application enforces that `LOG_FILE_PATH` resides within the project's `api/logs` directory to prevent path traversal or unauthorized writes.
+
 ## 🛠️ Advanced Setup
 
 ### Environment Variables
@@ -253,8 +303,22 @@ The OpenAI Client's base_url configuration is designed primarily for enterprise 
 | `OLLAMA_HOST`        | Ollama Host (default: http://localhost:11434)                | No | Required only if you want to use external Ollama server                                                  |
 | `PORT`               | Port for the API server (default: 8001)                      | No | If you host API and frontend on the same machine, make sure change port of `SERVER_BASE_URL` accordingly |
 | `SERVER_BASE_URL`    | Base URL for the API server (default: http://localhost:8001) | No |
+| `DEEPWIKI_AUTH_MODE` | Set to `true` or `1` to enable authorization mode. | No | Defaults to `false`. If enabled, `DEEPWIKI_AUTH_CODE` is required. |
+| `DEEPWIKI_AUTH_CODE` | The secret code required for wiki generation when `DEEPWIKI_AUTH_MODE` is enabled. | No | Only used if `DEEPWIKI_AUTH_MODE` is `true` or `1`. |
 
 If you're not using ollama mode, you need to configure an OpenAI API key for embeddings. Other API keys are only required when configuring and using models from the corresponding providers.
+
+## Authorization Mode
+
+DeepWiki can be configured to run in an authorization mode, where wiki generation requires a valid authorization code. This is useful if you want to control who can use the generation feature.
+Restricts frontend initiation and protects cache deletion, but doesn't fully prevent backend generation if API endpoints are hit directly.
+
+To enable authorization mode, set the following environment variables:
+
+- `DEEPWIKI_AUTH_MODE`: Set this to `true` or `1`. When enabled, the frontend will display an input field for the authorization code.
+- `DEEPWIKI_AUTH_CODE`: Set this to the desired secret code. Restricts frontend initiation and protects cache deletion, but doesn't fully prevent backend generation if API endpoints are hit directly.
+
+If `DEEPWIKI_AUTH_MODE` is not set or is set to `false` (or any other value than `true`/`1`), the authorization feature will be disabled, and no code will be required.
 
 ### Docker Setup
 

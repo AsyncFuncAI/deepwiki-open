@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
+import React, {useEffect, useState} from 'react';
+import {useLanguage} from '@/contexts/LanguageContext';
 import UserSelector from './UserSelector';
 import WikiTypeSelector from './WikiTypeSelector';
+import TokenInput from './TokenInput';
 
 interface ModelSelectionModalProps {
   isOpen: boolean;
@@ -16,7 +17,7 @@ interface ModelSelectionModalProps {
   setIsCustomModel: (value: boolean) => void;
   customModel: string;
   setCustomModel: (value: string) => void;
-  onApply: () => void;
+  onApply: (token?: string) => void;
 
   // Wiki type options
   isComprehensiveView: boolean;
@@ -33,6 +34,15 @@ interface ModelSelectionModalProps {
   setIncludedFiles?: (value: string) => void;
   showFileFilters?: boolean;
   showWikiType: boolean;
+  
+  // Token input for refresh
+  showTokenInput?: boolean;
+  repositoryType?: 'github' | 'gitlab' | 'bitbucket';
+  // Authentication
+  authRequired?: boolean;
+  authCode?: string;
+  setAuthCode?: (code: string) => void;
+  isAuthLoading?: boolean;
 }
 
 export default function ModelSelectionModal({
@@ -58,7 +68,13 @@ export default function ModelSelectionModal({
   includedFiles = '',
   setIncludedFiles,
   showFileFilters = false,
+  authRequired = false,
+  authCode = '',
+  setAuthCode,
+  isAuthLoading,
   showWikiType = true,
+  showTokenInput = false,
+  repositoryType = 'github',
 }: ModelSelectionModalProps) {
   const { messages: t } = useLanguage();
 
@@ -72,6 +88,11 @@ export default function ModelSelectionModal({
   const [localExcludedFiles, setLocalExcludedFiles] = useState(excludedFiles);
   const [localIncludedDirs, setLocalIncludedDirs] = useState(includedDirs);
   const [localIncludedFiles, setLocalIncludedFiles] = useState(includedFiles);
+  
+  // Token input state
+  const [localAccessToken, setLocalAccessToken] = useState('');
+  const [localSelectedPlatform, setLocalSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>(repositoryType);
+  const [showTokenSection, setShowTokenSection] = useState(showTokenInput);
 
   // Reset local state when modal is opened
   useEffect(() => {
@@ -85,8 +106,11 @@ export default function ModelSelectionModal({
       setLocalExcludedFiles(excludedFiles);
       setLocalIncludedDirs(includedDirs);
       setLocalIncludedFiles(includedFiles);
+      setLocalSelectedPlatform(repositoryType);
+      setLocalAccessToken('');
+      setShowTokenSection(showTokenInput);
     }
-  }, [isOpen, provider, model, isCustomModel, customModel, isComprehensiveView, excludedDirs, excludedFiles, includedDirs, includedFiles]);
+  }, [isOpen, provider, model, isCustomModel, customModel, isComprehensiveView, excludedDirs, excludedFiles, includedDirs, includedFiles, repositoryType, showTokenInput]);
 
   // Handler for applying changes
   const handleApply = () => {
@@ -99,7 +123,13 @@ export default function ModelSelectionModal({
     if (setExcludedFiles) setExcludedFiles(localExcludedFiles);
     if (setIncludedDirs) setIncludedDirs(localIncludedDirs);
     if (setIncludedFiles) setIncludedFiles(localIncludedFiles);
-    onApply();
+    
+    // Pass token to onApply if needed
+    if (showTokenInput) {
+      onApply(localAccessToken);
+    } else {
+      onApply();
+    }
     onClose();
   };
 
@@ -158,6 +188,51 @@ export default function ModelSelectionModal({
               includedFiles={localIncludedFiles}
               setIncludedFiles={showFileFilters ? (value: string) => setLocalIncludedFiles(value) : undefined}
             />
+
+            {/* Token Input Section for refresh */}
+            {showTokenInput && (
+              <>
+                <div className="my-4 border-t border-[var(--border-color)]/30"></div>
+                <TokenInput
+                  selectedPlatform={localSelectedPlatform}
+                  setSelectedPlatform={setLocalSelectedPlatform}
+                  accessToken={localAccessToken}
+                  setAccessToken={setLocalAccessToken}
+                  showTokenSection={showTokenSection}
+                  onToggleTokenSection={() => setShowTokenSection(!showTokenSection)}
+                  allowPlatformChange={false} // Don't allow platform change during refresh
+                />
+              </>
+            )}
+            {/* Authorization Code Input */}
+            {isAuthLoading && (
+                <div className="mb-4 p-3 bg-[var(--background)]/50 rounded-md border border-[var(--border-color)] text-sm text-[var(--muted)]">
+                  Loading authentication status...
+                </div>
+            )}
+            {!isAuthLoading && authRequired && (
+                <div className="mb-4 p-4 bg-[var(--background)]/50 rounded-md border border-[var(--border-color)]">
+                  <label htmlFor="authCode" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                    {t.form?.authorizationCode || 'Authorization Code'}
+                  </label>
+                  <input
+                      type="password"
+                      id="authCode"
+                      value={authCode || ''}
+                      onChange={(e) => setAuthCode?.(e.target.value)}
+                      className="input-japanese block w-full px-3 py-2 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+                      placeholder="Enter your authorization code"
+                  />
+                  <div className="flex items-center mt-2 text-xs text-[var(--muted)]">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-[var(--muted)]"
+                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {t.form?.authorizationRequired || 'Authentication is required to generate the wiki.'}
+                  </div>
+                </div>
+            )}
           </div>
 
           {/* Modal footer */}

@@ -79,7 +79,9 @@
       "changeModel": "모델 변경",
       "defaultNote": "이 기본 설정은 이미 적용되었습니다. 위에 사용자 지정 제외 항목을 추가하세요.",
       "hideDefault": "기본값 숨기기",
-      "viewDefault": "기본값 보기"
+      "viewDefault": "기본값 보기",
+      "authorizationCode": "인증코드",
+      "authorizationRequired": "Wiki 생성에는 인증코드가 필요합니다"
     },
     "footer": {
       "copyright": "DeepWiki - 코드 저장소를 위한 AI 기반 문서화"

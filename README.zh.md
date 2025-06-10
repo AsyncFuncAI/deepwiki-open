@@ -14,7 +14,7 @@
 [![Twitter/X](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://x.com/sashimikun_void)
 [![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/VQMBGR8u5v)
 
-[English](./README.md) | [简体中文](./README.zh.md) | [日本語](./README.ja.md) | [Español](./README.es.md) | [한국어](./README.kr.md) | [Tiếng Việt](./README.vi.md)
+[English](./README.md) | [简体中文](./README.zh.md) | [日本語](./README.ja.md) | [Español](./README.es.md) | [한국어](./README.kr.md) | [Tiếng Việt](./README.vi.md) | [Português Brasileiro](./README.pt-br.md)
 
 ## ✨ 特点
 
@@ -310,8 +310,24 @@ OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # 可选，用于自定义Op
 
 # 配置目录
 DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # 可选，用于自定义配置文件位置
+
+# 授权模式
+DEEPWIKI_AUTH_MODE=true  # 设置为 true 或 1 以启用授权模式
+DEEPWIKI_AUTH_CODE=your_secret_code # 当 DEEPWIKI_AUTH_MODE 启用时所需的授权码
 ```
 如果不使用ollama模式，那么需要配置OpenAI API密钥用于embeddings。其他密钥只有配置并使用使用对应提供商的模型时才需要。
+
+## 授权模式
+
+DeepWiki 可以配置为在授权模式下运行，在该模式下，生成 Wiki 需要有效的授权码。如果您想控制谁可以使用生成功能，这将非常有用。
+限制使用前端页面生成wiki并保护已生成页面的缓存删除，但无法完全阻止直接访问 API 端点生成wiki。主要目的是为了保护管理员已生成的wiki页面，防止被访问者重新生成。
+
+要启用授权模式，请设置以下环境变量：
+
+- `DEEPWIKI_AUTH_MODE`: 将此设置为 `true` 或 `1`。启用后，前端将显示一个用于输入授权码的字段。
+- `DEEPWIKI_AUTH_CODE`: 将此设置为所需的密钥。限制使用前端页面生成wiki并保护已生成页面的缓存删除，但无法完全阻止直接访问 API 端点生成wiki。
+
+如果未设置 `DEEPWIKI_AUTH_MODE` 或将其设置为 `false`（或除 `true`/`1` 之外的任何其他值），则授权功能将被禁用，并且不需要任何代码。
 
 ### 配置文件
 
@@ -352,3 +368,18 @@ OpenAI 客户端的 base_url 配置主要为拥有私有 API 渠道的企业用�
 - 支持与第三方 OpenAI API 兼容服务的集成
 
 **即将推出**：在未来的更新中，DeepWiki 将支持一种模式，用户需要在请求中提供自己的 API 密钥。这将允许拥有私有渠道的企业客户使用其现有的 API 安排，而不是与 DeepWiki 部署共享凭据。
+
+## 🧩 使用 OpenAI 兼容的 Embedding 模型（如阿里巴巴 Qwen）
+
+如果你希望使用 OpenAI 以外、但兼容 OpenAI 接口的 embedding 模型（如阿里巴巴 Qwen），请参考以下步骤：
+
+1. 用 `api/config/embedder_openai_compatible.json` 的内容替换 `api/config/embedder.json`。
+2. 在项目根目录的 `.env` 文件中，配置相应的环境变量，例如：
+   ```
+   OPENAI_API_KEY=你的_api_key
+   OPENAI_API_BASE_URL=你的_openai_兼容接口地址
+   ```
+3. 程序会自动用环境变量的值替换 embedder.json 里的占位符。
+
+这样即可无缝切换到 OpenAI 兼容的 embedding 服务，无需修改代码。
+

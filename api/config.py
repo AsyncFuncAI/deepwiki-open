@@ -1,8 +1,9 @@
 import os
 import json
 import logging
+import re
 from pathlib import Path
-from typing import List
+from typing import List, Union, Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,11 @@ if AWS_REGION:
 if AWS_ROLE_ARN:
     os.environ["AWS_ROLE_ARN"] = AWS_ROLE_ARN
 
+# Wiki authentication settings
+raw_auth_mode = os.environ.get('DEEPWIKI_AUTH_MODE', 'False')
+WIKI_AUTH_MODE = raw_auth_mode.lower() in ['true', '1', 't']
+WIKI_AUTH_CODE = os.environ.get('DEEPWIKI_AUTH_CODE', '')
+
 # Get configuration directory from environment variable, or use default if not set
 CONFIG_DIR = os.environ.get('DEEPWIKI_CONFIG_DIR', None)
 
@@ -47,6 +53,36 @@ CLIENT_CLASSES = {
     "OllamaClient": OllamaClient,
     "BedrockClient": BedrockClient
 }
+
+def replace_env_placeholders(config: Union[Dict[str, Any], List[Any], str, Any]) -> Union[Dict[str, Any], List[Any], str, Any]:
+    """
+    Recursively replace placeholders like "${ENV_VAR}" in string values
+    within a nested configuration structure (dicts, lists, strings)
+    with environment variable values. Logs a warning if a placeholder is not found.
+    """
+    pattern = re.compile(r"\$\{([A-Z0-9_]+)\}")
+
+    def replacer(match: re.Match[str]) -> str:
+        env_var_name = match.group(1)
+        original_placeholder = match.group(0)
+        env_var_value = os.environ.get(env_var_name)
+        if env_var_value is None:
+            logger.warning(
+                f"Environment variable placeholder '{original_placeholder}' was not found in the environment. "
+                f"The placeholder string will be used as is."
+            )
+            return original_placeholder
+        return env_var_value
+
+    if isinstance(config, dict):
+        return {k: replace_env_placeholders(v) for k, v in config.items()}
+    elif isinstance(config, list):
+        return [replace_env_placeholders(item) for item in config]
+    elif isinstance(config, str):
+        return pattern.sub(replacer, config)
+    else:
+        # Handles numbers, booleans, None, etc.
+        return config
 
 # Load JSON configuration file
 def load_json_config(filename):
@@ -65,7 +101,9 @@ def load_json_config(filename):
             return {}
 
         with open(config_path, 'r') as f:
-            return json.load(f)
+            config = json.load(f)
+            config = replace_env_placeholders(config)
+            return config
     except Exception as e:
         logger.error(f"Error loading configuration file {filename}: {str(e)}")
         return {}
@@ -141,6 +179,32 @@ def is_ollama_embedder():
 def load_repo_config():
     return load_json_config("repo.json")
 
+# Load language configuration
+def load_lang_config():
+    default_config = {
+        "supported_languages": {
+            "en": "English",
+            "ja": "Japanese (日本語)",
+            "zh": "Mandarin Chinese (中文)",
+            "zh-tw": "Traditional Chinese (繁體中文)",
+            "es": "Spanish (Español)",
+            "kr": "Korean (한국어)",
+            "vi": "Vietnamese (Tiếng Việt)"
+        },
+        "default": "en"
+    }
+
+    loaded_config = load_json_config("lang.json") # Let load_json_config handle path and loading
+
+    if not loaded_config:
+        return default_config
+
+    if "supported_languages" not in loaded_config or "default" not in loaded_config:
+        logger.warning("Language configuration file 'lang.json' is malformed. Using default language configuration.")
+        return default_config
+
+    return loaded_config
+
 # Default excluded directories and files
 DEFAULT_EXCLUDED_DIRS: List[str] = [
     # Virtual environments and package managers
@@ -189,6 +253,7 @@ configs = {}
 generator_config = load_generator_config()
 embedder_config = load_embedder_config()
 repo_config = load_repo_config()
+lang_config = load_lang_config()
 
 # Update configuration
 if generator_config:
@@ -206,6 +271,11 @@ if repo_config:
     for key in ["file_filters", "repository"]:
         if key in repo_config:
             configs[key] = repo_config[key]
+
+# Update language configuration
+if lang_config:
+    configs["lang_config"] = lang_config
+
 
 def get_model_config(provider="google", model=None):
     """

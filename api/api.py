@@ -10,17 +10,12 @@ from pydantic import BaseModel, Field
 import google.generativeai as genai
 import asyncio
 
-# Get a logger for this module
+# Configure logging
+from api.logging_config import setup_logging
+
+setup_logging()
 logger = logging.getLogger(__name__)
 
-# Get API keys from environment variables
-google_api_key = os.environ.get('GOOGLE_API_KEY')
-
-# Configure Google Generative AI
-if google_api_key:
-    genai.configure(api_key=google_api_key)
-else:
-    logger.warning("GOOGLE_API_KEY not found in environment variables")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -77,6 +72,7 @@ class WikiCacheData(BaseModel):
     """
     wiki_structure: WikiStructureModel
     generated_pages: Dict[str, WikiPage]
+    repo_url: Optional[str] = None  # Add repo_url to cache
 
 class WikiCacheRequest(BaseModel):
     """
@@ -88,6 +84,7 @@ class WikiCacheRequest(BaseModel):
     language: str
     wiki_structure: WikiStructureModel
     generated_pages: Dict[str, WikiPage]
+    repo_url: Optional[str] = None  # Add repo_url to cache request
 
 class WikiExportRequest(BaseModel):
     """
@@ -121,7 +118,28 @@ class ModelConfig(BaseModel):
     providers: List[Provider] = Field(..., description="List of available model providers")
     defaultProvider: str = Field(..., description="ID of the default provider")
 
-from api.config import configs
+class AuthorizationConfig(BaseModel):
+    code: str = Field(..., description="Authorization code")
+
+from api.config import configs, WIKI_AUTH_MODE, WIKI_AUTH_CODE
+
+@app.get("/lang/config")
+async def get_lang_config():
+    return configs["lang_config"]
+
+@app.get("/auth/status")
+async def get_auth_status():
+    """
+    Check if authentication is required for the wiki.
+    """
+    return {"auth_required": WIKI_AUTH_MODE}
+
+@app.post("/auth/validate")
+async def validate_auth_code(request: AuthorizationConfig):
+    """
+    Check authorization code.
+    """
+    return {"success": WIKI_AUTH_CODE == request.code}
 
 @app.get("/models/config", response_model=ModelConfig)
 async def get_model_config():
@@ -389,7 +407,8 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
     try:
         payload = WikiCacheData(
             wiki_structure=data.wiki_structure,
-            generated_pages=data.generated_pages
+            generated_pages=data.generated_pages,
+            repo_url=data.repo_url
         )
         # Log size of data to be cached for debugging (avoid logging full content if large)
         try:
@@ -424,6 +443,11 @@ async def get_cached_wiki(
     """
     Retrieves cached wiki data (structure and generated pages) for a repository.
     """
+    # Language validation
+    supported_langs = configs["lang_config"]["supported_languages"]
+    if not supported_langs.__contains__(language):
+        language = configs["lang_config"]["default"]
+
     logger.info(f"Attempting to retrieve wiki cache for {owner}/{repo} ({repo_type}), lang: {language}")
     cached_data = await read_wiki_cache(owner, repo, repo_type, language)
     if cached_data:
@@ -439,6 +463,12 @@ async def store_wiki_cache(request_data: WikiCacheRequest):
     """
     Stores generated wiki data (structure and pages) to the server-side cache.
     """
+    # Language validation
+    supported_langs = configs["lang_config"]["supported_languages"]
+
+    if not supported_langs.__contains__(request_data.language):
+        request_data.language = configs["lang_config"]["default"]
+
     logger.info(f"Attempting to save wiki cache for {request_data.owner}/{request_data.repo} ({request_data.repo_type}), lang: {request_data.language}")
     success = await save_wiki_cache(request_data)
     if success:
@@ -451,11 +481,22 @@ async def delete_wiki_cache(
     owner: str = Query(..., description="Repository owner"),
     repo: str = Query(..., description="Repository name"),
     repo_type: str = Query(..., description="Repository type (e.g., github, gitlab)"),
-    language: str = Query(..., description="Language of the wiki content")
+    language: str = Query(..., description="Language of the wiki content"),
+    authorization_code: Optional[str] = Query(None, description="Authorization code")
 ):
     """
     Deletes a specific wiki cache from the file system.
     """
+    # Language validation
+    supported_langs = configs["lang_config"]["supported_languages"]
+    if not supported_langs.__contains__(language):
+        raise HTTPException(status_code=400, detail="Language is not supported")
+
+    if WIKI_AUTH_MODE:
+        logger.info("check the authorization code")
+        if WIKI_AUTH_CODE != authorization_code:
+            raise HTTPException(status_code=401, detail="Authorization code is invalid")
+
     logger.info(f"Attempting to delete wiki cache for {owner}/{repo} ({repo_type}), lang: {language}")
     cache_path = get_wiki_cache_path(owner, repo, repo_type, language)
 
@@ -482,27 +523,29 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    """Root endpoint to check if the API is running"""
+    """Root endpoint to check if the API is running and list available endpoints dynamically."""
+    # Collect routes dynamically from the FastAPI app
+    endpoints = {}
+    for route in app.routes:
+        if hasattr(route, "methods") and hasattr(route, "path"):
+            # Skip docs and static routes
+            if route.path in ["/openapi.json", "/docs", "/redoc", "/favicon.ico"]:
+                continue
+            # Group endpoints by first path segment
+            path_parts = route.path.strip("/").split("/")
+            group = path_parts[0].capitalize() if path_parts[0] else "Root"
+            method_list = list(route.methods - {"HEAD", "OPTIONS"})
+            for method in method_list:
+                endpoints.setdefault(group, []).append(f"{method} {route.path}")
+
+    # Optionally, sort endpoints for readability
+    for group in endpoints:
+        endpoints[group].sort()
+
     return {
         "message": "Welcome to Streaming API",
         "version": "1.0.0",
-        "endpoints": {
-            "Chat": [
-                "POST /chat/completions/stream - Streaming chat completion (HTTP)",
-                "WebSocket /ws/chat - WebSocket chat completion",
-            ],
-            "Wiki": [
-                "POST /export/wiki - Export wiki content as Markdown or JSON",
-                "GET /api/wiki_cache - Retrieve cached wiki data",
-                "POST /api/wiki_cache - Store wiki data to cache"
-            ],
-            "LocalRepo": [
-                "GET /local_repo/structure - Get structure of a local repository (with path parameter)",
-            ],
-            "Health": [
-                "GET /health - Health check endpoint"
-            ]
-        }
+        "endpoints": endpoints
     }
 
 # --- Processed Projects Endpoint --- (New Endpoint)

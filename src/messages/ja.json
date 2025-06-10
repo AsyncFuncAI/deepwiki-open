@@ -79,7 +79,9 @@
     "changeModel": "モデルを変更",
     "defaultNote": "これらのデフォルト設定は既に適用されています。上記に追加の除外項目を入力してください。",
     "hideDefault": "デフォルトを隠す",
-    "viewDefault": "デフォルトを表示"
+    "viewDefault": "デフォルトを表示",
+    "authorizationCode": "認証コード",
+    "authorizationRequired": "Wiki生成には認証コードが必要です"
   },
   "footer": {
     "copyright": "DeepWiki - コードリポジトリのためのAI駆動ドキュメンテーション"

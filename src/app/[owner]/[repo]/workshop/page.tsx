@@ -298,6 +298,7 @@ IMPORTANT CONTENT GUIDELINES:
 Make the workshop content in ${language === 'en' ? 'English' :
   language === 'ja' ? 'Japanese (日本語)' :
   language === 'zh' ? 'Mandarin Chinese (中文)' :
+  language === 'zh-tw' ? 'Traditional Chinese (繁體中文)' :
   language === 'es' ? 'Spanish (Español)' :
   language === 'kr' ? 'Korean (한국어)' :
   language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'} language.`

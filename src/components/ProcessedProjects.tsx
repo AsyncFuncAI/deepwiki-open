@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { FaSearch, FaTimes, FaTh, FaList } from 'react-icons/fa';
+import { FaTimes, FaTh, FaList } from 'react-icons/fa';
 
 // Interface should match the structure from the API
 interface ProcessedProject {
@@ -19,7 +19,7 @@ interface ProcessedProjectsProps {
   showHeader?: boolean;
   maxItems?: number;
   className?: string;
-  messages?: any; // Translation messages
+  messages?: Record<string, Record<string, string>>; // Translation messages with proper typing
 }
 
 export default function ProcessedProjects({ 
@@ -101,6 +101,32 @@ export default function ProcessedProjects({
     setSearchQuery('');
   };
 
+  const handleDelete = async (project: ProcessedProject) => {
+    if (!confirm(`Are you sure you want to delete project ${project.name}?`)) {
+      return;
+    }
+    try {
+      const response = await fetch('/api/wiki/projects', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          owner: project.owner,
+          repo: project.repo,
+          repo_type: project.repo_type,
+          language: project.language,
+        }),
+      });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({ error: response.statusText }));
+        throw new Error(errorBody.error || response.statusText);
+      }
+      setProjects(prev => prev.filter(p => p.id !== project.id));
+    } catch (e: unknown) {
+      console.error('Failed to delete project:', e);
+      alert(`Failed to delete project: ${e instanceof Error ? e.message : 'Unknown error'}`);
+    }
+  };
+
   return (
     <div className={`${className}`}>
       {showHeader && (
@@ -167,9 +193,17 @@ export default function ProcessedProjects({
 
       {!isLoading && !error && filteredProjects.length > 0 && (
         <div className={viewMode === 'card' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-2'}>
-          {filteredProjects.map((project) => (
+            {filteredProjects.map((project) => (
             viewMode === 'card' ? (
-              <div key={project.id} className="p-4 border border-[var(--border-color)] rounded-lg bg-[var(--card-bg)] shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02]">
+              <div key={project.id} className="relative p-4 border border-[var(--border-color)] rounded-lg bg-[var(--card-bg)] shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02]">
+                <button
+                  type="button"
+                  onClick={() => handleDelete(project)}
+                  className="absolute top-2 right-2 text-[var(--muted)] hover:text-[var(--foreground)]"
+                  title="Delete project"
+                >
+                  <FaTimes className="h-4 w-4" />
+                </button>
                 <Link
                   href={`/${project.owner}/${project.repo}?type=${project.repo_type}&language=${project.language}`}
                   className="block"
@@ -191,7 +225,15 @@ export default function ProcessedProjects({
                 </Link>
               </div>
             ) : (
-              <div key={project.id} className="p-3 border border-[var(--border-color)] rounded-lg bg-[var(--card-bg)] hover:bg-[var(--background)] transition-colors">
+              <div key={project.id} className="relative p-3 border border-[var(--border-color)] rounded-lg bg-[var(--card-bg)] hover:bg-[var(--background)] transition-colors">
+                <button
+                  type="button"
+                  onClick={() => handleDelete(project)}
+                  className="absolute top-2 right-2 text-[var(--muted)] hover:text-[var(--foreground)]"
+                  title="Delete project"
+                >
+                  <FaTimes className="h-4 w-4" />
+                </button>
                 <Link
                   href={`/${project.owner}/${project.repo}?type=${project.repo_type}&language=${project.language}`}
                   className="flex items-center justify-between"
