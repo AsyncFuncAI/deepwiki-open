@@ -44,6 +44,11 @@ if __name__ == "__main__":
     # Run the FastAPI app with uvicorn
     # Disable reload in production/Docker environment
     is_development = os.environ.get("NODE_ENV") != "production"
+    
+    if is_development:
+        # Prevent infinite logging loop caused by file changes triggering log writes
+        logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
+
     uvicorn.run(
         "api.api:app",
         host="0.0.0.0",
