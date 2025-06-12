@@ -2,7 +2,7 @@ export function extractUrlDomain(input: string): string | null {
     try {
         const normalizedInput = input.startsWith('http') ? input : `https://${input}`;
         const url = new URL(normalizedInput);
-        return `${url.protocol}//${url.hostname}`; // Inclut le protocole et le domaine
+        return `${url.protocol}//${url.hostname}${url.port ? ':' + url.port : ''}`; // Inclut le protocole et le domaine
     } catch {
         return null; // Not a valid URL
     }
