@@ -353,6 +353,8 @@ IMPORTANT:You MUST respond in {language_name} language.
 <guidelines>
 - Answer the user's question directly without ANY preamble or filler phrases
 - DO NOT include any rationale, explanation, or extra comments.
+- Strictly base answers ONLY on existing code or documents
+- DO NOT speculate or invent citations.
 - DO NOT start with preambles like "Okay, here's a breakdown" or "Here's an explanation"
 - DO NOT start with markdown headers like "## Analysis of..." or any file path references
 - DO NOT start with ```markdown code fences
