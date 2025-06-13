@@ -76,6 +76,8 @@ const Ask: React.FC<AskProps> = ({
   const [researchComplete, setResearchComplete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const responseRef = useRef<HTMLDivElement>(null);
+  const providerRef = useRef(provider);
+  const modelRef = useRef(model);
 
   // Focus input on component mount
   useEffect(() => {
@@ -106,24 +108,34 @@ const Ask: React.FC<AskProps> = ({
   }, []);
 
   useEffect(() => {
-    const fetchDefaultModel = async () => {
+    providerRef.current = provider;
+    modelRef.current = model;
+  }, [provider, model]);
+
+  useEffect(() => {
+    const fetchModel = async () => {
       try {
         setIsLoading(true);
 
         const response = await fetch('/api/models/config');
-
         if (!response.ok) {
           throw new Error(`Error fetching model configurations: ${response.status}`);
         }
 
         const data = await response.json();
 
-        setSelectedProvider(data.defaultProvider);
+        // use latest provider/model ref to check
+        if(providerRef.current == '' || modelRef.current== '') {
+          setSelectedProvider(data.defaultProvider);
 
-        // Find the default provider and set its default model
-        const selectedProvider = data.providers.find((p:Provider) => p.id === data.defaultProvider);
-        if (selectedProvider && selectedProvider.models.length > 0) {
-          setSelectedModel(selectedProvider.models[0].id);
+          // Find the default provider and set its default model
+          const selectedProvider = data.providers.find((p:Provider) => p.id === data.defaultProvider);
+          if (selectedProvider && selectedProvider.models.length > 0) {
+            setSelectedModel(selectedProvider.models[0].id);
+          }
+        } else {
+          setSelectedProvider(providerRef.current);
+          setSelectedModel(modelRef.current);
         }
       } catch (err) {
         console.error('Failed to fetch model configurations:', err);
@@ -131,9 +143,8 @@ const Ask: React.FC<AskProps> = ({
         setIsLoading(false);
       }
     };
-
     if(provider == '' || model == '') {
-      fetchDefaultModel()
+      fetchModel()
     }
   }, [provider, model]);
 

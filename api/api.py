@@ -57,6 +57,15 @@ class ProcessedProjectEntry(BaseModel):
     submittedAt: int # Timestamp
     language: str # Extracted from filename
 
+class RepoInfo(BaseModel):
+    owner: str
+    repo: str
+    type: str
+    token: Optional[str] = None
+    localPath: Optional[str] = None
+    repoUrl: Optional[str] = None
+
+
 class WikiStructureModel(BaseModel):
     """
     Model for the overall wiki structure.
@@ -72,19 +81,20 @@ class WikiCacheData(BaseModel):
     """
     wiki_structure: WikiStructureModel
     generated_pages: Dict[str, WikiPage]
-    repo_url: Optional[str] = None  # Add repo_url to cache
+    repo: RepoInfo
+    provider: str
+    model: str
 
 class WikiCacheRequest(BaseModel):
     """
     Model for the request body when saving wiki cache.
     """
-    owner: str
-    repo: str
-    repo_type: str
+    repo: RepoInfo
     language: str
     wiki_structure: WikiStructureModel
     generated_pages: Dict[str, WikiPage]
-    repo_url: Optional[str] = None  # Add repo_url to cache request
+    provider: str
+    model: str
 
 class WikiExportRequest(BaseModel):
     """
@@ -402,13 +412,15 @@ async def read_wiki_cache(owner: str, repo: str, repo_type: str, language: str) 
 
 async def save_wiki_cache(data: WikiCacheRequest) -> bool:
     """Saves wiki cache data to the file system."""
-    cache_path = get_wiki_cache_path(data.owner, data.repo, data.repo_type, data.language)
+    cache_path = get_wiki_cache_path(data.repo.owner, data.repo.repo, data.repo.type, data.language)
     logger.info(f"Attempting to save wiki cache. Path: {cache_path}")
     try:
         payload = WikiCacheData(
             wiki_structure=data.wiki_structure,
             generated_pages=data.generated_pages,
-            repo_url=data.repo_url
+            repo=data.repo,
+            provider=data.provider,
+            model=data.model
         )
         # Log size of data to be cached for debugging (avoid logging full content if large)
         try:
@@ -469,7 +481,7 @@ async def store_wiki_cache(request_data: WikiCacheRequest):
     if not supported_langs.__contains__(request_data.language):
         request_data.language = configs["lang_config"]["default"]
 
-    logger.info(f"Attempting to save wiki cache for {request_data.owner}/{request_data.repo} ({request_data.repo_type}), lang: {request_data.language}")
+    logger.info(f"Attempting to save wiki cache for {request_data.repo.owner}/{request_data.repo.repo} ({request_data.repo.type}), lang: {request_data.language}")
     success = await save_wiki_cache(request_data)
     if success:
         return {"message": "Wiki cache saved successfully"}
