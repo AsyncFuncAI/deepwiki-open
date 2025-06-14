@@ -9,18 +9,67 @@ import logging
 import base64
 import re
 import glob
+import xattr
 from adalflow.utils import get_adalflow_default_root_path
 from adalflow.core.db import LocalDB
 from api.config import configs, DEFAULT_EXCLUDED_DIRS, DEFAULT_EXCLUDED_FILES
 from api.ollama_patch import OllamaDocumentProcessor
 from urllib.parse import urlparse, urlunparse, quote
+import hashlib
+from typing import Dict, Any
 import requests
 from requests.exceptions import RequestException
 
 from api.tools.embedder import get_embedder
 
 # Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
+
+def get_file_attributes(file_path: str) -> Dict[str, Any]:
+    """
+    Extracts extended file attributes (xattr) from a local file.
+    
+    Args:
+        file_path (str): Path to the file to extract attributes from
+        
+    Returns:
+        Dict[str, Any]: Dictionary of attribute names and their values
+    """
+    attributes = {}
+    try:
+        # Get list of all attribute names for the file
+        attr_names = xattr.listxattr(file_path)
+        
+        # For each attribute, get its value and add to the dictionary
+        for attr_name in attr_names:
+            try:
+                # Get the attribute value
+                attr_value = xattr.getxattr(file_path, attr_name)
+                
+                # Try to decode as UTF-8 string if possible
+                try:
+                    attr_value = attr_value.decode('utf-8')
+                except (UnicodeDecodeError, AttributeError):
+                    # If not decodable as UTF-8, use as is
+                    pass
+                    
+                # Add to attributes dictionary
+                attributes[attr_name] = attr_value
+            except (OSError, IOError) as e:
+                logger.warning(f"Error reading attribute {attr_name} from {file_path}: {e}")
+                
+        logger.debug(f"Extracted {len(attributes)} attributes from {file_path}")
+    except (OSError, IOError) as e:
+        logger.warning(f"Error listing attributes for {file_path}: {e}")
+        
+    return attributes
+
+# No need for a separate get_repo_structure function
+# We're using the existing get_local_repo_structure function in api.py
 
 # Maximum token limit for OpenAI embedding models
 MAX_EMBEDDING_TOKENS = 8192
@@ -55,36 +104,35 @@ def count_tokens(text: str, is_ollama_embedder: bool = None) -> int:
         # Rough approximation: 4 characters per token
         return len(text) // 4
 
-def download_repo(repo_url: str, local_path: str, type: str = "github", access_token: str = None) -> str:
+def download_repo(repo_url: str, type: str = "github", access_token: str = None) -> str:
     """
-    Downloads a Git repository (GitHub, GitLab, or Bitbucket) to a specified local path.
+    Downloads a repository to a local directory.
 
     Args:
-        repo_url (str): The URL of the Git repository to clone.
-        local_path (str): The local directory where the repository will be cloned.
-        access_token (str, optional): Access token for private repositories.
+        repo_url (str): URL of the repository to download
+        type (str): Type of repository (github, gitlab, bitbucket, azure)
+        access_token (str, optional): Personal access token for private repositories
 
     Returns:
-        str: The output message from the `git` command.
+        str: Path to the local directory containing the repository
     """
     try:
-        # Check if Git is installed
-        logger.info(f"Preparing to clone repository to {local_path}")
-        subprocess.run(
-            ["git", "--version"],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+        # Log the repository URL and type for debugging
+        logger.info(f"Downloading repository from {repo_url} of type {type}")
+        
+        # Create a unique directory name based on the repo URL
+        repo_hash = hashlib.md5(repo_url.encode()).hexdigest()
+        local_path = os.path.join(get_adalflow_default_root_path(), "repos", repo_hash)
+        logger.info(f"Generated local path: {local_path} (hash: {repo_hash})")
 
-        # Check if repository already exists
-        if os.path.exists(local_path) and os.listdir(local_path):
-            # Directory exists and is not empty
-            logger.warning(f"Repository already exists at {local_path}. Using existing repository.")
-            return f"Using existing repository at {local_path}"
+        # Check if the repository already exists locally
+        if os.path.exists(local_path):
+            logger.info(f"Repository already exists at {local_path}")
+            return local_path
 
-        # Ensure the local path exists
+        # Create the directory if it doesn't exist
         os.makedirs(local_path, exist_ok=True)
+        logger.info(f"Created directory for repository at {local_path}")
 
         # Prepare the clone URL with access token if provided
         clone_url = repo_url
@@ -100,6 +148,22 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
             elif type == "bitbucket":
                 # Format: https://{token}@bitbucket.org/owner/repo.git
                 clone_url = urlunparse((parsed.scheme, f"{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
+            elif type == "azure":
+                # Format for Azure DevOps: https://organization@dev.azure.com/organization/project/_git/repo.git
+                # For Azure DevOps, we need to ensure the URL is in the correct format for git clone
+                # Extract the organization name from the path
+                path_parts = parsed.path.strip('/').split('/')
+                organization = path_parts[0] if path_parts else ""
+                
+                # The path should end with .git
+                path = parsed.path
+                
+                # Use the organization name as the username with the PAT as password
+                clone_url = urlunparse((parsed.scheme, f"{organization}:{access_token}@{parsed.netloc}", path, '', '', ''))
+                
+                # Log the URL format (without exposing the token)
+                sanitized_url = urlunparse((parsed.scheme, f"{organization}:***TOKEN***@{parsed.netloc}", path, '', '', ''))
+                logger.info(f"Azure DevOps clone URL format (sanitized): {sanitized_url}")
             logger.info("Using access token for authentication")
 
         # Clone the repository
@@ -113,7 +177,8 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
         )
 
         logger.info("Repository cloned successfully")
-        return result.stdout.decode("utf-8")
+        # Return the local path instead of the command output
+        return local_path
 
     except subprocess.CalledProcessError as e:
         error_msg = e.stderr.decode('utf-8')
@@ -297,17 +362,28 @@ def read_all_documents(path: str, is_ollama_embedder: bool = None, excluded_dirs
                     if token_count > MAX_EMBEDDING_TOKENS * 10:
                         logger.warning(f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit")
                         continue
+                        
+                    # Extract file attributes
+                    file_attrs = get_file_attributes(file_path)
+                    
+                    # Prepare metadata
+                    metadata = {
+                        "file_path": relative_path,
+                        "type": ext[1:],
+                        "is_code": True,
+                        "is_implementation": is_implementation,
+                        "title": relative_path,
+                        "token_count": token_count,
+                    }
+                    
+                    # Add file attributes to metadata
+                    if file_attrs:
+                        metadata["file_attributes"] = file_attrs
+                        logger.info(f"Added {len(file_attrs)} file attributes to {relative_path}")
 
                     doc = Document(
                         text=content,
-                        meta_data={
-                            "file_path": relative_path,
-                            "type": ext[1:],
-                            "is_code": True,
-                            "is_implementation": is_implementation,
-                            "title": relative_path,
-                            "token_count": token_count,
-                        },
+                        meta_data=metadata,
                     )
                     documents.append(doc)
             except Exception as e:
@@ -331,17 +407,28 @@ def read_all_documents(path: str, is_ollama_embedder: bool = None, excluded_dirs
                     if token_count > MAX_EMBEDDING_TOKENS:
                         logger.warning(f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit")
                         continue
+                        
+                    # Extract file attributes
+                    file_attrs = get_file_attributes(file_path)
+                    
+                    # Prepare metadata
+                    metadata = {
+                        "file_path": relative_path,
+                        "type": ext[1:],
+                        "is_code": False,
+                        "is_implementation": False,
+                        "title": relative_path,
+                        "token_count": token_count,
+                    }
+                    
+                    # Add file attributes to metadata
+                    if file_attrs:
+                        metadata["file_attributes"] = file_attrs
+                        logger.info(f"Added {len(file_attrs)} file attributes to {relative_path}")
 
                     doc = Document(
                         text=content,
-                        meta_data={
-                            "file_path": relative_path,
-                            "type": ext[1:],
-                            "is_code": False,
-                            "is_implementation": False,
-                            "title": relative_path,
-                            "token_count": token_count,
-                        },
+                        meta_data=metadata,
                     )
                     documents.append(doc)
             except Exception as e:
@@ -597,13 +684,14 @@ def get_bitbucket_file_content(repo_url: str, file_path: str, access_token: str 
         raise ValueError(f"Failed to get file content: {str(e)}")
 
 
-def get_file_content(repo_url: str, file_path: str, type: str = "github", access_token: str = None) -> str:
+def get_file_content(repo_url: str, file_path: str, type: str = "github", access_token: str = None):
     """
-    Retrieves the content of a file from a Git repository (GitHub or GitLab).
+    Retrieves the content of a file from a Git repository (GitHub, GitLab, Bitbucket, or Azure DevOps).
 
     Args:
         repo_url (str): The URL of the repository
         file_path (str): The path to the file within the repository
+        type (str): The type of repository (github, gitlab, bitbucket, azure)
         access_token (str, optional): Access token for private repositories
 
     Returns:
@@ -612,14 +700,58 @@ def get_file_content(repo_url: str, file_path: str, type: str = "github", access
     Raises:
         ValueError: If the file cannot be fetched or if the URL is not valid
     """
-    if type == "github":
-        return get_github_file_content(repo_url, file_path, access_token)
-    elif type == "gitlab":
-        return get_gitlab_file_content(repo_url, file_path, access_token)
-    elif type == "bitbucket":
-        return get_bitbucket_file_content(repo_url, file_path, access_token)
-    else:
-        raise ValueError("Unsupported repository URL. Only GitHub and GitLab are supported.")
+    try:
+        if type == "github":
+            return get_github_file_content(repo_url, file_path, access_token)
+        elif type == "gitlab":
+            return get_gitlab_file_content(repo_url, file_path, access_token)
+        elif type == "bitbucket":
+            return get_bitbucket_file_content(repo_url, file_path, access_token)
+        elif type == "azure":
+            from api.azuredevops_client import get_azuredevops_file_content
+            # For Azure DevOps, we need to decode the URL since it might contain encoded spaces
+            decoded_repo_url = repo_url
+            logger.info(f"Original Azure DevOps URL: {repo_url}")
+            
+            try:
+                # If the URL is already decoded, this won't change it
+                # If it's encoded (like with %20 for spaces), this will decode it
+                from urllib.parse import unquote
+                
+                # Check if the URL is double-encoded (contains %25 which is the encoded form of %)
+                if "%25" in repo_url:
+                    # First decode to convert %25 to %
+                    temp_url = unquote(repo_url)
+                    logger.info(f"First decode step: {temp_url}")
+                    
+                    # Then decode again to convert % encoded characters
+                    decoded_repo_url = unquote(temp_url)
+                    logger.info(f"Double-decoded Azure DevOps URL: {decoded_repo_url}")
+                else:
+                    decoded_repo_url = unquote(repo_url)
+                    logger.info(f"Decoded Azure DevOps URL: {decoded_repo_url}")
+                
+                # Ensure the URL contains dev.azure.com
+                if "dev.azure.com" not in decoded_repo_url:
+                    logger.error(f"URL does not appear to be an Azure DevOps URL: {decoded_repo_url}")
+                    raise ValueError(f"Invalid Azure DevOps URL: {decoded_repo_url}")
+                    
+                # Verify the URL format is correct for Azure DevOps
+                if "_git" not in decoded_repo_url:
+                    logger.error(f"Azure DevOps URL missing '_git' segment: {decoded_repo_url}")
+                    raise ValueError(f"Invalid Azure DevOps URL format, missing '_git' segment: {decoded_repo_url}")
+            except Exception as e:
+                logger.error(f"Failed to process Azure DevOps URL: {str(e)}")
+                raise ValueError(f"Failed to process Azure DevOps URL: {str(e)}")
+            
+            logger.info(f"Processing Azure DevOps repository with URL: {decoded_repo_url}")
+            logger.info(f"Fetching file: {file_path} from Azure DevOps repository")
+            return get_azuredevops_file_content(decoded_repo_url, file_path, access_token)
+        else:
+            raise ValueError(f"Unsupported repository type: {type}")
+    except Exception as e:
+        raise ValueError(f"Error getting file content: {str(e)}")
+
 
 class DatabaseManager:
     """
@@ -697,16 +829,56 @@ class DatabaseManager:
             os.makedirs(root_path, exist_ok=True)
             # url
             if repo_url_or_path.startswith("https://") or repo_url_or_path.startswith("http://"):
-                # Extract the repository name from the URL
-                repo_name = self._extract_repo_name_from_url(repo_url_or_path, repo_type)
-                logger.info(f"Extracted repo name: {repo_name}")
+                # Extract repo name based on the URL format
+                if type == "github":
+                    # GitHub URL format: https://github.com/owner/repo
+                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
+                elif type == "gitlab":
+                    # GitLab URL format: https://gitlab.com/owner/repo or https://gitlab.com/group/subgroup/repo
+                    # Use the last part of the URL as the repo name
+                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
+                elif type == "bitbucket":
+                    # Bitbucket URL format: https://bitbucket.org/owner/repo
+                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
+                elif type == "azure":
+                    # Azure DevOps URL format: https://dev.azure.com/organization/project/_git/repo
+                    # Find the part after _git/ in the URL
+                    if "_git/" in repo_url_or_path:
+                        repo_name = repo_url_or_path.split("_git/")[-1].replace(".git", "")
+                    else:
+                        # Fallback to the last part of the URL
+                        repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
+                else:
+                    # Generic handling for other Git URLs
+                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
 
                 save_repo_dir = os.path.join(root_path, "repos", repo_name)
 
                 # Check if the repository directory already exists and is not empty
                 if not (os.path.exists(save_repo_dir) and os.listdir(save_repo_dir)):
                     # Only download if the repository doesn't exist or is empty
-                    download_repo(repo_url_or_path, save_repo_dir, repo_type, access_token)
+                    try:
+                        # Use the download_repo function to get a local path
+                        repo_path = download_repo(repo_url_or_path, type, access_token)
+                        
+                        # If the repo_path is different from save_repo_dir, copy the contents
+                        if repo_path != save_repo_dir and os.path.exists(repo_path):
+                            import shutil
+                            # Create save_repo_dir if it doesn't exist
+                            os.makedirs(save_repo_dir, exist_ok=True)
+                            
+                            # Copy contents from repo_path to save_repo_dir
+                            for item in os.listdir(repo_path):
+                                src = os.path.join(repo_path, item)
+                                dst = os.path.join(save_repo_dir, item)
+                                if os.path.isdir(src):
+                                    shutil.copytree(src, dst, dirs_exist_ok=True)
+                                else:
+                                    shutil.copy2(src, dst)
+                            logger.info(f"Copied repository from {repo_path} to {save_repo_dir}")
+                    except Exception as e:
+                        logger.error(f"Error downloading repository: {str(e)}")
+                        raise ValueError(f"Failed to download repository: {str(e)}")
                 else:
                     logger.info(f"Repository already exists at {save_repo_dir}. Using existing repository.")
             else:  # local path

@@ -20,7 +20,7 @@
   "home": {
     "welcome": "Welcome to DeepWiki-Open",
     "welcomeTagline": "AI-powered documentation for your code repositories",
-    "description": "Generate comprehensive documentation from GitHub, GitLab, or Bitbucket repositories with just a few clicks.",
+    "description": "Generate comprehensive documentation from GitHub, GitLab, Azure DevOps, or Bitbucket repositories with just a few clicks.",
     "quickStart": "Quick Start",
     "enterRepoUrl": "Enter a repository URL in one of these formats:",
     "advancedVisualization": "Advanced Visualization with Mermaid Diagrams",

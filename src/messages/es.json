@@ -20,7 +20,7 @@
   "home": {
     "welcome": "Bienvenido a DeepWiki",
     "welcomeTagline": "Documentación impulsada por IA para repositorios de código",
-    "description": "Genera documentación completa de repositorios GitHub, GitLab o Bitbucket con solo unos clics.",
+    "description": "Genera documentación completa de repositorios GitHub, GitLab, Azure DevOps, o Bitbucket con solo unos clics.",
     "quickStart": "Inicio Rápido",
     "enterRepoUrl": "Ingresa una URL de repositorio en uno de estos formatos:",
     "advancedVisualization": "Visualización Avanzada con Diagramas Mermaid",
@@ -31,7 +31,7 @@
   "form": {
     "repository": "Repositorio",
     "configureWiki": "Configurar Wiki",
-    "repoPlaceholder": "propietario/repositorio o URL de GitHub/GitLab/Bitbucket",
+    "repoPlaceholder": "propietario/repositorio o URL de GitHub/GitLab/Azure DevOps/Bitbucket",
     "wikiLanguage": "Idioma del Wiki",
     "modelOptions": "Opciones de Modelo",
     "modelProvider": "Proveedor de Modelo",
