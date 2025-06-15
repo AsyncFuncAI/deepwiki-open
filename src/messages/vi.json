@@ -20,7 +20,7 @@
   "home": {
     "welcome": "Chào mừng đến với DeepWiki-Open",
     "welcomeTagline": "Tài liệu hỗ trợ bởi AI cho các repository của bạn",
-    "description": "Tạo tài liệu từ các repository GitHub, GitLab, hoặc Bitbucket chỉ với vài cú nhấp chuột.",
+    "description": "Tạo tài liệu từ các repository GitHub, GitLab, Azure Devops, hoặc Bitbucket chỉ với vài cú nhấp chuột.",
     "quickStart": "Bắt đầu nhanh",
     "enterRepoUrl": "Nhập URL repository",
     "advancedVisualization": "Tùy chỉnh sơ đồ trực quan với Mermaid",
@@ -31,7 +31,7 @@
   "form": {
     "repository": "Repository",
     "configureWiki": "Cấu hình Wiki",
-    "repoPlaceholder": "owner/repo hoặc URL GitHub/GitLab/Bitbucket",
+    "repoPlaceholder": "owner/repo hoặc URL GitHub/GitLab/Azure Devops/Bitbucket",
     "wikiLanguage": "Ngôn ngữ Wiki",
     "modelOptions": "Tùy chọn mô hình",
     "modelProvider": "Nhà cung cấp mô hình",

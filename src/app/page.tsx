@@ -90,7 +90,7 @@ export default function Home() {
   const [excludedFiles, setExcludedFiles] = useState('');
   const [includedDirs, setIncludedDirs] = useState('');
   const [includedFiles, setIncludedFiles] = useState('');
-  const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>('github');
+  const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket' | 'azure'>('github');
   const [accessToken, setAccessToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -145,6 +145,7 @@ export default function Home() {
     // Handle Windows absolute paths (e.g., C:\path\to\folder)
     const windowsPathRegex = /^[a-zA-Z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]*$/;
     const customGitRegex = /^(?:https?:\/\/)?([^\/]+)\/(.+?)\/([^\/]+)(?:\.git)?\/?$/;
+    const azureDevOpsRegex = /^(?:https?:\/\/)?dev\.azure\.com\/([^\/]+)\/([^\/]+)\/_git\/([^\/]+)(?:\.git)?\/?$/;
 
     if (windowsPathRegex.test(input)) {
       type = 'local';
@@ -158,6 +159,70 @@ export default function Home() {
       localPath = input;
       repo = input.split('/').filter(Boolean).pop() || 'local-repo';
       owner = 'local';
+    }
+    // Handle Azure DevOps URLs
+    else if (input.includes('dev.azure.com') || input.includes('azure.com')) {
+      type = 'azure';
+      console.log('Detected Azure DevOps URL:', input);
+      
+      // First, ensure the URL is properly decoded (it might be double-encoded)
+      let decodedInput = input;
+      try {
+        // If the URL is already decoded, this won't change it
+        // If it's encoded (like with %20 for spaces), this will decode it
+        if (input.includes('%')) {
+          decodedInput = decodeURIComponent(input);
+          console.log('Decoded Azure DevOps URL:', decodedInput);
+        }
+      } catch (error) {
+        console.warn('Error decoding URL:', error);
+      }
+      
+      try {
+        // Parse the URL properly to handle spaces in project names
+        const url = new URL(decodedInput);
+        console.log('Parsed URL:', url.toString());
+        console.log('URL pathname:', url.pathname);
+        
+        const pathParts = url.pathname.split('/');
+        console.log('Path parts:', pathParts);
+        
+        // Find the organization (first part after domain)
+        const organization = pathParts[1]; // First part after the initial slash
+        console.log('Organization:', organization);
+        
+        // Check if _git is in the path
+        if (url.pathname.includes('_git')) {
+          // Find the repository (part after _git)
+          const gitIndex = pathParts.indexOf('_git');
+          if (gitIndex !== -1 && gitIndex + 1 < pathParts.length) {
+            repo = pathParts[gitIndex + 1];
+            console.log('Repository:', repo);
+            
+            // For the owner, we'll use the organization and the encoded project path
+            // This preserves spaces and special characters in project names
+            const projectPath = url.pathname.split('/_git/')[0].substring(organization.length + 2);
+            owner = `${organization}/${projectPath}`;
+            console.log('Owner:', owner);
+          } else {
+            console.error('Could not find repository name after _git');
+            return null;
+          }
+        } else {
+          console.error('URL does not contain _git segment:', url.pathname);
+          // Try to extract organization and project from the URL anyway
+          if (pathParts.length >= 3) {
+            owner = `${pathParts[1]}/${pathParts[2]}`;
+            repo = pathParts[pathParts.length - 1];
+            console.log('Fallback - Owner:', owner, 'Repo:', repo);
+          } else {
+            return null;
+          }
+        }
+      } catch (error) {
+        console.error('Could not parse Azure DevOps repository from URL', error);
+        return null;
+      }
     }
     else if (customGitRegex.test(input)) {
       type = 'web';
@@ -270,7 +335,38 @@ export default function Home() {
       params.append('token', accessToken);
     }
     // Always include the type parameter
-    params.append('type', (type == 'local' ? type : selectedPlatform) || 'github');
+    // For Azure DevOps URLs, ensure we use 'azure' as the type and handle URL encoding properly
+    if (type === 'azure') {
+      params.append('type', 'azure');
+      
+      // For Azure DevOps URLs, we need to ensure the URL is properly encoded
+      // This is especially important for URLs with spaces in project names
+      if (repositoryInput.includes('dev.azure.com')) {
+        console.log('Processing Azure DevOps URL for API request:', repositoryInput);
+        
+        // Ensure the URL is properly encoded for the API
+        // First decode it to handle any double-encoding
+        let normalizedUrl = repositoryInput;
+        try {
+          if (normalizedUrl.includes('%')) {
+            normalizedUrl = decodeURIComponent(normalizedUrl);
+            console.log('Decoded Azure DevOps URL:', normalizedUrl);
+          }
+        } catch (e) {
+          console.warn('Error decoding URL:', e);
+        }
+        
+        // Then encode it properly
+        const encodedUrl = encodeURIComponent(normalizedUrl);
+        console.log('Encoded Azure DevOps URL for API:', encodedUrl);
+        params.append('repo_url', encodedUrl);
+      } else {
+        params.append('repo_url', encodeURIComponent(repositoryInput));
+      }
+    } else {
+      params.append('type', (type == 'local' ? type : selectedPlatform) || 'github');
+      params.append('repo_url', encodeURIComponent(repositoryInput));
+    }
     // Add local path if it exists
     if (localPath) {
       params.append('local_path', encodeURIComponent(localPath));

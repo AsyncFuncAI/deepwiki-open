@@ -4,7 +4,7 @@ import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface TokenInputProps {
-  selectedPlatform: 'github' | 'gitlab' | 'bitbucket';
+  selectedPlatform: 'github' | 'gitlab' | 'bitbucket' | 'azure';
   setSelectedPlatform: (value: 'github' | 'gitlab' | 'bitbucket') => void;
   accessToken: string;
   setAccessToken: (value: string) => void;
