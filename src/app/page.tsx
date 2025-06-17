@@ -239,7 +239,10 @@ export default function Home() {
     // Check authorization code
     const validation = await validateAuthCode();
     if(!validation) {
-      throw new Error('Failed to validate the authorization code');
+      setError(`Failed to validate the authorization code`);
+      console.error(`Failed to validate the authorization code`);
+      setIsConfigModalOpen(false);
+      return;
     }
 
     // Prevent multiple submissions

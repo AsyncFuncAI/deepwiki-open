@@ -51,6 +51,12 @@ PORT=8001
 OLLAMA_HOST=your_ollama_host # (default: http://localhost:11434)
 ```
 
+Configure the Local Embedder for Ollama:
+```
+cp api/config/embedder.ollama.json.bak api/config/embedder.json
+# overwrite api/config/embedder.json? (y/n [n]) y
+```
+
 Start the backend:
 ```bash
 pip install -r api/requirements.txt

@@ -663,12 +663,27 @@ class DatabaseManager:
         self.repo_url_or_path = None
         self.repo_paths = None
 
-    def _create_repo(self, repo_url_or_path: str, type: str = "github", access_token: str = None) -> None:
+    def _extract_repo_name_from_url(self, repo_url_or_path: str, repo_type: str) -> str:
+        # Extract owner and repo name to create unique identifier
+        url_parts = repo_url_or_path.rstrip('/').split('/')
+
+        if repo_type in ["github", "gitlab", "bitbucket"] and len(url_parts) >= 5:
+            # GitHub URL format: https://github.com/owner/repo
+            # GitLab URL format: https://gitlab.com/owner/repo or https://gitlab.com/group/subgroup/repo
+            # Bitbucket URL format: https://bitbucket.org/owner/repo
+            owner = url_parts[-2]
+            repo = url_parts[-1].replace(".git", "")
+            repo_name = f"{owner}_{repo}"
+        else:
+            repo_name = url_parts[-1].replace(".git", "")
+        return repo_name
+
+    def _create_repo(self, repo_url_or_path: str, repo_type: str = "github", access_token: str = None) -> None:
         """
         Download and prepare all paths.
         Paths:
-        ~/.adalflow/repos/{repo_name} (for url, local path will be the same)
-        ~/.adalflow/databases/{repo_name}.pkl
+        ~/.adalflow/repos/{owner}_{repo_name} (for url, local path will be the same)
+        ~/.adalflow/databases/{owner}_{repo_name}.pkl
 
         Args:
             repo_url_or_path (str): The URL or local path of the repository
@@ -682,27 +697,16 @@ class DatabaseManager:
             os.makedirs(root_path, exist_ok=True)
             # url
             if repo_url_or_path.startswith("https://") or repo_url_or_path.startswith("http://"):
-                # Extract repo name based on the URL format
-                if type == "github":
-                    # GitHub URL format: https://github.com/owner/repo
-                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
-                elif type == "gitlab":
-                    # GitLab URL format: https://gitlab.com/owner/repo or https://gitlab.com/group/subgroup/repo
-                    # Use the last part of the URL as the repo name
-                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
-                elif type == "bitbucket":
-                    # Bitbucket URL format: https://bitbucket.org/owner/repo
-                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
-                else:
-                    # Generic handling for other Git URLs
-                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
+                # Extract the repository name from the URL
+                repo_name = self._extract_repo_name_from_url(repo_url_or_path, repo_type)
+                logger.info(f"Extracted repo name: {repo_name}")
 
                 save_repo_dir = os.path.join(root_path, "repos", repo_name)
 
                 # Check if the repository directory already exists and is not empty
                 if not (os.path.exists(save_repo_dir) and os.listdir(save_repo_dir)):
                     # Only download if the repository doesn't exist or is empty
-                    download_repo(repo_url_or_path, save_repo_dir, type, access_token)
+                    download_repo(repo_url_or_path, save_repo_dir, repo_type, access_token)
                 else:
                     logger.info(f"Repository already exists at {save_repo_dir}. Using existing repository.")
             else:  # local path
