@@ -1526,11 +1526,21 @@ IMPORTANT:
             const cachedData = await response.json(); // Returns null if no cache
             if (cachedData && cachedData.wiki_structure && cachedData.generated_pages && Object.keys(cachedData.generated_pages).length > 0) {
               console.log('Using server-cached wiki data');
+              if(cachedData.mode) {
+                setSelectedModelState(cachedData.model);
+              }
+              if(cachedData.provider) {
+                setSelectedProviderState(cachedData.provider);
+              }
 
-              setSelectedModelState(cachedData.model);
-              setSelectedProviderState(cachedData.provider);
-              // Update repoInfo 
-              setEffectiveRepoInfo(cachedData.repo); 
+              // Update repoInfo
+              if(cachedData.repo) {
+                setEffectiveRepoInfo(cachedData.repo);
+              } else if (cachedData.repo_url && !effectiveRepoInfo.repoUrl) {
+                const updatedRepoInfo = { ...effectiveRepoInfo, repoUrl: cachedData.repo_url };
+                setEffectiveRepoInfo(updatedRepoInfo); // Update effective repo info state
+                console.log('Using cached repo_url:', cachedData.repo_url);
+              }
 
               // Ensure the cached structure has sections and rootSections
               const cachedStructure = {

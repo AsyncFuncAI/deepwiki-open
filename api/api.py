@@ -81,9 +81,10 @@ class WikiCacheData(BaseModel):
     """
     wiki_structure: WikiStructureModel
     generated_pages: Dict[str, WikiPage]
-    repo: RepoInfo
-    provider: str
-    model: str
+    repo_url: Optional[str] = None  #compatible for old cache
+    repo: Optional[RepoInfo] = None
+    provider: Optional[str] = None
+    model: Optional[str] = None
 
 class WikiCacheRequest(BaseModel):
     """
