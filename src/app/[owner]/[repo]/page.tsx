@@ -261,6 +261,24 @@ export default function RepoWikiPage() {
     }
   }, [currentPageId]);
 
+  // close the modal when escape is pressed
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsAskModalOpen(false);
+      }
+    };
+
+    if (isAskModalOpen) {
+      window.addEventListener('keydown', handleEsc);
+    }
+
+    // Cleanup on unmount or when modal closes
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [isAskModalOpen]);
+
   // Fetch authentication status on component mount
   useEffect(() => {
     const fetchAuthStatus = async () => {
