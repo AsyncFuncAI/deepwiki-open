@@ -1,14 +1,17 @@
 import os
 import logging
+from urllib.parse import quote
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, RedirectResponse
 from typing import List, Optional, Dict, Any, Literal
 import json
 from datetime import datetime
 from pydantic import BaseModel, Field
 import google.generativeai as genai
 import asyncio
+from api.data_pipeline import download_repo, DatabaseManager
+from urllib.parse import unquote
 
 # Configure logging
 from api.logging_config import setup_logging
@@ -23,14 +26,29 @@ app = FastAPI(
     description="API for streaming chat completions"
 )
 
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-)
+# Create a separate router for API endpoints to ensure they take precedence
+api_router = FastAPI()
+
+# Configure CORS for both app and api_router
+for app_instance in [app, api_router]:
+    app_instance.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allows all origins
+        allow_credentials=True,
+        allow_methods=["*"],  # Allows all methods
+        allow_headers=["*"],  # Allows all headers
+    )
+
+# Mount the API router at /api prefix
+app.mount("/api", api_router)
+
+# Import and include debug routes
+try:
+    from api.debug_azure import debug_router
+    app.include_router(debug_router)
+    logger.info("Debug routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register debug routes: {str(e)}")
 
 # Helper function to get adalflow root path
 def get_adalflow_default_root_path():
@@ -446,7 +464,7 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
 
 # --- Wiki Cache API Endpoints ---
 
-@app.get("/api/wiki_cache", response_model=Optional[WikiCacheData])
+@api_router.get("/wiki_cache", response_model=Optional[WikiCacheData])
 async def get_cached_wiki(
     owner: str = Query(..., description="Repository owner"),
     repo: str = Query(..., description="Repository name"),
@@ -471,7 +489,7 @@ async def get_cached_wiki(
         logger.info(f"Wiki cache not found for {owner}/{repo} ({repo_type}), lang: {language}")
         return None
 
-@app.post("/api/wiki_cache")
+@api_router.post("/wiki_cache")
 async def store_wiki_cache(request_data: WikiCacheRequest):
     """
     Stores generated wiki data (structure and pages) to the server-side cache.
@@ -489,7 +507,7 @@ async def store_wiki_cache(request_data: WikiCacheRequest):
     else:
         raise HTTPException(status_code=500, detail="Failed to save wiki cache")
 
-@app.delete("/api/wiki_cache")
+@api_router.delete("/wiki_cache")
 async def delete_wiki_cache(
     owner: str = Query(..., description="Repository owner"),
     repo: str = Query(..., description="Repository name"),
@@ -561,8 +579,331 @@ async def root():
         "endpoints": endpoints
     }
 
+# --- Simplified Route for Azure DevOps Repositories ---
+@app.get("/{project}/{repository}")
+async def simplified_repo_route(
+    project: str,
+    repository: str,
+    request: Request,
+    file_tree: str = Query(None),
+    readme: str = Query(None),
+    type: str = Query(None),
+    repo_url: str = Query(None)
+):
+    """
+    Simplified route for Azure DevOps repositories without the organization part.
+    This route receives the file tree and README content as query parameters.
+    """
+    # Skip API routes - they should be handled by their specific endpoints
+    if project == "api":
+        raise HTTPException(status_code=404, detail="Not found - Use specific API endpoints")
+        
+    logger.info(f"Simplified route triggered for: {project}/{repository}")
+    logger.info(f"Query parameters: {request.query_params}")
+    
+    # If we have the file tree and README in the query parameters, return them directly
+    if file_tree and readme and type == 'azure':
+        logger.info("Using file tree and README from query parameters")
+        return {
+            "file_tree": file_tree,
+            "readme": readme
+        }
+    
+    # Otherwise, return a 404
+    raise HTTPException(status_code=404, detail="Resource not found")
+
+# --- Catch-all Route for Azure DevOps Repositories ---
+@app.get("/{organization}/{project}/{repository}", include_in_schema=False)
+async def catch_all_repo_route(
+    organization: str,
+    project: str,
+    repository: str,
+    request: Request
+):
+    # Skip well-known paths and other special paths
+    if organization.startswith('.well-known') or organization.startswith('_next') or organization.startswith('api'):
+        raise HTTPException(status_code=404, detail="Resource not found")
+    """
+    Catch-all route for repository URLs with the format /{organization}/{project}/{repository}.
+    This is primarily used for Azure DevOps repositories but could be used for other repository types as well.
+    """
+    logger.info(f"Catch-all route triggered for: {organization}/{project}/{repository}")
+    
+    # Get all query parameters
+    query_params = dict(request.query_params)
+    logger.info(f"Query parameters: {query_params}")
+    
+    # Check if repo_url is provided
+    if 'repo_url' in query_params:
+        try:
+            # Get the repo URL from query parameters
+            repo_url = query_params.get('repo_url')
+            repo_type = query_params.get('type', 'github')
+            
+            # Handle double-encoded URLs
+            if '%25' in repo_url:  # Double-encoded
+                repo_url = unquote(unquote(repo_url))
+            else:
+                repo_url = unquote(repo_url)
+                
+            logger.info(f"Decoded repo_url: {repo_url}")
+            
+            # Get access token based on repository type
+            access_token = None
+            if repo_type == 'github':
+                access_token = os.environ.get("GITHUB_TOKEN")
+            elif repo_type == 'gitlab':
+                access_token = os.environ.get("GITLAB_TOKEN")
+            elif repo_type == 'bitbucket':
+                access_token = os.environ.get("BITBUCKET_TOKEN")
+            elif repo_type == 'azure':
+                access_token = os.environ.get("AZURE_DEVOPS_TOKEN")
+            
+            if not access_token and repo_type != 'github':  # GitHub can work without a token for public repos
+                logger.warning(f"{repo_type.upper()}_TOKEN not found in environment variables")
+            
+            # Import the necessary modules for repository processing
+            
+            
+            # Process the repository
+            try:
+                # Create a database manager instance
+                db_manager = DatabaseManager()
+                
+                # Prepare the database for the repository
+                # This will download the repository, process the files, and create embeddings
+                logger.info(f"Preparing database for {repo_url}")
+                db_manager.prepare_database(repo_url, repo_type, access_token)
+                
+                # Get the repository structure to return to the frontend
+                # This is similar to what's done in the GitHub/GitLab endpoints
+                try:
+                    # Get the repository path
+                    repo_path = os.path.join(get_adalflow_default_root_path(), "repos", repository)
+                    logger.info(f"Getting repository structure from: {repo_path}")
+                    
+                    # Use the existing get_local_repo_structure function
+                    # We can call it directly since we're in the same file
+                    result = await get_local_repo_structure(repo_path)
+                    
+                    # Check if the result is a JSONResponse (error)
+                    if isinstance(result, JSONResponse):
+                        logger.error(f"Error getting repository structure: {result.body}")
+                        # Return basic repository information
+                        return {
+                            "repository": {
+                                "name": repository,
+                                "owner": organization,
+                                "project": project,
+                                "url": repo_url
+                            },
+                            "type": repo_type,
+                            "status": "processing"
+                        }
+                    
+                    # For Azure DevOps repos, redirect to a simpler URL format without the organization
+                    # This makes the frontend handling much more straightforward
+                    from fastapi.responses import RedirectResponse
+                    
+                    # Get provider and model from query parameters if available
+                    provider = request.query_params.get('provider', 'azure')
+                    model = request.query_params.get('model', 'gpt-4o')
+                    language = request.query_params.get('language', 'en')
+                    comprehensive = request.query_params.get('comprehensive', 'true')
+                    
+                    # Construct the redirect URL with query parameters to pass the file tree and README
+                    redirect_url = f"/{project}/{repository}?file_tree={quote(result['file_tree'])}&readme={quote(result['readme'])}&type=azure&repo_url={quote(repo_url)}&provider={provider}&model={model}&language={language}&comprehensive={comprehensive}"
+                    
+                    # Return a redirect response
+                    return RedirectResponse(url=redirect_url, status_code=302)
+                except Exception as structure_error:
+                    logger.error(f"Error getting repository structure: {str(structure_error)}")
+                    # Return basic repository information even if structure retrieval fails
+                    return {
+                        "repository": {
+                            "name": repository,
+                            "owner": organization,
+                            "project": project,
+                            "url": repo_url
+                        },
+                        "type": repo_type,
+                        "status": "processing"
+                    }
+            except Exception as process_error:
+                logger.error(f"Error processing repository: {str(process_error)}")
+                raise HTTPException(status_code=500, detail=f"Error processing repository: {str(process_error)}")
+        except Exception as e:
+            logger.error(f"Error in catch-all route: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error processing repository: {str(e)}")
+    
+    # If repo_url is not provided, return 404
+    raise HTTPException(status_code=404, detail="Resource not found")
+
+# --- Azure DevOps Repository Structure Endpoint ---
+@app.get("/api/azuredevops/structure")
+async def get_azuredevops_structure(
+    repo_url: str = Query(..., description="URL of the Azure DevOps repository")
+):
+    """
+    Get repository structure (file tree and README) for an Azure DevOps repository.
+    This endpoint is specifically designed for Azure DevOps repositories.
+    
+    Args:
+        repo_url: URL of the Azure DevOps repository
+        
+    Returns:
+        Repository structure with file tree and README content
+    """
+    try:
+        logger.info(f"Getting Azure DevOps repository structure for {repo_url}")
+        
+        # Parse the repository URL to extract organization, project, and repository name
+        # Format: https://dev.azure.com/{organization}/{project}/_git/{repository}
+        url_parts = repo_url.split('/')
+        if len(url_parts) < 6:
+            raise HTTPException(status_code=400, detail=f"Invalid Azure DevOps repository URL: {repo_url}")
+        
+        organization = url_parts[3]
+        project = url_parts[4]
+        repository = url_parts[-1]
+        
+        logger.info(f"Parsed Azure DevOps URL - Organization: {organization}, Project: {project}, Repository: {repository}")
+        
+        # Import the necessary modules for repository processing
+        from api.data_pipeline import download_repo, DatabaseManager
+        
+        # Create a database manager instance
+        db_manager = DatabaseManager()
+        
+        # Get access token if available
+        access_token = os.getenv('AZURE_DEVOPS_TOKEN')
+        
+        # Prepare the database for the repository
+        # This will download the repository, process the files, and create embeddings
+        logger.info(f"Preparing database for {repo_url}")
+        db_manager.prepare_database(repo_url, 'azure', access_token)
+        
+        # Get the repository structure
+        try:
+            # Get the repository path
+            repo_path = os.path.join(get_adalflow_default_root_path(), "repos", repository)
+            logger.info(f"Getting repository structure from: {repo_path}")
+            
+            # Use the existing get_local_repo_structure function
+            result = await get_local_repo_structure(repo_path)
+            
+            # Check if the result is a JSONResponse (error)
+            if isinstance(result, JSONResponse):
+                logger.error(f"Error getting repository structure: {result.body}")
+                # Return error response
+                raise HTTPException(status_code=500, detail="Error getting repository structure")
+            
+            # Return just the file tree and README directly
+            return {
+                "file_tree": result["file_tree"],
+                "readme": result["readme"]
+            }
+        except Exception as structure_error:
+            logger.error(f"Error getting repository structure: {str(structure_error)}")
+            raise HTTPException(status_code=500, detail=f"Error getting repository structure: {str(structure_error)}")
+    except Exception as e:
+        logger.error(f"Error in get_azuredevops_structure: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting Azure DevOps repository structure: {str(e)}")
+
+# --- Repository Structure Endpoint ---
+@app.get("/api/repo/structure")
+async def get_repo_structure(
+    type: str = Query(..., description="Repository type (e.g., github, gitlab, azure)"),
+    repo_url: str = Query(..., description="URL of the repository"),
+    owner: str = Query(..., description="Repository owner or organization"),
+    repo: str = Query(..., description="Repository name")
+):
+    """
+    Get repository structure (file tree and README) for a repository.
+    This is particularly useful for Azure DevOps repositories.
+    
+    Args:
+        type: Repository type (e.g., github, gitlab, azure)
+        repo_url: URL of the repository
+        owner: Repository owner or organization
+        repo: Repository name
+        
+    Returns:
+        Repository structure with file tree and README content
+    """
+    try:
+        logger.info(f"Getting repository structure for {repo_url}")
+        
+        # Import the necessary modules for repository processing
+        from api.data_pipeline import download_repo, DatabaseManager
+        
+        # Create a database manager instance
+        db_manager = DatabaseManager()
+        
+        # Get access token if available
+        access_token = None
+        if type == 'azure':
+            access_token = os.getenv('AZURE_DEVOPS_TOKEN')
+        elif type == 'github':
+            access_token = os.getenv('GITHUB_TOKEN')
+        elif type == 'gitlab':
+            access_token = os.getenv('GITLAB_TOKEN')
+        elif type == 'bitbucket':
+            access_token = os.getenv('BITBUCKET_TOKEN')
+        
+        # Prepare the database for the repository
+        # This will download the repository, process the files, and create embeddings
+        logger.info(f"Preparing database for {repo_url}")
+        db_manager.prepare_database(repo_url, type, access_token)
+        
+        # Get the repository structure
+        try:
+            # Get the repository path
+            repo_path = os.path.join(get_adalflow_default_root_path(), "repos", repo)
+            logger.info(f"Getting repository structure from: {repo_path}")
+            
+            # Use the existing get_local_repo_structure function
+            result = await get_local_repo_structure(repo_path)
+            
+            # Check if the result is a JSONResponse (error)
+            if isinstance(result, JSONResponse):
+                logger.error(f"Error getting repository structure: {result.body}")
+                # Return basic repository information
+                return {
+                    "repository": {
+                        "name": repo,
+                        "owner": owner,
+                        "url": repo_url
+                    },
+                    "type": type,
+                    "status": "processing"
+                }
+            
+            # Return repository information for the frontend in the same format as the GitHub API response
+            # The frontend expects just file_tree and readme directly
+            return {
+                "file_tree": result["file_tree"],
+                "readme": result["readme"],
+                "status": "ready"
+            }
+        except Exception as structure_error:
+            logger.error(f"Error getting repository structure: {str(structure_error)}")
+            # Return basic repository information even if structure retrieval fails
+            return {
+                "repository": {
+                    "name": repo,
+                    "owner": owner,
+                    "url": repo_url
+                },
+                "type": type,
+                "status": "processing"
+            }
+    except Exception as e:
+        logger.error(f"Error in get_repo_structure: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting repository structure: {str(e)}")
+
 # --- Processed Projects Endpoint --- (New Endpoint)
-@app.get("/api/processed_projects", response_model=List[ProcessedProjectEntry])
+@api_router.get("/processed_projects", response_model=List[ProcessedProjectEntry])
 async def get_processed_projects():
     """
     Lists all processed projects found in the wiki cache directory.

@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
+from api.azure_openai_client import AzureOpenAIClient
 from api.bedrock_client import BedrockClient
 from adalflow import GoogleGenAIClient, OllamaClient
 
@@ -16,6 +17,8 @@ from adalflow import GoogleGenAIClient, OllamaClient
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
 OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
+AZURE_OPENAI_API_KEY = os.environ.get('AZURE_OPENAI_API_KEY')
+AZURE_OPENAI_ENDPOINT = os.environ.get('AZURE_OPENAI_ENDPOINT') or os.environ.get('AZURE_OPENAI_API_BASE')
 AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = os.environ.get('AWS_REGION')
@@ -28,6 +31,14 @@ if GOOGLE_API_KEY:
     os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
 if OPENROUTER_API_KEY:
     os.environ["OPENROUTER_API_KEY"] = OPENROUTER_API_KEY
+if AZURE_OPENAI_API_KEY:
+    os.environ["AZURE_OPENAI_API_KEY"] = AZURE_OPENAI_API_KEY
+
+# Support both old and new Azure OpenAI endpoint environment variables
+if AZURE_OPENAI_ENDPOINT:
+    os.environ["AZURE_OPENAI_ENDPOINT"] = AZURE_OPENAI_ENDPOINT
+    # Also set the old variable for backward compatibility
+    os.environ["AZURE_OPENAI_API_BASE"] = AZURE_OPENAI_ENDPOINT
 if AWS_ACCESS_KEY_ID:
     os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY_ID
 if AWS_SECRET_ACCESS_KEY:
@@ -51,6 +62,7 @@ CLIENT_CLASSES = {
     "OpenAIClient": OpenAIClient,
     "OpenRouterClient": OpenRouterClient,
     "OllamaClient": OllamaClient,
+    "AzureOpenAIClient": AzureOpenAIClient,
     "BedrockClient": BedrockClient
 }
 
@@ -136,6 +148,17 @@ def load_generator_config():
 # Load embedder configuration
 def load_embedder_config():
     embedder_config = load_json_config("embedder.json")
+    
+    # Debug logging to see what's loaded
+    logger.info(f"Loaded embedder config: {embedder_config}")
+    if "retriever" in embedder_config:
+        logger.info(f"Retriever config found: {embedder_config['retriever']}")
+        if "top_k" in embedder_config["retriever"]:
+            logger.info(f"top_k value found: {embedder_config['retriever']['top_k']}")
+        else:
+            logger.warning("top_k not found in retriever config")
+    else:
+        logger.warning("retriever key not found in embedder config")
 
     # Process client classes
     for key in ["embedder", "embedder_ollama"]:
@@ -266,6 +289,12 @@ if embedder_config:
         if key in embedder_config:
             configs[key] = embedder_config[key]
 
+# Ensure retriever configuration has a top_k value
+if "retriever" not in configs:
+    configs["retriever"] = {}
+if "top_k" not in configs.get("retriever", {}):
+    configs["retriever"]["top_k"] = 20  # Default value
+
 # Update repository configuration
 if repo_config:
     for key in ["file_filters", "repository"]:
@@ -326,6 +355,14 @@ def get_model_config(provider="google", model=None):
             result["model_kwargs"] = {"model": model, **model_params["options"]}
         else:
             result["model_kwargs"] = {"model": model}
+    elif provider == "azure":
+        # Azure OpenAI uses deployment_id instead of model
+        # The model name is used as the deployment_id
+        result["model_kwargs"] = {"model": model, **model_params}
+        
+        # Pass model-specific API versions if available
+        if "model_api_versions" in provider_config:
+            result["model_client_kwargs"] = {"model_api_versions": provider_config["model_api_versions"]}
     else:
         # Standard structure for other providers
         result["model_kwargs"] = {"model": model, **model_params}

@@ -20,7 +20,7 @@
   "home": {
     "welcome": "欢迎使用DeepWiki",
     "welcomeTagline": "为代码仓库提供AI驱动的文档",
-    "description": "只需一次点击，即可从GitHub、GitLab或Bitbucket仓库生成全面的文档。",
+    "description": "只需一次点击，即可从GitHub、GitLab、Azure DevOps或Bitbucket仓库生成全面的文档。",
     "quickStart": "快速开始",
     "enterRepoUrl": "请以下列格式之一输入仓库URL：",
     "advancedVisualization": "使用Mermaid图表进行高级可视化",
@@ -31,7 +31,7 @@
   "form": {
     "repository": "仓库",
     "configureWiki": "配置Wiki",
-    "repoPlaceholder": "所有者/仓库或GitHub/GitLab/Bitbucket URL",
+    "repoPlaceholder": "所有者/仓库或GitHub/GitLab/Azure DevOps/Bitbucket URL",
     "wikiLanguage": "Wiki语言",
     "modelOptions": "模型选项",
     "modelProvider": "模型提供商",

@@ -20,7 +20,7 @@
     "home": {
       "welcome": "DeepWiki-Open에 오신 것을 환영합니다",
       "welcomeTagline": "코드 저장소를 위한 AI 기반 문서화",
-      "description": "GitHub, GitLab 또는 Bitbucket 저장소에서 클릭 한 번으로 종합 문서를 생성하세요.",
+      "description": "GitHub, GitLab, Azure Devops, 또는 Bitbucket 저장소에서 클릭 한 번으로 종합 문서를 생성하세요.",
       "quickStart": "빠른 시작",
       "enterRepoUrl": "다음 형식 중 하나로 저장소 URL을 입력하세요:",
       "advancedVisualization": "Mermaid 다이어그램을 활용한 고급 시각화",
@@ -31,7 +31,7 @@
     "form": {
       "repository": "저장소",
       "configureWiki": "위키 구성",
-      "repoPlaceholder": "owner/repo 또는 GitHub/GitLab/Bitbucket URL",
+      "repoPlaceholder": "owner/repo 또는 GitHub/GitLab/Azure Devops/Bitbucket URL",
       "wikiLanguage": "위키 언어",
       "modelOptions": "모델 옵션",
       "modelProvider": "모델 제공자",

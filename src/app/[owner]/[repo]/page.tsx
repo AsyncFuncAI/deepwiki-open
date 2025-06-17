@@ -576,7 +576,23 @@ Remember:
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
+    console.log('determineWikiStructure called with:', { 
+      fileTreeLength: fileTree?.length || 0, 
+      readmeLength: readme?.length || 0, 
+      owner, 
+      repo,
+      repoType: repoInfo?.type || 'unknown'
+    });
+    
+    if (!fileTree) {
+      console.error('No file tree data provided');
+      setError('No file tree data available. Please try again.');
+      setIsLoading(false);
+      return;
+    }
+    
     if (!owner || !repo) {
+      console.error('Invalid repository information. Owner and repo name are required.');
       setError('Invalid repository information. Owner and repo name are required.');
       setIsLoading(false);
       return;
@@ -586,6 +602,15 @@ Remember:
     if (structureRequestInProgress) {
       console.log('Wiki structure determination already in progress, skipping duplicate call');
       return;
+    }
+    
+    // For Azure DevOps repositories, ensure we're using the correct format
+    let repoUrlForRequest = '';
+    if (repoInfo.type === 'azure') {
+      repoUrlForRequest = repoInfo.repoUrl || `https://dev.azure.com/${owner}/_git/${repo}`;
+      console.log('Using Azure DevOps URL for request:', repoUrlForRequest);
+    } else {
+      repoUrlForRequest = getRepoUrl(repoInfo);
     }
 
     try {
@@ -602,7 +627,7 @@ Remember:
         type: effectiveRepoInfo.type,
         messages: [{
           role: 'user',
-content: `Analyze this GitHub repository ${owner}/${repo} and create a wiki structure for it.
+content: `Analyze this ${repoInfo.type === 'azure' ? 'Azure DevOps' : repoInfo.type === 'gitlab' ? 'GitLab' : repoInfo.type === 'bitbucket' ? 'Bitbucket' : 'GitHub'} repository ${owner}/${repo} and create a wiki structure for it.
 
 1. The complete file tree of the project:
 <file_tree>
@@ -729,10 +754,12 @@ IMPORTANT:
       let responseText = '';
 
       try {
+        console.log('Starting WebSocket connection for wiki structure generation');
         // Create WebSocket URL from the server base URL
         const serverBaseUrl = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
         const wsBaseUrl = serverBaseUrl.replace(/^http/, 'ws');
         const wsUrl = `${wsBaseUrl}/ws/chat`;
+        console.log('WebSocket URL:', wsUrl);
 
         // Create a new WebSocket connection
         const ws = new WebSocket(wsUrl);
@@ -743,6 +770,7 @@ IMPORTANT:
           ws.onopen = () => {
             console.log('WebSocket connection established for wiki structure');
             // Send the request as JSON
+            console.log('Sending request body via WebSocket:', JSON.stringify(requestBody).substring(0, 200) + '...');
             ws.send(JSON.stringify(requestBody));
             resolve();
           };
@@ -754,6 +782,7 @@ IMPORTANT:
 
           // If the connection doesn't open within 5 seconds, fall back to HTTP
           const timeout = setTimeout(() => {
+            console.warn('WebSocket connection timeout after 5 seconds');
             reject(new Error('WebSocket connection timeout'));
           }, 5000);
 
@@ -762,6 +791,7 @@ IMPORTANT:
             clearTimeout(timeout);
             console.log('WebSocket connection established for wiki structure');
             // Send the request as JSON
+            console.log('Sending request body via WebSocket:', JSON.stringify(requestBody).substring(0, 200) + '...');
             ws.send(JSON.stringify(requestBody));
             resolve();
           };
@@ -1221,7 +1251,48 @@ IMPORTANT:
           throw err;
         }
       }
-      else if (effectiveRepoInfo.type === 'bitbucket') {
+      else if (effectiveRepoInfo.type === 'azure') {
+        // Azure DevOps repositories use a simplified approach
+        try {
+          // Check if we have the file tree and README in the URL query parameters
+          const fileTreeParam = searchParams.get('file_tree');
+          const readmeParam = searchParams.get('readme');
+          
+          if (fileTreeParam && readmeParam) {
+            // Use the file tree and README from the URL parameters
+            fileTreeData = decodeURIComponent(fileTreeParam);
+            readmeContent = decodeURIComponent(readmeParam);
+            console.log('Using file tree and README from URL parameters');
+          } else {
+            // For Azure DevOps, we need to make a request to the catch-all route
+            // The backend will handle cloning the repository and redirecting to a simplified URL
+            console.log('Fetching Azure DevOps repository structure from backend');
+            
+            // Construct the URL with the repository information
+            const azureRepoUrl = repoInfo.repoUrl || '';
+            
+            // Extract organization, project, and repository from the URL
+            // Format: https://dev.azure.com/{organization}/{project}/_git/{repository}
+            const urlParts = azureRepoUrl.split('/');
+            const organization = urlParts[3];
+            const project = urlParts[4];
+            const repository = urlParts[urlParts.length - 1];
+            
+            // Create the request URL using the catch-all route format
+            const requestUrl = `/${organization}/${project}/${repository}?type=azure&repo_url=${encodeURIComponent(azureRepoUrl)}`;
+            
+            console.log('Making request to catch-all route:', requestUrl);
+            
+            // For Azure DevOps, we'll navigate to the catch-all route
+            // The backend will redirect to a simplified URL with the file tree and README as query parameters
+            window.location.href = requestUrl;
+            return; // Stop execution here as we're redirecting
+          }
+        } catch (err) {
+          console.error('Error fetching Azure DevOps repository structure:', err);
+          throw err;
+        }
+      } else if (effectiveRepoInfo.type === 'bitbucket') {
         // Bitbucket API approach
         const repoPath = extractUrlPath(effectiveRepoInfo.repoUrl ?? '') ?? `${owner}/${repo}`;
         const encodedRepoPath = encodeURIComponent(repoPath);
@@ -1301,7 +1372,18 @@ IMPORTANT:
       }
 
       // Now determine the wiki structure
-      await determineWikiStructure(fileTreeData, readmeContent, owner, repo);
+      console.log('Determining wiki structure with data:', { fileTreeData: fileTreeData.substring(0, 100) + '...', readmeContent: readmeContent.substring(0, 100) + '...', owner, repo });
+      
+      // For Azure DevOps repositories, we need to handle the owner differently
+      // The owner should be just the organization, not the full path
+      if (repoInfo.type === 'azure') {
+        // Extract just the organization name for Azure DevOps
+        const azureOwner = owner.split('/')[0];
+        console.log('Using modified owner for Azure DevOps:', azureOwner);
+        await determineWikiStructure(fileTreeData, readmeContent, azureOwner, repo);
+      } else {
+        await determineWikiStructure(fileTreeData, readmeContent, owner, repo);
+      }
 
     } catch (error) {
       console.error('Error fetching repository structure:', error);
@@ -1872,6 +1954,10 @@ IMPORTANT:
                       <FaGithub className="mr-2" />
                     ) : effectiveRepoInfo.type === 'gitlab' ? (
                       <FaGitlab className="mr-2" />
+                    ) : repoInfo.type === 'azure' ? (
+                      <svg className="mr-2" width="16" height="16" viewBox="0 0 23 23" fill="currentColor">
+                        <path d="M0 8.877L2.247 5.11l8.405 3.026l.022 2.814-10.674-2.073zm2.247 8.505L0 14.23l10.674-2.096v2.859l-8.427 3.022V17.382zm8.405 3.07l8.518-3.048l2.202 3.767-10.72 2.07v-2.789zm8.518-11.575L10.652 0v2.814l8.427 3.001l.045.022l2.247-3.767l-2.202 3.767z" />
+                      </svg>
                     ) : (
                       <FaBitbucket className="mr-2" />
                     )}

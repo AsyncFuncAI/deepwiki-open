@@ -20,7 +20,7 @@
   "home": {
     "welcome": "DeepWikiへようこそ",
     "welcomeTagline": "コードリポジトリのためのAI駆動ドキュメンテーション",
-    "description": "GitHub、GitLab、またはBitbucketリポジトリから包括的なドキュメントを数クリックで生成します。",
+    "description": "GitHub、GitLab、Azure DevOps、またはBitbucketリポジトリから包括的なドキュメントを数クリックで生成します。",
     "quickStart": "クイックスタート",
     "enterRepoUrl": "以下のいずれかの形式でリポジトリURLを入力してください：",
     "advancedVisualization": "Mermaidダイアグラムによる高度な可視化",
@@ -31,7 +31,7 @@
   "form": {
     "repository": "リポジトリ",
     "configureWiki": "Wiki設定",
-    "repoPlaceholder": "所有者/リポジトリまたはGitHub/GitLab/BitbucketのURL",
+    "repoPlaceholder": "所有者/リポジトリまたはGitHub/GitLab/Azure DevOps/BitbucketのURL",
     "wikiLanguage": "Wiki言語",
     "modelOptions": "モデルオプション",
     "modelProvider": "モデルプロバイダー",
