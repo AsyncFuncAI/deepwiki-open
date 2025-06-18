@@ -1420,7 +1420,9 @@ IMPORTANT:
       }
 
       if(authRequired && !authCode) {
-        console.warn("Authorization code is required");
+        setIsLoading(false);
+        console.error("Authorization code is required");
+        setError('Authorization code is required');
         return;
       }
 
@@ -1442,7 +1444,10 @@ IMPORTANT:
         // setError(\`Cache clear failed: ${errorText}. Trying to refresh...\`);
         if(response.status == 401) {
           setIsLoading(false);
-          throw new Error('Failed to validate the authorization code');
+          setLoadingMessage(undefined);
+          setError('Failed to validate the authorization code');
+          console.error('Failed to validate the authorization code')
+          return;
         }
       }
     } catch (err) {
@@ -1521,11 +1526,18 @@ IMPORTANT:
             const cachedData = await response.json(); // Returns null if no cache
             if (cachedData && cachedData.wiki_structure && cachedData.generated_pages && Object.keys(cachedData.generated_pages).length > 0) {
               console.log('Using server-cached wiki data');
+              if(cachedData.mode) {
+                setSelectedModelState(cachedData.model);
+              }
+              if(cachedData.provider) {
+                setSelectedProviderState(cachedData.provider);
+              }
 
-              // Update repoInfo with cached repo_url if not provided in URL
-              let updatedRepoInfo = effectiveRepoInfo;
-              if (cachedData.repo_url && !effectiveRepoInfo.repoUrl) {
-                updatedRepoInfo = { ...effectiveRepoInfo, repoUrl: cachedData.repo_url };
+              // Update repoInfo
+              if(cachedData.repo) {
+                setEffectiveRepoInfo(cachedData.repo);
+              } else if (cachedData.repo_url && !effectiveRepoInfo.repoUrl) {
+                const updatedRepoInfo = { ...effectiveRepoInfo, repoUrl: cachedData.repo_url };
                 setEffectiveRepoInfo(updatedRepoInfo); // Update effective repo info state
                 console.log('Using cached repo_url:', cachedData.repo_url);
               }
@@ -1703,16 +1715,14 @@ IMPORTANT:
               sections: wikiStructure.sections || [],
               rootSections: wikiStructure.rootSections || []
             };
-
             const dataToCache = {
-              owner: effectiveRepoInfo.owner,
-              repo: effectiveRepoInfo.repo,
-              repo_type: effectiveRepoInfo.type,
+              repo: effectiveRepoInfo,
               language: language,
               comprehensive: isComprehensiveView,
               wiki_structure: structureToCache,
               generated_pages: generatedPages,
-              repo_url: effectiveRepoInfo.repoUrl || repoUrl || undefined // Include repo_url in cache
+              provider: selectedProviderState,
+              model: selectedModelState
             };
             const response = await fetch(`/api/wiki_cache`, {
               method: 'POST',

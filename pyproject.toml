@@ -20,5 +20,6 @@ dependencies = [
   "openai>=1.76.2",
   "ollama>=0.4.8",
   "aiohttp>=3.8.4",
-  "boto3>=1.34.0"
+  "boto3>=1.34.0",
+  "pytest>=7.0.0"
 ]

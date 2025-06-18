@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1-labs
 
-FROM node:20-alpine AS node_base
+# Build argument for custom certificates directory
+ARG CUSTOM_CERT_DIR="certs"
+
+FROM node:20-alpine3.22 AS node_base
 
 FROM node_base AS node_deps
 WORKDIR /app
@@ -37,6 +40,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     gnupg \
     git \
+    ca-certificates \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
@@ -44,6 +48,18 @@ RUN apt-get update && apt-get install -y \
     && apt-get install -y nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Update certificates if custom ones were provided and copied successfully
+RUN if [ -n "${CUSTOM_CERT_DIR}" ]; then \
+        mkdir -p /usr/local/share/ca-certificates && \
+        if [ -d "${CUSTOM_CERT_DIR}" ]; then \
+            cp -r ${CUSTOM_CERT_DIR}/* /usr/local/share/ca-certificates/ 2>/dev/null || true; \
+            update-ca-certificates; \
+            echo "Custom certificates installed successfully."; \
+        else \
+            echo "Warning: ${CUSTOM_CERT_DIR} not found. Skipping certificate installation."; \
+        fi \
+    fi
 
 ENV PATH="/opt/venv/bin:$PATH"
 
