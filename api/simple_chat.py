@@ -83,12 +83,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
 
         # Create a new RAG instance for this request
         try:
-            # Temporarily use Ollama for embeddings if Azure is used for generation
-            if request.provider == "azure":
-                logger.info("Azure detected for generation - temporarily using Ollama for embeddings")
-                request_rag = RAG(provider=request.provider, model=request.model, force_ollama_embedder=True)
-            else:
-                request_rag = RAG(provider=request.provider, model=request.model)
+            request_rag = RAG(provider=request.provider, model=request.model)
 
             # Extract custom file filter parameters if provided
             excluded_dirs = None

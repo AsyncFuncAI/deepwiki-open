@@ -73,7 +73,8 @@ async def handle_websocket_chat(websocket: WebSocket):
 
         # Create a new RAG instance for this request
         try:
-            
+            request_rag = RAG(provider=request.provider, model=request.model)
+
             # Extract custom file filter parameters if provided
             excluded_dirs = None
             excluded_files = None
