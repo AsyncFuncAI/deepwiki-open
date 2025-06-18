@@ -143,6 +143,29 @@
           "top_p": 0.8
         }
       }
+    },
+    "azure": {
+      "client_class": "AzureAIClient",
+      "default_model": "gpt-4o",
+      "supportsCustomModel": true,
+      "models": {
+        "gpt-4o": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "gpt-4": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "gpt-35-turbo": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "gpt-4-turbo": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        }
+      }
     }
   }
 }

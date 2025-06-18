@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.bedrock_client import BedrockClient
+from api.azureai_client import AzureAIClient
 from adalflow import GoogleGenAIClient, OllamaClient
 
 # Get API keys from environment variables
@@ -51,7 +52,8 @@ CLIENT_CLASSES = {
     "OpenAIClient": OpenAIClient,
     "OpenRouterClient": OpenRouterClient,
     "OllamaClient": OllamaClient,
-    "BedrockClient": BedrockClient
+    "BedrockClient": BedrockClient,
+    "AzureAIClient": AzureAIClient
 }
 
 def replace_env_placeholders(config: Union[Dict[str, Any], List[Any], str, Any]) -> Union[Dict[str, Any], List[Any], str, Any]:
@@ -119,13 +121,14 @@ def load_generator_config():
             if provider_config.get("client_class") in CLIENT_CLASSES:
                 provider_config["model_client"] = CLIENT_CLASSES[provider_config["client_class"]]
             # Fall back to default mapping based on provider_id
-            elif provider_id in ["google", "openai", "openrouter", "ollama", "bedrock"]:
+            elif provider_id in ["google", "openai", "openrouter", "ollama", "bedrock", "azure"]:
                 default_map = {
                     "google": GoogleGenAIClient,
                     "openai": OpenAIClient,
                     "openrouter": OpenRouterClient,
                     "ollama": OllamaClient,
-                    "bedrock": BedrockClient
+                    "bedrock": BedrockClient,
+                    "azure": AzureAIClient
                 }
                 provider_config["model_client"] = default_map[provider_id]
             else:

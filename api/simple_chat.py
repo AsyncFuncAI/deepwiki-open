@@ -16,6 +16,7 @@ from api.data_pipeline import count_tokens, get_file_content
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.bedrock_client import BedrockClient
+from api.azureai_client import AzureAIClient
 from api.rag import RAG
 
 # Configure logging
@@ -56,7 +57,7 @@ class ChatCompletionRequest(BaseModel):
     type: Optional[str] = Field("github", description="Type of repository (e.g., 'github', 'gitlab', 'bitbucket')")
 
     # model parameters
-    provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama, bedrock)")
+    provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama, bedrock, azure)")
     model: Optional[str] = Field(None, description="Model name for the specified provider")
 
     language: Optional[str] = Field("en", description="Language for content generation (e.g., 'en', 'ja', 'zh', 'es', 'kr', 'vi')")
@@ -82,7 +83,12 @@ async def chat_completions_stream(request: ChatCompletionRequest):
 
         # Create a new RAG instance for this request
         try:
-            request_rag = RAG(provider=request.provider, model=request.model)
+            # Temporarily use Ollama for embeddings if Azure is used for generation
+            if request.provider == "azure":
+                logger.info("Azure detected for generation - temporarily using Ollama for embeddings")
+                request_rag = RAG(provider=request.provider, model=request.model, force_ollama_embedder=True)
+            else:
+                request_rag = RAG(provider=request.provider, model=request.model)
 
             # Extract custom file filter parameters if provided
             excluded_dirs = None
@@ -507,6 +513,23 @@ This file contains...
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM
             )
+        elif request.provider == "azure":
+            logger.info(f"Using Azure AI with model: {request.model}")
+
+            # Initialize Azure AI client
+            model = AzureAIClient()
+            model_kwargs = {
+                "model": request.model,
+                "stream": True,
+                "temperature": model_config["temperature"],
+                "top_p": model_config["top_p"]
+            }
+
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=prompt,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
         else:
             # Initialize Google Generative AI model
             model = genai.GenerativeModel(
@@ -572,6 +595,23 @@ This file contains...
                     except Exception as e_bedrock:
                         logger.error(f"Error with AWS Bedrock API: {str(e_bedrock)}")
                         yield f"\nError with AWS Bedrock API: {str(e_bedrock)}\n\nPlease check that you have set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables with valid credentials."
+                elif request.provider == "azure":
+                    try:
+                        # Get the response and handle it properly using the previously created api_kwargs
+                        logger.info("Making Azure AI API call")
+                        response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                        # Handle streaming response from Azure AI
+                        async for chunk in response:
+                            choices = getattr(chunk, "choices", [])
+                            if len(choices) > 0:
+                                delta = getattr(choices[0], "delta", None)
+                                if delta is not None:
+                                    text = getattr(delta, "content", None)
+                                    if text is not None:
+                                        yield text
+                    except Exception as e_azure:
+                        logger.error(f"Error with Azure AI API: {str(e_azure)}")
+                        yield f"\nError with Azure AI API: {str(e_azure)}\n\nPlease check that you have set the AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_VERSION environment variables with valid values."
                 else:
                     # Generate streaming response
                     response = model.generate_content(prompt, stream=True)
@@ -681,6 +721,31 @@ This file contains...
                             except Exception as e_fallback:
                                 logger.error(f"Error with AWS Bedrock API fallback: {str(e_fallback)}")
                                 yield f"\nError with AWS Bedrock API fallback: {str(e_fallback)}\n\nPlease check that you have set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables with valid credentials."
+                        elif request.provider == "azure":
+                            try:
+                                # Create new api_kwargs with the simplified prompt
+                                fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
+                                    input=simplified_prompt,
+                                    model_kwargs=model_kwargs,
+                                    model_type=ModelType.LLM
+                                )
+
+                                # Get the response using the simplified prompt
+                                logger.info("Making fallback Azure AI API call")
+                                fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
+
+                                # Handle streaming fallback response from Azure AI
+                                async for chunk in fallback_response:
+                                    choices = getattr(chunk, "choices", [])
+                                    if len(choices) > 0:
+                                        delta = getattr(choices[0], "delta", None)
+                                        if delta is not None:
+                                            text = getattr(delta, "content", None)
+                                            if text is not None:
+                                                yield text
+                            except Exception as e_fallback:
+                                logger.error(f"Error with Azure AI API fallback: {str(e_fallback)}")
+                                yield f"\nError with Azure AI API fallback: {str(e_fallback)}\n\nPlease check that you have set the AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_VERSION environment variables with valid values."
                         else:
                             # Initialize Google Generative AI model
                             model_config = get_model_config(request.provider, request.model)

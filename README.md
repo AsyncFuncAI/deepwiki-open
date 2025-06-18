@@ -43,7 +43,10 @@ echo "OPENAI_API_KEY=your_openai_api_key" >> .env
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 # Optional: Add Ollama host if not local. defaults to http://localhost:11434
 echo "OLLAMA_HOST=your_ollama_host" >> .env
-
+# Optional: Add Azure API key, endpoint and version if you want to use azure openai models
+echo "AZURE_OPENAI_API_KEY=your_azure_openai_api_key" >> .env
+echo "AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint" >> .env
+echo "AZURE_OPENAI_VERSION=your_azure_openai_version" >> .env
 # Run with Docker Compose
 docker-compose up
 ```
@@ -53,6 +56,7 @@ For detailed instructions on using DeepWiki with Ollama and Docker, see [Ollama 
 > 💡 **Where to get these keys:**
 > - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 > - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+> - Get Azure OpenAI credentials from [Azure Portal](https://portal.azure.com/) - create an Azure OpenAI resource and get the API key, endpoint, and API version
 
 ### Option 2: Manual Setup (Recommended)
 
@@ -65,6 +69,10 @@ GOOGLE_API_KEY=your_google_api_key
 OPENAI_API_KEY=your_openai_api_key
 # Optional: Add this if you want to use OpenRouter models
 OPENROUTER_API_KEY=your_openrouter_api_key
+# Optional: Add this if you want to use Azure OpenAI models
+AZURE_OPENAI_API_KEY=your_azure_openai_api_key
+AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint
+AZURE_OPENAI_VERSION=your_azure_openai_version
 # Optional: Add Ollama host if not local. default: http://localhost:11434
 OLLAMA_HOST=your_ollama_host
 ```
@@ -106,7 +114,7 @@ DeepWiki uses AI to:
 
 1. Clone and analyze the GitHub, GitLab, or Bitbucket repository (including private repos with token authentication)
 2. Create embeddings of the code for smart retrieval
-3. Generate documentation with context-aware AI (using Google Gemini, OpenAI, OpenRouter, or local Ollama models)
+3. Generate documentation with context-aware AI (using Google Gemini, OpenAI, OpenRouter, Azure OpenAI, or local Ollama models)
 4. Create visual diagrams to explain code relationships
 5. Organize everything into a structured wiki
 6. Enable intelligent Q&A with the repository through the Ask feature
@@ -126,11 +134,13 @@ graph TD
     M -->|OpenAI| E2[Generate with OpenAI]
     M -->|OpenRouter| E3[Generate with OpenRouter]
     M -->|Local Ollama| E4[Generate with Ollama]
+    M -->|Azure| E5[Generate with Azure]
 
     E1 --> E[Generate Documentation]
     E2 --> E
     E3 --> E
     E4 --> E
+    E5 --> E
 
     D --> F[Create Visual Diagrams]
     E --> G[Organize as Wiki]
@@ -144,7 +154,7 @@ graph TD
 
     class A,D data;
     class AA,M decision;
-    class B,C,E,F,G,AB,E1,E2,E3,E4 process;
+    class B,C,E,F,G,AB,E1,E2,E3,E4,E5 process;
     class H result;
 ```
 
@@ -179,6 +189,7 @@ DeepWiki now implements a flexible provider-based model selection system support
 - **Google**: Default `gemini-2.0-flash`, also supports `gemini-1.5-flash`, `gemini-1.0-pro`, etc.
 - **OpenAI**: Default `gpt-4o`, also supports `o4-mini`, etc.
 - **OpenRouter**: Access to multiple models via a unified API, including Claude, Llama, Mistral, etc.
+- **Azure OpenAI**: Default `gpt-4o`, also supports `o4-mini`, etc.
 - **Ollama**: Support for locally running open-source models like `llama3`
 
 ### Environment Variables
@@ -190,6 +201,9 @@ Each provider requires its corresponding API key environment variables:
 GOOGLE_API_KEY=your_google_api_key        # Required for Google Gemini models
 OPENAI_API_KEY=your_openai_api_key        # Required for OpenAI models
 OPENROUTER_API_KEY=your_openrouter_api_key # Required for OpenRouter models
+AZURE_OPENAI_API_KEY=your_azure_openai_api_key  #Required for Azure OpenAI models
+AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint  #Required for Azure OpenAI models
+AZURE_OPENAI_VERSION=your_azure_openai_version  #Required for Azure OpenAI models
 
 # OpenAI API Base URL Configuration
 OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
@@ -206,7 +220,7 @@ DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # Optional, for custom config fi
 DeepWiki uses JSON configuration files to manage various aspects of the system:
 
 1. **`generator.json`**: Configuration for text generation models
-   - Defines available model providers (Google, OpenAI, OpenRouter, Ollama)
+   - Defines available model providers (Google, OpenAI, OpenRouter, Azure, Ollama)
    - Specifies default and available models for each provider
    - Contains model-specific parameters like temperature and top_p
 
@@ -300,6 +314,9 @@ docker-compose up
 | `GOOGLE_API_KEY`     | Google Gemini API key for AI generation                      | No | Required only if you want to use Google Gemini models                                                    
 | `OPENAI_API_KEY`     | OpenAI API key for embeddings                                | Yes | Note: This is required even if you're not using OpenAI models, as it's used for embeddings.              |
 | `OPENROUTER_API_KEY` | OpenRouter API key for alternative models                    | No | Required only if you want to use OpenRouter models                                                       |
+| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key                    | No | Required only if you want to use Azure OpenAI models                                                       |
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint                    | No | Required only if you want to use Azure OpenAI models                                                       |
+| `AZURE_OPENAI_VERSION` | Azure OpenAI version                     | No | Required only if you want to use Azure OpenAI models                                                       |
 | `OLLAMA_HOST`        | Ollama Host (default: http://localhost:11434)                | No | Required only if you want to use external Ollama server                                                  |
 | `PORT`               | Port for the API server (default: 8001)                      | No | If you host API and frontend on the same machine, make sure change port of `SERVER_BASE_URL` accordingly |
 | `SERVER_BASE_URL`    | Base URL for the API server (default: http://localhost:8001) | No |
@@ -336,6 +353,10 @@ docker run -p 8001:8001 -p 3000:3000 \
   -e OPENAI_API_KEY=your_openai_api_key \
   -e OPENROUTER_API_KEY=your_openrouter_api_key \
   -e OLLAMA_HOST=your_ollama_host \
+  -e AZURE_OPENAI_API_KEY=your_azure_openai_api_key \
+  -e AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint \
+  -e AZURE_OPENAI_VERSION=your_azure_openai_version \
+
   -v ~/.adalflow:/root/.adalflow \
   ghcr.io/asyncfuncai/deepwiki-open:latest
 ```
@@ -365,6 +386,9 @@ You can also mount a .env file to the container:
 echo "GOOGLE_API_KEY=your_google_api_key" > .env
 echo "OPENAI_API_KEY=your_openai_api_key" >> .env
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
+echo "AZURE_OPENAI_API_KEY=your_azure_openai_api_key" >> .env
+echo "AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint" >> .env
+echo "AZURE_OPENAI_VERSION=your_azure_openai_version"  >>.env
 echo "OLLAMA_HOST=your_ollama_host" >> .env
 
 # Run the container with the .env file mounted
@@ -398,6 +422,9 @@ docker run -p 8001:8001 -p 3000:3000 \
   -e GOOGLE_API_KEY=your_google_api_key \
   -e OPENAI_API_KEY=your_openai_api_key \
   -e OPENROUTER_API_KEY=your_openrouter_api_key \
+  -e AZURE_OPENAI_API_KEY=your_azure_openai_api_key \
+  -e AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint \
+  -e AZURE_OPENAI_VERSION=your_azure_openai_version \
   -e OLLAMA_HOST=your_ollama_host \
   deepwiki-open
 ```
@@ -497,6 +524,7 @@ To use DeepResearch, simply toggle the "Deep Research" switch in the Ask interfa
 - **"Missing environment variables"**: Make sure your `.env` file is in the project root and contains the required API keys
 - **"API key not valid"**: Check that you've copied the full key correctly with no extra spaces
 - **"OpenRouter API error"**: Verify your OpenRouter API key is valid and has sufficient credits
+- **"Azure OpenAI API error"**: Verify your Azure OpenAI credentials (API key, endpoint, and version) are correct and the service is properly deployed
 
 ### Connection Problems
 - **"Cannot connect to API server"**: Make sure the API server is running on port 8001
