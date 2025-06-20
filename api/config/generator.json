@@ -39,8 +39,7 @@
           "top_p": 0.8
         },
         "o3": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 1.0
         },
         "o4-mini": {
           "temperature": 0.7,
@@ -69,8 +68,7 @@
           "top_p": 0.8
         },
         "openai/o3": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 1.0
         },
         "openai/o4-mini": {
           "temperature": 0.7,
@@ -169,3 +167,4 @@
     }
   }
 }
+
