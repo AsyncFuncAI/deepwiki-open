@@ -227,6 +227,17 @@ class RAG(adal.Component):
         # Determine if we're using Ollama embedder based on configuration
         self.is_ollama_embedder = is_ollama_embedder()
 
+        # Check if Ollama model exists before proceeding
+        if self.is_ollama_embedder:
+            from api.ollama_patch import check_ollama_model_exists
+            from api.config import get_embedder_config
+            
+            embedder_config = get_embedder_config()
+            if embedder_config and embedder_config.get("model_kwargs", {}).get("model"):
+                model_name = embedder_config["model_kwargs"]["model"]
+                if not check_ollama_model_exists(model_name):
+                    raise Exception(f"Ollama model '{model_name}' not found. Please run 'ollama pull {model_name}' to install it.")
+
         # Initialize components
         self.memory = Memory()
         self.embedder = get_embedder()

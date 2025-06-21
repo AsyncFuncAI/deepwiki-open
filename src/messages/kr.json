@@ -103,6 +103,7 @@
       "home": "홈",
       "errorTitle": "오류",
       "errorMessageDefault": "저장소가 존재하며 공개 상태인지 확인해 주세요. 유효한 형식은 \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\" 또는 로컬 폴더 경로 \"C:\\\\path\\\\to\\\\folder\" 혹은 \"/path/to/folder\" 입니다.",
+      "embeddingErrorDefault": "이 오류는 저장소를 분석하는 데 사용되는 문서 임베딩 시스템과 관련이 있습니다. 임베딩 모델 설정에서 다른 임베딩 제공자를 시도해 보세요. 문제가 지속되면 모델 설정에서 다른 임베딩 제공자를 변경해 보세요.",
       "backToHome": "홈으로 돌아가기",
       "exportWiki": "위키 내보내기",
       "exportAsMarkdown": "마크다운으로 내보내기",

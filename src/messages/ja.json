@@ -103,6 +103,7 @@
     "home": "ホーム",
     "errorTitle": "エラー",
     "errorMessageDefault": "リポジトリが存在し、公開されていることを確認してください。有効な形式は「owner/repo」、「https://github.com/owner/repo」、「https://gitlab.com/owner/repo」、「https://bitbucket.org/owner/repo」、またはローカルフォルダパス（例: 「C:\\\\path\\\\to\\\\folder」、「/path/to/folder」）です。",
+    "embeddingErrorDefault": "このエラーは、リポジトリを分析するために使用されるドキュメント埋め込みシステムに関連しています。モデル設定で異なる埋め込みプロバイダーを試してみてください。",
     "backToHome": "ホームに戻る",
     "exportWiki": "Wikiをエクスポート",
     "exportAsMarkdown": "Markdownとしてエクスポート",

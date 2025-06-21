@@ -112,6 +112,7 @@
     "home": "Início",
     "errorTitle": "Erro",
     "errorMessageDefault": "Verifique se o seu repositório existe e é público. Formatos válidos são \"proprietário/repo\", \"https://github.com/proprietário/repo\", \"https://gitlab.com/proprietário/repo\", \"https://bitbucket.org/proprietário/repo\", ou caminhos de pastas locais como \"C:\\\\caminho\\\\para\\\\pasta\" ou \"/caminho/para/pasta\".",
+    "embeddingErrorDefault": "Este erro está relacionado com o sistema de embebimento utilizado para analisar o seu repositório. Verifique a configuração do modelo de embebimento, as chaves de API e tente novamente. Se o problema persistir, considere mudar para um provedor de embebimento diferente na configuração do modelo.",
     "backToHome": "Voltar ao Início",
     "exportWiki": "Exportar Wiki",
     "exportAsMarkdown": "Exportar como Markdown",

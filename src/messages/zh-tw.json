@@ -101,6 +101,7 @@
     "home": "首頁",
     "errorTitle": "錯誤",
     "errorMessageDefault": "請檢查您的儲存庫是否存在且為公開儲存庫。有效格式為 \"owner/repo\"、\"https://github.com/owner/repo\"、\"https://gitlab.com/owner/repo\"、\"https://bitbucket.org/owner/repo\"，或本機資料夾路徑，如 \"C:\\\\path\\\\to\\\\folder\" 或 \"/path/to/folder\"。",
+    "embeddingErrorDefault": "這個錯誤與用於分析您的儲存庫的文件嵌入系統有關。請檢查您的嵌入模型配置、API 密鑰，並重試。如果問題持續存在，請考慮在模型設置中切換到不同的嵌入提供者。",
     "backToHome": "返回首頁",
     "exportWiki": "匯出 Wiki",
     "exportAsMarkdown": "匯出為 Markdown",
