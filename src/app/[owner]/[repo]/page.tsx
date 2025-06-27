@@ -738,7 +738,28 @@ IMPORTANT:
 1. Create ${isComprehensiveView ? '8-12' : '4-6'} pages that would make a ${isComprehensiveView ? 'comprehensive' : 'concise'} wiki for this repository
 2. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
 3. The relevant_files should be actual files from the repository that would be used to generate that page
-4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
+4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters
+
+CRITICAL: Your response must start with <wiki_structure> and end with </wiki_structure>. Do not include any other text, explanations, or formatting. The response must be valid XML that can be parsed directly.
+
+Example of what your response should look like:
+<wiki_structure>
+  <title>Repository Wiki</title>
+  <description>Description here</description>
+  <pages>
+    <page id="page-1">
+      <title>Page Title</title>
+      <description>Page description</description>
+      <importance>high</importance>
+      <relevant_files>
+        <file_path>path/to/file.py</file_path>
+      </relevant_files>
+      <related_pages>
+        <related>page-2</related>
+      </related_pages>
+    </page>
+  </pages>
+</wiki_structure>`
         }]
       };
 
@@ -854,7 +875,79 @@ IMPORTANT:
       // Extract wiki structure from response
       const xmlMatch = responseText.match(/<wiki_structure>[\s\S]*?<\/wiki_structure>/m);
       if (!xmlMatch) {
-        throw new Error('No valid XML found in response');
+        // Log the actual response for debugging
+        console.error('AI Response (first 1000 chars):', responseText.substring(0, 1000));
+        console.error('Full response length:', responseText.length);
+        
+        // Try to extract information even if it's not in XML format
+        // This is a fallback for when AI doesn't return proper XML
+        console.warn('XML not found, attempting to create structure from text response');
+        
+        // Create a basic structure based on the repository
+        const fallbackStructure: WikiStructure = {
+          id: 'wiki',
+          title: `${owner}/${repo} Documentation`,
+          description: `Documentation for the ${owner}/${repo} repository. Generated from available repository information.`,
+          pages: [
+            {
+              id: 'overview',
+              title: 'Overview',
+              content: '',
+              filePaths: ['README.md'],
+              importance: 'high' as const,
+              relatedPages: ['setup', 'architecture']
+            },
+            {
+              id: 'setup',
+              title: 'Setup & Installation',
+              content: '',
+              filePaths: ['package.json', 'requirements.txt', 'Dockerfile', 'pyproject.toml'],
+              importance: 'high' as const,
+              relatedPages: ['overview']
+            },
+            {
+              id: 'architecture',
+              title: 'Architecture',
+              content: '',
+              filePaths: ['src/', 'api/', 'components/', 'app/'],
+              importance: 'medium' as const,
+              relatedPages: ['overview']
+            },
+            {
+              id: 'api',
+              title: 'API Reference',
+              content: '',
+              filePaths: ['api/', 'src/app/api/'],
+              importance: 'medium' as const,
+              relatedPages: ['architecture']
+            }
+          ],
+          sections: [],
+          rootSections: []
+        };
+        
+        setWikiStructure(fallbackStructure);
+        setCurrentPageId('overview');
+        
+        // Start generating content for fallback pages
+        const initialInProgress = new Set(fallbackStructure.pages.map(p => p.id));
+        setPagesInProgress(initialInProgress);
+        
+        // Generate content for each page
+        fallbackStructure.pages.forEach(page => {
+          generatePageContent(page, owner, repo)
+            .finally(() => {
+              setPagesInProgress(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(page.id);
+                return newSet;
+              });
+            });
+        });
+        
+        // Don't throw error, just continue with fallback
+        console.warn('Using fallback wiki structure due to AI response format issue');
+        return;
       }
 
       let xmlText = xmlMatch[0];

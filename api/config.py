@@ -260,7 +260,7 @@ lang_config = load_lang_config()
 
 # Update configuration
 if generator_config:
-    configs["default_provider"] = generator_config.get("default_provider", "google")
+    configs["default_provider"] = generator_config.get("default_provider", "openai")
     configs["providers"] = generator_config.get("providers", {})
 
 # Update embedder configuration

@@ -1,8 +1,5 @@
 # syntax=docker/dockerfile:1-labs
 
-# Build argument for custom certificates directory
-ARG CUSTOM_CERT_DIR="certs"
-
 FROM node:20-alpine3.22 AS node_base
 
 FROM node_base AS node_deps
@@ -29,6 +26,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY api/requirements.txt ./api/
 RUN pip install --no-cache -r api/requirements.txt
 
+# Pre-download tiktoken encodings to avoid runtime network issues
+RUN python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
+
 # Use Python 3.11 as final image
 FROM python:3.11-slim
 
@@ -49,18 +49,6 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Update certificates if custom ones were provided and copied successfully
-RUN if [ -n "${CUSTOM_CERT_DIR}" ]; then \
-        mkdir -p /usr/local/share/ca-certificates && \
-        if [ -d "${CUSTOM_CERT_DIR}" ]; then \
-            cp -r ${CUSTOM_CERT_DIR}/* /usr/local/share/ca-certificates/ 2>/dev/null || true; \
-            update-ca-certificates; \
-            echo "Custom certificates installed successfully."; \
-        else \
-            echo "Warning: ${CUSTOM_CERT_DIR} not found. Skipping certificate installation."; \
-        fi \
-    fi
-
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy Python dependencies
@@ -71,48 +59,66 @@ COPY api/ ./api/
 COPY --from=node_builder /app/public ./public
 COPY --from=node_builder /app/.next/standalone ./
 COPY --from=node_builder /app/.next/static ./.next/static
+# Copy package.json for runtime
+COPY package.json ./
+
+# Create log directory
+RUN mkdir -p /app/api/logs
 
 # Expose the port the app runs on
-EXPOSE ${PORT:-8001} 3000
+EXPOSE 8001 3000
 
-# Create a script to run both backend and frontend
+# Create a simplified script to run both backend and frontend
 RUN echo '#!/bin/bash\n\
-# Load environment variables from .env file if it exists\n\
-if [ -f .env ]; then\n\
-  export $(grep -v "^#" .env | xargs -r)\n\
-fi\n\
+set -e\n\
 \n\
-# Check for required environment variables\n\
-if [ -z "$OPENAI_API_KEY" ] || [ -z "$GOOGLE_API_KEY" ]; then\n\
-  echo "Warning: OPENAI_API_KEY and/or GOOGLE_API_KEY environment variables are not set."\n\
-  echo "These are required for DeepWiki to function properly."\n\
-  echo "You can provide them via a mounted .env file or as environment variables when running the container."\n\
-fi\n\
+# Get the Cloud Run port (default to 3000 if not set)\n\
+FRONTEND_PORT=${PORT:-3000}\n\
+API_PORT=8001\n\
 \n\
-# Start the API server in the background with the configured port\n\
-python -m api.main --port ${PORT:-8001} &\n\
-PORT=3000 HOSTNAME=0.0.0.0 node server.js &\n\
-wait -n\n\
-exit $?' > /app/start.sh && chmod +x /app/start.sh
+echo "Starting DeepWiki services..."\n\
+echo "API Port: $API_PORT (fixed)"\n\
+echo "Frontend Port: $FRONTEND_PORT"\n\
+\n\
+# Create a health check endpoint file for the frontend port\n\
+mkdir -p /tmp\n\
+echo "OK" > /tmp/health\n\
+\n\
+# Start the API server in the background on port 8001\n\
+cd /app && API_PORT=$API_PORT python -m api.main &\n\
+API_PID=$!\n\
+\n\
+# Wait a moment for API to start\n\
+sleep 5\n\
+\n\
+# Start the frontend with Cloud Run PORT\n\
+echo "Starting frontend on port $FRONTEND_PORT"\n\
+cd /app && PORT=$FRONTEND_PORT HOSTNAME=0.0.0.0 node server.js &\n\
+FRONTEND_PID=$!\n\
+\n\
+# Simple cleanup function\n\
+cleanup() {\n\
+  echo "Shutting down..."\n\
+  kill $API_PID $FRONTEND_PID 2>/dev/null || true\n\
+  exit 0\n\
+}\n\
+\n\
+trap cleanup SIGTERM SIGINT\n\
+\n\
+# Wait for both processes - if either fails, exit\n\
+wait -n $API_PID $FRONTEND_PID\n\
+exit_code=$?\n\
+echo "One of the services exited with code $exit_code"\n\
+cleanup\n\
+' > /app/start.sh && chmod +x /app/start.sh
 
 # Set environment variables
-ENV PORT=8001
 ENV NODE_ENV=production
-ENV SERVER_BASE_URL=http://localhost:${PORT:-8001}
+ENV SERVER_BASE_URL=http://localhost:8001
 
-# Create directory for persistent storage
-RUN mkdir -p /app/data/wikicache && \
-    chmod 755 /app/data && \
-    chmod 755 /app/data/wikicache
-
-# Create volume for persistent storage
-VOLUME ["/app/data"]
-
-# Create empty .env file (will be overridden if one exists at runtime)
-RUN touch .env
-
-# Set environment variable for cache path
-ENV WIKI_CACHE_PATH=/app/data/wikicache
+# Health check - check both API and frontend
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:8001/health && curl -f http://localhost:${PORT:-3000} || exit 1
 
 # Command to run the application
-CMD ["/app/start.sh"]
+CMD ["/app/start.sh"] 

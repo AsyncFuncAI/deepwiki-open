@@ -1,28 +1,8 @@
 {
-  "default_provider": "google",
+  "default_provider": "openai",
   "providers": {
-    "google": {
-      "default_model": "gemini-2.0-flash",
-      "supportsCustomModel": true,
-      "models": {
-        "gemini-2.0-flash": {
-          "temperature": 0.7,
-          "top_p": 0.8,
-          "top_k": 20
-        },
-        "gemini-2.5-flash-preview-05-20": {
-          "temperature": 0.7,
-          "top_p": 0.8,
-          "top_k": 20
-        },
-        "gemini-2.5-pro-preview-03-25": {
-          "temperature": 0.7,
-          "top_p": 0.8,
-          "top_k": 20
-        }
-      }
-    },
     "openai": {
+      "client_class": "OpenAIClient",
       "default_model": "gpt-4o",
       "supportsCustomModel": true,
       "models": {
@@ -34,132 +14,11 @@
           "temperature": 0.7,
           "top_p": 0.8
         },
-        "o1": {
+        "o3": {
           "temperature": 0.7,
           "top_p": 0.8
-        },
-        "o3": {
-          "temperature": 1.0
         },
         "o4-mini": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        }
-      }
-    },
-    "openrouter": {
-      "default_model": "openai/gpt-4o",
-      "supportsCustomModel": true,
-      "models": {
-        "openai/gpt-4o": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "deepseek/deepseek-r1": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "openai/gpt-4.1": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "openai/o1": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "openai/o3": {
-          "temperature": 1.0
-        },
-        "openai/o4-mini": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "anthropic/claude-3.7-sonnet": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "anthropic/claude-3.5-sonnet": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        }
-      }
-    },
-    "ollama": {
-      "default_model": "qwen3:1.7b",
-      "supportsCustomModel": true,
-      "models": {
-        "qwen3:1.7b": {
-          "options": {
-            "temperature": 0.7,
-            "top_p": 0.8,
-            "num_ctx": 32000
-          }
-        },
-        "llama3:8b": {
-          "options": {
-            "temperature": 0.7,
-            "top_p": 0.8,
-            "num_ctx": 8000
-          }
-        },
-        "qwen3:8b": {
-          "options": {
-            "temperature": 0.7,
-            "top_p": 0.8,
-            "num_ctx": 32000
-          }
-        }
-      }
-    },
-    "bedrock": {
-      "client_class": "BedrockClient",
-      "default_model": "anthropic.claude-3-sonnet-20240229-v1:0",
-      "supportsCustomModel": true,
-      "models": {
-        "anthropic.claude-3-sonnet-20240229-v1:0": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "anthropic.claude-3-haiku-20240307-v1:0": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "anthropic.claude-3-opus-20240229-v1:0": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "amazon.titan-text-express-v1": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "cohere.command-r-v1:0": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "ai21.j2-ultra-v1": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        }
-      }
-    },
-    "azure": {
-      "client_class": "AzureAIClient",
-      "default_model": "gpt-4o",
-      "supportsCustomModel": true,
-      "models": {
-        "gpt-4o": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "gpt-4": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "gpt-35-turbo": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "gpt-4-turbo": {
           "temperature": 0.7,
           "top_p": 0.8
         }

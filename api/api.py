@@ -168,7 +168,7 @@ async def get_model_config():
 
         # Create providers from the config file
         providers = []
-        default_provider = configs.get("default_provider", "google")
+        default_provider = configs.get("default_provider", "openai")
 
         # Add provider configuration based on config.py
         for provider_id, provider_config in configs["providers"].items():
@@ -390,8 +390,28 @@ app.add_websocket_route("/ws/chat", handle_websocket_chat)
 
 # --- Wiki Cache Helper Functions ---
 
-WIKI_CACHE_DIR = os.path.join(get_adalflow_default_root_path(), "wikicache")
+# Get cache directory with Cloud Run persistence support
+def get_wiki_cache_dir():
+    """
+    Returns the wiki cache directory with support for persistent storage.
+    In Cloud Run, we'll use a mounted volume or cloud storage if available.
+    """
+    # Check for Cloud Run persistent storage path
+    cloud_storage_path = os.environ.get('WIKI_CACHE_PATH')
+    if cloud_storage_path:
+        return cloud_storage_path
+    
+    # Check for Docker volume mount
+    docker_volume_path = '/app/data/wikicache'
+    if os.path.exists('/app/data'):
+        return docker_volume_path
+    
+    # Fallback to default local path
+    return os.path.join(get_adalflow_default_root_path(), "wikicache")
+
+WIKI_CACHE_DIR = get_wiki_cache_dir()
 os.makedirs(WIKI_CACHE_DIR, exist_ok=True)
+logger.info(f"Using wiki cache directory: {WIKI_CACHE_DIR}")
 
 def get_wiki_cache_path(owner: str, repo: str, repo_type: str, language: str) -> str:
     """Generates the file path for a given wiki cache."""

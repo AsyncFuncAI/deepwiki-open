@@ -1,0 +1,181 @@
+# syntax=docker/dockerfile:1-labs
+
+# 使用更新的基础镜像，带有更好的缓存
+FROM node:20-alpine3.22 AS node_base
+# 设置工作目录
+WORKDIR /app
+
+# === Node.js 依赖阶段 ===
+FROM node_base AS node_deps
+# 只复制依赖文件，利用 Docker 层缓存
+COPY package.json package-lock.json ./
+# 使用 npm ci 并行安装，启用缓存
+RUN npm ci --legacy-peer-deps --prefer-offline --no-audit --cache /tmp/.npm
+
+# === Node.js 构建阶段 ===
+FROM node_base AS node_builder
+# 复制依赖
+COPY --from=node_deps /app/node_modules ./node_modules
+# 只复制构建需要的文件
+COPY package.json package-lock.json next.config.ts tsconfig.json tailwind.config.js postcss.config.mjs ./
+COPY src/ ./src/
+COPY public/ ./public/
+
+# 优化构建环境变量
+ENV NODE_OPTIONS="--max-old-space-size=6144"
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV CI=true
+ENV NODE_ENV=production
+
+# 并行构建
+RUN npm run build
+
+# === Python 依赖阶段（并行优化）===
+FROM python:3.11-slim AS py_deps
+WORKDIR /app
+
+# 安装系统依赖（一次性安装所有需要的包）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# 创建虚拟环境
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# 只复制 requirements.txt，利用缓存
+COPY api/requirements.txt ./api/
+# 使用并行安装和缓存优化
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r api/requirements.txt
+
+# 预下载 tiktoken 编码（避免运行时网络请求）
+RUN python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
+
+# === 最终运行时镜像 ===
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 一次性安装所有运行时依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    gnupg \
+    git \
+    ca-certificates \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置 Python 环境
+ENV PATH="/opt/venv/bin:$PATH"
+
+# 复制 Python 依赖（从缓存层）
+COPY --from=py_deps /opt/venv /opt/venv
+
+# 复制 API 代码
+COPY api/ ./api/
+
+# 复制 Node.js 应用（从缓存层）
+COPY --from=node_builder /app/public ./public
+COPY --from=node_builder /app/.next/standalone ./
+COPY --from=node_builder /app/.next/static ./.next/static
+COPY package.json ./
+
+# 创建目录
+RUN mkdir -p /app/api/logs
+
+# 暴露端口
+EXPOSE 8001 3000
+
+# 创建优化的启动脚本
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+FRONTEND_PORT=${PORT:-3000}\n\
+API_PORT=8001\n\
+\n\
+echo "🚀 Starting DeepWiki services..."\n\
+echo "📡 API Port: $API_PORT"\n\
+echo "🌐 Frontend Port: $FRONTEND_PORT"\n\
+\n\
+# 启动 API（后台）\n\
+echo "🚀 Starting API server..."\n\
+cd /app && API_PORT=$API_PORT python -m api.main > /tmp/api.log 2>&1 &\n\
+API_PID=$!\n\
+echo "✅ API started (PID: $API_PID)"\n\
+\n\
+# 等待 API 启动（更长时间，更详细的日志）\n\
+echo "⏳ Waiting for API to be ready..."\n\
+for i in {1..60}; do\n\
+  if curl -sf http://localhost:$API_PORT/health > /dev/null 2>&1; then\n\
+    echo "✅ API health check passed (attempt $i)"\n\
+    break\n\
+  fi\n\
+  if [ $i -eq 60 ]; then\n\
+    echo "❌ API failed to start after 60 attempts"\n\
+    echo "🔍 Checking API process..."\n\
+    ps aux | grep python || true\n\
+    echo "🔍 Checking API logs..."\n\
+    tail -20 /app/api/logs/application.log 2>/dev/null || echo "No API logs found"\n\
+    exit 1\n\
+  fi\n\
+  echo "⏳ API not ready yet (attempt $i/60)"\n\
+  sleep 2\n\
+done\n\
+\n\
+# 启动前端\n\
+echo "🌐 Starting frontend on port $FRONTEND_PORT..."\n\
+cd /app && PORT=$FRONTEND_PORT HOSTNAME=0.0.0.0 node server.js > /tmp/frontend.log 2>&1 &\n\
+FRONTEND_PID=$!\n\
+echo "✅ Frontend started (PID: $FRONTEND_PID)"\n\
+\n\
+# 等待前端启动\n\
+echo "⏳ Waiting for frontend to be ready..."\n\
+for i in {1..30}; do\n\
+  if curl -sf http://localhost:$FRONTEND_PORT > /dev/null 2>&1; then\n\
+    echo "✅ Frontend health check passed (attempt $i)"\n\
+    break\n\
+  fi\n\
+  if [ $i -eq 30 ]; then\n\
+    echo "❌ Frontend failed to start after 30 attempts"\n\
+    echo "🔍 Frontend logs:"\n\
+    tail -20 /tmp/frontend.log 2>/dev/null || echo "No frontend logs found"\n\
+    echo "🔍 API logs:"\n\
+    tail -20 /tmp/api.log 2>/dev/null || echo "No API logs found"\n\
+    exit 1\n\
+  fi\n\
+  echo "⏳ Frontend not ready yet (attempt $i/30)"\n\
+  sleep 2\n\
+done\n\
+\n\
+# 清理函数\n\
+cleanup() {\n\
+  echo "🛑 Shutting down services..."\n\
+  kill $API_PID $FRONTEND_PID 2>/dev/null || true\n\
+  exit 0\n\
+}\n\
+\n\
+trap cleanup SIGTERM SIGINT\n\
+\n\
+# 等待任一进程退出\n\
+wait -n $API_PID $FRONTEND_PID\n\
+echo "⚠️ One service exited, shutting down..."\n\
+cleanup\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
+# 设置环境变量
+ENV NODE_ENV=production
+ENV SERVER_BASE_URL=http://localhost:8001
+
+# 优化的健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
+  CMD curl -sf http://localhost:8001/health && curl -sf http://localhost:${PORT:-3000} || exit 1
+
+# 启动命令
+CMD ["/app/start.sh"] 

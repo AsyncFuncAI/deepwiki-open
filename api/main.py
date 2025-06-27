@@ -16,26 +16,31 @@ logger = logging.getLogger(__name__)
 # Add the current directory to the path so we can import the api package
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Check for required environment variables
-required_env_vars = ['GOOGLE_API_KEY', 'OPENAI_API_KEY']
+# Check for required environment variables - only require OPENAI_API_KEY since using LiteLLM
+required_env_vars = ['OPENAI_API_KEY']
 missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
 if missing_vars:
     logger.warning(f"Missing environment variables: {', '.join(missing_vars)}")
     logger.warning("Some functionality may not work correctly without these variables.")
 
-# Configure Google Generative AI
-import google.generativeai as genai
-from api.config import GOOGLE_API_KEY
-
+# Only configure Google Generative AI if GOOGLE_API_KEY is available
+# Since user is using LiteLLM, this is optional
+GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
 if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=GOOGLE_API_KEY)
+        logger.info("Google API configured")
+    except ImportError:
+        logger.warning("google.generativeai not available, skipping Google API configuration")
 else:
-    logger.warning("GOOGLE_API_KEY not configured")
+    logger.info("GOOGLE_API_KEY not provided - using LiteLLM unified interface")
 
 if __name__ == "__main__":
-    # Get port from environment variable or use default
-    port = int(os.environ.get("PORT", 8001))
-
+    # Force API to use port 8001, ignore Cloud Run's PORT variable
+    # Cloud Run's PORT is meant for the frontend service
+    port = int(os.environ.get("API_PORT", 8001))
+    
     # Import the app here to ensure environment variables are set first
     from api.api import app
 
@@ -49,9 +54,12 @@ if __name__ == "__main__":
         # Prevent infinite logging loop caused by file changes triggering log writes
         logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
 
+    logger.info(f"Starting uvicorn server on 0.0.0.0:{port}")
+    
     uvicorn.run(
         "api.api:app",
         host="0.0.0.0",
         port=port,
-        reload=is_development
+        reload=is_development,
+        log_level="info"
     )

@@ -1,0 +1,5 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-f', 'Dockerfile.claude-run', '-t', 'gcr.io/srpdev-7b1d3/deepwiki-open', '.']
+images:
+- 'gcr.io/srpdev-7b1d3/deepwiki-open' 

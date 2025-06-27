@@ -552,18 +552,49 @@ This file contains...
                     await websocket.close()
             elif request.provider == "openai":
                 try:
+                    # 添加详细的调试信息
+                    logger.info("🚀 Making OpenAI API call")
+                    logger.info(f"  - Model: {request.model}")
+                    logger.info(f"  - Provider: {request.provider}")
+                    logger.info(f"  - API kwargs keys: {list(api_kwargs.keys())}")
+                    logger.info(f"  - Messages count: {len(api_kwargs.get('messages', []))}")
+                    
+                    # 显示API kwargs的安全版本（移除大文本）
+                    safe_api_kwargs = api_kwargs.copy()
+                    if 'messages' in safe_api_kwargs:
+                        msg_info = []
+                        for i, msg in enumerate(safe_api_kwargs['messages']):
+                            content_preview = msg.get('content', '')[:100] + "..." if len(msg.get('content', '')) > 100 else msg.get('content', '')
+                            msg_info.append(f"  Message {i}: {msg.get('role')} - {content_preview}")
+                        logger.info(f"  - Messages preview:\n" + "\n".join(msg_info))
+                    
                     # Get the response and handle it properly using the previously created api_kwargs
-                    logger.info("Making Openai API call")
                     response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                    logger.info("✅ OpenAI API call successful, starting to process streaming response")
                     # Handle streaming response from Openai
+                    chunk_count = 0
+                    total_text = ""
                     async for chunk in response:
+                        chunk_count += 1
+                        logger.debug(f"📦 Processing chunk {chunk_count}: {type(chunk)}")
+                        
                         choices = getattr(chunk, "choices", [])
                         if len(choices) > 0:
                             delta = getattr(choices[0], "delta", None)
                             if delta is not None:
                                 text = getattr(delta, "content", None)
                                 if text is not None:
+                                    total_text += text
+                                    logger.debug(f"💬 Sending text chunk ({len(text)} chars): {text[:50]}...")
                                     await websocket.send_text(text)
+                                else:
+                                    logger.debug("⚠️ No content in delta")
+                            else:
+                                logger.debug("⚠️ No delta in choice")
+                        else:
+                            logger.debug("⚠️ No choices in chunk")
+                    
+                    logger.info(f"✅ OpenAI streaming completed: {chunk_count} chunks, {len(total_text)} total chars")
                     # Explicitly close the WebSocket connection after the response is complete
                     await websocket.close()
                 except Exception as e_openai:

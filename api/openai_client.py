@@ -178,7 +178,7 @@ class OpenAIClient(ModelClient):
         self._api_key = api_key
         self._env_api_key_name = env_api_key_name
         self._env_base_url_name = env_base_url_name
-        self.base_url = base_url or os.getenv(self._env_base_url_name, "https://api.openai.com/v1")
+        self.base_url = base_url or os.getenv(self._env_base_url_name, "https://litellm.vllm.yesy.dev")
         self.sync_client = self.init_sync_client()
         self.async_client = None  # only initialize if the async call is called
         self.chat_completion_parser = (
@@ -193,6 +193,15 @@ class OpenAIClient(ModelClient):
             raise ValueError(
                 f"Environment variable {self._env_api_key_name} must be set"
             )
+        
+        # 添加详细的调试信息
+        log.info(f"🔧 OpenAI Client Configuration:")
+        log.info(f"  - Base URL: {self.base_url}")
+        log.info(f"  - API Key (masked): {'*' * (len(api_key) - 8) + api_key[-8:] if api_key else 'None'}")
+        log.info(f"  - Environment variables:")
+        log.info(f"    - {self._env_base_url_name}: {os.getenv(self._env_base_url_name)}")
+        log.info(f"    - {self._env_api_key_name}: {'✅ Set' if os.getenv(self._env_api_key_name) else '❌ Not set'}")
+        
         return OpenAI(api_key=api_key, base_url=self.base_url)
 
     def init_async_client(self):
@@ -412,15 +421,47 @@ class OpenAIClient(ModelClient):
         """
         kwargs is the combined input and model_kwargs.  Support streaming call.
         """
-        log.info(f"api_kwargs: {api_kwargs}")
+        # 添加详细的调试信息
+        log.info(f"🚀 OpenAI API Call Starting:")
+        log.info(f"  - Model Type: {model_type}")
+        log.info(f"  - Base URL: {self.base_url}")
+        log.info(f"  - API kwargs keys: {list(api_kwargs.keys())}")
+        
+        # 安全地显示API参数（遮盖敏感信息）
+        safe_kwargs = api_kwargs.copy()
+        if 'input' in safe_kwargs and isinstance(safe_kwargs['input'], str) and len(safe_kwargs['input']) > 200:
+            safe_kwargs['input'] = safe_kwargs['input'][:200] + "...[truncated]"
+        if 'messages' in safe_kwargs:
+            safe_kwargs['messages'] = f"[{len(safe_kwargs['messages'])} messages]"
+        
+        log.info(f"  - API kwargs: {safe_kwargs}")
         self._api_kwargs = api_kwargs
         if model_type == ModelType.EMBEDDER:
-            return self.sync_client.embeddings.create(**api_kwargs)
+            log.info(f"📊 Calling Embeddings API...")
+            try:
+                response = self.sync_client.embeddings.create(**api_kwargs)
+                log.info(f"✅ Embeddings API Response received successfully")
+                log.info(f"  - Response type: {type(response)}")
+                if hasattr(response, 'data') and response.data:
+                    log.info(f"  - Embeddings count: {len(response.data)}")
+                    log.info(f"  - First embedding length: {len(response.data[0].embedding) if response.data else 'N/A'}")
+                return response
+            except Exception as e:
+                log.error(f"❌ Embeddings API Error: {e}")
+                log.error(f"  - Exception type: {type(e)}")
+                raise
         elif model_type == ModelType.LLM:
             if "stream" in api_kwargs and api_kwargs.get("stream", False):
-                log.debug("streaming call")
-                self.chat_completion_parser = handle_streaming_response
-                return self.sync_client.chat.completions.create(**api_kwargs)
+                log.info("💬 Calling Chat Completions API (streaming)...")
+                try:
+                    self.chat_completion_parser = handle_streaming_response
+                    response = self.sync_client.chat.completions.create(**api_kwargs)
+                    log.info("✅ Chat Completions API (streaming) response received successfully")
+                    return response
+                except Exception as e:
+                    log.error(f"❌ Chat Completions API (streaming) Error: {e}")
+                    log.error(f"  - Exception type: {type(e)}")
+                    raise
             else:
                 log.debug("non-streaming call converted to streaming")
                 # Make a copy of api_kwargs to avoid modifying the original

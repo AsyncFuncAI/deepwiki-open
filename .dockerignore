@@ -58,3 +58,17 @@ LICENSE
 screenshots/
 *.md
 !api/README.md
+
+# 优化构建上下文 - 排除不需要的文件
+.git/
+.github/
+test/
+auto-deploy.sh
+*.optimized
+cloudbuild.*.yaml
+deploy-*.sh
+Dockerfile*
+!Dockerfile.claude-run.optimized
+*.log
+logs/
+.cache/

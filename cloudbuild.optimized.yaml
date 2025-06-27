@@ -1,0 +1,25 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'build', 
+    '-f', 'Dockerfile.claude-run.optimized',
+    '-t', 'gcr.io/srpdev-7b1d3/deepwiki-open',
+    '--build-arg', 'BUILDKIT_INLINE_CACHE=1',
+    '--cache-from', 'gcr.io/srpdev-7b1d3/deepwiki-open',
+    '.'
+  ]
+  env:
+  - 'DOCKER_BUILDKIT=1'
+  
+images:
+- 'gcr.io/srpdev-7b1d3/deepwiki-open'
+
+# 使用更强大的构建机器
+options:
+  machineType: 'E2_HIGHCPU_8'
+  diskSizeGb: 100
+  env:
+  - 'DOCKER_BUILDKIT=1'
+
+# 设置更长的超时时间以防万一
+timeout: '1200s' 

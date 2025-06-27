@@ -1,0 +1,48 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build', 
+      '-t', 'gcr.io/$PROJECT_ID/deepwiki-persistent:$SHORT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/deepwiki-persistent:latest',
+      '.'
+    ]
+
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/deepwiki-persistent:$SHORT_SHA']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/deepwiki-persistent:latest']
+
+  # Deploy to Cloud Run with persistent storage
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'deepwiki-persistent'
+      - '--image=gcr.io/$PROJECT_ID/deepwiki-persistent:$SHORT_SHA'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--port=3000'
+      - '--memory=4Gi'
+      - '--cpu=2'
+      - '--concurrency=80'
+      - '--max-instances=10'
+      - '--timeout=3600'
+      - '--set-env-vars=NODE_ENV=production'
+      - '--set-env-vars=SERVER_BASE_URL=http://localhost:8001'
+      - '--set-env-vars=WIKI_CACHE_PATH=/mnt/cache'
+      - '--add-volume=name=cache-volume,type=cloud-storage,bucket=$_CACHE_BUCKET'
+      - '--add-volume-mount=volume=cache-volume,mount-path=/mnt/cache'
+
+substitutions:
+  _CACHE_BUCKET: 'deepwiki-cache-${PROJECT_ID}'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+
+timeout: '1200s' 

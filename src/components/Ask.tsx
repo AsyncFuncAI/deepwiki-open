@@ -55,7 +55,7 @@ const Ask: React.FC<AskProps> = ({
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [deepResearch, setDeepResearch] = useState(false);
+  const [deepResearch, setDeepResearch] = useState(true); // 默认开启深度搜索
 
   // Model selection state
   const [selectedProvider, setSelectedProvider] = useState(provider);
