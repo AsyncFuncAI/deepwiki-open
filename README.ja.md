@@ -183,7 +183,7 @@ deepwiki/
 | `OPENAI_API_KEY`              | 埋め込みのための OpenAI API キー                                | ◯    |                                                                                                               |
 | `OPENROUTER_API_KEY`          | 代替モデルのための OpenRouter API キー                          | ✗    | OpenRouter モデルを使用する場合にのみ必須です                                                                 |
 | `PORT`                        | API サーバーのポート（デフォルト：8001）                        | ✗    | API とフロントエンドを同じマシンでホストする場合、`NEXT_PUBLIC_SERVER_BASE_URL`のポートを適宜変更してください |
-| `NEXT_PUBLIC_SERVER_BASE_URL` | API サーバーのベース URL（デフォルト：`http://localhost:8001`） | ✗    |                                                                                                               |
+| `SERVER_BASE_URL`             | API サーバーのベース URL（デフォルト：`http://localhost:8001`） | ✗    |                                                                                                               |
 
 ### 設定ファイル
 
