@@ -1559,7 +1559,7 @@ IMPORTANT:
             const cachedData = await response.json(); // Returns null if no cache
             if (cachedData && cachedData.wiki_structure && cachedData.generated_pages && Object.keys(cachedData.generated_pages).length > 0) {
               console.log('Using server-cached wiki data');
-              if(cachedData.mode) {
+              if(cachedData.model) {
                 setSelectedModelState(cachedData.model);
               }
               if(cachedData.provider) {
