@@ -26,6 +26,7 @@ interface WikiSection {
 interface WikiPage {
   id: string;
   title: string;
+  description: string;
   content: string;
   filePaths: string[];
   importance: 'high' | 'medium' | 'low';
@@ -242,6 +243,24 @@ export default function RepoWikiPage() {
   // Create a flag to ensure the effect only runs once
   const effectRan = React.useRef(false);
 
+  // Helper function to create proper GitHub file URLs
+  const createFileUrl = useCallback((filePath: string) => {
+    if (effectiveRepoInfo.type === 'local') {
+      // For local repos, just return the path as-is
+      return filePath;
+    } else if (effectiveRepoInfo.repoUrl && effectiveRepoInfo.repoUrl.includes('github.com')) {
+      // For GitHub repos, create proper GitHub file URL
+      const baseUrl = effectiveRepoInfo.repoUrl.replace(/\.git$/, '');
+      return `${baseUrl}/blob/main/${filePath}`;
+    } else if (effectiveRepoInfo.owner && effectiveRepoInfo.repo && effectiveRepoInfo.type === 'github') {
+      // Fallback for GitHub repos without full URL
+      return `https://github.com/${effectiveRepoInfo.owner}/${effectiveRepoInfo.repo}/blob/main/${filePath}`;
+    } else {
+      // For other repo types or unknown, just return the path
+      return filePath;
+    }
+  }, [effectiveRepoInfo]);
+
   // State for Ask modal
   const [isAskModalOpen, setIsAskModalOpen] = useState(false);
   const askComponentRef = useRef<{ clearConversation: () => void } | null>(null);
@@ -349,14 +368,32 @@ export default function RepoWikiPage() {
         // Get repository URL
         const repoUrl = getRepoUrl(effectiveRepoInfo);
 
+        // Get related pages context to avoid overlap
+        const relatedPagesContext = page.relatedPages
+          .map(relatedId => {
+            const relatedPage = wikiStructure?.pages.find(p => p.id === relatedId);
+            return relatedPage ? `- ${relatedPage.title}: ${relatedPage.description || 'No description'}` : '';
+          })
+          .filter(Boolean)
+          .join('\n');
+
         // Create the prompt content - simplified to avoid message dialogs
  const promptContent =
 `You are an expert technical writer and software architect.
 Your task is to generate a comprehensive and accurate technical wiki page in Markdown format about a specific feature, system, or module within a given software project.
 
+CONTEXT AWARENESS: This wiki has multiple pages. You are generating content for "${page.title}" specifically.
+${relatedPagesContext ? `\nRelated pages in this wiki:\n${relatedPagesContext}\n\nEnsure your content is DISTINCT from these related pages and does not duplicate their coverage.` : ''}
+
 You will be given:
 1. The "[WIKI_PAGE_TOPIC]" for the page you need to create.
-2. A list of "[RELEVANT_SOURCE_FILES]" from the project that you MUST use as the sole basis for the content. You have access to the full content of these files. You MUST use AT LEAST 5 relevant source files for comprehensive coverage - if fewer are provided, search for additional related files in the codebase.
+2. A list of "[RELEVANT_SOURCE_FILES]" from the project that you MUST use as the sole basis for the content. You have access to the full content of these files through the RAG system.
+
+CRITICAL: This page should provide UNIQUE, NON-OVERLAPPING content focused specifically on "${page.title}". Avoid generic descriptions that could apply to any system. Instead, focus on:
+- Specific implementation details found in the source files
+- Unique architectural decisions and patterns used in this particular system
+- Concrete code examples and technical specifics
+- How this component/feature integrates with other parts of the system
 
 CRITICAL STARTING INSTRUCTION:
 The very first thing on the page MUST be a \`<details>\` block listing ALL the \`[RELEVANT_SOURCE_FILES]\` you used to generate the content. There MUST be AT LEAST 5 source files listed - if fewer were provided, you MUST find additional related files to include.
@@ -367,7 +404,7 @@ Format it exactly like this:
 Remember, do not provide any acknowledgements, disclaimers, apologies, or any other preface before the \`<details>\` block. JUST START with the \`<details>\` block.
 The following files were used as context for generating this wiki page:
 
-${filePaths.map(path => `- [${path}](${path})`).join('\n')}
+${filePaths.map(path => `- [${path}](${createFileUrl(path)})`).join('\n')}
 <!-- Add additional relevant files if fewer than 5 were provided -->
 </details>
 
@@ -375,11 +412,13 @@ Immediately after the \`<details>\` block, the main title of the page should be 
 
 Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
 
-1.  **Introduction:** Start with a concise introduction (1-2 paragraphs) explaining the purpose, scope, and high-level overview of "${page.title}" within the context of the overall project. If relevant, and if information is available in the provided files, link to other potential wiki pages using the format \`[Link Text](#page-anchor-or-id)\`.
+1.  **Introduction:** Start with a concise introduction (1-2 paragraphs) explaining the SPECIFIC purpose, scope, and implementation details of "${page.title}" within this project. Focus on what makes this component/feature unique in this codebase rather than generic descriptions. Include specific technical details found in the source files. If relevant, link to other wiki pages using the format \`[Link Text](#page-anchor-or-id)\`.
 
 2.  **Detailed Sections:** Break down "${page.title}" into logical sections using H2 (\`##\`) and H3 (\`###\`) Markdown headings. For each section:
-    *   Explain the architecture, components, data flow, or logic relevant to the section's focus, as evidenced in the source files.
-    *   Identify key functions, classes, data structures, API endpoints, or configuration elements pertinent to that section.
+    *   Provide DEEP TECHNICAL ANALYSIS of the architecture, components, data flow, or logic, with specific references to the source code
+    *   Identify and explain key functions, classes, data structures, API endpoints, or configuration elements with their actual implementations
+    *   Focus on HOW things work in this specific codebase, not just WHAT they do
+    *   Include performance considerations, design trade-offs, and architectural decisions evident in the code
 
 3.  **Mermaid Diagrams:**
     *   EXTENSIVELY use Mermaid diagrams (e.g., \`flowchart TD\`, \`sequenceDiagram\`, \`classDiagram\`, \`erDiagram\`, \`graph TD\`) to visually represent architectures, flows, relationships, and schemas found in the source files.
@@ -414,7 +453,7 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
 6.  **Source Citations (EXTREMELY IMPORTANT):**
     *   For EVERY piece of significant information, explanation, diagram, table entry, or code snippet, you MUST cite the specific source file(s) and relevant line numbers from which the information was derived.
     *   Place citations at the end of the paragraph, under the diagram/table, or after the code snippet.
-    *   Use the exact format: \`Sources: [filename.ext:start_line-end_line]()\` for a range, or \`Sources: [filename.ext:line_number]()\` for a single line. Multiple files can be cited: \`Sources: [file1.ext:1-10](), [file2.ext:5](), [dir/file3.ext]()\` (if the whole file is relevant and line numbers are not applicable or too broad).
+    *   Use the exact format with proper GitHub URLs: For GitHub repositories, use \`Sources: [filename.ext:start_line-end_line](https://github.com/${effectiveRepoInfo.owner}/${effectiveRepoInfo.repo}/blob/main/filename.ext#Lstart_line-Lend_line)\` for a range, or \`Sources: [filename.ext:line_number](https://github.com/${effectiveRepoInfo.owner}/${effectiveRepoInfo.repo}/blob/main/filename.ext#Lline_number)\` for a single line. For local repositories, use \`Sources: [filename.ext:start_line-end_line]()\`. Multiple files can be cited: \`Sources: [file1.ext:1-10](URL1), [file2.ext:5](URL2), [dir/file3.ext](URL3)\` (if the whole file is relevant and line numbers are not applicable or too broad).
     *   If an entire section is overwhelmingly based on one or two files, you can cite them under the section heading in addition to more specific citations within the section.
     *   IMPORTANT: You MUST cite AT LEAST 5 different source files throughout the wiki page to ensure comprehensive coverage.
 
@@ -591,7 +630,7 @@ Remember:
         setLoadingMessage(undefined); // Clear specific loading message
       }
     });
-  }, [generatedPages, currentToken, effectiveRepoInfo, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests]);
+  }, [generatedPages, currentToken, effectiveRepoInfo, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests, wikiStructure?.pages, createFileUrl]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -622,19 +661,57 @@ Remember:
         type: effectiveRepoInfo.type,
         messages: [{
           role: 'user',
-content: `Analyze this GitHub repository ${owner}/${repo} and create a wiki structure for it.
+content: `You are an expert software architect and technical documentation specialist. Your task is to analyze this repository and create a logical, comprehensive wiki structure.
 
-1. The complete file tree of the project:
+STEP 1: REPOSITORY ANALYSIS
+Analyze this ${owner}/${repo} repository to understand its architecture, purpose, and key components:
+
+1. Complete file tree:
 <file_tree>
 ${fileTree}
 </file_tree>
 
-2. The README file of the project:
+2. README content:
 <readme>
 ${readme}
 </readme>
 
-I want to create a wiki for this repository. Determine the most logical structure for a wiki based on the repository's content.
+STEP 2: ARCHITECTURAL UNDERSTANDING
+Based on the file structure and README, identify:
+
+1. **Project Type & Architecture**:
+   - Is this a web application, library, CLI tool, mobile app, etc.?
+   - What's the primary technology stack (React, Python, Java, etc.)?
+   - What architectural patterns are used (MVC, microservices, monolith, etc.)?
+
+2. **Core System Components**:
+   - Main application entry points
+   - Key modules/packages and their responsibilities
+   - Data layer (databases, APIs, storage)
+   - User interface components (if applicable)
+   - Configuration and deployment files
+   - Testing and build infrastructure
+
+3. **Key Relationships & Dependencies**:
+   - How do different modules interact?
+   - What are the main data flows?
+   - What external dependencies exist?
+
+4. **Development & Deployment Workflow**:
+   - How is the project built and deployed?
+   - What development tools are used?
+   - How is testing structured?
+
+STEP 3: WIKI STRUCTURE DESIGN
+Create a wiki structure that provides deep technical insight rather than surface-level descriptions. Focus on:
+
+- **System Architecture**: Deep dive into how components interact
+- **Implementation Details**: Key algorithms, data structures, and design patterns
+- **Integration Points**: APIs, databases, external services
+- **Development Workflow**: Setup, testing, deployment processes
+- **Extensibility**: How to extend or modify the system
+
+I want to create a wiki for this repository. Determine the most logical structure for a wiki based on the repository's content and architectural analysis.
 
 IMPORTANT: The wiki content will be generated in ${language === 'en' ? 'English' :
             language === 'ja' ? 'Japanese (日本語)' :
@@ -651,6 +728,26 @@ When designing the wiki structure, include pages that would benefit from visual 
 - Process workflows
 - State machines
 - Class hierarchies
+
+STEP 4: INTELLIGENT FILE MAPPING
+For each page you create, you MUST identify the most relevant source files by analyzing:
+
+1. **File Purpose Analysis**: Look at file names, extensions, and directory structure to understand what each file does
+2. **Dependency Relationships**: Identify which files import/require others
+3. **Functional Grouping**: Group files that work together to implement specific features
+4. **Entry Points**: Identify main files, configuration files, and key implementation files
+
+CRITICAL REQUIREMENTS for relevant_files:
+- Each page MUST have AT LEAST 8-10 relevant source files
+- Files should be directly related to the page topic, not just randomly selected
+- Include a mix of: main implementation files, configuration files, and supporting modules
+- Prioritize files that contain the core logic for the page's topic
+- Avoid including only test files or documentation files unless the page is specifically about testing/docs
+
+Examples of good file selection:
+- For "Authentication System" page: auth.js, login.component.tsx, auth.config.js, user.model.js, auth.middleware.js
+- For "Database Layer" page: database.js, models/*, migrations/*, db.config.js, schema.sql
+- For "API Endpoints" page: routes/*, controllers/*, middleware/*, api.config.js, swagger.yaml
 
 ${isComprehensiveView ? `
 Create a structured wiki with the following main sections:
@@ -734,11 +831,24 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 - Ensure the XML is properly formatted and valid
 - Start directly with <wiki_structure> and end with </wiki_structure>
 
-IMPORTANT:
-1. Create ${isComprehensiveView ? '8-12' : '4-6'} pages that would make a ${isComprehensiveView ? 'comprehensive' : 'concise'} wiki for this repository
-2. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
-3. The relevant_files should be actual files from the repository that would be used to generate that page
-4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
+CRITICAL REQUIREMENTS:
+1. Create ${isComprehensiveView ? '8-12' : '4-6'} pages that provide DEEP TECHNICAL INSIGHT into this repository
+2. Each page should focus on a specific aspect with COMPREHENSIVE ANALYSIS (not surface-level descriptions)
+3. The relevant_files MUST be carefully selected actual files that contain the core implementation for each page topic
+4. Ensure MINIMAL OVERLAP between pages - each should cover distinct aspects of the system
+5. Page descriptions should be SPECIFIC and TECHNICAL, indicating what implementation details will be covered
+6. Prioritize pages that will include:
+   - Detailed code analysis and architectural patterns
+   - System integration points and data flows
+   - Performance considerations and optimizations
+   - Extensibility mechanisms and design decisions
+7. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters
+
+QUALITY CHECKLIST before generating XML:
+- Does each page have a clear, non-overlapping technical focus?
+- Are the relevant_files directly related to the page's core functionality?
+- Will this page structure enable deep technical documentation rather than superficial overviews?
+- Are the page descriptions specific enough to guide comprehensive content generation?`
         }]
       };
 
@@ -899,11 +1009,13 @@ IMPORTANT:
       pagesEls.forEach(pageEl => {
         const id = pageEl.getAttribute('id') || `page-${pages.length + 1}`;
         const titleEl = pageEl.querySelector('title');
+        const descriptionEl = pageEl.querySelector('description');
         const importanceEl = pageEl.querySelector('importance');
         const filePathEls = pageEl.querySelectorAll('file_path');
         const relatedEls = pageEl.querySelectorAll('related');
 
         const title = titleEl ? titleEl.textContent || '' : '';
+        const description = descriptionEl ? descriptionEl.textContent || '' : '';
         const importance = importanceEl ?
           (importanceEl.textContent === 'high' ? 'high' :
             importanceEl.textContent === 'medium' ? 'medium' : 'low') : 'medium';
@@ -921,6 +1033,7 @@ IMPORTANT:
         pages.push({
           id,
           title,
+          description,
           content: '', // Will be generated later
           filePaths,
           importance,
@@ -1804,7 +1917,7 @@ IMPORTANT:
     };
 
     saveCache();
-  }, [isLoading, error, wikiStructure, generatedPages, effectiveRepoInfo.owner, effectiveRepoInfo.repo, effectiveRepoInfo.type, effectiveRepoInfo.repoUrl, repoUrl, language, isComprehensiveView]);
+  }, [isLoading, error, wikiStructure, generatedPages, effectiveRepoInfo, language, isComprehensiveView, selectedProviderState, selectedModelState, repoUrl]);
 
   const handlePageSelect = (pageId: string) => {
     if (currentPageId != pageId) {
