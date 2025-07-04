@@ -66,6 +66,16 @@ class RepoInfo(BaseModel):
     repoUrl: Optional[str] = None
 
 
+class WikiSection(BaseModel):
+    """
+    Model for the wiki sections.
+    """
+    id: str
+    title: str
+    pages: List[str]
+    subsections: Optional[List[str]] = None
+
+
 class WikiStructureModel(BaseModel):
     """
     Model for the overall wiki structure.
@@ -74,6 +84,8 @@ class WikiStructureModel(BaseModel):
     title: str
     description: str
     pages: List[WikiPage]
+    sections: Optional[List[WikiSection]] = None
+    rootSections: Optional[List[str]] = None
 
 class WikiCacheData(BaseModel):
     """
