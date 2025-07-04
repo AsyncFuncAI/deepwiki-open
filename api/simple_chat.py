@@ -9,7 +9,7 @@ from adalflow.core.types import ModelType
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from api.schemas import ChatMessage, ChatCompletionRequest
 
 from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 from api.data_pipeline import count_tokens, get_file_content
@@ -41,30 +41,6 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Models for the API
-class ChatMessage(BaseModel):
-    role: str  # 'user' or 'assistant'
-    content: str
-
-class ChatCompletionRequest(BaseModel):
-    """
-    Model for requesting a chat completion.
-    """
-    repo_url: str = Field(..., description="URL of the repository to query")
-    messages: List[ChatMessage] = Field(..., description="List of chat messages")
-    filePath: Optional[str] = Field(None, description="Optional path to a file in the repository to include in the prompt")
-    token: Optional[str] = Field(None, description="Personal access token for private repositories")
-    type: Optional[str] = Field("github", description="Type of repository (e.g., 'github', 'gitlab', 'bitbucket')")
-
-    # model parameters
-    provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama, bedrock, azure)")
-    model: Optional[str] = Field(None, description="Model name for the specified provider")
-
-    language: Optional[str] = Field("en", description="Language for content generation (e.g., 'en', 'ja', 'zh', 'es', 'kr', 'vi')")
-    excluded_dirs: Optional[str] = Field(None, description="Comma-separated list of directories to exclude from processing")
-    excluded_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to exclude from processing")
-    included_dirs: Optional[str] = Field(None, description="Comma-separated list of directories to include exclusively")
-    included_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to include exclusively")
 
 @app.post("/chat/completions/stream")
 async def chat_completions_stream(request: ChatCompletionRequest):
