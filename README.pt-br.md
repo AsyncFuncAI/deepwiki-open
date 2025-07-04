@@ -249,7 +249,7 @@ Se você deseja usar modelos de embedding compatíveis com a API OpenAI (como Al
 2. No arquivo `.env` da raiz do seu projeto, defina as variáveis de ambiente relevantes, por exemplo:
    ```
    OPENAI_API_KEY=sua_chave_api
-   OPENAI_API_BASE_URL=seu_endpoint_compativel_openai
+   OPENAI_BASE_URL=seu_endpoint_compativel_openai
    ```
 3. O programa substituirá automaticamente os espaços reservados em embedder.json pelos valores de suas variáveis de ambiente.
 

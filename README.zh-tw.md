@@ -256,7 +256,7 @@ OpenAI 客戶端的 base_url 設定主要為擁有私有 API 通道的企業使�
 2. 在專案根目錄的 `.env` 檔案中，設定相關的環境變數，例如：
    ```
    OPENAI_API_KEY=your_api_key
-   OPENAI_API_BASE_URL=your_openai_compatible_endpoint
+   OPENAI_BASE_URL=your_openai_compatible_endpoint
    ```
 3. 程式會自動用環境變數的值替換 embedder.json 中的預留位置。
 

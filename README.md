@@ -263,7 +263,7 @@ If you want to use embedding models compatible with the OpenAI API (such as Alib
 2. In your project root `.env` file, set the relevant environment variables, for example:
    ```
    OPENAI_API_KEY=your_api_key
-   OPENAI_API_BASE_URL=your_openai_compatible_endpoint
+   OPENAI_BASE_URL=your_openai_compatible_endpoint
    ```
 3. The program will automatically substitute placeholders in embedder.json with the values from your environment variables.
 
