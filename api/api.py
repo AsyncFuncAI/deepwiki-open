@@ -84,8 +84,8 @@ class WikiStructureModel(BaseModel):
     title: str
     description: str
     pages: List[WikiPage]
-    sections: List[WikiSection]
-    rootSections: List[str]
+    sections: Optional[List[WikiSection]] = None
+    rootSections: Optional[List[str]] = None
 
 class WikiCacheData(BaseModel):
     """
