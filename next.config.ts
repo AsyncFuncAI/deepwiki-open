@@ -64,6 +64,10 @@ const nextConfig: NextConfig = {
         destination: `${TARGET_SERVER_BASE_URL}/lang/config`,
       },
       {
+        source: '/api/verify',
+        destination: `${TARGET_SERVER_BASE_URL}/verify`
+      },
+      {
         source: '/ws/:path',
         destination: `${TARGET_SERVER_BASE_URL}/ws/:path` // Internal backend websocket path
       }

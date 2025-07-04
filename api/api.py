@@ -138,6 +138,10 @@ class AuthorizationConfig(BaseModel):
 
 from api.config import configs, WIKI_AUTH_MODE, WIKI_AUTH_CODE
 
+with open(os.path.join(os.path.dirname(__file__), "config", "authorized_oids.json")) as f:
+    logger.info("Opening authorized oids json file")
+    AUTHORIZED_OIDS = set(json.load(f)["authorized_oids"])
+
 @app.get("/lang/config")
 async def get_lang_config():
     return configs["lang_config"]
@@ -656,3 +660,22 @@ async def get_processed_projects():
     except Exception as e:
         logger.error(f"Error listing processed projects from {WIKI_CACHE_DIR}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to list processed projects from server cache.")
+
+@app.post("/verify")
+async def verify_user(request: Request):
+    # Simple check if OID is allowlisted
+    # Ideally we should move this to calling Graph and using proper group based authentication
+    data = await request.json()
+    logger.info(f"Checking allowlisted OIDs to see whether current logged in user is authorized: {data}")
+    user_oid = data.get('oid')
+    username = data.get('username')
+
+    if not user_oid:
+        logger.info(f"Username: {username}")
+        ## Maybe add username json?? 
+    else: 
+        logger.info("Using user oid to see if it is part of the allowed users")
+        is_authorized = user_oid in AUTHORIZED_OIDS
+        return {"authorized": is_authorized}
+    
+    logger.warning("User not part of the allowed users!! Reach out to Akhil or Ethan")
