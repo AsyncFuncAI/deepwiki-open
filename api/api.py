@@ -5,8 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from typing import List, Optional, Dict, Any, Literal
 import json
-import requests
-import jwt
 from datetime import datetime
 from pydantic import BaseModel, Field
 import google.generativeai as genai
