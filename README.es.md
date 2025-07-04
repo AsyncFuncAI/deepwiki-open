@@ -247,7 +247,7 @@ Si deseas usar modelos de embedding compatibles con la API de OpenAI (como Aliba
 2. En el archivo `.env` de la raíz del proyecto, configura las variables de entorno necesarias, por ejemplo:
    ```
    OPENAI_API_KEY=tu_api_key
-   OPENAI_API_BASE_URL=tu_endpoint_compatible_openai
+   OPENAI_BASE_URL=tu_endpoint_compatible_openai
    ```
 3. El programa sustituirá automáticamente los placeholders de embedder.json por los valores de tus variables de entorno.
 
