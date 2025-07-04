@@ -11,8 +11,9 @@
   "dependencies": {
     "@azure/msal-browser": "^4.14.0",
     "@azure/msal-react": "^3.0.14",
+    "lucide-react": "^0.525.0",
     "mermaid": "^11.4.1",
-    "next": "15.3.1",
+    "next": "^15.3.5",
     "next-intl": "^4.1.0",
     "next-themes": "^0.4.6",
     "react": "^19.0.0",

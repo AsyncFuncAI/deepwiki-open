@@ -7,6 +7,7 @@ import { FaWikipediaW, FaGithub, FaCoffee, FaTwitter } from 'react-icons/fa';
 import ThemeToggle from '@/components/theme-toggle';
 import Mermaid from '../components/Mermaid';
 import { AuthGate } from '@/components/AuthGate';
+import { LogoutButton } from '@/components/LogoutButton';
 import ConfigurationModal from '@/components/ConfigurationModal';
 import ProcessedProjects from '@/components/ProcessedProjects';
 import { extractUrlPath } from '@/utils/urlDecoder';
@@ -336,10 +337,10 @@ export default function Home() {
             className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-[var(--card-bg)] rounded-lg shadow-custom border border-[var(--border-color)] p-4">
             <div className="flex items-center">
               <div className="bg-[var(--accent-primary)] p-2 rounded-lg mr-3">
-                <FaWikipediaW className="text-2xl text-white" />
+                <FaWikipediaW className="text-base text-white" />
               </div>
               <div className="mr-6">
-                <h1 className="text-xl md:text-2xl font-bold text-[var(--accent-primary)]">{t('common.appName')}</h1>
+                <h1 className="text-xl md:text-lg font-bold text-[var(--accent-primary)]">{t('common.appName')}</h1>
                 <div className="flex flex-wrap items-baseline gap-x-2 md:gap-x-3 mt-0.5">
                   <p className="text-xs text-[var(--muted)] whitespace-nowrap">{t('common.tagline')}</p>
                   <div className="hidden md:inline-block">
@@ -418,7 +419,7 @@ export default function Home() {
               setAuthCode={setAuthCode}
               isAuthLoading={isAuthLoading}
             />
-
+            <LogoutButton className="bg-gray-800 hover:bg-gray-700 text-white text-xs whitespace-nowrap px-3 py-1.5 rounded-md"/>
           </div>
         </header>
 
