@@ -1405,9 +1405,7 @@ IMPORTANT:
           });
           fileTreeData = azureFileTree;
           readmeContent = azureReadme;
-          console.log("here is the file tree data: ", {fileTreeData})
-          console.log("here is the readme data: ", {readmeContent})
-        } catch (err) {
+       } catch (err) {
           console.log("There was an error calling azure devops api: ", {err})
         }
       }
