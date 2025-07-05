@@ -14,9 +14,9 @@ import { LogLevel } from '@azure/msal-browser'
 
 export const msalConfig = {
     auth: {
-        clientId: '5534fd97-f2fa-4c2b-ade7-f7d9a894c6e8', // Test Client id -> '135a66d7-7f46-4bed-94d0-d3f5694e4b50',
+        clientId: '135a66d7-7f46-4bed-94d0-d3f5694e4b50', // Test Client id -> '135a66d7-7f46-4bed-94d0-d3f5694e4b50',
         authority: 'https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47',
-        redirectUri: `https://deepwiki.yellowbush-aadcd545.westus2.azurecontainerapps.io/`, // For local testing -> `http://localhost:3000/`, // You must register this URI on Microsoft Entra admin center/App Registration.
+        redirectUri: `http://localhost:3000/`, // For local testing -> `http://localhost:3000/`, // You must register this URI on Microsoft Entra admin center/App Registration.
         postLogoutRedirectUri: '/', // Indicates the page to navigate after logout.
         navigateToLoginRequestUrl: false, // If "true", will navigate back to the original request location before processing the auth code response.
     },

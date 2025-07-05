@@ -16,6 +16,7 @@ from api.ollama_patch import OllamaDocumentProcessor
 from urllib.parse import urlparse, urlunparse, quote
 import requests
 from requests.exceptions import RequestException
+from api.file_utils import get_azure_devops_file_content
 
 from api.tools.embedder import get_embedder
 
@@ -667,6 +668,8 @@ def get_file_content(repo_url: str, file_path: str, type: str = "github", access
         return get_gitlab_file_content(repo_url, file_path, access_token)
     elif type == "bitbucket":
         return get_bitbucket_file_content(repo_url, file_path, access_token)
+    elif type == "azuredevops":
+        return get_azure_devops_file_content(repo_url, file_path, access_token)
     else:
         raise ValueError("Unsupported repository URL. Only GitHub and GitLab are supported.")
 
