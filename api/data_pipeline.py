@@ -52,7 +52,7 @@ def count_tokens(text: str, is_ollama_embedder: bool = None) -> int:
         else:
             encoding = tiktoken.encoding_for_model("text-embedding-3-large")
 
-        return len(encoding.encode(text))
+        return len(encoding.encode(text, disallowed_special=()))
     except Exception as e:
         # Fallback to a simple approximation if tiktoken fails
         logger.warning(f"Error counting tokens with tiktoken: {e}")
@@ -108,7 +108,7 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
                 if len(path_parts) < 4 or path_parts[0] != ADO_ORG or path_parts[1] != ADO_PROJECT or path_parts[2] != "_git":
                     raise ValueError(f"Azure DevOps repository URL must be in the form https://dev.azure.com/{ADO_ORG}/{ADO_PROJECT}/_git/<repo>")
                 clone_url = urlunparse((parsed.scheme, f"{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
-                logger.info("Using Azure DevOps repository: %s", clone_url)
+                # logger.info("Using Azure DevOps repository: %s", clone_url)
             logger.info("Using access token for authentication")
 
         # Clone the repository
