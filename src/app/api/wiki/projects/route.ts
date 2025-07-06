@@ -16,6 +16,7 @@ interface DeleteProjectCachePayload {
   repo: string;
   repo_type: string;
   language: string;
+  repository_path: string;
 }
 
 /** Type guard to validate DeleteProjectCachePayload at runtime */
@@ -81,8 +82,8 @@ export async function DELETE(request: Request) {
         { status: 400 }
       );
     }
-    const { owner, repo, repo_type, language } = body;
-    const params = new URLSearchParams({ owner, repo, repo_type, language });
+    const { owner, repo, repo_type, language, repository_path } = body;
+    const params = new URLSearchParams({ owner, repo, repo_type, language, repository_path });
     const response = await fetch(`${CACHE_API_ENDPOINT}?${params}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },

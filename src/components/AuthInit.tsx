@@ -16,7 +16,7 @@ export const AuthInit = ({
         const response = await instance.handleRedirectPromise();
 
         if (response) {
-          console.log("Login completed:", response);
+          console.log("Login completed:");
 
           const body = {
             oid: response.account?.idTokenClaims?.oid,
