@@ -210,8 +210,10 @@ export default function ProcessedProjects({
                   href={`/${project.owner}/${project.repo}?type=${project.repo_type}&language=${project.language}&repository_path=${project.repository_path}`}
                   className="block"
                 >
-                  <h3 className="text-lg font-semibold text-[var(--link-color)] hover:underline mb-2 line-clamp-2">
-                    {project.name}
+                  <h3 className="text-base font-semibold text-[var(--link-color)] hover:underline mb-2 line-clamp-2">
+                    {project.repository_path
+                      ? `${project.repo}/${project.repository_path}`
+                      : `${project.name}`}
                   </h3>
                   <div className="flex flex-wrap gap-2 mb-3">
                     <span className="px-2 py-1 text-xs bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] rounded-full border border-[var(--accent-primary)]/20">
@@ -245,7 +247,9 @@ export default function ProcessedProjects({
                 >
                   <div className="flex-1 min-w-0">
                     <h3 className="text-base font-medium text-[var(--link-color)] hover:underline truncate">
-                      {project.name}
+                      {project.repository_path
+                        ? `${project.repo}/${project.repository_path}`
+                        : `${project.name}`}
                     </h3>
                     <p className="text-xs text-[var(--muted)] mt-1">
                       {t('processedOn')} {new Date(project.submittedAt).toLocaleDateString()} • {project.repo_type} • {project.language}
