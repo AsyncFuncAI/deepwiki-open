@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "next-themes";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { MsalWrapper } from "@/components/MsalWrapper";
+import { AuthGate } from "@/components/AuthGate";
 
 // Japanese-friendly fonts
 const notoSansJP = Noto_Sans_JP({
@@ -43,7 +44,9 @@ export default function RootLayout({
         <MsalWrapper>
           <ThemeProvider attribute="data-theme" defaultTheme="system" enableSystem>
             <LanguageProvider>
-              {children}
+              <AuthGate>
+                {children}
+              </AuthGate>
             </LanguageProvider>
           </ThemeProvider>
         </MsalWrapper>
