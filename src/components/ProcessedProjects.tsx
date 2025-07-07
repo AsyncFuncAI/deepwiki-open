@@ -210,7 +210,7 @@ export default function ProcessedProjects({
                   href={`/${project.owner}/${project.repo}?type=${project.repo_type}&language=${project.language}&repository_path=${project.repository_path}`}
                   className="block"
                 >
-                  <h3 className="text-lg font-semibold text-[var(--link-color)] hover:underline mb-2 line-clamp-2">
+                  <h3 className="text-base font-semibold text-[var(--link-color)] hover:underline mb-2 line-clamp-2">
                     {project.repository_path
                       ? `${project.repo}/${project.repository_path}`
                       : `${project.name}`}
