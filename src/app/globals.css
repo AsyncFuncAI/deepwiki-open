@@ -31,6 +31,11 @@ html[data-theme='dark'] {
   --link-color: #b19cd9; /* Lighter purple for dark mode links */
 }
 
+[data-theme="dark"] select option, /* Fix for google chrome browser */
+.dark select option {
+  background: #1a1a1a; /* Deep charcoal */
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
