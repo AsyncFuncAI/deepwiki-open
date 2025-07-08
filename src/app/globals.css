@@ -33,7 +33,7 @@ html[data-theme='dark'] {
 
 [data-theme="dark"] select option, /* Fix for google chrome browser */
 .dark select option {
-  background: #1a1a1a; /* Deep charcoal */
+  background: var(--background);
 }
 
 @theme inline {
