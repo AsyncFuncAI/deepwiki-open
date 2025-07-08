@@ -97,14 +97,28 @@ async def handle_websocket_chat(websocket: WebSocket):
             request_rag.prepare_retriever(request.repo_url, request.type, request.token, excluded_dirs, excluded_files, included_dirs, included_files)
             logger.info(f"Retriever prepared for {request.repo_url}")
         except ValueError as e:
-            if "No valid documents with embeddings found" in str(e):
-                logger.error(f"No valid embeddings found: {str(e)}")
+            error_str = str(e)
+            if "No valid documents with embeddings found" in error_str:
+                logger.error(f"No valid embeddings found: {error_str}")
                 await websocket.send_text("Error: No valid document embeddings found. This may be due to embedding size inconsistencies or API errors during document processing. Please try again or check your repository content.")
                 await websocket.close()
                 return
+            elif "Repository access validation failed" in error_str:
+                logger.error(f"Repository access failed: {error_str}")
+                # Extract the specific error message from validation
+                if "not found or private" in error_str:
+                    await websocket.send_text("Error: Repository not found or private. Please provide a valid access token for private repositories.")
+                elif "Invalid access token" in error_str or "Unauthorized" in error_str:
+                    await websocket.send_text("Error: Invalid or expired access token. Please check your token permissions and try again.")
+                elif "Access forbidden" in error_str:
+                    await websocket.send_text("Error: Access forbidden. Your token may be expired or lack necessary permissions.")
+                else:
+                    await websocket.send_text(f"Error: Repository access failed. {error_str}")
+                await websocket.close()
+                return
             else:
-                logger.error(f"ValueError preparing retriever: {str(e)}")
-                await websocket.send_text(f"Error preparing retriever: {str(e)}")
+                logger.error(f"ValueError preparing retriever: {error_str}")
+                await websocket.send_text(f"Error preparing retriever: {error_str}")
                 await websocket.close()
                 return
         except Exception as e:

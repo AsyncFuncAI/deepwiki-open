@@ -36,6 +36,18 @@ if __name__ == "__main__":
     # Get port from environment variable or use default
     port = int(os.environ.get("PORT", 8001))
 
+    # Explicitly set environment variables for worker processes
+    import multiprocessing
+    def init_worker():
+        # Load environment variables in worker process
+        load_dotenv()
+        
+        # Explicitly set critical environment variables
+        if os.environ.get("OPENAI_API_KEY"):
+            os.environ["OPENAI_API_KEY"] = os.environ["OPENAI_API_KEY"]
+        if os.environ.get("GOOGLE_API_KEY"):
+            os.environ["GOOGLE_API_KEY"] = os.environ["GOOGLE_API_KEY"]
+
     # Import the app here to ensure environment variables are set first
     from api.api import app
 
@@ -45,10 +57,18 @@ if __name__ == "__main__":
     # Disable reload in production/Docker environment
     is_development = os.environ.get("NODE_ENV") != "production"
     
+    # TEMPORARY: Disable reload to fix environment variable issues
+    is_development = False
+    
     if is_development:
         # Prevent infinite logging loop caused by file changes triggering log writes
         logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
 
+    # Ensure environment variables are properly set for all processes
+    os.environ["OPENAI_API_KEY"] = os.environ.get("OPENAI_API_KEY", "")
+    if os.environ.get("GOOGLE_API_KEY"):
+        os.environ["GOOGLE_API_KEY"] = os.environ.get("GOOGLE_API_KEY", "")
+    
     uvicorn.run(
         "api.api:app",
         host="0.0.0.0",

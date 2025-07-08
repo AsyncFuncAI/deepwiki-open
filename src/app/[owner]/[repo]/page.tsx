@@ -134,7 +134,7 @@ const createGithubHeaders = (githubToken: string): HeadersInit => {
   };
 
   if (githubToken) {
-    headers['Authorization'] = `Bearer ${githubToken}`;
+    headers['Authorization'] = `token ${githubToken}`;
   }
 
   return headers;
@@ -213,6 +213,12 @@ export default function RepoWikiPage() {
   const [originalMarkdown, setOriginalMarkdown] = useState<Record<string, string>>({});
   const [requestInProgress, setRequestInProgress] = useState(false);
   const [currentToken, setCurrentToken] = useState(token); // Track current effective token
+  
+  // Debug: Log token status on component mount
+  useEffect(() => {
+    console.log('Component mounted with token:', token ? `Yes (${token.substring(0, 7)}...)` : 'No');
+    console.log('Current token state:', currentToken ? `Yes (${currentToken.substring(0, 7)}...)` : 'No');
+  }, []);
   const [effectiveRepoInfo, setEffectiveRepoInfo] = useState(repoInfo); // Track effective repo info with cached data
   const [embeddingError, setEmbeddingError] = useState(false);
 
@@ -900,7 +906,23 @@ IMPORTANT:
       const xmlMatch = responseText.match(/<wiki_structure>[\s\S]*?<\/wiki_structure>/m);
       if (!xmlMatch) {
         console.error('AI Response that failed XML parsing:', responseText);
-        throw new Error('The AI response did not contain properly formatted wiki structure XML. This may be due to model limitations or configuration issues. Please try again or select a different AI model.');
+        
+        // Provide more specific error based on response content
+        let errorMessage = 'The AI response did not contain properly formatted wiki structure XML.';
+        
+        if (responseText.includes('No valid document embeddings found')) {
+          errorMessage = 'Repository processing failed due to embedding issues. This may be caused by API errors or inconsistent document sizes. Please try again or check your API configuration.';
+        } else if (responseText.includes('Error:') || responseText.includes('error')) {
+          errorMessage = 'The AI service encountered an error processing your repository. Please check your API keys and try again.';
+        } else if (responseText.trim().length < 50) {
+          errorMessage = 'The AI response was too short or empty. This may indicate API issues or rate limiting. Please try again in a moment.';
+        } else if (!responseText.includes('<')) {
+          errorMessage = 'The AI response does not contain XML markup. This may be due to model limitations or configuration issues. Try selecting a different AI model.';
+        } else {
+          errorMessage += ' This may be due to model limitations or configuration issues. Please try again or select a different AI model.';
+        }
+        
+        throw new Error(errorMessage);
       }
 
       let xmlText = xmlMatch[0];
@@ -1200,7 +1222,10 @@ IMPORTANT:
         // First, try to get the default branch from the repository info
         let defaultBranchLocal = null;
         try {
-          const repoInfoResponse = await fetch(`${githubApiBaseUrl}/repos/${owner}/${repo}`, {
+          const repoInfoUrl = `${githubApiBaseUrl}/repos/${owner}/${repo}`;
+          console.log(`Fetching repository info from: ${repoInfoUrl}`);
+          console.log(`Using token: ${currentToken ? 'Yes' : 'No'}`);
+          const repoInfoResponse = await fetch(repoInfoUrl, {
             headers: createGithubHeaders(currentToken)
           });
           
@@ -1225,6 +1250,8 @@ IMPORTANT:
           const headers = createGithubHeaders(currentToken);
 
           console.log(`Fetching repository structure from branch: ${branch}`);
+          console.log(`API URL: ${apiUrl}`);
+          console.log(`Headers:`, headers);
           try {
             const response = await fetch(apiUrl, {
               headers
