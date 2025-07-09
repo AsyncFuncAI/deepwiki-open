@@ -63,6 +63,14 @@ const nextConfig: NextConfig = {
         source: '/api/lang/config',
         destination: `${TARGET_SERVER_BASE_URL}/lang/config`,
       },
+      {
+        source: '/api/models/config',
+        destination: `${TARGET_SERVER_BASE_URL}/models/config`,
+      },
+      {
+        source: '/api/wiki/projects',
+        destination: `${TARGET_SERVER_BASE_URL}/api/processed_projects`,
+      },
     ];
   },
 };
