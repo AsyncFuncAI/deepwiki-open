@@ -195,7 +195,7 @@ DeepWiki implémente désormais un système de sélection de modèles flexible, 
 
 ### Variables d'environnement
 
-Each provider requires its corresponding API key environment variables:
+Chaque fournisseur requiert les variables d'environnement de clé API correspondantes :
 
 ```
 # API Keys
