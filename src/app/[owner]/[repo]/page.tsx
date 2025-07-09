@@ -134,7 +134,7 @@ const createGithubHeaders = (githubToken: string): HeadersInit => {
   };
 
   if (githubToken) {
-    headers['Authorization'] = `Bearer ${githubToken}`;
+    headers['Authorization'] = `token ${githubToken}`;
   }
 
   return headers;
@@ -213,6 +213,14 @@ export default function RepoWikiPage() {
   const [originalMarkdown, setOriginalMarkdown] = useState<Record<string, string>>({});
   const [requestInProgress, setRequestInProgress] = useState(false);
   const [currentToken, setCurrentToken] = useState(token); // Track current effective token
+  
+  // Debug: Log token status on component mount
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Component mounted with token:', token ? 'Yes' : 'No');
+      console.log('Current token state:', currentToken ? 'Yes' : 'No');
+    }
+  }, []);
   const [effectiveRepoInfo, setEffectiveRepoInfo] = useState(repoInfo); // Track effective repo info with cached data
   const [embeddingError, setEmbeddingError] = useState(false);
 
@@ -645,6 +653,14 @@ Remember:
       return;
     }
 
+    // Add timeout safety mechanism for the entire function
+    const timeoutId = setTimeout(() => {
+      console.warn('Wiki structure determination timeout, resetting loading state');
+      setIsLoading(false);
+      setLoadingMessage(undefined);
+      setError('Wiki structure determination timed out. Please try again.');
+    }, 300000); // 5 minute timeout
+
     try {
       setStructureRequestInProgress(true);
       setLoadingMessage(messages.loading?.determiningStructure || 'Determining wiki structure...');
@@ -891,7 +907,24 @@ IMPORTANT:
       // Extract wiki structure from response
       const xmlMatch = responseText.match(/<wiki_structure>[\s\S]*?<\/wiki_structure>/m);
       if (!xmlMatch) {
-        throw new Error('No valid XML found in response');
+        console.error('AI Response that failed XML parsing:', responseText);
+        
+        // Provide more specific error based on response content
+        let errorMessage = 'The AI response did not contain properly formatted wiki structure XML.';
+        
+        if (responseText.includes('No valid document embeddings found')) {
+          errorMessage = 'Repository processing failed due to embedding issues. This may be caused by API errors or inconsistent document sizes. Please try again or check your API configuration.';
+        } else if (responseText.includes('Error:') || responseText.includes('error')) {
+          errorMessage = 'The AI service encountered an error processing your repository. Please check your API keys and try again.';
+        } else if (responseText.trim().length < 50) {
+          errorMessage = 'The AI response was too short or empty. This may indicate API issues or rate limiting. Please try again in a moment.';
+        } else if (!responseText.includes('<')) {
+          errorMessage = 'The AI response does not contain XML markup. This may be due to model limitations or configuration issues. Try selecting a different AI model.';
+        } else {
+          errorMessage += ' This may be due to model limitations or configuration issues. Please try again or select a different AI model.';
+        }
+        
+        throw new Error(errorMessage);
       }
 
       let xmlText = xmlMatch[0];
@@ -1065,6 +1098,7 @@ IMPORTANT:
                   // Check if all work is done (queue empty and no active requests)
                   if (queue.length === 0 && activeRequests === 0) {
                     console.log("All page generation tasks completed.");
+                    clearTimeout(timeoutId);
                     setIsLoading(false);
                     setLoadingMessage(undefined);
                   } else {
@@ -1082,10 +1116,12 @@ IMPORTANT:
             // This handles the case where the queue might finish before the finally blocks fully update activeRequests
             // or if the initial queue was processed very quickly
             console.log("Queue empty and no active requests after loop, ensuring loading is false.");
+            clearTimeout(timeoutId);
             setIsLoading(false);
             setLoadingMessage(undefined);
           } else if (pages.length === 0) {
             // Handle case where there were no pages to begin with
+            clearTimeout(timeoutId);
             setIsLoading(false);
             setLoadingMessage(undefined);
           }
@@ -1101,6 +1137,7 @@ IMPORTANT:
 
     } catch (error) {
       console.error('Error determining wiki structure:', error);
+      clearTimeout(timeoutId);
       setIsLoading(false);
       setError(error instanceof Error ? error.message : 'An unknown error occurred');
       setLoadingMessage(undefined);
@@ -1187,7 +1224,10 @@ IMPORTANT:
         // First, try to get the default branch from the repository info
         let defaultBranchLocal = null;
         try {
-          const repoInfoResponse = await fetch(`${githubApiBaseUrl}/repos/${owner}/${repo}`, {
+          const repoInfoUrl = `${githubApiBaseUrl}/repos/${owner}/${repo}`;
+          console.log(`Fetching repository info from: ${repoInfoUrl}`);
+          console.log(`Using token: ${currentToken ? 'Yes' : 'No'}`);
+          const repoInfoResponse = await fetch(repoInfoUrl, {
             headers: createGithubHeaders(currentToken)
           });
           
@@ -1212,6 +1252,8 @@ IMPORTANT:
           const headers = createGithubHeaders(currentToken);
 
           console.log(`Fetching repository structure from branch: ${branch}`);
+          console.log(`API URL: ${apiUrl}`);
+          console.log(`Headers:`, headers);
           try {
             const response = await fetch(apiUrl, {
               headers
@@ -1235,7 +1277,7 @@ IMPORTANT:
           if (apiErrorDetails) {
             throw new Error(`Could not fetch repository structure. API Error: ${apiErrorDetails}`);
           } else {
-            throw new Error('Could not fetch repository structure. Repository might not exist, be empty or private.');
+            throw new Error('Could not fetch repository structure. Repository might not exist, be empty, or private. If this is a private repository, please provide an access token.');
           }
         }
 
@@ -1319,7 +1361,7 @@ IMPORTANT:
         }
 
           if (!Array.isArray(filesData) || filesData.length === 0) {
-            throw new Error('Could not fetch repository structure. Repository might be empty or inaccessible.');
+            throw new Error('Could not fetch repository structure. Repository might be empty, inaccessible, or private. If this is a private repository, please provide an access token.');
         }
 
           // Step 3: Format file paths
@@ -1399,7 +1441,7 @@ IMPORTANT:
           if (apiErrorDetails) {
             throw new Error(`Could not fetch repository structure. Bitbucket API Error: ${apiErrorDetails}`);
           } else {
-            throw new Error('Could not fetch repository structure. Repository might not exist, be empty or private.');
+            throw new Error('Could not fetch repository structure. Repository might not exist, be empty, or private. If this is a private repository, please provide an access token.');
           }
         }
 
@@ -1581,9 +1623,9 @@ IMPORTANT:
       console.warn('Error calling DELETE /api/wiki_cache:', err);
       setIsLoading(false);
       setEmbeddingError(false); // Reset embedding error state
-      // Optionally, inform the user about the cache clear error
-      // setError(\`Error clearing cache: ${err instanceof Error ? err.message : String(err)}. Trying to refresh...\`);
-      throw err;
+      setLoadingMessage(undefined);
+      setError(`Error clearing cache: ${err instanceof Error ? err.message : String(err)}. Please try again.`);
+      return; // Don't throw, handle gracefully
     }
 
     // Update token if provided
@@ -1809,10 +1851,22 @@ IMPORTANT:
 
         // If we reached here, either there was no cache, it was invalid, or an error occurred
         // Proceed to fetch repository structure
-        fetchRepositoryStructure();
+        try {
+          fetchRepositoryStructure();
+        } catch (error) {
+          console.error('Error in fetchRepositoryStructure:', error);
+          setIsLoading(false);
+          setError('Failed to load repository structure. Please try again.');
+          setLoadingMessage(undefined);
+        }
       };
 
-      loadData();
+      loadData().catch(error => {
+        console.error('Error in loadData:', error);
+        setIsLoading(false);
+        setError('Failed to load wiki data. Please try again.');
+        setLoadingMessage(undefined);
+      });
 
     } else {
       console.log('Skipping duplicate repository fetch/cache check');
@@ -1973,7 +2027,11 @@ IMPORTANT:
               {embeddingError ? (
                 messages.repoPage?.embeddingErrorDefault || 'This error is related to the document embedding system used for analyzing your repository. Please verify your embedding model configuration, API keys, and try again. If the issue persists, consider switching to a different embedding provider in the model settings.'
               ) : (
-                messages.repoPage?.errorMessageDefault || 'Please check that your repository exists and is public. Valid formats are "owner/repo", "https://github.com/owner/repo", "https://gitlab.com/owner/repo", "https://bitbucket.org/owner/repo", or local folder paths like "C:\\path\\to\\folder" or "/path/to/folder".'
+                error?.includes('403') || error?.includes('Authentication') || error?.includes('Unauthorized') || error?.includes('private') ? (
+                  'This appears to be a private repository. Please provide a valid access token using the token input field above to access private repositories.'
+                ) : (
+                  messages.repoPage?.errorMessageDefault || 'Please check that your repository exists and is public. Valid formats are "owner/repo", "https://github.com/owner/repo", "https://gitlab.com/owner/repo", "https://bitbucket.org/owner/repo", or local folder paths like "C:\\path\\to\\folder" or "/path/to/folder".'
+                )
               )}
             </p>
             <div className="mt-5">

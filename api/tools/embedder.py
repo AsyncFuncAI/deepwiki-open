@@ -1,4 +1,9 @@
 import adalflow as adal
+import os
+from dotenv import load_dotenv
+
+# Ensure environment variables are loaded in worker processes
+load_dotenv()
 
 from api.config import configs
 
