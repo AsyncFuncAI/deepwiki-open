@@ -321,7 +321,7 @@ docker-compose up
 | `OLLAMA_HOST`           | Hôte Ollama (par défaut : http://localhost:11434)               | Non        | Requis uniquement si vous souhaitez utiliser un serveur Ollama externe                                   |
 | `PORT`                  | Port du serveur API (par défaut : 8001)                         | Non        | Si vous hébergez l'API et le frontend sur la même machine, assurez-vous de modifier le port de `SERVER_BASE_URL` en conséquence |
 | `SERVER_BASE_URL`       | URL de base du serveur API (par défaut : http://localhost:8001) | Non        |                                                                                                           |
-| `DEEPWIKI_AUTH_MODE`    | Définir sur `true` ou `1` pour activer le mode vérouillé        | Non        | La valeur par défaut est `false`. Si activé, `DEEPWIKI_AUTH_CODE` est requis.                             |
+| `DEEPWIKI_AUTH_MODE`    | Définir sur `true` ou `1` pour activer le mode verrouillé        | Non        | La valeur par défaut est `false`. Si activé, `DEEPWIKI_AUTH_CODE` est requis.                             |
 | `DEEPWIKI_AUTH_CODE`    | Le code requis pour la génération de wiki lorsque `DEEPWIKI_AUTH_MODE` est activé. | Non        | Utilisé uniquement si `DEEPWIKI_AUTH_MODE` est `true` ou `1`.                          |
 
 Si vous n'utilisez pas le mode Ollama, vous devez configurer une clé API OpenAI pour les embeddings. Les autres clés API ne sont requises que si vous configurez et utilisez des modèles des fournisseurs correspondants.
