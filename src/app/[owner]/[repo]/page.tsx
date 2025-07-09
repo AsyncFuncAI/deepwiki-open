@@ -1,19 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
-import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
-import { FaExclamationTriangle, FaBookOpen, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown, FaComments, FaTimes } from 'react-icons/fa';
-import Link from 'next/link';
-import ThemeToggle from '@/components/theme-toggle';
-import Markdown from '@/components/Markdown';
 import Ask from '@/components/Ask';
+import Markdown from '@/components/Markdown';
 import ModelSelectionModal from '@/components/ModelSelectionModal';
+import ThemeToggle from '@/components/theme-toggle';
 import WikiTreeView from '@/components/WikiTreeView';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { RepoInfo } from '@/types/repoinfo';
-import { extractUrlDomain, extractUrlPath } from '@/utils/urlDecoder';
 import getRepoUrl from '@/utils/getRepoUrl';
+import { extractUrlDomain, extractUrlPath } from '@/utils/urlDecoder';
+import Link from 'next/link';
+import { useParams, useSearchParams } from 'next/navigation';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FaBitbucket, FaBookOpen, FaComments, FaDownload, FaExclamationTriangle, FaFileExport, FaFolder, FaGithub, FaGitlab, FaHome, FaSync, FaTimes } from 'react-icons/fa';
 // Define the WikiSection and WikiStructure types directly in this file
 // since the imported types don't have the sections and rootSections properties
 interface WikiSection {
@@ -105,6 +105,8 @@ const addTokensToRequestBody = (
   language: string = 'en',
   excludedDirs?: string,
   excludedFiles?: string,
+  includedDirs?: string,
+  includedFiles?: string
 ): void => {
   if (token !== '') {
     requestBody.token = token;
@@ -126,6 +128,13 @@ const addTokensToRequestBody = (
   if (excludedFiles) {
     requestBody.excluded_files = excludedFiles;
   }
+  if (includedDirs) {
+    requestBody.included_dirs = includedDirs;
+  }
+  if (includedFiles) {
+    requestBody.included_files = includedFiles;
+  }
+
 };
 
 const createGithubHeaders = (githubToken: string): HeadersInit => {
@@ -226,6 +235,11 @@ export default function RepoWikiPage() {
   const excludedFiles = searchParams.get('excluded_files') || '';
   const [modelExcludedDirs, setModelExcludedDirs] = useState(excludedDirs);
   const [modelExcludedFiles, setModelExcludedFiles] = useState(excludedFiles);
+  const includedDirs = searchParams.get('included_dirs') || '';
+  const includedFiles = searchParams.get('included_files') || '';
+  const [modelIncludedDirs, setModelIncludedDirs] = useState(includedDirs);
+  const [modelIncludedFiles, setModelIncludedFiles] = useState(includedFiles);
+
 
   // Wiki type state - default to comprehensive view
   const isComprehensiveParam = searchParams.get('comprehensive') !== 'false';
@@ -487,7 +501,7 @@ Remember:
         };
 
         // Add tokens if available
-        addTokensToRequestBody(requestBody, currentToken, effectiveRepoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles);
+        addTokensToRequestBody(requestBody, currentToken, effectiveRepoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles, modelIncludedDirs, modelIncludedFiles);
 
         // Use WebSocket for communication
         let content = '';
@@ -780,7 +794,7 @@ IMPORTANT:
       };
 
       // Add tokens if available
-      addTokensToRequestBody(requestBody, currentToken, effectiveRepoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles);
+      addTokensToRequestBody(requestBody, currentToken, effectiveRepoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles, modelIncludedDirs, modelIncludedFiles);
 
       // Use WebSocket for communication
       let responseText = '';
@@ -2209,6 +2223,10 @@ IMPORTANT:
         setExcludedDirs={setModelExcludedDirs}
         excludedFiles={modelExcludedFiles}
         setExcludedFiles={setModelExcludedFiles}
+        includedDirs={modelIncludedDirs}
+        setIncludedDirs={setModelIncludedDirs}
+        includedFiles={modelIncludedFiles}
+        setIncludedFiles={setModelIncludedFiles}
         onApply={confirmRefresh}
         showWikiType={true}
         showTokenInput={effectiveRepoInfo.type !== 'local' && !currentToken} // Show token input if not local and no current token
