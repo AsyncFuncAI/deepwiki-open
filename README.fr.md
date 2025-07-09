@@ -353,7 +353,7 @@ docker run -p 8001:8001 -p 3000:3000 \
   -e GOOGLE_API_KEY=votre_clé_google \
   -e OPENAI_API_KEY=votre_clé_openai \
   -e OPENROUTER_API_KEY=votre_clé_openrouter \
-  -e OLLAMA_HOST=vote_hôte_ollama \
+  -e OLLAMA_HOST=votre_hôte_ollama \
   -e AZURE_OPENAI_API_KEY=votre_clé_azure_openai \
   -e AZURE_OPENAI_ENDPOINT=votre_endpoint_azure_openai \
   -e AZURE_OPENAI_VERSION=votre_version_azure_openai \
