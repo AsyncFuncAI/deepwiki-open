@@ -212,7 +212,7 @@ OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optionnel, pour les endpoi
 # Hôte Ollama personalisé
 OLLAMA_HOST=votre_hôte_ollama # Optionnel, si Ollama n'est pas local. défaut: http://localhost:11434
 
-# Répartoire de configuration
+# Répertoire de configuration
 DEEPWIKI_CONFIG_DIR=/chemin/vers/dossier/de/configuration  # Optionnel, pour personaliser le répertoire de stockage de la configuration
 ```
 
