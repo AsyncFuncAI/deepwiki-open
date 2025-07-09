@@ -67,3 +67,6 @@ next-env.d.ts
 
 # ignore adding self-signed certs
 certs/
+
+# Ignore git credentials
+.git-credentials
