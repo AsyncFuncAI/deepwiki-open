@@ -406,7 +406,7 @@ This command also mounts `~/.adalflow` on your host to `/root/.adalflow` in the 
 
 This ensures that your data persists even if the container is stopped or removed.
 
-#### Building the Docker image locally
+#### Construction de l'image Docker localement
 
 If you want to build the Docker image locally:
 
