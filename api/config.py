@@ -192,7 +192,9 @@ def load_lang_config():
             "zh-tw": "Traditional Chinese (繁體中文)",
             "es": "Spanish (Español)",
             "kr": "Korean (한국어)",
-            "vi": "Vietnamese (Tiếng Việt)"
+            "vi": "Vietnamese (Tiếng Việt)",
+            "pt-br": "Brazilian Portuguese (Português Brasileiro)",
+            "fr": "Français (French)"
         },
         "default": "en"
     }

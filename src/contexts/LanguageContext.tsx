@@ -87,7 +87,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
           "es": "Spanish (Español)",
           "kr": "Korean (한국어)",
           "vi": "Vietnamese (Tiếng Việt)",
-          "pt-br": "Brazilian Portuguese (Português Brasileiro)"
+          "pt-br": "Brazilian Portuguese (Português Brasileiro)",
+          "fr": "Français (French)"
         };
         setSupportedLanguages(defaultSupportedLanguages);
         setDefaultLanguage("en");
