@@ -9,6 +9,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 import google.generativeai as genai
 import asyncio
+import commentjson
 import re
 
 # Configure logging
@@ -138,9 +139,9 @@ class AuthorizationConfig(BaseModel):
 
 from api.config import configs, WIKI_AUTH_MODE, WIKI_AUTH_CODE
 
-with open(os.path.join(os.path.dirname(__file__), "config", "authorized_oids.json")) as f:
+with open(os.path.join(os.path.dirname(__file__), "config", "authorized_oids.jsonc")) as f:
     logger.info("Opening authorized oids json file")
-    AUTHORIZED_OIDS = set(json.load(f)["authorized_oids"])
+    AUTHORIZED_OIDS = set(commentjson.load(f)["authorized_oids"])
 
 @app.get("/lang/config")
 async def get_lang_config():
