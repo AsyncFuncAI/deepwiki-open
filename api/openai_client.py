@@ -529,7 +529,7 @@ class OpenAIClient(ModelClient):
             obj.sync_client = obj.init_sync_client()
             # Initialize async client lazily to avoid env var issues during deserialization
             obj.async_client = None
-        except Exception as e:
+        except Exception:
             # If client initialization fails during deserialization, set to None
             # They will be initialized lazily when first used
             obj.sync_client = None

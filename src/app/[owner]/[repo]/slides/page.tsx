@@ -1247,7 +1247,8 @@ Please return ONLY the HTML with no markdown formatting or code blocks. Just the
               <div
                 className={`${isFullscreen ? 'w-full h-full' : 'w-full max-w-[1280px] aspect-[16/9]'} flex items-center justify-center overflow-hidden`}
               >
-                {/* Font Awesome CDN removed - using react-icons instead */}
+                {/* Include Font Awesome for icons used in generated slides */}
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" />
                 <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: slides[currentSlideIndex]?.html || '' }} />
               </div>
             </div>

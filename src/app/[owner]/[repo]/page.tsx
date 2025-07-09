@@ -216,8 +216,10 @@ export default function RepoWikiPage() {
   
   // Debug: Log token status on component mount
   useEffect(() => {
-    console.log('Component mounted with token:', token ? `Yes (${token.substring(0, 7)}...)` : 'No');
-    console.log('Current token state:', currentToken ? `Yes (${currentToken.substring(0, 7)}...)` : 'No');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Component mounted with token:', token ? 'Yes' : 'No');
+      console.log('Current token state:', currentToken ? 'Yes' : 'No');
+    }
   }, []);
   const [effectiveRepoInfo, setEffectiveRepoInfo] = useState(repoInfo); // Track effective repo info with cached data
   const [embeddingError, setEmbeddingError] = useState(false);
