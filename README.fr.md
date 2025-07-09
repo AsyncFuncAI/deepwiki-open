@@ -313,7 +313,7 @@ docker-compose up
 | Variable                | Description                                                     | Requis     | Note                                                                                                     |
 |-------------------------|-----------------------------------------------------------------|------------|----------------------------------------------------------------------------------------------------------|
 | `GOOGLE_API_KEY`        | Clé API Google Gemini pour la génération                        | Non        | Requis uniquement si vous souhaitez utiliser les modèles Google Gemini                                   |
-| `OPENAI_API_KEY`        | Clé API OpenAI pour les embeddings et la génration              | Oui        | Remarque : Ceci est requis même si vous n'utilisez pas les modèles OpenAI, car elle est utilisée pour les embeddings. |
+| `OPENAI_API_KEY`        | Clé API OpenAI pour les embeddings et la génération              | Oui        | Remarque : Ceci est requis même si vous n'utilisez pas les modèles OpenAI, car elle est utilisée pour les embeddings. |
 | `OPENROUTER_API_KEY`    | Clé API OpenRouter pour les modèles alternatifs                 | Non        | Requis uniquement si vous souhaitez utiliser les modèles OpenRouter                                      |
 | `AZURE_OPENAI_API_KEY`  | Clé API Azure OpenAI                                            | Non        | Requis uniquement si vous souhaitez utiliser les modèles Azure OpenAI                                    |
 | `AZURE_OPENAI_ENDPOINT` | Point de terminaison Azure OpenAI                               | Non        | Requis uniquement si vous souhaitez utiliser les modèles Azure OpenAI                                    |
