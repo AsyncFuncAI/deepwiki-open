@@ -42,7 +42,7 @@ echo "GOOGLE_API_KEY=votre_clé_google" > .env
 echo "OPENAI_API_KEY=votre_clé_openai" >> .env
 # Facultatif : clé OpenRouter
 echo "OPENROUTER_API_KEY=votre_clé_openrouter" >> .env
-# Facultatif : hôte personalisé Ollama
+# Facultatif : hôte personnalisé Ollama
 echo "OLLAMA_HOST=votre_hote_ollama" >> .env
 # Facultatif : Azure OpenAI
 echo "AZURE_OPENAI_API_KEY=votre_clé_azure" >> .env
@@ -206,10 +206,10 @@ AZURE_OPENAI_API_KEY=votre_clé_azure_openai  #Requis pour les modèles Azure Op
 AZURE_OPENAI_ENDPOINT=votre_endpoint_azure_openai  #Requis pour les modèles Azure OpenAI
 AZURE_OPENAI_VERSION=votre_version_azure_openai  #Requis pour les modèles Azure OpenAI
 
-# Configuration d'un endpoint OpenAI API personalisé
-OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optionnel, pour les endpoints API OpenAI personalisés
+# Configuration d'un endpoint OpenAI API personnalisé
+OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optionnel, pour les endpoints API OpenAI personnalisés
 
-# Hôte Ollama personalisé
+# Hôte Ollama personnalisé
 OLLAMA_HOST=votre_hôte_ollama # Optionnel, si Ollama n'est pas local. défaut: http://localhost:11434
 
 # Répertoire de configuration
