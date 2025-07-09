@@ -25,3 +25,15 @@ export interface WikiStructure {
   sections: WikiSection[];
   rootSections: string[];
 }
+
+export interface WikiCacheData {
+  wiki_structure: WikiStructure;
+  generated_pages: Record<string, WikiPage>;
+}
+
+export interface Slide {
+  id: string;
+  title: string;
+  content: string;
+  html: string;
+}

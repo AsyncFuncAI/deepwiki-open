@@ -8,39 +8,8 @@ import ThemeToggle from '@/components/theme-toggle';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { RepoInfo } from '@/types/repoinfo';
 import getRepoUrl from '@/utils/getRepoUrl';
-
-// Helper function to add tokens and other parameters to request body
-const addTokensToRequestBody = (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  requestBody: Record<string, any>,
-  token: string,
-  repoType: string,
-  provider: string = '',
-  model: string = '',
-  isCustomModel: boolean = false,
-  customModel: string = '',
-  language: string = 'en',
-) => {
-  if (token !== '') {
-    requestBody.token = token;
-  }
-
-  // Add provider-based model selection parameters
-  requestBody.provider = provider;
-  requestBody.model = model;
-  if (isCustomModel && customModel) {
-    requestBody.custom_model = customModel;
-  }
-
-  requestBody.language = language;
-};
-
-interface Slide {
-  id: string;
-  title: string;
-  content: string;
-  html: string;
-}
+import { addTokensToRequestBody } from '@/utils/requestUtils';
+import { Slide, WikiCacheData } from '@/app/models/wiki';
 
 export default function SlidesPage() {
   // Get route parameters and search params
@@ -61,6 +30,7 @@ export default function SlidesPage() {
   const isCustomModelParam = searchParams.get('is_custom_model') === 'true';
   const customModelParam = searchParams.get('custom_model') || '';
   const language = searchParams.get('language') || 'en';
+  const repositoryPath = searchParams.get('repository_path') || '';
 
   // Import language context for translations
   const { messages } = useLanguage();
@@ -87,35 +57,6 @@ export default function SlidesPage() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Define a type for the wiki content
-  interface WikiPage {
-    id: string;
-    title: string;
-    content: string;
-    importance: string;
-    filePaths: string[];
-    relatedPages: string[];
-  }
-
-  interface WikiSection {
-    id: string;
-    title: string;
-    pages: string[];
-    subsections: string[];
-  }
-
-  interface WikiStructure {
-    description: string;
-    pages: WikiPage[];
-    sections: WikiSection[];
-    rootSections: string[];
-  }
-
-  interface WikiCacheData {
-    wiki_structure: WikiStructure;
-    generated_pages: Record<string, WikiPage>;
-  }
-
   const [cachedWikiContent, setCachedWikiContent] = useState<WikiCacheData | null>(null);
 
   // Function to fetch cached wiki content
@@ -126,6 +67,7 @@ export default function SlidesPage() {
         repo: repoInfo.repo,
         repo_type: repoInfo.type,
         language: language,
+        repository_path: repositoryPath || ''
       });
       const response = await fetch(`/api/wiki_cache?${params.toString()}`);
 
@@ -148,7 +90,7 @@ export default function SlidesPage() {
       console.error('Error loading from server cache:', error);
       return null;
     }
-  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language]);
+  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, repositoryPath]);
 
   // Generate slides content
   const generateSlidesContent = useCallback(async () => {
@@ -258,7 +200,7 @@ Give me the numbered list with brief descriptions for each slide. Be creative bu
       };
 
       // Add tokens if available
-      addTokensToRequestBody(planRequestBody, token, repoInfo.type, providerParam, modelParam, isCustomModelParam, customModelParam, language);
+      addTokensToRequestBody(planRequestBody, token, repoInfo.type, providerParam, modelParam, isCustomModelParam, customModelParam, language, undefined, undefined, repositoryPath);
 
       // Use WebSocket for communication
       let planContent = '';
@@ -876,7 +818,7 @@ Please return ONLY the HTML with no markdown formatting or code blocks. Just the
       setIsLoading(false);
       setLoadingMessage(undefined);
     }
-  }, [owner, repo, repoInfo, token, providerParam, modelParam, isCustomModelParam, customModelParam, language, isLoading, messages.loading, cachedWikiContent, fetchCachedWikiContent]);
+  }, [owner, repo, repoInfo, token, providerParam, modelParam, isCustomModelParam, customModelParam, language, isLoading, messages.loading, cachedWikiContent, fetchCachedWikiContent, repositoryPath]);
 
   // Export slides content
   const exportSlides = useCallback(async () => {
