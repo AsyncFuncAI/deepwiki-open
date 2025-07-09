@@ -389,7 +389,7 @@ echo "OPENAI_API_KEY=votre_clé_openai" >> .env
 echo "OPENROUTER_API_KEY=votre_clé_openrouter" >> .env
 echo "AZURE_OPENAI_API_KEY=votre_clé_azure_openai" >> .env
 echo "AZURE_OPENAI_ENDPOINT=votre_endpoint_azure_openai" >> .env
-echo "AZURE_OPENAI_VERSION=votre_version_azure_openai"  >>.env
+echo "AZURE_OPENAI_VERSION=votre_version_azure_openai"  >> .env
 echo "OLLAMA_HOST=votre_hôte_ollama" >> .env
 
 # Run the container with the .env file mounted
