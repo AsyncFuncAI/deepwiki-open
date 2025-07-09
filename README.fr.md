@@ -199,12 +199,12 @@ Chaque fournisseur requiert les variables d'environnement de clé API correspond
 
 ```
 # API Keys
-GOOGLE_API_KEY=votre_clé_google        # Requis pourles modèles Google Gemini
-OPENAI_API_KEY=votre_clé_openai        # Requis pourles modèles OpenAI
-OPENROUTER_API_KEY=votre_clé_openrouter # Requis pourles modèles OpenRouter
-AZURE_OPENAI_API_KEY=votre_clé_azure_openai  #Requis pourles modèles Azure OpenAI
-AZURE_OPENAI_ENDPOINT=votre_endpoint_azure_openai  #Requis pourles modèles Azure OpenAI
-AZURE_OPENAI_VERSION=votre_version_azure_openai  #Requis pourles modèles Azure OpenAI
+GOOGLE_API_KEY=votre_clé_google        # Requis pour les modèles Google Gemini
+OPENAI_API_KEY=votre_clé_openai        # Requis pour les modèles OpenAI
+OPENROUTER_API_KEY=votre_clé_openrouter # Requis pour les modèles OpenRouter
+AZURE_OPENAI_API_KEY=votre_clé_azure_openai  #Requis pour les modèles Azure OpenAI
+AZURE_OPENAI_ENDPOINT=votre_endpoint_azure_openai  #Requis pour les modèles Azure OpenAI
+AZURE_OPENAI_VERSION=votre_version_azure_openai  #Requis pour les modèles Azure OpenAI
 
 # Configuration d'un endpoint OpenAI API personalisé
 OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optionnel, pour les endpoints API OpenAI personalisés
