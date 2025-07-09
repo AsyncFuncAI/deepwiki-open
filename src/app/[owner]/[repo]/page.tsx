@@ -2,8 +2,14 @@
 'use client';
 
 import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
+import { getCacheKey } from '@/utils/getCacheKey';
+import { fetchAzureDevOpsFileTree } from '@/utils/azureDevopsUtils';
+import { createBitbucketHeaders, createGithubHeaders, createGitlabHeaders } from '@/utils/headerUtils';
+import { wikiStyles } from '@/utils/wikistyles';
+import { WikiPage, WikiSection, WikiStructure } from '@/app/models/wiki';
+import { addTokensToRequestBody } from '@/utils/requestUtils';
 import { useParams, useSearchParams } from 'next/navigation';
-import { FaExclamationTriangle, FaBookOpen, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown, FaComments, FaTimes, FaMicrosoft } from 'react-icons/fa';
+import { FaExclamationTriangle, FaBookOpen, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaComments, FaTimes, FaMicrosoft } from 'react-icons/fa';
 import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
@@ -14,224 +20,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { RepoInfo } from '@/types/repoinfo';
 import { extractUrlDomain, extractUrlPath } from '@/utils/urlDecoder';
 import getRepoUrl from '@/utils/getRepoUrl';
-// Define the WikiSection and WikiStructure types directly in this file
-// since the imported types don't have the sections and rootSections properties
-interface WikiSection {
-  id: string;
-  title: string;
-  pages: string[];
-  subsections?: string[];
-}
-
-interface WikiPage {
-  id: string;
-  title: string;
-  content: string;
-  filePaths: string[];
-  importance: 'high' | 'medium' | 'low';
-  relatedPages: string[];
-  parentId?: string;
-  isSection?: boolean;
-  children?: string[];
-}
-
-interface WikiStructure {
-  id: string;
-  title: string;
-  description: string;
-  pages: WikiPage[];
-  sections: WikiSection[];
-  rootSections: string[];
-}
-
-// Add CSS styles for wiki with Japanese aesthetic
-const wikiStyles = `
-  .prose code {
-    @apply bg-[var(--background)]/70 px-1.5 py-0.5 rounded font-mono text-xs border border-[var(--border-color)];
-  }
-
-  .prose pre {
-    @apply bg-[var(--background)]/80 text-[var(--foreground)] rounded-md p-4 overflow-x-auto border border-[var(--border-color)] shadow-sm;
-  }
-
-  .prose h1, .prose h2, .prose h3, .prose h4 {
-    @apply font-serif text-[var(--foreground)];
-  }
-
-  .prose p {
-    @apply text-[var(--foreground)] leading-relaxed;
-  }
-
-  .prose a {
-    @apply text-[var(--accent-primary)] hover:text-[var(--highlight)] transition-colors no-underline border-b border-[var(--border-color)] hover:border-[var(--accent-primary)];
-  }
-
-  .prose blockquote {
-    @apply border-l-4 border-[var(--accent-primary)]/30 bg-[var(--background)]/30 pl-4 py-1 italic;
-  }
-
-  .prose ul, .prose ol {
-    @apply text-[var(--foreground)];
-  }
-
-  .prose table {
-    @apply border-collapse border border-[var(--border-color)];
-  }
-
-  .prose th {
-    @apply bg-[var(--background)]/70 text-[var(--foreground)] p-2 border border-[var(--border-color)];
-  }
-
-  .prose td {
-    @apply p-2 border border-[var(--border-color)];
-  }
-`;
-
-// Helper function to generate cache key for localStorage
-const getCacheKey = (owner: string, repo: string, repoType: string, language: string, isComprehensive: boolean = true): string => {
-  return `deepwiki_cache_${repoType}_${owner}_${repo}_${language}_${isComprehensive ? 'comprehensive' : 'concise'}`;
-};
-
-async function fetchAzureDevOpsFileTree({
-  repoUrl,
-  accessToken,
-  repositoryPath = '',
-}: {
-  repoUrl: string;
-  accessToken: string;
-  repositoryPath?: string;
-}): Promise<{ fileTreeData: string; readmeContent: string }> {
-  // Example repoUrl: https://dev.azure.com/org/project/_git/repo
-  const urlMatch = repoUrl.match(/^https:\/\/dev\.azure\.com\/([^\/]+)\/([^\/]+)\/_git\/([^\/]+)/);
-  if (!urlMatch) {
-    throw new Error('Invalid Azure DevOps repository URL');
-  }
-  const [_, organization, project, repository] = urlMatch;
-
-  // Build API URL
-  let apiUrl = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repository}/items?recursionLevel=Full&api-version=7.0`;
-if (repositoryPath !== null && repositoryPath !== undefined) {
-    apiUrl += `&scopePath=/${encodeURIComponent(repositoryPath)}`;
-  }
-
-  // Azure DevOps uses Basic Auth with PAT as username (empty) and password (the token)
-  const authHeader = 'Basic ' + btoa(':' + accessToken);
-
-  const response = await fetch(apiUrl, {
-    headers: {
-      'Authorization': authHeader,
-      'Accept': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    const errorData = await response.text();
-    throw new Error(`Azure DevOps API error (${response.status}): ${errorData}`);
-  }
-
-  const data = await response.json();
-
-  // data.value is an array of items (files and folders)
-  const fileTreeData = data.value
-    .filter((item: { gitObjectType: string }) => item.gitObjectType === 'blob')
-    .map((item: { path: string }) => item.path.replace(/^\//, ''))
-    .join('\n');
-
-  // Try to fetch README.md content
-  let readmeContent = '';
-  const readmeItem = data.value.find((item: { path: string }) => /README\.md$/i.test(item.path));
-  if (readmeItem) {
-    const readmeUrl = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repository}/items?path=${encodeURIComponent(readmeItem.path)}&api-version=7.0&$format=text`;
-    const readmeRes = await fetch(readmeUrl, {
-      headers: {
-        'Authorization': authHeader,
-        'Accept': 'application/json',
-      },
-    });
-    if (readmeRes.ok) {
-      readmeContent = await readmeRes.text();
-    }
-  }
-
-  return { fileTreeData, readmeContent };
-}
-
-// Helper function to add tokens and other parameters to request body
-const addTokensToRequestBody = (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  requestBody: Record<string, any>,
-  token: string,
-  repoType: string,
-  provider: string = '',
-  model: string = '',
-  isCustomModel: boolean = false,
-  customModel: string = '',
-  language: string = 'en',
-  excludedDirs?: string,
-  excludedFiles?: string,
-  repositoryPath?: string,
-): void => {
-  if (token !== '') {
-    requestBody.token = token;
-  }
-
-  // Add provider-based model selection parameters
-  requestBody.provider = provider;
-  requestBody.model = model;
-  if (isCustomModel && customModel) {
-    requestBody.custom_model = customModel;
-  }
-
-  requestBody.language = language;
-
-  // Add file filter parameters if provided
-  if (excludedDirs) {
-    requestBody.excluded_dirs = excludedDirs;
-  }
-  if (excludedFiles) {
-    requestBody.excluded_files = excludedFiles;
-  }
-  if(repositoryPath) {
-    requestBody.repository_path = repositoryPath;
-  }
-};
-
-const createGithubHeaders = (githubToken: string): HeadersInit => {
-  const headers: HeadersInit = {
-    'Accept': 'application/vnd.github.v3+json'
-  };
-
-  if (githubToken) {
-    headers['Authorization'] = `Bearer ${githubToken}`;
-  }
-
-  return headers;
-};
-
-const createGitlabHeaders = (gitlabToken: string): HeadersInit => {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-
-  if (gitlabToken) {
-    headers['PRIVATE-TOKEN'] = gitlabToken;
-  }
-
-  return headers;
-};
-
-const createBitbucketHeaders = (bitbucketToken: string): HeadersInit => {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-
-  if (bitbucketToken) {
-    headers['Authorization'] = `Bearer ${bitbucketToken}`;
-  }
-
-  return headers;
-};
-
 
 export default function RepoWikiPage() {
   // Get route parameters and search params
@@ -1586,7 +1374,7 @@ IMPORTANT:
     console.log('Refreshing wiki. Server cache will be overwritten upon new generation if not cleared.');
 
     // Clear the localStorage cache (if any remnants or if it was used before this change)
-    const localStorageCacheKey = getCacheKey(effectiveRepoInfo.owner, effectiveRepoInfo.repo, effectiveRepoInfo.type, language, isComprehensiveView);
+    const localStorageCacheKey = getCacheKey(effectiveRepoInfo.owner, effectiveRepoInfo.repo, effectiveRepoInfo.type, language, isComprehensiveView, repositoryPath);
     localStorage.removeItem(localStorageCacheKey);
 
     // Reset cache loaded flag
