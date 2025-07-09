@@ -298,7 +298,7 @@ Vous pouvez également stocker ces paramètres dans votre fichier `.env` :
 LOG_LEVEL=DEBUG
 LOG_FILE_PATH=./debug.log
 ```
-Puis executez simplement :
+Puis exécutez simplement :
 
 ```bash
 docker-compose up
