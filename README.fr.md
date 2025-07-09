@@ -399,12 +399,12 @@ docker run -p 8001:8001 -p 3000:3000 \
   ghcr.io/asyncfuncai/deepwiki-open:latest
 ```
 
-This command also mounts `~/.adalflow` on your host to `/root/.adalflow` in the container. This path is used to store:
-- Cloned repositories (`~/.adalflow/repos/`)
-- Their embeddings and indexes (`~/.adalflow/databases/`)
-- Cached generated wiki content (`~/.adalflow/wikicache/`)
+Cette commande monte également `~/.adalflow` de votre hôte vers `/root/.adalflow` dans le conteneur. Ce chemin est utilisé pour stocker :
+- Les dépôts clonés (`~/.adalflow/repos/`)
+- Leurs embeddings et index (`~/.adalflow/databases/`)
+- Le contenu wiki généré mis en cache (`~/.adalflow/wikicache/`)
 
-This ensures that your data persists even if the container is stopped or removed.
+Cela garantit que vos données persistent même si le conteneur est arrêté ou supprimé.
 
 #### Construction de l'image Docker localement
 
