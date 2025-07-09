@@ -549,7 +549,7 @@ Pour utiliser DeepResearch, activez simplement le commutateur "Deep Research" da
 ## 🤝 Contribution
 
 Les contributions sont les bienvenues ! N'hésitez pas à :
-- Ouvrir des issues pour les bigs ou les demandes de fonctionnalités
+- Ouvrir des issues pour les bugs ou les demandes de fonctionnalités
 - Soumettre des pull requests pour améliorer le code
 - Partager vos commentaires et vos idées
 
