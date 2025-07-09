@@ -102,7 +102,7 @@ npm run dev
 yarn dev
 ```
 
-#### Étape 4 : Utilsier DeepWiki!
+#### Étape 4 : Utiliser DeepWiki!
 
 1. Ouvrir [http://localhost:3000](http://localhost:3000) dans votre navigateur
 2. Entrer l'adresse d'un dépôt GitHub, GitLab ou Bitbucket (comme `https://github.com/openai/codex`, `https://github.com/microsoft/autogen`, `https://gitlab.com/gitlab-org/gitlab`, or `https://bitbucket.org/redradish/atlassian_app_versions`)
