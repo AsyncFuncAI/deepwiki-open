@@ -74,7 +74,7 @@ OPENROUTER_API_KEY=votre_clé_openrouter
 AZURE_OPENAI_API_KEY=votre_clé_azure_openai
 AZURE_OPENAI_ENDPOINT=votre_endpoint_azure_openai
 AZURE_OPENAI_VERSION=votre_version_azure_openai
-# Optionnel :Ajouter un hôte distant Ollama si il n'est pas local. défaut: http://localhost:11434
+# Optionnel :Ajouter un hôte distant Ollama si il n'est pas local. défaut : http://localhost:11434
 OLLAMA_HOST=votre_hote_ollama
 ```
 
