@@ -325,6 +325,41 @@ export default function RepoWikiPage() {
     };
   }, [isAskModalOpen]);
 
+  // Load partial progress from localStorage
+  const loadPartialProgress = useCallback(() => {
+    try {
+      const progressKey = `deepwiki_progress_${effectiveRepoInfo.owner}_${effectiveRepoInfo.repo}`;
+      const savedProgress = localStorage.getItem(progressKey);
+      if (savedProgress) {
+        const progress = JSON.parse(savedProgress) as Record<string, { content: string; timestamp: number; isPartial: boolean; title?: string; filePaths?: string[]; importance?: 'high' | 'medium' | 'low'; relatedPages?: string[] }>;
+        const validProgress: { [key: string]: WikiPage } = {};
+        
+        // Only load progress from last 24 hours
+        const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+        
+        Object.entries(progress).forEach(([pageId, data]) => {
+          if (data.timestamp > oneDayAgo && data.content) {
+            validProgress[pageId] = {
+              id: pageId,
+              title: data.title || pageId,
+              content: data.content,
+              filePaths: data.filePaths || [],
+              importance: data.importance || 'medium',
+              relatedPages: data.relatedPages || []
+            };
+          }
+        });
+        
+        if (Object.keys(validProgress).length > 0) {
+          setGeneratedPages(prev => ({ ...prev, ...validProgress }));
+          console.log(`Loaded ${Object.keys(validProgress).length} pages from saved progress`);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load progress from localStorage:', error);
+    }
+  }, [effectiveRepoInfo]);
+
   // Fetch authentication status on component mount
   useEffect(() => {
     const fetchAuthStatus = async () => {
@@ -346,17 +381,35 @@ export default function RepoWikiPage() {
     };
 
     fetchAuthStatus();
-  }, []);
+    // Load any partial progress from previous sessions
+    loadPartialProgress();
+  }, [loadPartialProgress]);
 
-  // Generate content for a wiki page
-  const generatePageContent = useCallback(async (page: WikiPage, owner: string, repo: string) => {
-    return new Promise<void>(async (resolve) => {
+  // Generate content for a wiki page with timeout and progress saving
+  const generatePageContent = useCallback(async (page: WikiPage, owner: string, repo: string, timeoutMs?: number) => {
+    // Use dynamic timeout based on repository complexity or fallback to default
+    const defaultPageTimeout = parseInt(process.env.NEXT_PUBLIC_DEFAULT_PAGE_TIMEOUT || '120000'); // 2 minutes default
+    const dynamicTimeout = (window as unknown as { deepwikiTimeouts?: { perPage?: number } }).deepwikiTimeouts?.perPage || defaultPageTimeout;
+    const actualTimeout = timeoutMs || dynamicTimeout;
+    return new Promise<void>(async (resolve, reject) => {
+      let pageTimeout: NodeJS.Timeout | undefined;
+      
       try {
         // Skip if content already exists
-        if (generatedPages[page.id]?.content) {
+        if (generatedPages[page.id]?.content && generatedPages[page.id]?.content !== 'Loading...') {
           resolve();
           return;
         }
+        
+        // Set individual page timeout with dynamic configuration
+        pageTimeout = setTimeout(() => {
+          console.warn(`Page generation timeout for ${page.title} after ${actualTimeout}ms`);
+          // Save partial progress
+          savePartialProgress(page.id, 'TIMEOUT: Page generation exceeded time limit');
+          setError(`Page generation timeout for ${page.title} after ${Math.ceil(actualTimeout / 1000 / 60)} minutes`);
+          setPagesInProgress(prev => { const newSet = new Set(prev); newSet.delete(page.id); return newSet; });
+          reject(new Error(`Page generation timeout for ${page.title}`));
+        }, actualTimeout);
 
         // Skip if this page is already being processed
         // Use a synchronized pattern to avoid race conditions
@@ -524,10 +577,11 @@ Remember:
               reject(new Error('WebSocket connection failed'));
             };
 
-            // If the connection doesn't open within 5 seconds, fall back to HTTP
+            // Use dynamic WebSocket timeout based on configuration
+            const wsTimeout = (window as unknown as { deepwikiTimeouts?: { websocket?: number } }).deepwikiTimeouts?.websocket || 5000;
             const timeout = setTimeout(() => {
               reject(new Error('WebSocket connection timeout'));
-            }, 5000);
+            }, wsTimeout);
 
             // Clear the timeout if the connection opens successfully
             ws.onopen = () => {
@@ -544,6 +598,10 @@ Remember:
             // Handle incoming messages
             ws.onmessage = (event) => {
               content += event.data;
+              // Save incremental progress
+              if (content.length > 100) { // Save every 100 chars to avoid excessive saves
+                savePartialProgress(page.id, content);
+              }
             };
 
             // Handle WebSocket close
@@ -590,6 +648,10 @@ Remember:
               const { done, value } = await reader.read();
               if (done) break;
               content += decoder.decode(value, { stream: true });
+              // Save incremental progress
+              if (content.length > 100) { // Save every 100 chars to avoid excessive saves
+                savePartialProgress(page.id, content);
+              }
             }
             // Ensure final decoding
             content += decoder.decode();
@@ -610,16 +672,23 @@ Remember:
         // Store this as the original for potential mermaid retries
         setOriginalMarkdown(prev => ({ ...prev, [page.id]: content }));
 
+        if (pageTimeout) clearTimeout(pageTimeout);
         resolve();
       } catch (err) {
         console.error(`Error generating content for page ${page.id}:`, err);
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        
+        // Save partial progress even on error
+        savePartialProgress(page.id, `Error generating content: ${errorMessage}`);
+        
         // Update page state to show error
         setGeneratedPages(prev => ({
           ...prev,
           [page.id]: { ...page, content: `Error generating content: ${errorMessage}` }
         }));
         setError(`Failed to generate content for ${page.title}.`);
+        
+        if (pageTimeout) clearTimeout(pageTimeout);
         resolve(); // Resolve even on error to unblock queue
       } finally {
         // Clear the processing flag for this page
@@ -638,6 +707,119 @@ Remember:
     });
   }, [generatedPages, currentToken, effectiveRepoInfo, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests, generateFileUrl]);
 
+  // Save partial progress to prevent complete loss on timeout
+  const savePartialProgress = useCallback((pageId: string, content: string) => {
+    setGeneratedPages(prev => ({
+      ...prev,
+      [pageId]: { 
+        ...prev[pageId], 
+        content: content || 'Generation was interrupted. Please try again.',
+        isPartial: true
+      }
+    }));
+    
+    // Save to localStorage as backup
+    try {
+      const progressKey = `deepwiki_progress_${effectiveRepoInfo.owner}_${effectiveRepoInfo.repo}`;
+      const existingProgress = JSON.parse(localStorage.getItem(progressKey) || '{}') as Record<string, { content: string; timestamp: number; isPartial: boolean }>;
+      existingProgress[pageId] = {
+        content,
+        timestamp: Date.now(),
+        isPartial: true
+      };
+      localStorage.setItem(progressKey, JSON.stringify(existingProgress));
+    } catch (error) {
+      console.warn('Failed to save progress to localStorage:', error);
+    }
+  }, [effectiveRepoInfo]);
+
+
+  // Clear saved progress after successful completion
+  const clearSavedProgress = useCallback(() => {
+    try {
+      const progressKey = `deepwiki_progress_${effectiveRepoInfo.owner}_${effectiveRepoInfo.repo}`;
+      const metricsKey = `deepwiki_metrics_${effectiveRepoInfo.owner}_${effectiveRepoInfo.repo}`;
+      localStorage.removeItem(progressKey);
+      localStorage.removeItem(metricsKey);
+    } catch (error) {
+      console.warn('Failed to clear progress from localStorage:', error);
+    }
+  }, [effectiveRepoInfo]);
+
+  // Save progress metrics for tracking and recovery
+  const saveProgressMetrics = useCallback((progressTracker: { totalPages: number; completedPages: number; failedPages: number; startTime: number; estimatedTimeRemaining: number; updateProgress: (pageId: string, success: boolean) => void }) => {
+    try {
+      const metricsKey = `deepwiki_metrics_${effectiveRepoInfo.owner}_${effectiveRepoInfo.repo}`;
+      const metrics = {
+        totalPages: progressTracker.totalPages,
+        completedPages: progressTracker.completedPages,
+        failedPages: progressTracker.failedPages,
+        startTime: progressTracker.startTime,
+        estimatedTimeRemaining: progressTracker.estimatedTimeRemaining,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(metricsKey, JSON.stringify(metrics));
+    } catch (error) {
+      console.warn('Failed to save progress metrics:', error);
+    }
+  }, [effectiveRepoInfo]);
+
+  // Load progress metrics for recovery
+  const loadProgressMetrics = useCallback(() => {
+    try {
+      const metricsKey = `deepwiki_metrics_${effectiveRepoInfo.owner}_${effectiveRepoInfo.repo}`;
+      const savedMetrics = localStorage.getItem(metricsKey);
+      if (savedMetrics) {
+        const metrics = JSON.parse(savedMetrics) as { timestamp: number; [key: string]: unknown };
+        // Only load if less than 1 hour old
+        if (Date.now() - metrics.timestamp < 3600000) {
+          return metrics;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load progress metrics:', error);
+    }
+    return null;
+  }, [effectiveRepoInfo]);
+
+  // Retry wrapper for wiki structure generation
+  const determineWikiStructureWithRetry = useCallback(async (fileTree: string, readme: string, owner: string, repo: string, attempt = 1, maxAttempts = 3) => {
+    try {
+      const result = await determineWikiStructure(fileTree, readme, owner, repo);
+      
+      // Validate the result
+      if (wikiStructure && wikiStructure.pages) {
+        const validPages = wikiStructure.pages.filter(page => page.title && page.title.trim() !== '');
+        
+        if (validPages.length < (isComprehensiveView ? 3 : 2)) {
+          throw new Error(`Incomplete wiki generation: Only ${validPages.length} valid pages generated`);
+        }
+        
+        // Check for sections in comprehensive view
+        if (isComprehensiveView && (!wikiStructure.sections || wikiStructure.sections.length === 0)) {
+          console.warn('No sections generated for comprehensive view, but continuing with auto-generation');
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`Wiki generation attempt ${attempt} failed:`, errorMessage);
+      
+      if (attempt < maxAttempts) {
+        console.log(`Retrying wiki generation (attempt ${attempt + 1}/${maxAttempts})`);
+        setLoadingMessage(messages.loading?.determiningStructure || `Retrying wiki generation (attempt ${attempt + 1}/${maxAttempts})...`);
+        
+        // Wait a bit before retrying
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        return determineWikiStructureWithRetry(fileTree, readme, owner, repo, attempt + 1, maxAttempts);
+      } else {
+        throw new Error(`Wiki generation failed after ${maxAttempts} attempts: ${errorMessage}`);
+      }
+    }
+  }, [wikiStructure, isComprehensiveView, messages.loading]);
+
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
     if (!owner || !repo) {
@@ -654,12 +836,14 @@ Remember:
     }
 
     // Add timeout safety mechanism for the entire function
+    const defaultTimeout = parseInt(process.env.NEXT_PUBLIC_DEFAULT_TIMEOUT || '600000'); // Default 10 minutes
+    const globalTimeout = (window as unknown as { deepwikiTimeouts?: { global?: number } }).deepwikiTimeouts?.global || defaultTimeout;
     const timeoutId = setTimeout(() => {
-      console.warn('Wiki structure determination timeout, resetting loading state');
+      console.warn(`Wiki structure determination timeout after ${globalTimeout / 1000} seconds, resetting loading state`);
       setIsLoading(false);
       setLoadingMessage(undefined);
-      setError('Wiki structure determination timed out. Please try again.');
-    }, 300000); // 5 minute timeout
+      setError(`Wiki structure determination timed out after ${Math.ceil(globalTimeout / 1000 / 60)} minutes. Please try again with a smaller repository or enable file filtering.`);
+    }, globalTimeout);
 
     try {
       setStructureRequestInProgress(true);
@@ -706,7 +890,7 @@ When designing the wiki structure, include pages that would benefit from visual 
 - Class hierarchies
 
 ${isComprehensiveView ? `
-Create a structured wiki with the following main sections:
+Create a comprehensive structured wiki with the following main sections:
 - Overview (general information about the project)
 - System Architecture (how the system is designed)
 - Core Features (key functionality)
@@ -719,40 +903,88 @@ Create a structured wiki with the following main sections:
 
 Each section should contain relevant pages. For example, the "Frontend Components" section might include pages for "Home Page", "Repository Wiki Page", "Ask Component", etc.
 
+CRITICAL REQUIREMENTS:
+- Generate AT LEAST 5-10 pages for comprehensive documentation
+- Every page MUST have a non-empty title
+- Every page MUST have at least one file_path in relevant_files
+- You MUST include a complete <sections> structure as shown in the example below
+- Sections should logically group related pages together
+- Only reference pages in related_pages that actually exist in your pages list
+
 Return your analysis in the following XML format:
 
 <wiki_structure>
   <title>[Overall title for the wiki]</title>
   <description>[Brief description of the repository]</description>
   <sections>
-    <section id="section-1">
-      <title>[Section title]</title>
+    <section id="section-overview">
+      <title>Overview</title>
       <pages>
         <page_ref>page-1</page_ref>
         <page_ref>page-2</page_ref>
       </pages>
+    </section>
+    <section id="section-architecture">
+      <title>System Architecture</title>
+      <pages>
+        <page_ref>page-3</page_ref>
+        <page_ref>page-4</page_ref>
+      </pages>
+    </section>
+    <section id="section-features">
+      <title>Core Features</title>
+      <pages>
+        <page_ref>page-5</page_ref>
+        <page_ref>page-6</page_ref>
+      </pages>
+    </section>
+    <section id="section-backend">
+      <title>Backend Systems</title>
+      <pages>
+        <page_ref>page-7</page_ref>
+        <page_ref>page-8</page_ref>
+      </pages>
       <subsections>
-        <section_ref>section-2</section_ref>
+        <section_ref>section-api</section_ref>
       </subsections>
     </section>
-    <!-- More sections as needed -->
+    <section id="section-api">
+      <title>API Endpoints</title>
+      <pages>
+        <page_ref>page-9</page_ref>
+        <page_ref>page-10</page_ref>
+      </pages>
+    </section>
   </sections>
   <pages>
     <page id="page-1">
-      <title>[Page title]</title>
-      <description>[Brief description of what this page will cover]</description>
-      <importance>high|medium|low</importance>
+      <title>Project Overview</title>
+      <description>General introduction and overview of the project</description>
+      <importance>high</importance>
       <relevant_files>
-        <file_path>[Path to a relevant file]</file_path>
-        <!-- More file paths as needed -->
+        <file_path>README.md</file_path>
+        <file_path>package.json</file_path>
       </relevant_files>
       <related_pages>
         <related>page-2</related>
-        <!-- More related page IDs as needed -->
+        <related>page-3</related>
       </related_pages>
-      <parent_section>section-1</parent_section>
+      <parent_section>section-overview</parent_section>
     </page>
-    <!-- More pages as needed -->
+    <page id="page-2">
+      <title>Getting Started</title>
+      <description>Installation and setup instructions</description>
+      <importance>high</importance>
+      <relevant_files>
+        <file_path>README.md</file_path>
+        <file_path>docs/setup.md</file_path>
+      </relevant_files>
+      <related_pages>
+        <related>page-1</related>
+      </related_pages>
+      <parent_section>section-overview</parent_section>
+    </page>
+    <!-- More pages following the same pattern -->
   </pages>
 </wiki_structure>
 ` : `
@@ -787,11 +1019,17 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 - Ensure the XML is properly formatted and valid
 - Start directly with <wiki_structure> and end with </wiki_structure>
 
-IMPORTANT:
-1. Create ${isComprehensiveView ? '8-12' : '4-6'} pages that would make a ${isComprehensiveView ? 'comprehensive' : 'concise'} wiki for this repository
-2. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
-3. The relevant_files should be actual files from the repository that would be used to generate that page
-4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
+CRITICAL VALIDATION REQUIREMENTS:
+1. Create AT LEAST ${isComprehensiveView ? '8-12' : '4-6'} pages for a ${isComprehensiveView ? 'comprehensive' : 'concise'} wiki
+2. EVERY page MUST have a non-empty title - empty titles will break the navigation
+3. EVERY page MUST have at least one file_path in relevant_files
+4. ${isComprehensiveView ? 'MUST include a complete <sections> structure that groups related pages' : ''}
+5. Only reference pages in related_pages that exist in your pages list
+6. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
+7. The relevant_files should be actual files from the repository that would be used to generate that page
+8. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters
+
+FAILURE TO FOLLOW THESE REQUIREMENTS WILL RESULT IN BROKEN NAVIGATION AND INCOMPLETE DOCUMENTATION.`
         }]
       };
 
@@ -825,10 +1063,11 @@ IMPORTANT:
             reject(new Error('WebSocket connection failed'));
           };
 
-          // If the connection doesn't open within 5 seconds, fall back to HTTP
+          // Use dynamic WebSocket timeout based on configuration
+          const wsTimeout = (window as unknown as { deepwikiTimeouts?: { websocket?: number } }).deepwikiTimeouts?.websocket || 5000;
           const timeout = setTimeout(() => {
             reject(new Error('WebSocket connection timeout'));
-          }, 5000);
+          }, wsTimeout);
 
           // Clear the timeout if the connection opens successfully
           ws.onopen = () => {
@@ -1051,6 +1290,167 @@ IMPORTANT:
         }
       }
 
+      // Validate and fix page data
+      const validateAndFixPages = (pages: WikiPage[]): WikiPage[] => {
+        return pages.filter(page => {
+          // Remove pages with empty titles
+          if (!page.title || page.title.trim() === '') {
+            console.warn(`Removing page ${page.id} due to empty title`);
+            return false;
+          }
+          
+          // Warn about pages with no file paths
+          if (!page.filePaths || page.filePaths.length === 0) {
+            console.warn(`Page ${page.id} has no file paths`);
+            // Don't remove, but warn
+          }
+          
+          return true;
+        }).map(page => {
+          // Fix invalid related pages - only keep references to pages that actually exist
+          const validRelatedPages = page.relatedPages.filter(relatedId => 
+            pages.some(p => p.id === relatedId)
+          );
+          
+          if (validRelatedPages.length !== page.relatedPages.length) {
+            console.warn(`Page ${page.id}: Fixed ${page.relatedPages.length - validRelatedPages.length} invalid page references`);
+          }
+          
+          return {
+            ...page,
+            relatedPages: validRelatedPages
+          };
+        });
+      };
+
+      // Apply validation to pages
+      const validatedPages = validateAndFixPages(pages);
+      const removedPagesCount = pages.length - validatedPages.length;
+      if (removedPagesCount > 0) {
+        console.warn(`Removed ${removedPagesCount} invalid pages during validation`);
+      }
+      pages = validatedPages;
+      
+      // Enhanced debugging for validation
+      console.log(`Wiki generation results: ${pages.length} pages, ${sections.length} sections`);
+      pages.forEach(page => {
+        if (!page.title || page.title.trim() === '') {
+          console.error(`Invalid page found after validation: ${page.id} has empty title`);
+        }
+        if (!page.filePaths || page.filePaths.length === 0) {
+          console.warn(`Page ${page.id} (${page.title}) has no file paths`);
+        }
+      });
+
+      // Auto-generate sections for comprehensive view if AI didn't provide them
+      const generateSectionsFromPages = (pages: WikiPage[]): {
+        sections: WikiSection[],
+        rootSections: string[]
+      } => {
+        const generatedSections: WikiSection[] = [];
+        const generatedRootSections: string[] = [];
+
+        // Define common categories that might appear in page titles or content
+        const categories = [
+          { id: 'overview', title: 'Overview', keywords: ['overview', 'introduction', 'about', 'project'] },
+          { id: 'architecture', title: 'System Architecture', keywords: ['architecture', 'structure', 'design', 'system'] },
+          { id: 'features', title: 'Core Features', keywords: ['feature', 'functionality', 'core'] },
+          { id: 'data', title: 'Data Management/Flow', keywords: ['data', 'flow', 'pipeline', 'storage', 'database'] },
+          { id: 'frontend', title: 'Frontend Components', keywords: ['frontend', 'component', 'ui', 'interface', 'page', 'view'] },
+          { id: 'backend', title: 'Backend Systems', keywords: ['backend', 'api', 'endpoint', 'service', 'server'] },
+          { id: 'integration', title: 'Model Integration', keywords: ['model', 'ai', 'ml', 'integration'] }
+        ];
+
+        // Group pages by common prefixes or categories
+        const pageClusters = new Map<string, WikiPage[]>();
+
+        // Initialize clusters with empty arrays
+        categories.forEach(category => {
+          pageClusters.set(category.id, []);
+        });
+        pageClusters.set('other', []);
+
+        // Assign pages to categories based on title keywords
+        pages.forEach((page: WikiPage) => {
+          const title = page.title.toLowerCase();
+          let assigned = false;
+
+          // Try to find a matching category
+          for (const category of categories) {
+            if (category.keywords.some(keyword => title.includes(keyword))) {
+              pageClusters.get(category.id)?.push(page);
+              assigned = true;
+              break;
+            }
+          }
+
+          // If no category matched, put in "other"
+          if (!assigned) {
+            pageClusters.get('other')?.push(page);
+          }
+        });
+
+        // Create sections for non-empty categories
+        for (const [categoryId, categoryPages] of pageClusters.entries()) {
+          if (categoryPages.length > 0) {
+            const category = categories.find(c => c.id === categoryId) ||
+                            { id: categoryId, title: categoryId === 'other' ? 'Additional Information' : categoryId.charAt(0).toUpperCase() + categoryId.slice(1) };
+
+            const sectionId = `section-${categoryId}`;
+            generatedSections.push({
+              id: sectionId,
+              title: category.title,
+              pages: categoryPages.map((p: WikiPage) => p.id)
+            });
+            generatedRootSections.push(sectionId);
+          }
+        }
+
+        // If we still have no sections (unlikely), fall back to importance-based grouping
+        if (generatedSections.length === 0) {
+          const highImportancePages = pages.filter((p: WikiPage) => p.importance === 'high').map((p: WikiPage) => p.id);
+          const mediumImportancePages = pages.filter((p: WikiPage) => p.importance === 'medium').map((p: WikiPage) => p.id);
+          const lowImportancePages = pages.filter((p: WikiPage) => p.importance === 'low').map((p: WikiPage) => p.id);
+
+          if (highImportancePages.length > 0) {
+            generatedSections.push({
+              id: 'section-high',
+              title: 'Core Components',
+              pages: highImportancePages
+            });
+            generatedRootSections.push('section-high');
+          }
+
+          if (mediumImportancePages.length > 0) {
+            generatedSections.push({
+              id: 'section-medium',
+              title: 'Key Features',
+              pages: mediumImportancePages
+            });
+            generatedRootSections.push('section-medium');
+          }
+
+          if (lowImportancePages.length > 0) {
+            generatedSections.push({
+              id: 'section-low',
+              title: 'Additional Information',
+              pages: lowImportancePages
+            });
+            generatedRootSections.push('section-low');
+          }
+        }
+
+        return { sections: generatedSections, rootSections: generatedRootSections };
+      };
+
+      // Auto-generate sections for comprehensive view if AI didn't provide them
+      if (isComprehensiveView && (!sections || sections.length === 0)) {
+        const generated = generateSectionsFromPages(pages);
+        sections.push(...generated.sections);
+        rootSections.push(...generated.rootSections);
+        console.log('Auto-generated sections for comprehensive view:', sections);
+      }
+
       // Create wiki structure
       const wikiStructure: WikiStructure = {
         id: 'wiki',
@@ -1072,8 +1472,42 @@ IMPORTANT:
 
         console.log(`Starting generation for ${pages.length} pages with controlled concurrency`);
 
-        // Maximum concurrent requests
+        // Maximum concurrent requests (can be increased based on complexity)
         const MAX_CONCURRENT = 1;
+        
+        // Create progress tracking for the entire wiki generation
+        const progressTracker = {
+          totalPages: pages.length,
+          completedPages: 0,
+          failedPages: 0,
+          startTime: Date.now(),
+          estimatedTimeRemaining: 0,
+          updateProgress: (pageId: string, success: boolean) => {
+            if (success) {
+              progressTracker.completedPages++;
+            } else {
+              progressTracker.failedPages++;
+            }
+            
+            const elapsed = Date.now() - progressTracker.startTime;
+            const completed = progressTracker.completedPages + progressTracker.failedPages;
+            const avgTimePerPage = elapsed / Math.max(completed, 1);
+            const remaining = progressTracker.totalPages - completed;
+            progressTracker.estimatedTimeRemaining = avgTimePerPage * remaining;
+            
+            // Update loading message with progress
+            const percentage = Math.round((completed / progressTracker.totalPages) * 100);
+            const eta = progressTracker.estimatedTimeRemaining > 0 ? 
+              ` (ETA: ${Math.ceil(progressTracker.estimatedTimeRemaining / 1000 / 60)}min)` : '';
+            
+            setLoadingMessage(`Generating wiki pages... ${percentage}% complete${eta}`);
+            
+            // Save progress to localStorage
+            saveProgressMetrics(progressTracker);
+            
+            console.log(`Progress: ${completed}/${progressTracker.totalPages} pages, ${progressTracker.failedPages} failed`);
+          }
+        };
 
         // Create a queue of pages
         const queue = [...pages];
@@ -1090,6 +1524,15 @@ IMPORTANT:
 
               // Start generating content for this page
               generatePageContent(page, owner, repo)
+                .then(() => {
+                  // Page completed successfully
+                  progressTracker.updateProgress(page.id, true);
+                })
+                .catch((error) => {
+                  // Page failed
+                  console.error(`Page ${page.title} failed:`, error);
+                  progressTracker.updateProgress(page.id, false);
+                })
                 .finally(() => {
                   // When done (success or error), decrement active count and process more
                   activeRequests--;
@@ -1101,6 +1544,8 @@ IMPORTANT:
                     clearTimeout(timeoutId);
                     setIsLoading(false);
                     setLoadingMessage(undefined);
+                    // Clear saved progress after successful completion
+                    clearSavedProgress();
                   } else {
                     // Only process more if there are items remaining and we're under capacity
                     if (queue.length > 0 && activeRequests < MAX_CONCURRENT) {
@@ -1469,8 +1914,120 @@ IMPORTANT:
         }
       }
 
-      // Now determine the wiki structure
-      await determineWikiStructure(fileTreeData, readmeContent, owner, repo);
+      // Check repository complexity before processing
+      try {
+        const repoUrl = getRepoUrl(effectiveRepoInfo);
+        const complexityResponse = await fetch(`/api/repository/complexity?repo_url=${encodeURIComponent(repoUrl)}&repo_type=${effectiveRepoInfo.type}${currentToken ? `&access_token=${currentToken}` : ''}`);
+        
+        if (complexityResponse.ok) {
+          const complexity = await complexityResponse.json();
+          console.log('Repository complexity analysis:', complexity);
+          
+          // Show user warnings for high complexity repositories
+          if (complexity.complexity_score > 10) {
+            const proceed = window.confirm(
+              `This repository has high complexity (score: ${complexity.complexity_score}).\n\n` +
+              `Estimated processing time: ${complexity.estimated_time_minutes} minutes\n` +
+              `Risk factors: ${complexity.risk_factors.join(', ')}\n\n` +
+              `Recommendations:\n${complexity.recommendations.join('\n')}\n\n` +
+              `Do you want to proceed with wiki generation?`
+            );
+            
+            if (!proceed) {
+              setIsLoading(false);
+              setLoadingMessage(undefined);
+              return;
+            }
+          }
+          
+          // Adjust timeouts based on complexity with enhanced configuration
+          const recommendedTimeout = complexity.timeout_recommended * 1000; // Convert to milliseconds
+          const maxProcessingTimeout = parseInt(process.env.NEXT_PUBLIC_MAX_PROCESSING_TIMEOUT || '7200000'); // Default 2 hours max
+          const maxPageTimeout = parseInt(process.env.NEXT_PUBLIC_MAX_PAGE_TIMEOUT || '900000'); // Default 15 minutes
+          const minTimeout = 300000; // Minimum 5 minutes for safety
+          
+          // Apply safety bounds to recommended timeout
+          const safeRecommendedTimeout = Math.max(minTimeout, Math.min(recommendedTimeout, maxProcessingTimeout));
+          const pageTimeout = Math.min(safeRecommendedTimeout / Math.max(complexity.estimated_files / 10, 1), maxPageTimeout);
+          
+          // Log timeout adjustments for debugging
+          if (recommendedTimeout !== safeRecommendedTimeout) {
+            console.log(`Timeout adjusted: original ${recommendedTimeout/1000}s, safe ${safeRecommendedTimeout/1000}s (${safeRecommendedTimeout/60000} minutes)`);
+          }
+          console.log(`Timeout configuration: global=${safeRecommendedTimeout/60000}min, perPage=${pageTimeout/60000}min`);
+          
+          // Create comprehensive timeout configuration
+          const timeoutConfig = {
+            global: safeRecommendedTimeout,
+            perPage: pageTimeout,
+            complexity: complexity.complexity_score,
+            websocket: 5000, // WebSocket connection timeout
+            retry: {
+              enabled: true,
+              maxAttempts: 3,
+              baseDelay: 1000,
+              maxDelay: 10000
+            },
+            thresholds: {
+              small: parseInt(process.env.NEXT_PUBLIC_TIMEOUT_SMALL || '120000'),   // 2 minutes for small repos
+              medium: parseInt(process.env.NEXT_PUBLIC_TIMEOUT_MEDIUM || '300000'),  // 5 minutes for medium repos
+              large: parseInt(process.env.NEXT_PUBLIC_TIMEOUT_LARGE || '600000'),   // 10 minutes for large repos
+              xlarge: parseInt(process.env.NEXT_PUBLIC_TIMEOUT_XLARGE || '1800000') // 30 minutes for extra large repos
+            },
+            adjustments: {
+              fileCountMultiplier: complexity.estimated_files > 100 ? 1.5 : 1.0,
+              languageComplexity: complexity.language_complexity || 1.0,
+              repositorySize: complexity.repository_size_mb > 50 ? 1.3 : 1.0
+            }
+          };
+          
+          // Apply dynamic adjustments
+          const adjustedGlobalTimeout = Math.min(
+            timeoutConfig.global * timeoutConfig.adjustments.fileCountMultiplier * 
+            timeoutConfig.adjustments.languageComplexity * 
+            timeoutConfig.adjustments.repositorySize,
+            timeoutConfig.thresholds.xlarge
+          );
+          
+          const adjustedPageTimeout = Math.min(
+            timeoutConfig.perPage * timeoutConfig.adjustments.fileCountMultiplier,
+            timeoutConfig.thresholds.large
+          );
+          
+          timeoutConfig.global = adjustedGlobalTimeout;
+          timeoutConfig.perPage = adjustedPageTimeout;
+          
+          if (recommendedTimeout > 300000) { // If more than 5 minutes
+            console.log(`🔧 Adjusting timeouts based on repository complexity:`);
+            console.log(`📊 Complexity Score: ${complexity.complexity_score}`);
+            console.log(`📁 Estimated Files: ${complexity.estimated_files}`);
+            console.log(`💾 Repository Size: ${complexity.repository_size_mb}MB`);
+            console.log(`⏱️ Global timeout: ${Math.ceil(adjustedGlobalTimeout / 1000 / 60)} minutes`);
+            console.log(`📄 Per-page timeout: ${Math.ceil(adjustedPageTimeout / 1000 / 60)} minutes`);
+            console.log(`🔄 WebSocket timeout: ${timeoutConfig.websocket / 1000} seconds`);
+            console.log(`🔁 Retry config: ${timeoutConfig.retry.maxAttempts} attempts, ${timeoutConfig.retry.baseDelay}ms base delay`);
+            
+            // Display comprehensive timeout notification with recommendations
+            const timeoutMessage = `🔧 Repository complexity analysis complete:
+📊 Complexity Score: ${complexity.complexity_score}
+📁 ${complexity.estimated_files} files, ${complexity.repository_size_mb.toFixed(1)}MB
+⏱️ Timeout adjusted to ${Math.ceil(adjustedGlobalTimeout / 1000 / 60)} minutes
+📄 Per-page timeout: ${Math.ceil(adjustedPageTimeout / 1000 / 60)} minutes
+${complexity.recommendations ? '\n💡 Recommendations:\n' + complexity.recommendations.slice(0, 3).map((r: string) => `• ${r}`).join('\n') : ''}`;
+            
+            setLoadingMessage(timeoutMessage);
+          }
+          
+          // Store comprehensive timeout configuration globally
+          (window as unknown as { deepwikiTimeouts?: typeof timeoutConfig }).deepwikiTimeouts = timeoutConfig;
+        }
+      } catch (complexityError) {
+        console.warn('Could not analyze repository complexity:', complexityError);
+        // Continue without complexity analysis
+      }
+
+      // Now determine the wiki structure with retry logic
+      await determineWikiStructureWithRetry(fileTreeData, readmeContent, owner, repo);
 
     } catch (error) {
       console.error('Error fetching repository structure:', error);
