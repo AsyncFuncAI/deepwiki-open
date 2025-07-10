@@ -45,6 +45,7 @@
     "providerOpenAI": "OpenAI",
     "providerOpenRouter": "OpenRouter",
     "providerOllama": "Ollama (Local)",
+    "providerXai": "xAI",
     "localOllama": "Modelo Ollama Local",
     "experimental": "Experimental",
     "useOpenRouter": "Usar API OpenRouter",

@@ -45,6 +45,7 @@
     "providerOpenAI": "OpenAI",
     "providerOpenRouter": "OpenRouter",
     "providerOllama": "Ollama (Cục bộ)",
+    "providerXai": "xAI",
     "localOllama": "Mô hình Ollama cục bộ",
     "experimental": "Thử nghiệm",
     "useOpenRouter": "Sử dụng API OpenRouter",

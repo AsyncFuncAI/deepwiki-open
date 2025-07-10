@@ -164,6 +164,25 @@
           "top_p": 0.8
         }
       }
+    },
+    "xai": {
+      "client_class": "XAIClient",
+      "default_model": "grok-4-0709",
+      "supportsCustomModel": true,
+      "models": {
+        "grok-4-0709": {
+          "temperature": 0.7
+        },
+        "grok-3": {
+          "temperature": 0.7
+        },
+        "grok-2": {
+          "temperature": 0.7
+        },
+        "grok-beta": {
+          "temperature": 0.7
+        }
+      }
     }
   }
 }

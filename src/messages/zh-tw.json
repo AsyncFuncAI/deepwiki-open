@@ -45,6 +45,7 @@
     "providerOpenAI": "OpenAI",
     "providerOpenRouter": "OpenRouter",
     "providerOllama": "Ollama（本機）",
+    "providerXai": "xAI",
     "localOllama": "本機 Ollama 模型",
     "experimental": "實驗性",
     "useOpenRouter": "使用 OpenRouter API",
