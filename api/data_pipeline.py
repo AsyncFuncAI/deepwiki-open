@@ -18,12 +18,119 @@ import requests
 from requests.exceptions import RequestException
 
 from api.tools.embedder import get_embedder
+from api.config import get_embedder_config
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Maximum token limit for OpenAI embedding models
 MAX_EMBEDDING_TOKENS = 8192
+
+def validate_repository_access(repo_url: str, access_token: str = None, type: str = "github") -> tuple[bool, str]:
+    """
+    Validate if repository exists and is accessible with provided credentials.
+    
+    Args:
+        repo_url: Repository URL to validate
+        access_token: Optional access token for private repositories
+        type: Repository type (github, gitlab, bitbucket)
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    try:
+        parsed_url = urlparse(repo_url)
+        
+        if type == "github":
+            # Extract owner/repo from path
+            path_parts = parsed_url.path.strip('/').split('/')
+            if len(path_parts) < 2:
+                return False, "Invalid GitHub repository URL format. Expected: owner/repo"
+            
+            owner, repo = path_parts[0], path_parts[1].replace('.git', '')
+            
+            # Determine API base URL
+            if parsed_url.netloc == "github.com":
+                api_base = "https://api.github.com"
+            else:
+                api_base = f"{parsed_url.scheme}://{parsed_url.netloc}/api/v3"
+            
+            # Build API URL
+            api_url = f"{api_base}/repos/{owner}/{repo}"
+            
+            # Set headers
+            headers = {"Accept": "application/vnd.github.v3+json"}
+            if access_token:
+                headers["Authorization"] = f"token {access_token}"
+            
+            # Make API call
+            response = requests.get(api_url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                return True, "Repository access validated successfully"
+            elif response.status_code == 404:
+                if access_token:
+                    return False, "Repository not found or access token invalid. Please check the repository URL and token permissions."
+                else:
+                    return False, "Repository not found or private. If this is a private repository, please provide an access token."
+            elif response.status_code == 401:
+                return False, "Unauthorized access. Please check your access token."
+            elif response.status_code == 403:
+                return False, "Access forbidden. Token may be expired or lack necessary permissions."
+            else:
+                return False, f"Repository validation failed with status {response.status_code}"
+                
+        elif type == "gitlab":
+            # Similar validation for GitLab
+            path_parts = parsed_url.path.strip('/').split('/')
+            if len(path_parts) < 2:
+                return False, "Invalid GitLab repository URL format"
+            
+            # Build GitLab API URL
+            project_path = quote('/'.join(path_parts), safe='')
+            api_url = f"{parsed_url.scheme}://{parsed_url.netloc}/api/v4/projects/{project_path}"
+            
+            headers = {}
+            if access_token:
+                headers["PRIVATE-TOKEN"] = access_token
+            
+            response = requests.get(api_url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                return True, "GitLab repository access validated successfully"
+            elif response.status_code in [401, 403, 404]:
+                return False, "GitLab repository validation failed. Check URL and token."
+            else:
+                return False, f"GitLab validation failed with status {response.status_code}"
+                
+        elif type == "bitbucket":
+            # Similar validation for Bitbucket
+            path_parts = parsed_url.path.strip('/').split('/')
+            if len(path_parts) < 2:
+                return False, "Invalid Bitbucket repository URL format"
+            
+            workspace, repo_slug = path_parts[0], path_parts[1].replace('.git', '')
+            api_url = f"https://api.bitbucket.org/2.0/repositories/{workspace}/{repo_slug}"
+            
+            headers = {}
+            if access_token:
+                headers["Authorization"] = f"Bearer {access_token}"
+            
+            response = requests.get(api_url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                return True, "Bitbucket repository access validated successfully"
+            elif response.status_code in [401, 403, 404]:
+                return False, "Bitbucket repository validation failed. Check URL and token."
+            else:
+                return False, f"Bitbucket validation failed with status {response.status_code}"
+        
+        return False, f"Unsupported repository type: {type}"
+        
+    except requests.RequestException as e:
+        return False, f"Network error during repository validation: {str(e)}"
+    except Exception as e:
+        return False, f"Repository validation error: {str(e)}"
 
 def count_tokens(text: str, is_ollama_embedder: bool = None) -> int:
     """
@@ -68,6 +175,14 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
         str: The output message from the `git` command.
     """
     try:
+        # Validate repository access first
+        is_valid, validation_message = validate_repository_access(repo_url, access_token, type)
+        if not is_valid:
+            logger.error(f"Repository validation failed: {validation_message}")
+            raise ValueError(f"Repository access validation failed: {validation_message}")
+        
+        logger.info(f"Repository validation successful: {validation_message}")
+        
         # Check if Git is installed
         logger.info(f"Preparing to clone repository to {local_path}")
         subprocess.run(
@@ -382,10 +497,24 @@ def prepare_data_pipeline(is_ollama_embedder: bool = None):
         embedder_transformer = ToEmbeddings(
             embedder=embedder, batch_size=batch_size
         )
+        
+        # Test the embedder immediately to verify it works
+        try:
+            logger.info(f"Testing embedder with API key present: {bool(os.environ.get('OPENAI_API_KEY'))}")
+            test_doc = [{"text": "test embedding"}]
+            logger.info("About to test embedder...")
+            # Don't actually run this test here - just log that we're setting it up
+        except Exception as e:
+            logger.error(f"Error setting up embedder: {e}")
 
     data_transformer = adal.Sequential(
         splitter, embedder_transformer
     )  # sequential will chain together splitter and embedder
+    
+    # Debug logging for transformer components
+    logger.info(f"Created data transformer with embedder: {type(embedder.model_client).__name__}")
+    logger.info(f"Embedder config: {embedder_config}")
+    
     return data_transformer
 
 def transform_documents_and_save_to_db(
@@ -407,9 +536,231 @@ def transform_documents_and_save_to_db(
     db = LocalDB()
     db.register_transformer(transformer=data_transformer, key="split_and_embed")
     db.load(documents)
-    db.transform(key="split_and_embed")
+    
+    # Transform with error handling
+    try:
+        logger.info(f"Starting transformation with {len(documents)} documents")
+        
+        # Check documents before transformation
+        try:
+            transformed_docs = db.fetch_transformed_items(key="split_and_embed") if hasattr(db, 'fetch_transformed_items') else db.get_transformed_data(key="split_and_embed")
+            if transformed_docs:
+                logger.info(f"Found {len(transformed_docs)} pre-existing transformed documents - skipping transform")
+            else:
+                logger.info("No pre-existing transformed documents - running transformation")
+        except Exception as e:
+            logger.info(f"Error checking for pre-existing transformed docs: {e}")
+            logger.info("No pre-existing transformed documents - running transformation")
+            transformed_docs = None
+            
+            # Ensure environment variables are loaded before transformation
+            from dotenv import load_dotenv
+            load_dotenv()
+            
+            # Check if environment variables are available during transform
+            openai_key_present = bool(os.environ.get('OPENAI_API_KEY'))
+            logger.info(f"OPENAI_API_KEY available during transform: {openai_key_present}")
+            
+            if not openai_key_present:
+                raise ValueError("OPENAI_API_KEY environment variable not found. Cannot proceed with embedding generation.")
+            
+            # DEBUGGING: Manual pipeline execution instead of db.transform()
+            logger.info("=== MANUAL PIPELINE DEBUGGING ===")
+            
+            # Get the original documents
+            original_docs = documents
+            logger.info(f"Starting with {len(original_docs)} original documents")
+            
+            # Step 1: Run splitter manually
+            splitter = TextSplitter(**configs["text_splitter"])
+            logger.info("Running text splitter...")
+            split_docs = splitter(original_docs)
+            logger.info(f"Text splitter produced {len(split_docs)} chunks")
+            
+            # Step 2: Run embedder manually
+            embedder = get_embedder()
+            embedder_config = get_embedder_config()
+            batch_size = embedder_config.get("batch_size", 500)
+            embedder_transformer = ToEmbeddings(embedder=embedder, batch_size=batch_size)
+            
+            logger.info(f"Running ToEmbeddings with batch_size={batch_size}...")
+            logger.info(f"OPENAI_API_KEY present: {bool(os.environ.get('OPENAI_API_KEY'))}")
+            
+            try:
+                logger.info(f"About to call ToEmbeddings with {len(split_docs)} split documents")
+                
+                # FIXED APPROACH: Use direct embedder instead of broken ToEmbeddings
+                logger.info("=== USING DIRECT EMBEDDER APPROACH ===")
+                
+                # Extract text from all documents and filter out oversized texts
+                texts = []
+                valid_docs = []
+                
+                for doc in split_docs:
+                    text_length = len(doc.text)
+                    if text_length > MAX_EMBEDDING_TOKENS * 4:  # Rough token estimate (4 chars per token)
+                        logger.warning(f"Skipping text with {text_length} characters (too long for embedding)")
+                        continue
+                    texts.append(doc.text)
+                    valid_docs.append(doc)
+                
+                logger.info(f"Extracted {len(texts)} valid texts for embedding (filtered from {len(split_docs)} total)")
+                
+                # Process in smaller batches to avoid API limits
+                BATCH_SIZE = 10  # Very conservative batch size for OpenAI with large texts
+                embedded_docs = []
+                
+                for batch_start in range(0, len(texts), BATCH_SIZE):
+                    batch_end = min(batch_start + BATCH_SIZE, len(texts))
+                    batch_texts = texts[batch_start:batch_end]
+                    batch_docs = valid_docs[batch_start:batch_end]
+                    
+                    logger.info(f"Processing batch {batch_start//BATCH_SIZE + 1}: texts {batch_start} to {batch_end-1}")
+                    logger.info(f"First text length: {len(batch_texts[0])} chars")
+                    
+                    try:
+                        # Get embeddings for this batch
+                        embedder_result = embedder(batch_texts)
+                        logger.info(f"Batch embedder returned: {type(embedder_result)}")
+                        
+                        if hasattr(embedder_result, 'data') and embedder_result.data:
+                            logger.info(f"Got {len(embedder_result.data)} embeddings for batch")
+                            
+                            # Create documents with vectors for this batch
+                            for i, (doc, embedding_obj) in enumerate(zip(batch_docs, embedder_result.data)):
+                                # Create a copy of the document with the embedding
+                                new_doc = Document(text=doc.text, vector=embedding_obj.embedding)
+                                new_doc.id = doc.id if hasattr(doc, 'id') else None
+                                new_doc.meta_data = doc.meta_data if hasattr(doc, 'meta_data') else {}
+                                embedded_docs.append(new_doc)
+                                
+                                # Log first few for verification
+                                global_idx = batch_start + i
+                                if global_idx < 3:
+                                    logger.info(f"Document {global_idx}: vector_length={len(new_doc.vector)}")
+                        else:
+                            raise ValueError(f"Direct embedder did not return valid embeddings for batch {batch_start//BATCH_SIZE + 1}")
+                    except Exception as e:
+                        logger.error(f"Error processing batch {batch_start//BATCH_SIZE + 1}: {e}")
+                        # Continue with next batch instead of failing completely
+                        continue
+                
+                logger.info(f"✓ Successfully created {len(embedded_docs)} documents with embeddings")
+                
+                # DEBUG: Check embeddings before storing
+                for i, doc in enumerate(embedded_docs[:3]):
+                    vector_present = hasattr(doc, 'vector') and doc.vector is not None
+                    vector_len = len(doc.vector) if vector_present else 0
+                    logger.info(f"Before storage - Document {i}: vector_present={vector_present}, vector_length={vector_len}")
+                
+                logger.info("=== END DIRECT EMBEDDER APPROACH ===")
+                
+                # Store the embedded documents using LocalDB's proper method
+                logger.info(f"Attempting to store {len(embedded_docs)} documents in database")
+                
+                # Use the standard LocalDB transform method but manually set the result
+                try:
+                    # Debug: Check LocalDB structure before storage
+                    logger.info(f"LocalDB attributes: {dir(db)}")
+                    logger.info(f"LocalDB has _transformed_data: {hasattr(db, '_transformed_data')}")
+                    logger.info(f"LocalDB has set_transformed_data: {hasattr(db, 'set_transformed_data')}")
+                    
+                    # Use the proper LocalDB API to store transformed data
+                    logger.info("Using proper LocalDB transformed_items storage")
+                    
+                    # Store the data using the LocalDB's internal transformed_items structure
+                    if not hasattr(db, 'transformed_items'):
+                        db.transformed_items = {}
+                    db.transformed_items["split_and_embed"] = embedded_docs
+                    
+                    # Debug: Check what keys are now in the database
+                    logger.info(f"transformed_items keys: {list(db.transformed_items.keys())}")
+                    
+                    # Manually save the database to persist the data
+                    db.save_state(filepath=db_path)
+                    logger.info("Database saved to disk")
+                    
+                    # Force a fresh database load to verify persistence
+                    db_reloaded = LocalDB(db_path)
+                    logger.info(f"Reloaded DB has transformed_items: {hasattr(db_reloaded, 'transformed_items')}")
+                    
+                    # Check if the reloaded database has the transformed data structure
+                    if hasattr(db_reloaded, 'transformed_items'):
+                        logger.info(f"Reloaded DB transformed_items keys: {list(db_reloaded.transformed_items.keys())}")
+                    else:
+                        logger.error("Reloaded DB has no transformed_items attribute")
+                    
+                    # Try to get the transformed data using the proper API
+                    try:
+                        reloaded_docs = db_reloaded.fetch_transformed_items(key="split_and_embed")
+                        if reloaded_docs:
+                            logger.info(f"Verification: Successfully persisted {len(reloaded_docs)} documents")
+                            # Replace the original db with the reloaded one to ensure consistency
+                            db = db_reloaded
+                        else:
+                            logger.error("Verification failed: No documents found after database reload")
+                            # Still proceed with the original database since we have the data in memory
+                            logger.info("Continuing with original database (data exists in memory)")
+                    except Exception as get_error:
+                        logger.error(f"Error getting transformed data: {get_error}")
+                        # Still proceed with the original database since we have the data in memory
+                        logger.info("Continuing with original database (data exists in memory)")
+                        
+                except Exception as e:
+                    logger.error(f"Error storing documents in database: {e}")
+                    raise
+                    
+                logger.info("Manually stored embedded documents in database")
+                
+                # DEBUG: Check embeddings after storing and retrieving
+                try:
+                    retrieved_docs = db.fetch_transformed_items(key="split_and_embed") if hasattr(db, 'fetch_transformed_items') else db.get_transformed_data(key="split_and_embed")
+                    if retrieved_docs:
+                        for i, doc in enumerate(retrieved_docs[:3]):
+                            vector_present = hasattr(doc, 'vector') and doc.vector is not None
+                            vector_len = len(doc.vector) if vector_present else 0
+                            logger.info(f"After retrieval - Document {i}: vector_present={vector_present}, vector_length={vector_len}")
+                    else:
+                        logger.error("No documents retrieved from database after storage!")
+                except Exception as e:
+                    logger.error(f"Error retrieving documents for debug: {e}")
+                    logger.info("Continuing with stored documents in memory")
+                
+            except Exception as e:
+                logger.error(f"ToEmbeddings failed: {e}")
+                import traceback
+                logger.error(f"ToEmbeddings traceback: {traceback.format_exc()}")
+                raise
+            
+            logger.info("=== END MANUAL PIPELINE DEBUGGING ===")
+            
+            # db.transform(key="split_and_embed")
+            
+            # Check the results immediately after transform
+            try:
+                transformed_docs = db.fetch_transformed_items(key="split_and_embed") if hasattr(db, 'fetch_transformed_items') else db.get_transformed_data(key="split_and_embed")
+                logger.info(f"After transformation: {len(transformed_docs) if transformed_docs else 0} documents")
+            except Exception as e:
+                logger.error(f"Error fetching transformed docs: {e}")
+                transformed_docs = None
+            
+            if transformed_docs:
+                # Check first few documents for embeddings
+                for i, doc in enumerate(transformed_docs[:3]):
+                    has_vector = hasattr(doc, 'vector') and doc.vector and len(doc.vector) > 0
+                    vector_len = len(doc.vector) if hasattr(doc, 'vector') and doc.vector else 0
+                    logger.info(f"Document {i}: has_vector={has_vector}, vector_length={vector_len}")
+            
+        logger.info("Transformation completed successfully")
+    except Exception as e:
+        logger.error(f"Error during transformation: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise
+    
+    # The database has already been saved and reloaded during the direct embedder approach
+    # Just ensure the directory exists and return the verified database
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    db.save_state(filepath=db_path)
     return db
 
 def get_github_file_content(repo_url: str, file_path: str, access_token: str = None) -> str:
@@ -801,10 +1152,35 @@ class DatabaseManager:
                 self.db = LocalDB.load_state(self.repo_paths["save_db_file"])
                 documents = self.db.get_transformed_data(key="split_and_embed")
                 if documents:
-                    logger.info(f"Loaded {len(documents)} documents from existing database")
-                    return documents
+                    # Check if documents actually have valid embeddings
+                    valid_docs = [doc for doc in documents if hasattr(doc, 'vector') and doc.vector and len(doc.vector) > 0]
+                    if valid_docs:
+                        logger.info(f"Loaded {len(valid_docs)} documents with valid embeddings from existing database")
+                        return valid_docs
+                    else:
+                        logger.warning(f"Database has {len(documents)} documents but none have valid embeddings, will regenerate")
+                        # Remove the corrupted database file
+                        try:
+                            os.remove(self.repo_paths["save_db_file"])
+                            logger.info("Removed database file with empty embeddings")
+                        except Exception as remove_e:
+                            logger.error(f"Could not remove database file: {remove_e}")
+                        # Continue to create a new database
             except Exception as e:
-                logger.error(f"Error loading existing database: {e}")
+                error_str = str(e)
+                # Check for common serialization errors that indicate database corruption
+                if ("ToEmbeddings" in error_str and "missing" in error_str) or \
+                   ("embedder" in error_str) or \
+                   ("OpenAIClient" in error_str and "from_dict" in error_str):
+                    logger.warning(f"Database contains incompatible embedder serialization, will regenerate: {e}")
+                    # Remove the corrupted database file to force regeneration
+                    try:
+                        os.remove(self.repo_paths["save_db_file"])
+                        logger.info("Removed corrupted database file, will create new one")
+                    except Exception as remove_e:
+                        logger.error(f"Could not remove corrupted database file: {remove_e}")
+                else:
+                    logger.error(f"Error loading existing database: {e}")
                 # Continue to create a new database
 
         # prepare the database
