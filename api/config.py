@@ -194,7 +194,8 @@ def load_lang_config():
             "kr": "Korean (한국어)",
             "vi": "Vietnamese (Tiếng Việt)",
             "pt-br": "Brazilian Portuguese (Português Brasileiro)",
-            "fr": "Français (French)"
+            "fr": "Français (French)",
+            "ru": "Русский (Russian)"
         },
         "default": "en"
     }
