@@ -484,6 +484,7 @@ IMPORTANT: Generate the content in ${language === 'en' ? 'English' :
             language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 
             language === "pt-br" ? "Brazilian Portuguese (Português Brasileiro)" :
             language === "fr" ? "Français (French)" :
+            language === "ru" ? "Русский (Russian)" :
             'English'} language.
 
 Remember:
@@ -699,6 +700,7 @@ IMPORTANT: The wiki content will be generated in ${language === 'en' ? 'English'
             language === 'vi' ? 'Vietnamese (Tiếng Việt)' :
             language === "pt-br" ? "Brazilian Portuguese (Português Brasileiro)" :
             language === "fr" ? "Français (French)" :
+            language === "ru" ? "Русский (Russian)" :
             'English'} language.
 
 When designing the wiki structure, include pages that would benefit from visual diagrams, such as:
