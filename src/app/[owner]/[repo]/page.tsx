@@ -185,7 +185,6 @@ export default function RepoWikiPage() {
 
   // Extract tokens from search params
   const token = searchParams.get('token') || '';
-  const repoType = searchParams.get('type') || 'github';
   const localPath = searchParams.get('local_path') ? decodeURIComponent(searchParams.get('local_path') || '') : undefined;
   const repoUrl = searchParams.get('repo_url') ? decodeURIComponent(searchParams.get('repo_url') || '') : undefined;
   const providerParam = searchParams.get('provider') || '';
@@ -193,6 +192,13 @@ export default function RepoWikiPage() {
   const isCustomModelParam = searchParams.get('is_custom_model') === 'true';
   const customModelParam = searchParams.get('custom_model') || '';
   const language = searchParams.get('language') || 'en';
+  const repoType = repoUrl?.includes('bitbucket.org')
+    ? 'bitbucket'
+    : repoUrl?.includes('gitlab.com')
+      ? 'gitlab'
+      : repoUrl?.includes('github.com')
+        ? 'github'
+        : searchParams.get('type') || 'github';
 
   // Import language context for translations
   const { messages } = useLanguage();
