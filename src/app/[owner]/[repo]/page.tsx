@@ -192,11 +192,13 @@ export default function RepoWikiPage() {
   const isCustomModelParam = searchParams.get('is_custom_model') === 'true';
   const customModelParam = searchParams.get('custom_model') || '';
   const language = searchParams.get('language') || 'en';
-  let repoType;
-  if (repoUrl?.includes('bitbucket.org')) repoType = 'bitbucket';
-  else if (repoUrl?.includes('gitlab.com')) repoType = 'gitlab';
-  else if (repoUrl?.includes('github.com')) repoType = 'github';
-  else repoType = searchParams.get('type') || 'github';
+  const repoType = repoUrl?.includes('bitbucket.org')
+    ? 'bitbucket'
+    : repoUrl?.includes('gitlab.com')
+      ? 'gitlab'
+      : repoUrl?.includes('github.com')
+        ? 'github'
+        : searchParams.get('type') || 'github';
 
   // Import language context for translations
   const { messages } = useLanguage();
