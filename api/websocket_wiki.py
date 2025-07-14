@@ -14,6 +14,7 @@ from api.data_pipeline import count_tokens, get_file_content
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.azureai_client import AzureAIClient
+from api.xai_client import XAIClient
 from api.rag import RAG
 
 # Configure logging
@@ -510,6 +511,22 @@ This file contains...
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM
             )
+        elif request.provider == "xai":
+            logger.info(f"Using xAI with model: {request.model}")
+
+            # Initialize xAI client
+            model = XAIClient()
+            model_kwargs = {
+                "model": request.model,
+                "stream": True,
+                "temperature": model_config["temperature"]
+            }
+
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=prompt,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
         else:
             # Initialize Google Generative AI model
             model = genai.GenerativeModel(
@@ -591,6 +608,23 @@ This file contains...
                 except Exception as e_azure:
                     logger.error(f"Error with Azure AI API: {str(e_azure)}")
                     error_msg = f"\nError with Azure AI API: {str(e_azure)}\n\nPlease check that you have set the AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_VERSION environment variables with valid values."
+                    await websocket.send_text(error_msg)
+                    # Close the WebSocket connection after sending the error message
+                    await websocket.close()
+            elif request.provider == "xai":
+                try:
+                    # Get the response and handle it properly using the previously created api_kwargs
+                    logger.info("Making xAI API call")
+                    response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                    # Handle streaming response from xAI
+                    async for chunk in response:
+                        if chunk:  # xAI returns text chunks directly
+                            await websocket.send_text(chunk)
+                    # Explicitly close the WebSocket connection after the response is complete
+                    await websocket.close()
+                except Exception as e_xai:
+                    logger.error(f"Error with xAI API: {str(e_xai)}")
+                    error_msg = f"\nError with xAI API: {str(e_xai)}\n\nPlease check that you have set the XAI_API_KEY environment variable with a valid API key."
                     await websocket.send_text(error_msg)
                     # Close the WebSocket connection after sending the error message
                     await websocket.close()
