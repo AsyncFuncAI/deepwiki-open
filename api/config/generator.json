@@ -1,6 +1,24 @@
 {
   "default_provider": "google",
   "providers": {
+    "dashscope": {
+      "default_model": "qwen-plus",
+      "supportsCustomModel": true,
+      "models": {
+        "qwen-plus": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "qwen-turbo": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "deepseek-r1": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        }
+      }
+    },
     "google": {
       "default_model": "gemini-2.0-flash",
       "supportsCustomModel": true,

@@ -14,6 +14,7 @@ from api.data_pipeline import count_tokens, get_file_content
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.azureai_client import AzureAIClient
+from api.dashscope_client import DashscopeClient
 from api.rag import RAG
 
 # Configure logging
@@ -498,6 +499,23 @@ This file contains...
 
             # Initialize Azure AI client
             model = AzureAIClient()
+            model_kwargs = {
+                "model": request.model,
+                "stream": True,
+                "temperature": model_config["temperature"],
+                "top_p": model_config["top_p"]
+            }
+
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=prompt,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
+        elif request.provider == "dashscope":
+            logger.info(f"Using Dashscope with model: {request.model}")
+
+            # Initialize Dashscope client
+            model = DashscopeClient()
             model_kwargs = {
                 "model": request.model,
                 "stream": True,
