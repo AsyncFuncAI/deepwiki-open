@@ -403,7 +403,10 @@ This file contains...
                 conversation_history += f"<turn>\n<user>{turn.user_query.query_str}</user>\n<assistant>{turn.assistant_response.response_str}</assistant>\n</turn>\n"
 
         # Create the prompt with context
-        prompt = f"/no_think {system_prompt}\n\n"
+        if request.provider == "ollama":
+            prompt = f"/think {system_prompt}\n\n"
+        else:
+            prompt = f"/no_think {system_prompt}\n\n"
 
         if conversation_history:
             prompt += f"<conversation_history>\n{conversation_history}</conversation_history>\n\n"
@@ -428,7 +431,7 @@ This file contains...
         model_config = get_model_config(request.provider, request.model)["model_kwargs"]
 
         if request.provider == "ollama":
-            prompt += " /no_think"
+            prompt += " /think"
 
             model = OllamaClient()
             model_kwargs = {
@@ -527,11 +530,18 @@ This file contains...
                 # Get the response and handle it properly using the previously created api_kwargs
                 response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
                 # Handle streaming response from Ollama
+                think = False
                 async for chunk in response:
                     text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
                     if text and not text.startswith('model=') and not text.startswith('created_at='):
-                        text = text.replace('<think>', '').replace('</think>', '')
-                        await websocket.send_text(text)
+                        if text == '<think>':
+                            think = True
+                            logger.info("think enabled")
+                        elif text == '</think>':
+                            think = False
+                        # skip <think>.....</think> in output
+                        if not think:
+                            await websocket.send_text(text)
                 # Explicitly close the WebSocket connection after the response is complete
                 await websocket.close()
             elif request.provider == "openrouter":
@@ -614,7 +624,10 @@ This file contains...
                 logger.warning("Token limit exceeded, retrying without context")
                 try:
                     # Create a simplified prompt without context
-                    simplified_prompt = f"/no_think {system_prompt}\n\n"
+                    if request.provider == "ollama":
+                        simplified_prompt = f"/think {system_prompt}\n\n"
+                    else:
+                        simplified_prompt = f"/no_think {system_prompt}\n\n"
                     if conversation_history:
                         simplified_prompt += f"<conversation_history>\n{conversation_history}</conversation_history>\n\n"
 
@@ -626,7 +639,7 @@ This file contains...
                     simplified_prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
 
                     if request.provider == "ollama":
-                        simplified_prompt += " /no_think"
+                        simplified_prompt += " /think"
 
                         # Create new api_kwargs with the simplified prompt
                         fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
@@ -639,11 +652,16 @@ This file contains...
                         fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
 
                         # Handle streaming fallback_response from Ollama
-                        async for chunk in fallback_response:
+                        think = False
+                        async for chunk in response:
                             text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
                             if text and not text.startswith('model=') and not text.startswith('created_at='):
-                                text = text.replace('<think>', '').replace('</think>', '')
-                                await websocket.send_text(text)
+                                if text == '<think>':
+                                    think = True
+                                elif text == '</think>':
+                                    think = False
+                                if not think:
+                                    await websocket.send_text(text)
                     elif request.provider == "openrouter":
                         try:
                             # Create new api_kwargs with the simplified prompt
