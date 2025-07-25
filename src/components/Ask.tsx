@@ -160,6 +160,17 @@ const Ask: React.FC<AskProps> = ({
       inputRef.current.focus();
     }
   };
+  const downloadresponse = () =>{
+  const blob = new Blob([response], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `response-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
   // Function to check if research is complete based on response content
   const checkIfResearchComplete = (content: string): boolean => {
@@ -766,17 +777,7 @@ const Ask: React.FC<AskProps> = ({
             <div className="flex items-center space-x-2">
               {/* Download button */}
               <button
-                onClick={() => {
-                  const blob = new Blob([response], { type: 'text/markdown' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `response-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.md`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-                }}
+                onClick={downloadresponse}
                 className="text-xs text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 px-2 py-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center gap-1"
                 title="Download response as markdown file"
               >
