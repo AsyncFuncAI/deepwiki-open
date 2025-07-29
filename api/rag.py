@@ -252,8 +252,8 @@ class RAG(adal.Component):
                     raise ValueError("Ollama embedder only supports a single string")
                 query = query[0]
             instance = self_weakref()
-            if instance is not None:
-                return instance.embedder(input=query)
+            assert instance is not None, "RAG instance is no longer available, but the query embedder was called."
+            return instance.embedder(input=query)
 
         # Use single string embedder for Ollama, regular embedder for others
         self.query_embedder = single_string_embedder if self.is_ollama_embedder else self.embedder
