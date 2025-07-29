@@ -82,11 +82,36 @@ if [ -f .env ]; then\n\
   export $(grep -v "^#" .env | xargs -r)\n\
 fi\n\
 \n\
-# Check for required environment variables\n\
-if [ -z "$OPENAI_API_KEY" ] || [ -z "$GOOGLE_API_KEY" ]; then\n\
-  echo "Warning: OPENAI_API_KEY and/or GOOGLE_API_KEY environment variables are not set."\n\
-  echo "These are required for DeepWiki to function properly."\n\
-  echo "You can provide them via a mounted .env file or as environment variables when running the container."\n\
+# Check for required environment variables based on provider configuration\n\
+has_azure_openai=false\n\
+has_other_provider=false\n\
+\n\
+# Check if Azure OpenAI is configured\n\
+if [ -n "$AZURE_OPENAI_API_KEY" ] && [ -n "$AZURE_OPENAI_ENDPOINT" ]; then\n\
+  has_azure_openai=true\n\
+  echo "✓ Azure OpenAI configuration detected"\n\
+fi\n\
+\n\
+# Check if other providers are configured\n\
+if [ -n "$GOOGLE_API_KEY" ] || [ -n "$OPENAI_API_KEY" ] || [ -n "$OPENROUTER_API_KEY" ]; then\n\
+  has_other_provider=true\n\
+fi\n\
+\n\
+# Validate configuration\n\
+if [ "$has_azure_openai" = false ] && [ "$has_other_provider" = false ]; then\n\
+  echo "⚠️  Warning: No AI provider configured!"\n\
+  echo "Please configure at least one of the following:"\n\
+  echo "  • Azure OpenAI: AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT"\n\
+  echo "  • Google Gemini: GOOGLE_API_KEY"\n\
+  echo "  • OpenAI: OPENAI_API_KEY"\n\
+  echo "  • OpenRouter: OPENROUTER_API_KEY"\n\
+  echo ""\n\
+fi\n\
+\n\
+if [ "$has_azure_openai" = true ]; then\n\
+  echo "🚀 Starting DeepWiki with Azure OpenAI integration..."\n\
+else\n\
+  echo "🚀 Starting DeepWiki with standard providers..."\n\
 fi\n\
 \n\
 # Start the API server in the background with the configured port\n\
@@ -99,6 +124,28 @@ exit $?' > /app/start.sh && chmod +x /app/start.sh
 ENV PORT=8001
 ENV NODE_ENV=production
 ENV SERVER_BASE_URL=http://localhost:${PORT:-8001}
+
+# Supported environment variables (set via .env file or docker run -e):
+# API Providers:
+#   GOOGLE_API_KEY - Google Gemini API key
+#   OPENAI_API_KEY - OpenAI API key  
+#   OPENROUTER_API_KEY - OpenRouter API key
+# Azure OpenAI (auto-detected when configured):
+#   AZURE_OPENAI_API_KEY - Azure OpenAI API key for text generation
+#   AZURE_OPENAI_ENDPOINT - Azure OpenAI endpoint for text generation
+#   AZURE_OPENAI_DEPLOYMENT - Azure deployment name for text generation
+#   AZURE_OPENAI_VERSION - Azure OpenAI API version (default: 2024-12-01-preview)
+#   AZURE_OPENAI_EMBEDDING_API_KEY - Azure OpenAI API key for embeddings (optional)
+#   AZURE_OPENAI_EMBEDDING_ENDPOINT - Azure OpenAI endpoint for embeddings (optional)
+#   AZURE_OPENAI_EMBEDDING_DEPLOYMENT - Azure deployment name for embeddings (optional) 
+#   AZURE_OPENAI_EMBEDDING_VERSION - Azure OpenAI API version for embeddings (optional)
+# Other services:
+#   OLLAMA_HOST - Ollama server host (default: http://localhost:11434)
+#   OPENAI_BASE_URL - Custom OpenAI API endpoint
+# Configuration:
+#   LOG_LEVEL - Logging level (default: INFO)
+#   LOG_FILE_PATH - Log file path (default: api/logs/application.log)
+#   DEEPWIKI_CONFIG_DIR - Custom config directory path
 
 # Create empty .env file (will be overridden if one exists at runtime)
 RUN touch .env

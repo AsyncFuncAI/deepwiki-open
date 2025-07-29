@@ -4,7 +4,10 @@
 
 **DeepWiki** is my own implementation attempt of DeepWiki, automatically creates beautiful, interactive wikis for any GitHub, GitLab, or BitBucket repository! Just enter a repo name, and DeepWiki will:
 
-1. Analyze the code structure
+1. Analyze the2. **Add to your `.env` file** (see `.env.example` for full template):
+   ```bash
+   AZURE_OPENAI_EMBEDDING_API_KEY=your_api_key
+   AZURE_OPENAI_EMBEDDING_ENDPOINT=https://your-resource.openai.azure.come structure
 2. Generate comprehensive documentation
 3. Create visual diagrams to explain how everything works
 4. Organize it all into an easy-to-navigate wiki
@@ -36,17 +39,22 @@
 git clone https://github.com/AsyncFuncAI/deepwiki-open.git
 cd deepwiki-open
 
-# Create a .env file with your API keys
+# Create a .env file from the example template
+cp .env.example .env
+# Edit .env with your actual API keys, or create manually:
 echo "GOOGLE_API_KEY=your_google_api_key" > .env
 echo "OPENAI_API_KEY=your_openai_api_key" >> .env
 # Optional: Add OpenRouter API key if you want to use OpenRouter models
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 # Optional: Add Ollama host if not local. defaults to http://localhost:11434
 echo "OLLAMA_HOST=your_ollama_host" >> .env
-# Optional: Add Azure API key, endpoint and version if you want to use azure openai models
+# Optional: Add Azure OpenAI credentials if you want to use Azure OpenAI models
+echo "AZURE_OPENAI_EMBEDDING_API_KEY=your_azure_openai_api_key" >> .env
+echo "AZURE_OPENAI_EMBEDDING_ENDPOINT=https://your-resource.openai.azure.com/openai/deployments/text-embedding" >> .env
+echo "AZURE_OPENAI_EMBEDDING_VERSION=2024-12-01-preview" >> .env
 echo "AZURE_OPENAI_API_KEY=your_azure_openai_api_key" >> .env
-echo "AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint" >> .env
-echo "AZURE_OPENAI_VERSION=your_azure_openai_version" >> .env
+echo "AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/openai/deployments/gpt4o-model" >> .env
+echo "AZURE_OPENAI_VERSION=2024-12-01-preview" >> .env
 # Run with Docker Compose
 docker-compose up
 ```
@@ -54,28 +62,45 @@ docker-compose up
 For detailed instructions on using DeepWiki with Ollama and Docker, see [Ollama Instructions](Ollama-instruction.md).
 
 > 💡 **Where to get these keys:**
-> - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-> - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
-> - Get Azure OpenAI credentials from [Azure Portal](https://portal.azure.com/) - create an Azure OpenAI resource and get the API key, endpoint, and API version
+> - **Google AI Studio**: Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+> - **OpenAI Platform**: Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+> - **Azure Portal**: Get Azure OpenAI credentials from [Azure Portal](https://portal.azure.com/) - create an Azure OpenAI resource and get the API key, endpoint (full deployment URL), and API version
 
 ### Option 2: Manual Setup (Recommended)
 
 #### Step 1: Set Up Your API Keys
 
-Create a `.env` file in the project root with these keys:
+Create a `.env` file in the project root with these keys (you can copy from `.env.example`):
 
 ```
+# Not required if using Azure OpenAI model
 GOOGLE_API_KEY=your_google_api_key
 OPENAI_API_KEY=your_openai_api_key
+
 # Optional: Add this if you want to use OpenRouter models
 OPENROUTER_API_KEY=your_openrouter_api_key
-# Optional: Add this if you want to use Azure OpenAI models
-AZURE_OPENAI_API_KEY=your_azure_openai_api_key
-AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint
-AZURE_OPENAI_VERSION=your_azure_openai_version
+
+# Optional: Add this if you want to use Azure OpenAI models (auto-detected)
+## Text Embedding model: 
+AZURE_OPENAI_EMBEDDING_API_KEY=your_api_key
+AZURE_OPENAI_EMBEDDING_ENDPOINT=https://your-resource.openai.azure.com
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-large
+AZURE_OPENAI_EMBEDDING_VERSION=2024-12-01-preview
+## Text Generation model: 
+AZURE_OPENAI_API_KEY=your_api_key
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+AZURE_OPENAI_DEPLOYMENT=gpt4o
+AZURE_OPENAI_VERSION=2024-12-01-preview
+
+# Optional: Separate embedding endpoint for Azure OpenAI (if different from main endpoint)
+AZURE_OPENAI_EMBEDDING_ENDPOINT=your_azure_embedding_endpoint
+AZURE_OPENAI_EMBEDDING_API_KEY=your_azure_embedding_api_key
+
 # Optional: Add Ollama host if not local. default: http://localhost:11434
 OLLAMA_HOST=your_ollama_host
 ```
+
+> **🚀 Azure OpenAI Auto-Detection**: When Azure OpenAI is configured (endpoint contains `.openai.azure.com`), DeepWiki automatically uses Azure OpenAI for both text generation (GPT-4o) and embeddings (text-embedding-3-large), bypassing the need for Google/OpenAI API keys. The system intelligently switches providers based on your configuration!
 
 #### Step 2: Start the Backend
 
@@ -186,10 +211,10 @@ DeepWiki now implements a flexible provider-based model selection system support
 
 ### Supported Providers and Models
 
-- **Google**: Default `gemini-2.0-flash`, also supports `gemini-1.5-flash`, `gemini-1.0-pro`, etc.
-- **OpenAI**: Default `gpt-4o`, also supports `o4-mini`, etc.
+- **Google Gemini**: Default `gemini-2.0-flash`, also supports `gemini-1.5-flash`, `gemini-1.0-pro`, etc.
+- **OpenAI**: Default `gpt-4o`, also supports `gpt-4o-mini`, etc.
 - **OpenRouter**: Access to multiple models via a unified API, including Claude, Llama, Mistral, etc.
-- **Azure OpenAI**: Default `gpt-4o`, also supports `o4-mini`, etc.
+- **Azure OpenAI**: Default `gpt-4o`, also supports `gpt-4o-mini`, etc. (auto-detects and switches when configured)
 - **Ollama**: Support for locally running open-source models like `llama3`
 
 ### Environment Variables
@@ -197,19 +222,28 @@ DeepWiki now implements a flexible provider-based model selection system support
 Each provider requires its corresponding API key environment variables:
 
 ```
-# API Keys
+# API Keys for Different Providers
 GOOGLE_API_KEY=your_google_api_key        # Required for Google Gemini models
 OPENAI_API_KEY=your_openai_api_key        # Required for OpenAI models
 OPENROUTER_API_KEY=your_openrouter_api_key # Required for OpenRouter models
-AZURE_OPENAI_API_KEY=your_azure_openai_api_key  #Required for Azure OpenAI models
-AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint  #Required for Azure OpenAI models
-AZURE_OPENAI_VERSION=your_azure_openai_version  #Required for Azure OpenAI models
 
-# OpenAI API Base URL Configuration
-OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
+# Optional: Separate Azure OpenAI configuration (auto-detected when endpoint contains .openai.azure.com)
+## Text Embedding model
+  AZURE_OPENAI_EMBEDDING_API_KEY=your_api_key
+  AZURE_OPENAI_EMBEDDING_ENDPOINT=https://your-resource.openai.azure.com
+  AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-large
+  AZURE_OPENAI_EMBEDDING_VERSION=2024-12-01-preview
+## Text Generation model
+  AZURE_OPENAI_API_KEY=your_api_key
+  AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+  AZURE_OPENAI_DEPLOYMENT=gpt4o
+  AZURE_OPENAI_VERSION=2024-12-01-preview
 
-# Ollama host
-OLLAMA_HOST=your_ollama_host # Optional, if Ollama is not local. default: http://localhost:11434
+# OpenAI API Base URL Configuration (for enterprise/custom endpoints)
+OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optional
+
+# Ollama Configuration
+OLLAMA_HOST=your_ollama_host # Optional, default: http://localhost:11434
 
 # Configuration Directory
 DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # Optional, for custom config file location
@@ -235,6 +269,56 @@ DeepWiki uses JSON configuration files to manage various aspects of the system:
 
 By default, these files are located in the `api/config/` directory. You can customize their location using the `DEEPWIKI_CONFIG_DIR` environment variable.
 
+## 🔵 Azure OpenAI Integration
+
+DeepWiki provides seamless Azure OpenAI integration with automatic detection and smart provider switching.
+
+### ✨ Key Features
+
+- **🔍 Auto-Detection**: Automatically detects Azure OpenAI when endpoint contains `.openai.azure.com`
+- **🔄 Smart Switching**: Switches from Google/OpenAI to Azure OpenAI automatically
+- **📋 Complete Coverage**: Handles both text generation (GPT-4o) and embeddings (text-embedding-3-large)
+- **⚡ Zero Configuration**: No code changes required - just set environment variables
+
+### ⚙️ Setup
+
+1. **Get Azure OpenAI Credentials** from [Azure Portal](https://portal.azure.com/):
+   - Create an Azure OpenAI resource
+   - Deploy your models (e.g., `gpt-4o`, `text-embedding-3-large`)
+   - Get your API key, endpoint URL, and API version
+
+2. **Add to your `.env` file**:
+   ```bash
+    AZURE_OPENAI_EMBEDDING_API_KEY=your_api_key
+    AZURE_OPENAI_EMBEDDING_ENDPOINT=https://your-resource.openai.azure.com
+    AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-large
+    AZURE_OPENAI_EMBEDDING_VERSION=2024-12-01-preview
+    AZURE_OPENAI_API_KEY=your_api_key
+    AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+    AZURE_OPENAI_DEPLOYMENT=gpt4o
+    AZURE_OPENAI_VERSION=2024-12-01-preview
+   ```
+
+3. **Start DeepWiki** - it will automatically detect and use Azure OpenAI!
+
+### 🎯 How It Works
+
+When Azure OpenAI is configured:
+- ✅ **Provider Override**: Default provider switches from `google` to `azure`
+- ✅ **Embeddings**: Uses `AzureAIClient` instead of `OpenAIClient` for embeddings
+- ✅ **RAG System**: Automatically uses Azure OpenAI models for Q&A
+- ✅ **Fallback Ready**: Falls back to other providers if Azure isn't configured
+
+### 🔧 Advanced Configuration
+
+**Separate Embedding Endpoint** (optional):
+```bash
+AZURE_OPENAI_EMBEDDING_ENDPOINT=https://your-embedding-resource.openai.azure.com/openai/deployments/text-embedding-3-large
+AZURE_OPENAI_EMBEDDING_API_KEY=your_embedding_api_key
+```
+
+**Deployment Name Mapping**: DeepWiki automatically maps model names to your Azure deployments using the endpoint URL.
+
 ### Custom Model Selection for Service Providers
 
 The custom model selection feature is specifically designed for service providers who need to:
@@ -255,9 +339,9 @@ The OpenAI Client's base_url configuration is designed primarily for enterprise 
 
 **Coming Soon**: In future updates, DeepWiki will support a mode where users need to provide their own API keys in requests. This will allow enterprise customers with private channels to use their existing API arrangements without sharing credentials with the DeepWiki deployment.
 
-## 🧩 Using OpenAI-Compatible Embedding Models (e.g., Alibaba Qwen)
+## 🔗 Using OpenAI-Compatible Services
 
-If you want to use embedding models compatible with the OpenAI API (such as Alibaba Qwen), follow these steps:
+If you want to use embedding models compatible with the OpenAI API (such as Alibaba Qwen or other providers), follow these steps:
 
 1. Replace the contents of `api/config/embedder.json` with those from `api/config/embedder_openai_compatible.json`.
 2. In your project root `.env` file, set the relevant environment variables, for example:
@@ -267,9 +351,9 @@ If you want to use embedding models compatible with the OpenAI API (such as Alib
    ```
 3. The program will automatically substitute placeholders in embedder.json with the values from your environment variables.
 
-This allows you to seamlessly switch to any OpenAI-compatible embedding service without code changes.
+This allows you to seamlessly switch to any OpenAI-compatible service without code changes.
 
-### Logging
+### 📊 Logging & Debugging
 
 DeepWiki uses Python's built-in `logging` module for diagnostic output. You can configure the verbosity and log file destination via environment variables:
 
@@ -307,23 +391,39 @@ docker-compose up
 
 ## 🛠️ Advanced Setup
 
-### Environment Variables
+### Environment Variables Reference
 
-| Variable             | Description                                                  | Required | Note                                                                                                     |
-|----------------------|--------------------------------------------------------------|----------|----------------------------------------------------------------------------------------------------------|
-| `GOOGLE_API_KEY`     | Google Gemini API key for AI generation                      | No | Required only if you want to use Google Gemini models                                                    
-| `OPENAI_API_KEY`     | OpenAI API key for embeddings                                | Yes | Note: This is required even if you're not using OpenAI models, as it's used for embeddings.              |
-| `OPENROUTER_API_KEY` | OpenRouter API key for alternative models                    | No | Required only if you want to use OpenRouter models                                                       |
-| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key                    | No | Required only if you want to use Azure OpenAI models                                                       |
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint                    | No | Required only if you want to use Azure OpenAI models                                                       |
-| `AZURE_OPENAI_VERSION` | Azure OpenAI version                     | No | Required only if you want to use Azure OpenAI models                                                       |
-| `OLLAMA_HOST`        | Ollama Host (default: http://localhost:11434)                | No | Required only if you want to use external Ollama server                                                  |
-| `PORT`               | Port for the API server (default: 8001)                      | No | If you host API and frontend on the same machine, make sure change port of `SERVER_BASE_URL` accordingly |
-| `SERVER_BASE_URL`    | Base URL for the API server (default: http://localhost:8001) | No |
-| `DEEPWIKI_AUTH_MODE` | Set to `true` or `1` to enable authorization mode. | No | Defaults to `false`. If enabled, `DEEPWIKI_AUTH_CODE` is required. |
-| `DEEPWIKI_AUTH_CODE` | The secret code required for wiki generation when `DEEPWIKI_AUTH_MODE` is enabled. | No | Only used if `DEEPWIKI_AUTH_MODE` is `true` or `1`. |
+| Variable                    | Description                                                  | Required | Default                        |
+|----------------------------|--------------------------------------------------------------|----------|--------------------------------|
+| **API Keys**               |                                                              |          |                                |
+| `GOOGLE_API_KEY`           | Google Gemini API key for AI generation                     | No*      | -                              |
+| `OPENAI_API_KEY`           | OpenAI API key (used for embeddings when Azure not configured) | No*   | -                              |
+| `OPENROUTER_API_KEY`       | OpenRouter API key for alternative models                   | No       | -                              |
+| **Azure OpenAI**           |                                                              |          |                                |
+| `AZURE_OPENAI_API_KEY`     | Azure OpenAI API key                                        | No       | -                              |
+| `AZURE_OPENAI_ENDPOINT`    | Azure OpenAI endpoint (full deployment URL)                 | No       | -                              |
+| `AZURE_OPENAI_VERSION`     | Azure OpenAI API version                                    | No       | `2024-12-01-preview`           |
+| `AZURE_OPENAI_EMBEDDING_ENDPOINT` | Separate Azure embedding endpoint (optional)        | No       | Uses main endpoint             |
+| `AZURE_OPENAI_EMBEDDING_API_KEY` | Separate Azure embedding API key (optional)          | No       | Uses main API key              |
+| **Other Services**         |                                                              |          |                                |
+| `OLLAMA_HOST`              | Ollama server host                                           | No       | `http://localhost:11434`       |
+| `OPENAI_BASE_URL`          | Custom OpenAI API endpoint                                   | No       | `https://api.openai.com/v1`    |
+| **Server Configuration**   |                                                              |          |                                |
+| `PORT`                     | API server port                                              | No       | `8001`                         |
+| `SERVER_BASE_URL`          | Base URL for the API server                                 | No       | `http://localhost:8001`        |
+| **Authorization (Optional)** |                                                             |          |                                |
+| `DEEPWIKI_AUTH_MODE`       | Enable authorization mode (`true` or `1`)                   | No       | `false`                        |
+| `DEEPWIKI_AUTH_CODE`       | Secret code for wiki generation (when auth enabled)         | No**     | -                              |
+| **Configuration**          |                                                              |          |                                |
+| `DEEPWIKI_CONFIG_DIR`      | Custom configuration directory path                          | No       | `api/config/`                  |
+| **Logging**                |                                                              |          |                                |
+| `LOG_LEVEL`                | Logging verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL)   | No       | `INFO`                         |
+| `LOG_FILE_PATH`            | Log file path                                                | No       | `api/logs/application.log`     |
 
-If you're not using ollama mode, you need to configure an OpenAI API key for embeddings. Other API keys are only required when configuring and using models from the corresponding providers.
+> **Notes:**
+> - *At least one API provider (Google, OpenAI, or Azure OpenAI) must be configured
+> - **Required only when `DEEPWIKI_AUTH_MODE` is enabled
+> - 🔵 **Azure OpenAI Auto-Detection**: When Azure OpenAI is properly configured, it becomes the default provider for both text generation and embeddings
 
 ## Authorization Mode
 
