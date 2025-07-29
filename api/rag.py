@@ -1,4 +1,5 @@
 import logging
+import weakref
 import re
 from dataclasses import dataclass
 from typing import Any, List, Tuple, Dict
@@ -242,6 +243,7 @@ class RAG(adal.Component):
         self.memory = Memory()
         self.embedder = get_embedder()
 
+        self_weakref = weakref.ref(self)
         # Patch: ensure query embedding is always single string for Ollama
         def single_string_embedder(query):
             # Accepts either a string or a list, always returns embedding for a single string
@@ -249,7 +251,9 @@ class RAG(adal.Component):
                 if len(query) != 1:
                     raise ValueError("Ollama embedder only supports a single string")
                 query = query[0]
-            return self.embedder(input=query)
+            instance = self_weakref()
+            if instance is not None:
+                return instance.embedder(input=query)
 
         # Use single string embedder for Ollama, regular embedder for others
         self.query_embedder = single_string_embedder if self.is_ollama_embedder else self.embedder
