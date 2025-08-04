@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const TARGET_SERVER_BASE_URL = process.env.SERVER_BASE_URL || 'http://localhost:8001';
+const TARGET_SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
 
 export async function POST(request: NextRequest) {
   try {
