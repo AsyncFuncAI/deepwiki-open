@@ -4,8 +4,8 @@ import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface TokenInputProps {
-  selectedPlatform: 'github' | 'gitlab' | 'bitbucket';
-  setSelectedPlatform: (value: 'github' | 'gitlab' | 'bitbucket') => void;
+  selectedPlatform: 'github' | 'gitlab' | 'bitbucket' | 'cnb';
+  setSelectedPlatform: (value: 'github' | 'gitlab' | 'bitbucket' | 'cnb') => void;
   accessToken: string;
   setAccessToken: (value: string) => void;
   showTokenSection?: boolean;
@@ -76,6 +76,16 @@ export default function TokenInput({
                 >
                   <span className="text-sm">Bitbucket</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPlatform('cnb')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${selectedPlatform === 'cnb'
+                    ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
+                    : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
+                    }`}
+                >
+                  <span className="text-sm">CNB</span>
+                </button>
               </div>
             </div>
           )}
@@ -105,4 +115,4 @@ export default function TokenInput({
       )}
     </div>
   );
-} 
+}

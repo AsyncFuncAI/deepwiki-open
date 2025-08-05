@@ -57,11 +57,12 @@ def count_tokens(text: str, is_ollama_embedder: bool = None) -> int:
 
 def download_repo(repo_url: str, local_path: str, type: str = "github", access_token: str = None) -> str:
     """
-    Downloads a Git repository (GitHub, GitLab, or Bitbucket) to a specified local path.
+    Downloads a Git repository (GitHub, GitLab, Bitbucket, CNB, or other Git hosting services) to a specified local path.
 
     Args:
         repo_url (str): The URL of the Git repository to clone.
         local_path (str): The local directory where the repository will be cloned.
+        type (str): The type of repository (github, gitlab, bitbucket, cnb, web, local).
         access_token (str, optional): Access token for private repositories.
 
     Returns:
@@ -101,6 +102,10 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
             elif type == "bitbucket":
                 # Format: https://x-token-auth:{token}@bitbucket.org/owner/repo.git
                 clone_url = urlunparse((parsed.scheme, f"x-token-auth:{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
+            elif type == "cnb" or type == "web":
+                # For CNB and generic web-based Git repositories, use a generic token format
+                # This works for most Git hosting services that support HTTP basic auth
+                clone_url = urlunparse((parsed.scheme, f"{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
 
             logger.info("Using access token for authentication")
 
@@ -648,13 +653,58 @@ def get_bitbucket_file_content(repo_url: str, file_path: str, access_token: str 
         raise ValueError(f"Failed to get file content: {str(e)}")
 
 
+def get_web_file_content(repo_url: str, file_path: str) -> str:
+    """
+    Retrieves the content of a file from a locally cloned web-based Git repository.
+    
+    Args:
+        repo_url (str): The URL of the repository
+        file_path (str): The path to the file within the repository
+        
+    Returns:
+        str: The content of the file as a string
+        
+    Raises:
+        ValueError: If the file cannot be found or read
+    """
+    try:
+        # Extract repository name from URL to find local path
+        url_parts = repo_url.rstrip('/').split('/')
+        if len(url_parts) >= 2:
+            owner = url_parts[-2]
+            repo = url_parts[-1].replace(".git", "")
+            repo_name = f"{owner}_{repo}"
+        else:
+            repo_name = url_parts[-1].replace(".git", "")
+        
+        # Get the local repository path
+        from .utils import get_adalflow_default_root_path
+        root_path = get_adalflow_default_root_path()
+        local_repo_path = os.path.join(root_path, "repos", repo_name)
+        
+        # Construct the full file path
+        full_file_path = os.path.join(local_repo_path, file_path)
+        
+        # Check if file exists
+        if not os.path.exists(full_file_path):
+            raise ValueError(f"File not found: {file_path}")
+        
+        # Read and return file content
+        with open(full_file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+            
+    except Exception as e:
+        raise ValueError(f"Failed to get file content from local repository: {str(e)}")
+
+
 def get_file_content(repo_url: str, file_path: str, type: str = "github", access_token: str = None) -> str:
     """
-    Retrieves the content of a file from a Git repository (GitHub or GitLab).
+    Retrieves the content of a file from a Git repository (GitHub, GitLab, Bitbucket, CNB, or other Git hosting services).
 
     Args:
         repo_url (str): The URL of the repository
         file_path (str): The path to the file within the repository
+        type (str): The type of repository (github, gitlab, bitbucket, cnb, web, local)
         access_token (str, optional): Access token for private repositories
 
     Returns:
@@ -669,8 +719,11 @@ def get_file_content(repo_url: str, file_path: str, type: str = "github", access
         return get_gitlab_file_content(repo_url, file_path, access_token)
     elif type == "bitbucket":
         return get_bitbucket_file_content(repo_url, file_path, access_token)
+    elif type == "cnb" or type == "web":
+        # For cnb and web-type repositories, read from local cloned repository
+        return get_web_file_content(repo_url, file_path)
     else:
-        raise ValueError("Unsupported repository URL. Only GitHub and GitLab are supported.")
+        raise ValueError("Unsupported repository type. Supported types: github, gitlab, bitbucket, cnb, web.")
 
 class DatabaseManager:
     """
