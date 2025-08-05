@@ -20,7 +20,7 @@
   "home": {
     "welcome": "DeepWikiへようこそ",
     "welcomeTagline": "コードリポジトリのためのAI駆動ドキュメンテーション",
-    "description": "GitHub、GitLab、またはBitbucketリポジトリから包括的なドキュメントを数クリックで生成します。",
+    "description": "GitHub、GitLab、Bitbucket、またはCNBリポジトリから包括的なドキュメントを数クリックで生成します。",
     "quickStart": "クイックスタート",
     "enterRepoUrl": "以下のいずれかの形式でリポジトリURLを入力してください：",
     "advancedVisualization": "Mermaidダイアグラムによる高度な可視化",
@@ -31,7 +31,7 @@
   "form": {
     "repository": "リポジトリ",
     "configureWiki": "Wiki設定",
-    "repoPlaceholder": "所有者/リポジトリまたはGitHub/GitLab/BitbucketのURL",
+    "repoPlaceholder": "所有者/リポジトリまたはGitHub/GitLab/Bitbucket/CNBのURL",
     "wikiLanguage": "Wiki言語",
     "modelOptions": "モデルオプション",
     "modelProvider": "モデルプロバイダー",
@@ -102,7 +102,7 @@
     "cancel": "キャンセル",
     "home": "ホーム",
     "errorTitle": "エラー",
-    "errorMessageDefault": "リポジトリが存在し、公開されていることを確認してください。有効な形式は「owner/repo」、「https://github.com/owner/repo」、「https://gitlab.com/owner/repo」、「https://bitbucket.org/owner/repo」、またはローカルフォルダパス（例: 「C:\\\\path\\\\to\\\\folder」、「/path/to/folder」）です。",
+    "errorMessageDefault": "リポジトリが存在し、公開されていることを確認してください。有効な形式は「owner/repo」、「https://github.com/owner/repo」、「https://gitlab.com/owner/repo」、「https://bitbucket.org/owner/repo」、「https://cnb.cool/owner/repo」、またはローカルフォルダパス（例: 「C:\\\\path\\\\to\\\\folder」、「/path/to/folder」）です。",
     "embeddingErrorDefault": "このエラーは、リポジトリを分析するために使用されるドキュメント埋め込みシステムに関連しています。モデル設定で異なる埋め込みプロバイダーを試してみてください。",
     "backToHome": "ホームに戻る",
     "exportWiki": "Wikiをエクスポート",
