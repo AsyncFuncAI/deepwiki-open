@@ -9,7 +9,7 @@ import logging
 import base64
 import re
 import glob
-from adalflow.utils import get_adalflow_default_root_path
+from .utils import get_adalflow_default_root_path
 from adalflow.core.db import LocalDB
 from api.config import configs, DEFAULT_EXCLUDED_DIRS, DEFAULT_EXCLUDED_FILES
 from api.ollama_patch import OllamaDocumentProcessor
@@ -653,13 +653,14 @@ def get_bitbucket_file_content(repo_url: str, file_path: str, access_token: str 
         raise ValueError(f"Failed to get file content: {str(e)}")
 
 
-def get_web_file_content(repo_url: str, file_path: str) -> str:
+def get_web_file_content(repo_url: str, file_path: str, repo_type: str = "cnb") -> str:
     """
     Retrieves the content of a file from a locally cloned web-based Git repository.
     
     Args:
         repo_url (str): The URL of the repository
         file_path (str): The path to the file within the repository
+        repo_type (str): The type of repository (cnb, web, etc.)
         
     Returns:
         str: The content of the file as a string
@@ -668,19 +669,9 @@ def get_web_file_content(repo_url: str, file_path: str) -> str:
         ValueError: If the file cannot be found or read
     """
     try:
-        # Extract repository name from URL to find local path
-        url_parts = repo_url.rstrip('/').split('/')
-        if len(url_parts) >= 2:
-            owner = url_parts[-2]
-            repo = url_parts[-1].replace(".git", "")
-            repo_name = f"{owner}_{repo}"
-        else:
-            repo_name = url_parts[-1].replace(".git", "")
-        
-        # Get the local repository path
-        from .utils import get_adalflow_default_root_path
-        root_path = get_adalflow_default_root_path()
-        local_repo_path = os.path.join(root_path, "repos", repo_name)
+        # Use the unified utility function to get the local repository path
+        from .utils import get_repo_local_path
+        local_repo_path = get_repo_local_path(repo_url, repo_type)
         
         # Construct the full file path
         full_file_path = os.path.join(local_repo_path, file_path)
@@ -721,7 +712,7 @@ def get_file_content(repo_url: str, file_path: str, type: str = "github", access
         return get_bitbucket_file_content(repo_url, file_path, access_token)
     elif type == "cnb" or type == "web":
         # For cnb and web-type repositories, read from local cloned repository
-        return get_web_file_content(repo_url, file_path)
+        return get_web_file_content(repo_url, file_path, type)
     else:
         raise ValueError("Unsupported repository type. Supported types: github, gitlab, bitbucket, cnb, web.")
 
@@ -768,19 +759,9 @@ class DatabaseManager:
         self.repo_paths = None
 
     def _extract_repo_name_from_url(self, repo_url_or_path: str, repo_type: str) -> str:
-        # Extract owner and repo name to create unique identifier
-        url_parts = repo_url_or_path.rstrip('/').split('/')
-
-        if repo_type in ["github", "gitlab", "bitbucket"] and len(url_parts) >= 5:
-            # GitHub URL format: https://github.com/owner/repo
-            # GitLab URL format: https://gitlab.com/owner/repo or https://gitlab.com/group/subgroup/repo
-            # Bitbucket URL format: https://bitbucket.org/owner/repo
-            owner = url_parts[-2]
-            repo = url_parts[-1].replace(".git", "")
-            repo_name = f"{owner}_{repo}"
-        else:
-            repo_name = url_parts[-1].replace(".git", "")
-        return repo_name
+        # Use the unified utility function for consistent repo name extraction
+        from .utils import extract_repo_name_from_url
+        return extract_repo_name_from_url(repo_url_or_path, repo_type)
 
     def _create_repo(self, repo_url_or_path: str, repo_type: str = "github", access_token: str = None) -> None:
         """

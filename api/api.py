@@ -32,9 +32,8 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Helper function to get adalflow root path
-def get_adalflow_default_root_path():
-    return os.path.expanduser(os.path.join("~", ".adalflow"))
+# Import helper function from utils
+from .utils import get_adalflow_default_root_path
 
 # --- Pydantic Models ---
 class WikiPage(BaseModel):
