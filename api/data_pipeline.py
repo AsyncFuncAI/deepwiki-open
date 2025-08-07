@@ -108,7 +108,7 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
         logger.info(f"Cloning repository from {repo_url} to {local_path}")
         # We use repo_url in the log to avoid exposing the token in logs
         result = subprocess.run(
-            ["git", "clone", clone_url, local_path],
+            ["git", "clone", "--depth=1", "--single-branch", clone_url, local_path],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
