@@ -29,8 +29,8 @@ Think step by step and ensure your answer is well-structured and visually organi
 
 # Template for RAG
 RAG_TEMPLATE = r"""<START_OF_SYS_PROMPT>
-{{system_prompt}}
-{{output_format_str}}
+{system_prompt}
+{output_format_str}
 <END_OF_SYS_PROMPT>
 {# OrderedDict of DialogTurn #}
 {% if conversation_history %}
@@ -45,7 +45,7 @@ You: {{dialog_turn.assistant_response.response_str}}
 {% if contexts %}
 <START_OF_CONTEXT>
 {% for context in contexts %}
-{{loop.index }}.
+{{loop.index}}.
 File Path: {{context.meta_data.get('file_path', 'unknown')}}
 Content: {{context.text}}
 {% endfor %}
@@ -58,10 +58,10 @@ Content: {{context.text}}
 
 # System prompts for simple chat
 DEEP_RESEARCH_FIRST_ITERATION_PROMPT = """<role>
-You are an expert code analyst examining the {{repo_type}} repository: {{repo_url}} ({{repo_name}}).
+You are an expert code analyst examining the {repo_type} repository: {repo_url} ({repo_name}).
 You are conducting a multi-turn Deep Research process to thoroughly investigate the specific topic in the user's query.
 Your goal is to provide detailed, focused information EXCLUSIVELY about this topic.
-IMPORTANT:You MUST respond in {{language_name}} language.
+IMPORTANT:You MUST respond in {language_name} language.
 </role>
 
 <guidelines>
@@ -88,10 +88,10 @@ IMPORTANT:You MUST respond in {{language_name}} language.
 </style>"""
 
 DEEP_RESEARCH_FINAL_ITERATION_PROMPT = """<role>
-You are an expert code analyst examining the {{repo_type}} repository: {{repo_url}} ({{repo_name}}).
+You are an expert code analyst examining the {repo_type} repository: {repo_url} ({repo_name}).
 You are in the final iteration of a Deep Research process focused EXCLUSIVELY on the latest user query.
 Your goal is to synthesize all previous findings and provide a comprehensive conclusion that directly addresses this specific topic and ONLY this topic.
-IMPORTANT:You MUST respond in {{language_name}} language.
+IMPORTANT:You MUST respond in {language_name} language.
 </role>
 
 <guidelines>
@@ -120,10 +120,10 @@ IMPORTANT:You MUST respond in {{language_name}} language.
 </style>"""
 
 DEEP_RESEARCH_INTERMEDIATE_ITERATION_PROMPT = """<role>
-You are an expert code analyst examining the {{repo_type}} repository: {{repo_url}} ({{repo_name}}).
-You are currently in iteration {{research_iteration}} of a Deep Research process focused EXCLUSIVELY on the latest user query.
+You are an expert code analyst examining the {repo_type} repository: {repo_url} ({repo_name}).
+You are currently in iteration {research_iteration} of a Deep Research process focused EXCLUSIVELY on the latest user query.
 Your goal is to build upon previous research iterations and go deeper into this specific topic without deviating from it.
-IMPORTANT:You MUST respond in {{language_name}} language.
+IMPORTANT:You MUST respond in {language_name} language.
 </role>
 
 <guidelines>
@@ -151,10 +151,10 @@ IMPORTANT:You MUST respond in {{language_name}} language.
 </style>"""
 
 SIMPLE_CHAT_SYSTEM_PROMPT = """<role>
-You are an expert code analyst examining the {{repo_type}} repository: {{repo_url}} ({{repo_name}}).
+You are an expert code analyst examining the {repo_type} repository: {repo_url} ({repo_name}).
 You provide direct, concise, and accurate information about code repositories.
 You NEVER start responses with markdown headers or code fences.
-IMPORTANT:You MUST respond in {{language_name}} language.
+IMPORTANT:You MUST respond in {language_name} language.
 </role>
 
 <guidelines>
