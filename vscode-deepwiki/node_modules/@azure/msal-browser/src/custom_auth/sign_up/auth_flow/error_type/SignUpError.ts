@@ -1,0 +1,138 @@
+/*
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License.
+ */
+
+import { AuthActionErrorBase } from "../../../core/auth_flow/AuthFlowErrorBase.js";
+
+export class SignUpError extends AuthActionErrorBase {
+    /**
+     * Checks if the error is due to the user already exists.
+     * @returns {boolean} True if the error is due to the user already exists, false otherwise.
+     */
+    isUserAlreadyExists(): boolean {
+        return this.isUserAlreadyExistsError();
+    }
+
+    /**
+     * Checks if the error is due to the username is invalid.
+     * @returns {boolean} True if the error is due to the user is invalid, false otherwise.
+     */
+    isInvalidUsername(): boolean {
+        return this.isUserInvalidError();
+    }
+
+    /**
+     * Checks if the error is due to the password being invalid or incorrect.
+     * @returns {boolean} True if the error is due to the password being invalid, false otherwise.
+     */
+    isInvalidPassword(): boolean {
+        return this.isInvalidNewPasswordError();
+    }
+
+    /**
+     * Checks if the error is due to the required attributes are missing.
+     * @returns {boolean} True if the error is due to the required attributes are missing, false otherwise.
+     */
+    isMissingRequiredAttributes(): boolean {
+        return this.isAttributeRequiredError();
+    }
+
+    /**
+     * Checks if the error is due to the attributes validation failed.
+     * @returns {boolean} True if the error is due to the attributes validation failed, false otherwise.
+     */
+    isAttributesValidationFailed(): boolean {
+        return this.isAttributeValidationFailedError();
+    }
+
+    /**
+     * Checks if the error is due to the provided challenge type is not supported.
+     * @returns {boolean} True if the error is due to the provided challenge type is not supported, false otherwise.
+     */
+    isUnsupportedChallengeType(): boolean {
+        return this.isUnsupportedChallengeTypeError();
+    }
+
+    /**
+     * Check if client app supports the challenge type configured in Entra.
+     * @returns {boolean} True if "loginPopup" function is required to continue sthe operation.
+     */
+    isRedirectRequired(): boolean {
+        return this.isRedirectError();
+    }
+}
+
+export class SignUpSubmitPasswordError extends AuthActionErrorBase {
+    /**
+     * Checks if the error is due to the password being invalid or incorrect.
+     * @returns {boolean} True if the error is due to the password being invalid, false otherwise.
+     */
+    isInvalidPassword(): boolean {
+        return (
+            this.isPasswordIncorrectError() || this.isInvalidNewPasswordError()
+        );
+    }
+
+    /**
+     * Check if client app supports the challenge type configured in Entra.
+     * @returns {boolean} True if "loginPopup" function is required to continue sthe operation.
+     */
+    isRedirectRequired(): boolean {
+        return this.isRedirectError();
+    }
+}
+
+export class SignUpSubmitCodeError extends AuthActionErrorBase {
+    /**
+     * Checks if the provided code is invalid.
+     * @returns {boolean} True if the provided code is invalid, false otherwise.
+     */
+    isInvalidCode(): boolean {
+        return this.isInvalidCodeError();
+    }
+
+    /**
+     * Check if client app supports the challenge type configured in Entra.
+     * @returns {boolean} True if "loginPopup" function is required to continue sthe operation.
+     */
+    isRedirectRequired(): boolean {
+        return this.isRedirectError();
+    }
+}
+
+export class SignUpSubmitAttributesError extends AuthActionErrorBase {
+    /**
+     * Checks if the error is due to the required attributes are missing.
+     * @returns {boolean} True if the error is due to the required attributes are missing, false otherwise.
+     */
+    isMissingRequiredAttributes(): boolean {
+        return this.isAttributeRequiredError();
+    }
+
+    /**
+     * Checks if the error is due to the attributes validation failed.
+     * @returns {boolean} True if the error is due to the attributes validation failed, false otherwise.
+     */
+    isAttributesValidationFailed(): boolean {
+        return this.isAttributeValidationFailedError();
+    }
+
+    /**
+     * Check if client app supports the challenge type configured in Entra.
+     * @returns {boolean} True if "loginPopup" function is required to continue sthe operation.
+     */
+    isRedirectRequired(): boolean {
+        return this.isRedirectError();
+    }
+}
+
+export class SignUpResendCodeError extends AuthActionErrorBase {
+    /**
+     * Check if client app supports the challenge type configured in Entra.
+     * @returns {boolean} True if "loginPopup" function is required to continue sthe operation.
+     */
+    isRedirectRequired(): boolean {
+        return this.isRedirectError();
+    }
+}

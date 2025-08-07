@@ -1,0 +1,54 @@
+{
+  "name": "@vscode/test-electron",
+  "version": "2.5.2",
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -w -p ./",
+    "prepack": "tsc -p ./",
+    "fmt": "prettier --write \"lib/**/*.{ts,mts}\" \"*.md\"",
+    "test": "eslint \"lib/**/*.{ts,mts}\" && vitest && tsc --noEmit",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.md": [
+      "prettier --write"
+    ]
+  },
+  "main": "./out/index.js",
+  "engines": {
+    "node": ">=16"
+  },
+  "dependencies": {
+    "http-proxy-agent": "^7.0.2",
+    "https-proxy-agent": "^7.0.5",
+    "jszip": "^3.10.1",
+    "ora": "^8.1.0",
+    "semver": "^7.6.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.6.0",
+    "@types/node": "^20",
+    "@types/rimraf": "^3.0.2",
+    "@types/semver": "^7.5.8",
+    "eslint": "^8.56.0",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.7",
+    "prettier": "^3.3.2",
+    "typescript": "^5.5.3",
+    "typescript-eslint": "^7.15.0",
+    "vitest": "^3.1.1"
+  },
+  "license": "MIT",
+  "author": "Visual Studio Code Team",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Microsoft/vscode-test.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Microsoft/vscode-test/issues"
+  }
+}

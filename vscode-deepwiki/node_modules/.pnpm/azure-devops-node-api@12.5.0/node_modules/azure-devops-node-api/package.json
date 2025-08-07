@@ -1,0 +1,41 @@
+{
+    "name": "azure-devops-node-api",
+    "description": "Node client for Azure DevOps and TFS REST APIs",
+    "version": "12.5.0",
+    "main": "./WebApi.js",
+    "types": "./WebApi.d.ts",
+    "scripts": {
+        "build": "node make.js build",
+        "samples": "node make.js samples",
+        "test": "node make.js test",
+        "units": "node make.js units"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Microsoft/azure-devops-node-api"
+    },
+    "author": "Microsoft Corporation",
+    "contributors": [
+        "Bryan MacFarlane <bryanmac@microsoft.com>",
+        "Daniel McCormick<daniel.mccormick@microsoft.com>",
+        "Scott Dallamura <scdallam@microsoft.com>",
+        "Stephen Franceschelli<stephen.franceschelli@microsoft.com>",
+        "Teddy Ward <t-edward@microsoft.com>"
+    ],
+    "license": "MIT",
+    "dependencies": {
+        "tunnel": "0.0.6",
+        "typed-rest-client": "^1.8.4"
+    },
+    "devDependencies": {
+        "@types/glob": "5.0.35",
+        "@types/minimatch": "3.0.3",
+        "@types/mocha": "^2.2.44",
+        "@types/shelljs": "0.7.8",
+        "mocha": "^3.5.3",
+        "nock": "9.6.1",
+        "shelljs": "0.7.8",
+        "typescript": "3.1.5",
+        "@types/node": "8.9.2"
+    }
+}

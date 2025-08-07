@@ -1,0 +1,236 @@
+{
+  "name": "vscode-deepwiki",
+  "displayName": "DeepWiki",
+  "description": "AI-powered documentation generator for your codebase",
+  "version": "0.1.0",
+  "publisher": "deepwiki",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other",
+    "AI"
+  ],
+  "keywords": [
+    "documentation",
+    "wiki",
+    "ai",
+    "code analysis"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "deepwiki.generateWiki",
+        "title": "Generate Wiki",
+        "category": "DeepWiki"
+      },
+      {
+        "command": "deepwiki.openConfig",
+        "title": "Open Configuration",
+        "category": "DeepWiki"
+      },
+      {
+        "command": "deepwiki.clearCache",
+        "title": "Clear Cache",
+        "category": "DeepWiki"
+      },
+      {
+        "command": "deepwiki.startRAGChat",
+        "title": "Start RAG Chat",
+        "category": "DeepWiki"
+      },
+      {
+        "command": "deepwiki.quickRAGQuery",
+        "title": "Quick RAG Query",
+        "category": "DeepWiki"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "deepwiki.generateWiki",
+        "key": "ctrl+shift+w",
+        "mac": "cmd+shift+w",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "deepwiki.startRAGChat",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "deepwiki.quickRAGQuery",
+        "key": "ctrl+shift+q",
+        "mac": "cmd+shift+q",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "DeepWiki",
+      "properties": {
+        "deepwiki.provider": {
+          "type": "string",
+          "default": "openai",
+          "enum": [
+            "openai",
+            "google",
+            "ollama",
+            "azure",
+            "deepseek",
+            "qwen",
+            "zhipu",
+            "moonshot",
+            "anthropic"
+          ],
+          "description": "AI provider for generating documentation"
+        },
+        "deepwiki.model": {
+          "type": "string",
+          "default": "gpt-4",
+          "description": "Model to use for generation"
+        },
+        "deepwiki.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for the selected provider"
+        },
+        "deepwiki.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Base URL for API (optional)"
+        },
+        "deepwiki.workspaceId": {
+          "type": "string",
+          "default": "",
+          "description": "Workspace ID for Qwen/Dashscope (optional)"
+        },
+        "deepwiki.excludedDirs": {
+          "type": "array",
+          "default": [
+            "node_modules",
+            ".git",
+            "dist",
+            "build",
+            ".vscode"
+          ],
+          "description": "Directories to exclude from analysis"
+        },
+        "deepwiki.excludedFiles": {
+          "type": "array",
+          "default": [
+            "*.log",
+            "*.tmp",
+            "*.cache"
+          ],
+          "description": "File patterns to exclude from analysis"
+        },
+        "deepwiki.embedderConfig": {
+          "type": "object",
+          "default": {
+            "provider": "openai",
+            "model": "text-embedding-ada-002",
+            "apiKey": "",
+            "baseUrl": ""
+          },
+          "description": "Configuration for embedder/vectorization",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "enum": [
+                "openai",
+                "local",
+                "huggingface"
+              ],
+              "description": "Embedder provider"
+            },
+            "model": {
+              "type": "string",
+              "description": "Embedding model name"
+            },
+            "apiKey": {
+              "type": "string",
+              "description": "API key for embedder service"
+            },
+            "baseUrl": {
+              "type": "string",
+              "description": "Base URL for embedder API"
+            }
+          }
+        }
+      }
+    },
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "deepwiki.generateWiki",
+          "group": "deepwiki",
+          "when": "explorerResourceIsFolder"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "deepwiki.generateWiki",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "deepwiki.openConfig",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "deepwiki.clearCache",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "deepwiki.startRAGChat",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "deepwiki.quickRAGQuery",
+          "when": "workspaceFolderCount > 0"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run webpack",
+    "webpack": "webpack --mode production --devtool hidden-source-map",
+    "webpack-dev": "webpack --mode development",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "16.x",
+    "@types/vscode": "^1.74.0",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "@vscode/test-electron": "^2.2.0",
+    "@vscode/vsce": "^2.15.0",
+    "eslint": "^8.28.0",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.9.2",
+    "webpack": "^5.101.0",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "@langchain/anthropic": "^0.3.26",
+    "@langchain/azure-openai": "^0.0.11",
+    "@langchain/core": "^0.3.67",
+    "@langchain/google-genai": "^0.2.16",
+    "@langchain/ollama": "^0.2.3",
+    "@langchain/openai": "^0.6.4",
+    "@types/node-fetch": "^2.6.13",
+    "axios": "^1.6.0",
+    "fs-extra": "^11.1.1",
+    "langchain": "^0.3.30",
+    "node-fetch": "^2.7.0"
+  }
+}
