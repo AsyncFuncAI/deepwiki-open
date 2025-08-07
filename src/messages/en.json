@@ -20,7 +20,7 @@
   "home": {
     "welcome": "Welcome to DeepWiki-Open",
     "welcomeTagline": "AI-powered documentation for your code repositories",
-    "description": "Generate comprehensive documentation from GitHub, GitLab, or Bitbucket repositories with just a few clicks.",
+    "description": "Generate comprehensive documentation from GitHub, GitLab, Bitbucket, or CNB repositories with just a few clicks.",
     "quickStart": "Quick Start",
     "enterRepoUrl": "Enter a repository URL in one of these formats:",
     "advancedVisualization": "Advanced Visualization with Mermaid Diagrams",
@@ -31,7 +31,7 @@
   "form": {
     "repository": "Repository",
     "configureWiki": "Configure Wiki",
-    "repoPlaceholder": "owner/repo or GitHub/GitLab/Bitbucket URL",
+    "repoPlaceholder": "owner/repo or GitHub/GitLab/Bitbucket/CNB URL",
     "wikiLanguage": "Wiki Language",
     "modelOptions": "Model Options",
     "modelProvider": "Model Provider",
@@ -111,7 +111,7 @@
     "cancel": "Cancel",
     "home": "Home",
     "errorTitle": "Error",
-    "errorMessageDefault": "Please check that your repository exists and is public. Valid formats are \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", or local folder paths like \"C:\\\\path\\\\to\\\\folder\" or \"/path/to/folder\".",
+    "errorMessageDefault": "Please check that your repository exists and is public. Valid formats are \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", \"https://cnb.cool/owner/repo\", or local folder paths like \"C:\\\\path\\\\to\\\\folder\" or \"/path/to/folder\".",
     "embeddingErrorDefault": "This error is related to the document embedding system used for analyzing your repository. Please verify your embedding model configuration, API keys, and try again. If the issue persists, consider switching to a different embedding provider in the model settings.",
     "backToHome": "Back to Home",
     "exportWiki": "Export Wiki",

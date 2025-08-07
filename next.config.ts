@@ -63,6 +63,7 @@ const nextConfig: NextConfig = {
         source: '/api/lang/config',
         destination: `${TARGET_SERVER_BASE_URL}/lang/config`,
       },
+      // Removed CNB API proxy - backend handles all repository types via git clone
     ];
   },
 };

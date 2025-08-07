@@ -134,7 +134,7 @@ export default function Home() {
   const [excludedFiles, setExcludedFiles] = useState('');
   const [includedDirs, setIncludedDirs] = useState('');
   const [includedFiles, setIncludedFiles] = useState('');
-  const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>('github');
+  const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket' | 'cnb'>('github');
   const [accessToken, setAccessToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -212,6 +212,8 @@ export default function Home() {
         type = 'gitlab';
       } else if (domain?.includes('bitbucket.org') || domain?.includes('bitbucket.')) {
         type = 'bitbucket';
+      } else if (domain?.includes('cnb.cool')) {
+        type = 'cnb';
       } else {
         type = 'web'; // fallback for other git hosting services
       }
@@ -220,7 +222,16 @@ export default function Home() {
       const parts = fullPath?.split('/') ?? [];
       if (parts.length >= 2) {
         repo = parts[parts.length - 1] || '';
-        owner = parts[parts.length - 2] || '';
+        if (type === 'cnb') {
+          // For CNB, handle multi-level organization structure
+          // e.g., opencamp/learning-docker/project-1-jupyter
+          // Encode multi-level owner path for Next.js routing compatibility
+          const originalOwner = parts.slice(0, -1).join('/') || '';
+          owner = originalOwner.replace(/\//g, '-') || ''; // Replace / with - for URL compatibility
+        } else {
+          // For other platforms, use traditional owner/repo structure
+          owner = parts[parts.length - 2] || '';
+        }
       }
     }
     // Unsupported URL formats
@@ -343,13 +354,15 @@ export default function Home() {
 
     const { owner, repo, type, localPath } = parsedRepo;
 
+    // CNB public repositories don't require token, only private repositories need user-provided token
+
     // Store tokens in query params if they exist
     const params = new URLSearchParams();
     if (accessToken) {
       params.append('token', accessToken);
     }
     // Always include the type parameter
-    params.append('type', (type == 'local' ? type : selectedPlatform) || 'github');
+    params.append('type', type || 'github');
     // Add local path if it exists
     if (localPath) {
       params.append('local_path', encodeURIComponent(localPath));

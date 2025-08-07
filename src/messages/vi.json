@@ -20,7 +20,7 @@
   "home": {
     "welcome": "Chào mừng đến với DeepWiki-Open",
     "welcomeTagline": "Tài liệu hỗ trợ bởi AI cho các repository của bạn",
-    "description": "Tạo tài liệu từ các repository GitHub, GitLab, hoặc Bitbucket chỉ với vài cú nhấp chuột.",
+    "description": "Tạo tài liệu từ các repository GitHub, GitLab, Bitbucket, hoặc CNB chỉ với vài cú nhấp chuột.",
     "quickStart": "Bắt đầu nhanh",
     "enterRepoUrl": "Nhập URL repository",
     "advancedVisualization": "Tùy chỉnh sơ đồ trực quan với Mermaid",
@@ -31,7 +31,7 @@
   "form": {
     "repository": "Repository",
     "configureWiki": "Cấu hình Wiki",
-    "repoPlaceholder": "owner/repo hoặc URL GitHub/GitLab/Bitbucket",
+    "repoPlaceholder": "owner/repo hoặc URL GitHub/GitLab/Bitbucket/CNB",
     "wikiLanguage": "Ngôn ngữ Wiki",
     "modelOptions": "Tùy chọn mô hình",
     "modelProvider": "Nhà cung cấp mô hình",
@@ -102,7 +102,7 @@
     "cancel": "Hủy bỏ",
     "home": "Trang chủ",
     "errorTitle": "Lỗi",
-    "errorMessageDefault": "Vui lòng kiểm tra xem repository có tồn tại và công khai hay không. Các định dạng hợp lệ là \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", hoặc các đường dẫn thư mục cục bộ như \"C:\\\\path\\\\to\\\\folder\" hoặc \"/path/to/folder\".",
+    "errorMessageDefault": "Vui lòng kiểm tra xem repository có tồn tại và công khai hay không. Các định dạng hợp lệ là \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", \"https://cnb.cool/owner/repo\", hoặc các đường dẫn thư mục cục bộ như \"C:\\\\path\\\\to\\\\folder\" hoặc \"/path/to/folder\".",
     "embeddingErrorDefault": "Lỗi này liên quan đến hệ thống embedding được sử dụng để phân tích repository của bạn. Vui lòng kiểm tra cấu hình mô hình embedding, API keys và thử lại. Nếu vấn đề vẫn tiếp diễn, hãy xem xét chuyển sang nhà cung cấp embedding khác trong cấu hình mô hình.",
     "backToHome": "Quay lại trang chủ",
     "exportWiki": "Xuất Wiki",

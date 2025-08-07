@@ -1,0 +1,1 @@
+module.exports = require('../../dist/utils/js-sha1/hash.cjs');

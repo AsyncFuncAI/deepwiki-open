@@ -20,7 +20,7 @@
   "home": {
     "welcome": "Bienvenido a DeepWiki",
     "welcomeTagline": "Documentación impulsada por IA para repositorios de código",
-    "description": "Genera documentación completa de repositorios GitHub, GitLab o Bitbucket con solo unos clics.",
+    "description": "Genera documentación completa de repositorios GitHub, GitLab, Bitbucket o CNB con solo unos clics.",
     "quickStart": "Inicio Rápido",
     "enterRepoUrl": "Ingresa una URL de repositorio en uno de estos formatos:",
     "advancedVisualization": "Visualización Avanzada con Diagramas Mermaid",
@@ -31,7 +31,7 @@
   "form": {
     "repository": "Repositorio",
     "configureWiki": "Configurar Wiki",
-    "repoPlaceholder": "propietario/repositorio o URL de GitHub/GitLab/Bitbucket",
+    "repoPlaceholder": "propietario/repositorio o URL de GitHub/GitLab/Bitbucket/CNB",
     "wikiLanguage": "Idioma del Wiki",
     "modelOptions": "Opciones de Modelo",
     "modelProvider": "Proveedor de Modelo",
@@ -102,7 +102,7 @@
     "cancel": "Cancelar",
     "home": "Inicio",
     "errorTitle": "Error",
-    "errorMessageDefault": "Por favor, compruebe que su repositorio existe y es público. Los formatos válidos son \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", o rutas de carpetas locales como \"C:\\\\path\\\\to\\\\folder\" o \"/path/to/folder\".",
+    "errorMessageDefault": "Por favor, compruebe que su repositorio existe y es público. Los formatos válidos son \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", \"https://cnb.cool/owner/repo\", o rutas de carpetas locales como \"C:\\\\path\\\\to\\\\folder\" o \"/path/to/folder\".",
     "embeddingErrorDefault": "Este error está relacionado con el sistema de embebido utilizado para analizar su repositorio. Por favor, verifique la configuración del modelo de embebido, las claves de API y vuelva a intentarlo. Si el problema persiste, considere cambiar al proveedor de embebido diferente en la configuración del modelo.",
     "backToHome": "Volver al Inicio",
     "exportWiki": "Exportar Wiki",
