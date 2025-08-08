@@ -75,7 +75,7 @@ export default function Home() {
     return key;
   };
 
-  const [repositoryInput, setRepositoryInput] = useState('https://github.com/AsyncFuncAI/deepwiki-open');
+  const [repositoryInput, setRepositoryInput] = useState('');
 
   const REPO_CONFIG_CACHE_KEY = 'deepwikiRepoConfigCache';
 
