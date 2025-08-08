@@ -112,9 +112,42 @@ async def handle_websocket_chat(websocket: WebSocket):
             logger.error(f"Error preparing retriever: {str(e)}")
             # Check for specific embedding-related errors
             if "All embeddings should be of the same size" in str(e):
-                await websocket.send_text("Error: Inconsistent embedding sizes detected. Some documents may have failed to embed properly. Please try again.")
+                error_msg = (
+                    "Error: Inconsistent embedding sizes detected. "
+                    "Some documents may have failed to embed properly. "
+                    "Please try again."
+                )
+                await websocket.send_text(error_msg)
+            elif ("Environment variable OPENAI_API_KEY must be set" in str(e) or
+                  "OPENAI_API_KEY" in str(e)):
+                # Check if Azure OpenAI is configured
+                from api.config import is_azure_openai_configured
+                if is_azure_openai_configured():
+                    logger.error(
+                        "Azure OpenAI is configured but embedder is "
+                        "still trying to use OpenAI. Configuration issue "
+                        "detected."
+                    )
+                    error_msg = (
+                        "Configuration error: Azure OpenAI is detected "
+                        "but embedder failed to initialize. Please check "
+                        "your Azure OpenAI configuration and restart the "
+                        "application."
+                    )
+                    await websocket.send_text(error_msg)
+                else:
+                    error_msg = (
+                        "Error preparing retriever: No embedding provider "
+                        "configured. Please configure one of the following:\n"
+                        "• Azure OpenAI: Set AZURE_OPENAI_EMBEDDING_API_KEY "
+                        "and AZURE_OPENAI_EMBEDDING_ENDPOINT\n"
+                        "• OpenAI: Set OPENAI_API_KEY\n"
+                        "• Or use a local Ollama model for embeddings"
+                    )
+                    await websocket.send_text(error_msg)
             else:
-                await websocket.send_text(f"Error preparing retriever: {str(e)}")
+                error_msg = f"Error preparing retriever: {str(e)}"
+                await websocket.send_text(error_msg)
             await websocket.close()
             return
 
@@ -499,8 +532,14 @@ This file contains...
 
             # Initialize Azure AI client
             model = AzureAIClient()
+            
+            # For Azure OpenAI, we need to use deployment name instead of model name
+            from api.config import get_azure_deployment_name
+            deployment_name = get_azure_deployment_name(request.model)
+            logger.info(f"Using Azure deployment: {deployment_name}")
+            
             model_kwargs = {
-                "model": request.model,
+                "model": deployment_name,  # Use deployment name
                 "stream": True,
                 "temperature": model_config["temperature"],
                 "top_p": model_config["top_p"]

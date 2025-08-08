@@ -905,7 +905,7 @@ IMPORTANT:
 
       if(responseText.includes('Error preparing retriever: Environment variable OPENAI_API_KEY must be set')) {
          setEmbeddingError(true);
-         throw new Error('OPENAI_API_KEY environment variable is not set. Please configure your OpenAI API key.');
+         throw new Error('No embedding provider configured. Please configure one of the following:\n• Azure OpenAI: Set AZURE_OPENAI_EMBEDDING_API_KEY and AZURE_OPENAI_EMBEDDING_ENDPOINT\n• OpenAI: Set OPENAI_API_KEY\n• Or use a local Ollama model for embeddings');
        }
 
        if(responseText.includes('Ollama model') && responseText.includes('not found')) {

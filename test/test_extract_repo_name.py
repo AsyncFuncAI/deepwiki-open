@@ -42,7 +42,7 @@ class TestExtractRepoNameFromUrl:
         result = self.db_manager._extract_repo_name_from_url(github_url_slash, "github")
         assert result == "owner_repo"
         
-        print("✓ GitHub URL tests passed")
+        print("[PASS] GitHub URL tests passed")
     
     def test_extract_repo_name_gitlab_urls(self):
         """Test repository name extraction from GitLab URLs"""
@@ -57,7 +57,7 @@ class TestExtractRepoNameFromUrl:
         result = self.db_manager._extract_repo_name_from_url(gitlab_subgroup, "gitlab")
         assert result == "subgroup_repo"
         
-        print("✓ GitLab URL tests passed")
+        print("[PASS] GitLab URL tests passed")
     
     def test_extract_repo_name_bitbucket_urls(self):
         """Test repository name extraction from Bitbucket URLs"""
@@ -65,7 +65,7 @@ class TestExtractRepoNameFromUrl:
         result = self.db_manager._extract_repo_name_from_url(bitbucket_url, "bitbucket")
         assert result == "owner_repo"
 
-        print("✓ Bitbucket URL tests passed")
+        print("[PASS] Bitbucket URL tests passed")
     
     def test_extract_repo_name_local_paths(self):
         """Test repository name extraction from local paths"""
@@ -75,7 +75,7 @@ class TestExtractRepoNameFromUrl:
         result = self.db_manager._extract_repo_name_from_url("/var/repos/project.git", "local")
         assert result == "project"
 
-        print("✓ Local path tests passed")
+        print("[PASS] Local path tests passed")
 
     def test_extract_repo_name_current_implementation_bug(self):
         """Test that demonstrates the current implementation bug"""
@@ -83,12 +83,12 @@ class TestExtractRepoNameFromUrl:
         try:
             # This should raise a NameError due to undefined 'type' variable
             result = self.db_manager._extract_repo_name_from_url("https://github.com/owner/repo")
-            print("⚠️  WARNING: Expected the current implementation to fail due to undefined 'type' variable")
+            print("[WARN] Expected fail - undefined 'type' variable")
             print(f"    But got result: {result}")
         except (NameError, TypeError) as e:
-            print(f"✓ Current implementation correctly fails with: {type(e).__name__}: {e}")
+            print(f"[PASS] Implementation fails correctly: {type(e).__name__}: {e}")
         except Exception as e:
-            print(f"⚠️  Unexpected error: {type(e).__name__}: {e}")
+            print(f"[WARN] Unexpected error: {type(e).__name__}: {e}")
         
         # Test absolute local path
         local_path = "/home/user/projects/my-repo"
@@ -100,7 +100,7 @@ class TestExtractRepoNameFromUrl:
         result = self.db_manager._extract_repo_name_from_url(local_git, "local")
         assert result == "project"
         
-        print("✓ Local path tests passed")
+        print("[PASS] Local path tests passed")
     
     def test_extract_repo_name_edge_cases(self):
         """Test edge cases for repository name extraction"""
@@ -115,4 +115,4 @@ class TestExtractRepoNameFromUrl:
         result = self.db_manager._extract_repo_name_from_url(single_name, "local")
         assert result == "my-repo"
         
-        print("✓ Edge case tests passed")
+        print("[PASS] Edge case tests passed")

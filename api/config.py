@@ -4,6 +4,10 @@ import logging
 import re
 from pathlib import Path
 from typing import List, Union, Dict, Any
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +27,16 @@ AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = os.environ.get('AWS_REGION')
 AWS_ROLE_ARN = os.environ.get('AWS_ROLE_ARN')
 
+# Azure OpenAI environment variables
+AZURE_OPENAI_API_KEY = os.environ.get('AZURE_OPENAI_API_KEY')
+AZURE_OPENAI_ENDPOINT = os.environ.get('AZURE_OPENAI_ENDPOINT')
+AZURE_OPENAI_VERSION = os.environ.get('AZURE_OPENAI_VERSION')
+AZURE_OPENAI_DEPLOYMENT = os.environ.get('AZURE_OPENAI_DEPLOYMENT')
+AZURE_OPENAI_EMBEDDING_ENDPOINT = os.environ.get('AZURE_OPENAI_EMBEDDING_ENDPOINT')
+AZURE_OPENAI_EMBEDDING_API_KEY = os.environ.get('AZURE_OPENAI_EMBEDDING_API_KEY')
+AZURE_OPENAI_EMBEDDING_VERSION = os.environ.get('AZURE_OPENAI_EMBEDDING_VERSION')
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.environ.get('AZURE_OPENAI_EMBEDDING_DEPLOYMENT')
+
 # Set keys in environment (in case they're needed elsewhere in the code)
 if OPENAI_API_KEY:
     os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
@@ -38,6 +52,96 @@ if AWS_REGION:
     os.environ["AWS_REGION"] = AWS_REGION
 if AWS_ROLE_ARN:
     os.environ["AWS_ROLE_ARN"] = AWS_ROLE_ARN
+
+# Set Azure OpenAI environment variables
+if AZURE_OPENAI_API_KEY:
+    os.environ["AZURE_OPENAI_API_KEY"] = AZURE_OPENAI_API_KEY
+if AZURE_OPENAI_ENDPOINT:
+    os.environ["AZURE_OPENAI_ENDPOINT"] = AZURE_OPENAI_ENDPOINT
+if AZURE_OPENAI_VERSION:
+    os.environ["AZURE_OPENAI_VERSION"] = AZURE_OPENAI_VERSION
+if AZURE_OPENAI_EMBEDDING_ENDPOINT:
+    os.environ["AZURE_OPENAI_EMBEDDING_ENDPOINT"] = AZURE_OPENAI_EMBEDDING_ENDPOINT
+if AZURE_OPENAI_EMBEDDING_API_KEY:
+    os.environ["AZURE_OPENAI_EMBEDDING_API_KEY"] = AZURE_OPENAI_EMBEDDING_API_KEY
+if AZURE_OPENAI_EMBEDDING_VERSION:
+    os.environ["AZURE_OPENAI_EMBEDDING_VERSION"] = AZURE_OPENAI_EMBEDDING_VERSION
+
+
+def is_azure_openai_configured() -> bool:
+    """
+    Check if Azure OpenAI is configured by checking for required environment variables
+    and Azure endpoint pattern (.openai.azure.com).
+    
+    Returns:
+        bool: True if Azure OpenAI is properly configured
+    """
+    # Check for basic Azure OpenAI configuration
+    has_basic_config = bool(
+        AZURE_OPENAI_API_KEY and 
+        AZURE_OPENAI_ENDPOINT and 
+        AZURE_OPENAI_VERSION
+    )
+    
+    # Check for embedding configuration (can use same endpoint or separate)
+    has_embedding_config = bool(
+        (AZURE_OPENAI_EMBEDDING_ENDPOINT or AZURE_OPENAI_ENDPOINT) and
+        (AZURE_OPENAI_EMBEDDING_API_KEY or AZURE_OPENAI_API_KEY) and
+        (AZURE_OPENAI_EMBEDDING_VERSION or AZURE_OPENAI_VERSION)
+    )
+    
+    # Check for Azure endpoint pattern
+    endpoint_to_check = AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_EMBEDDING_ENDPOINT
+    has_azure_pattern = bool(endpoint_to_check and ".openai.azure.com" in endpoint_to_check)
+    
+    return has_basic_config and has_embedding_config and has_azure_pattern
+
+
+def get_azure_openai_text_config() -> Dict[str, str]:
+    """
+    Get Azure OpenAI configuration for text generation.
+    
+    Returns:
+        Dict containing api_key, azure_endpoint, api_version
+    """
+    return {
+        "api_key": AZURE_OPENAI_API_KEY,
+        "azure_endpoint": AZURE_OPENAI_ENDPOINT,
+        "api_version": AZURE_OPENAI_VERSION or "2024-12-01-preview"
+    }
+
+
+def get_azure_deployment_name(model_name: str) -> str:
+    """
+    Get the Azure OpenAI deployment name for a given model name.
+    
+    Args:
+        model_name: The model name (e.g., 'gpt-4o')
+    
+    Returns:
+        The deployment name to use for Azure OpenAI API calls
+    """
+    # If explicit deployment is set, use it
+    if AZURE_OPENAI_DEPLOYMENT:
+        return AZURE_OPENAI_DEPLOYMENT
+    
+    # Otherwise, use the model name as the deployment name
+    return model_name
+
+
+def get_azure_openai_embedding_config() -> Dict[str, str]:
+    """
+    Get Azure OpenAI configuration for embeddings.
+    Falls back to text generation config if embedding-specific config is not available.
+    
+    Returns:
+        Dict containing api_key, azure_endpoint, api_version
+    """
+    return {
+        "api_key": AZURE_OPENAI_EMBEDDING_API_KEY or AZURE_OPENAI_API_KEY,
+        "azure_endpoint": AZURE_OPENAI_EMBEDDING_ENDPOINT or AZURE_OPENAI_ENDPOINT,
+        "api_version": AZURE_OPENAI_EMBEDDING_VERSION or AZURE_OPENAI_VERSION or "2024-12-01-preview"
+    }
 
 # Wiki authentication settings
 raw_auth_mode = os.environ.get('DEEPWIKI_AUTH_MODE', 'False')
@@ -141,10 +245,23 @@ def load_generator_config():
 
 # Load embedder configuration
 def load_embedder_config():
-    embedder_config = load_json_config("embedder.json")
+    # Determine which embedder config file to load based on Azure OpenAI availability
+    use_azure = is_azure_openai_configured()
+    
+    if use_azure:
+        # Try to load Azure-specific embedder config first
+        azure_config_path = Path(__file__).parent / "config" / "embedder.azure.json"
+        if azure_config_path.exists():
+            logger.info("Loading Azure-specific embedder configuration")
+            embedder_config = load_json_config("embedder.azure.json")
+        else:
+            logger.info("Azure-specific config not found, loading default embedder configuration")
+            embedder_config = load_json_config("embedder.json")
+    else:
+        embedder_config = load_json_config("embedder.json")
 
     # Process client classes
-    for key in ["embedder", "embedder_ollama"]:
+    for key in ["embedder", "embedder_ollama", "embedder_azure"]:
         if key in embedder_config and "client_class" in embedder_config[key]:
             class_name = embedder_config[key]["client_class"]
             if class_name in CLIENT_CLASSES:
@@ -264,16 +381,53 @@ embedder_config = load_embedder_config()
 repo_config = load_repo_config()
 lang_config = load_lang_config()
 
+# Check if Azure OpenAI is configured and update default settings
+use_azure_openai = is_azure_openai_configured()
+
 # Update configuration
 if generator_config:
-    configs["default_provider"] = generator_config.get("default_provider", "google")
+    # Set default provider to Azure if configured, otherwise use original default
+    if use_azure_openai:
+        configs["default_provider"] = "azure"
+        logger.info("Using Azure OpenAI as default provider for text generation")
+    else:
+        configs["default_provider"] = generator_config.get("default_provider", "google")
+    
     configs["providers"] = generator_config.get("providers", {})
 
-# Update embedder configuration
+# Update embedder configuration - switch to Azure if configured
 if embedder_config:
-    for key in ["embedder", "embedder_ollama", "retriever", "text_splitter"]:
-        if key in embedder_config:
-            configs[key] = embedder_config[key]
+    if use_azure_openai:
+        # Use embedder_azure configuration if available, otherwise create it
+        if "embedder_azure" in embedder_config:
+            logger.info("Using embedder_azure configuration from config file")
+            configs["embedder"] = embedder_config["embedder_azure"]
+        else:
+            # Create Azure OpenAI embedder configuration
+            azure_config = get_azure_openai_embedding_config()
+            configs["embedder"] = {
+                "client_class": "AzureAIClient",
+                "model_client": AzureAIClient,
+                "batch_size": 100,
+                "model_kwargs": {
+                    "model": (AZURE_OPENAI_EMBEDDING_DEPLOYMENT or
+                              "text-embedding-3-large"),
+                    "dimensions": 3072,
+                    "encoding_format": "float"
+                },
+                "initialize_kwargs": azure_config
+            }
+        logger.info("Using Azure OpenAI for embeddings with text-embedding-3-large model")
+        # Still copy other configurations like text_splitter and retriever
+        for key in ["retriever", "text_splitter"]:
+            if key in embedder_config:
+                configs[key] = embedder_config[key]
+    else:
+        # Use original embedder configuration
+        for key in ["embedder", "embedder_ollama", "retriever",
+                    "text_splitter"]:
+            if key in embedder_config:
+                configs[key] = embedder_config[key]
 
 # Update repository configuration
 if repo_config:
@@ -286,17 +440,26 @@ if lang_config:
     configs["lang_config"] = lang_config
 
 
-def get_model_config(provider="google", model=None):
+def get_model_config(provider=None, model=None):
     """
-    Get configuration for the specified provider and model
+    Get configuration for the specified provider and model.
+    If Azure OpenAI is configured and no provider is specified, it will use Azure.
 
     Parameters:
-        provider (str): Model provider ('google', 'openai', 'openrouter', 'ollama', 'bedrock')
+        provider (str): Model provider ('google', 'openai', 'openrouter', 'ollama', 'bedrock', 'azure')
+                       If None and Azure is configured, defaults to 'azure'
         model (str): Model name, or None to use default model
 
     Returns:
         dict: Configuration containing model_client, model and other parameters
     """
+    # Auto-detect provider if not specified
+    if provider is None:
+        if is_azure_openai_configured():
+            provider = "azure"
+        else:
+            provider = configs.get("default_provider", "google")
+    
     # Get provider configuration
     if "providers" not in configs:
         raise ValueError("Provider configuration not loaded")
@@ -311,9 +474,12 @@ def get_model_config(provider="google", model=None):
 
     # If model not provided, use default model for the provider
     if not model:
-        model = provider_config.get("default_model")
-        if not model:
-            raise ValueError(f"No default model specified for provider '{provider}'")
+        if provider == "azure" and is_azure_openai_configured():
+            model = "gpt-4o"  # Default Azure model for text generation
+        else:
+            model = provider_config.get("default_model")
+            if not model:
+                raise ValueError(f"No default model specified for provider '{provider}'")
 
     # Get model parameters (if present)
     model_params = {}
@@ -321,12 +487,17 @@ def get_model_config(provider="google", model=None):
         model_params = provider_config["models"][model]
     else:
         default_model = provider_config.get("default_model")
-        model_params = provider_config["models"][default_model]
+        if default_model and default_model in provider_config.get("models", {}):
+            model_params = provider_config["models"][default_model]
 
     # Prepare base configuration
     result = {
         "model_client": model_client,
     }
+
+    # Add Azure-specific initialization parameters
+    if provider == "azure" and is_azure_openai_configured():
+        result["initialize_kwargs"] = get_azure_openai_text_config()
 
     # Provider-specific adjustments
     if provider == "ollama":

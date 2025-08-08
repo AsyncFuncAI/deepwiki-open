@@ -1,6 +1,11 @@
 """AzureOpenAI ModelClient integration."""
 
 import os
+import time
+import re
+import asyncio
+import pickle
+from copy import deepcopy
 from typing import (
     Dict,
     Sequence,
@@ -13,10 +18,10 @@ from typing import (
     Union,
     Literal,
 )
-import re
 
 import logging
 import backoff
+from tqdm import tqdm
 
 # optional import
 from adalflow.utils.lazy_import import safe_import, OptionalPackages
@@ -59,7 +64,11 @@ from adalflow.core.types import (
     TokenLogProb,
     CompletionUsage,
     GeneratorOutput,
+    Document,
+    BatchEmbedderInputType,
+    BatchEmbedderOutputType,
 )
+from adalflow.core.component import Component as DataComponent
 from adalflow.components.model_client.utils import parse_embedding_response
 
 log = logging.getLogger(__name__)
@@ -113,6 +122,136 @@ def get_probabilities(completion: ChatCompletion) -> List[List[TokenLogProb]]:
             log_probs_for_choice.append(TokenLogProb(token=token, logprob=logprob))
         log_probs.append(log_probs_for_choice)
     return log_probs
+
+
+def parse_azure_rate_limit_error(error_message: str) -> Optional[int]:
+    """
+    Parse Azure OpenAI rate limit error message to extract retry delay.
+    
+    Args:
+        error_message: The error message from Azure OpenAI
+        
+    Returns:
+        int: Number of seconds to wait, or None if not a rate limit error
+    """
+    # Pattern for "Please retry after X seconds"
+    retry_pattern = r"Please retry after (\d+) seconds"
+    match = re.search(retry_pattern, error_message)
+    if match:
+        return int(match.group(1))
+    return None
+
+
+def azure_openai_retry_with_delay(func):
+    """
+    Decorator to handle Azure OpenAI rate limiting with intelligent delays.
+    
+    This decorator:
+    1. Catches RateLimitError exceptions
+    2. Parses the error message to extract the required delay
+    3. Waits the specified time before retrying
+    4. Falls back to exponential backoff for other errors
+    """
+    def wrapper(*args, **kwargs):
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                return func(*args, **kwargs)
+            except RateLimitError as e:
+                retry_count += 1
+                error_message = str(e)
+                
+                # Try to parse the required delay from error message
+                retry_delay = parse_azure_rate_limit_error(error_message)
+                
+                if retry_delay is not None and retry_count < max_retries:
+                    log.warning(f"Azure OpenAI rate limit hit. "
+                                f"Waiting {retry_delay} seconds before retry "
+                                f"({retry_count}/{max_retries})")
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    # If we can't parse delay or max retries reached, re-raise
+                    if retry_count >= max_retries:
+                        log.error(f"Max retries ({max_retries}) reached "
+                                  f"for rate limit error")
+                    else:
+                        log.warning("Could not parse retry delay from "
+                                    "error message")
+                    raise
+            except (APITimeoutError, InternalServerError,
+                    UnprocessableEntityError, BadRequestError) as e:
+                # For other errors, use simple exponential backoff
+                if retry_count < max_retries - 1:
+                    retry_count += 1
+                    delay = 2 ** retry_count
+                    log.warning(f"API error: {type(e).__name__}. "
+                                f"Retrying in {delay} seconds "
+                                f"({retry_count}/{max_retries})")
+                    time.sleep(delay)
+                    continue
+                else:
+                    raise
+        
+        # This should not be reached, but just in case
+        return func(*args, **kwargs)
+    
+    return wrapper
+
+
+def azure_openai_async_retry_with_delay(func):
+    """
+    Async version of the Azure OpenAI retry decorator.
+    """
+    async def wrapper(*args, **kwargs):
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                return await func(*args, **kwargs)
+            except RateLimitError as e:
+                retry_count += 1
+                error_message = str(e)
+                
+                # Try to parse the required delay from error message
+                retry_delay = parse_azure_rate_limit_error(error_message)
+                
+                if retry_delay is not None and retry_count < max_retries:
+                    log.warning(f"Azure OpenAI rate limit hit. "
+                                f"Waiting {retry_delay} seconds before retry "
+                                f"({retry_count}/{max_retries})")
+                    await asyncio.sleep(retry_delay)
+                    continue
+                else:
+                    # If we can't parse delay or max retries reached, re-raise
+                    if retry_count >= max_retries:
+                        log.error(f"Max retries ({max_retries}) reached "
+                                  f"for rate limit error")
+                    else:
+                        log.warning("Could not parse retry delay from "
+                                    "error message")
+                    raise
+            except (APITimeoutError, InternalServerError,
+                    UnprocessableEntityError, BadRequestError) as e:
+                # For other errors, use simple exponential backoff
+                if retry_count < max_retries - 1:
+                    retry_count += 1
+                    delay = 2 ** retry_count
+                    log.warning(f"API error: {type(e).__name__}. "
+                                f"Retrying in {delay} seconds "
+                                f"({retry_count}/{max_retries})")
+                    await asyncio.sleep(delay)
+                    continue
+                else:
+                    raise
+        
+        # This should not be reached, but just in case
+        return await func(*args, **kwargs)
+    
+    return wrapper
 
 
 class AzureAIClient(ModelClient):
@@ -396,22 +535,31 @@ class AzureAIClient(ModelClient):
             raise ValueError(f"model_type {model_type} is not supported")
         return final_model_kwargs
 
-    @backoff.on_exception(
-        backoff.expo,
-        (
-            APITimeoutError,
-            InternalServerError,
-            RateLimitError,
-            UnprocessableEntityError,
-            BadRequestError,
-        ),
-        max_time=5,
-    )
-    def call(self, api_kwargs: Dict = {}, model_type: ModelType = ModelType.UNDEFINED):
+    @azure_openai_retry_with_delay
+    def call(self, api_kwargs: Dict = {},
+             model_type: ModelType = ModelType.UNDEFINED):
         """
         kwargs is the combined input and model_kwargs.  Support streaming call.
         """
-        log.info(f"api_kwargs: {api_kwargs}")
+        # Safely log api_kwargs without special characters that cause encoding
+        try:
+            safe_kwargs = {}
+            for k, v in api_kwargs.items():
+                if k == 'input':
+                    if isinstance(v, list):
+                        safe_kwargs[k] = f"[{len(v)} texts]"
+                    else:
+                        str_v = str(v)
+                        if len(str_v) > 100:
+                            safe_kwargs[k] = str_v[:100] + "..."
+                        else:
+                            safe_kwargs[k] = v
+                else:
+                    safe_kwargs[k] = v
+            log.info(f"api_kwargs: {safe_kwargs}")
+        except Exception as e:
+            log.info(f"api_kwargs logging failed: {str(e)}")
+        
         if model_type == ModelType.EMBEDDER:
             return self.sync_client.embeddings.create(**api_kwargs)
         elif model_type == ModelType.LLM:
@@ -423,19 +571,10 @@ class AzureAIClient(ModelClient):
         else:
             raise ValueError(f"model_type {model_type} is not supported")
 
-    @backoff.on_exception(
-        backoff.expo,
-        (
-            APITimeoutError,
-            InternalServerError,
-            RateLimitError,
-            UnprocessableEntityError,
-            BadRequestError,
-        ),
-        max_time=5,
-    )
+    @azure_openai_async_retry_with_delay
     async def acall(
-        self, api_kwargs: Dict = {}, model_type: ModelType = ModelType.UNDEFINED
+        self, api_kwargs: Dict = {},
+        model_type: ModelType = ModelType.UNDEFINED
     ):
         """
         kwargs is the combined input and model_kwargs
@@ -445,7 +584,9 @@ class AzureAIClient(ModelClient):
         if model_type == ModelType.EMBEDDER:
             return await self.async_client.embeddings.create(**api_kwargs)
         elif model_type == ModelType.LLM:
-            return await self.async_client.chat.completions.create(**api_kwargs)
+            return await self.async_client.chat.completions.create(
+                **api_kwargs
+            )
         else:
             raise ValueError(f"model_type {model_type} is not supported")
 
@@ -466,6 +607,200 @@ class AzureAIClient(ModelClient):
         ]  # unserializable object
         output = super().to_dict(exclude=exclude)
         return output
+
+
+class AzureBatchEmbedder(DataComponent):
+    """Batch embedder specifically designed for Azure OpenAI API with intelligent rate limiting"""
+
+    def __init__(self, embedder, batch_size: int = 100, embedding_cache_file_name: str = "default") -> None:
+        super().__init__(batch_size=batch_size)
+        self.embedder = embedder
+        self.batch_size = batch_size
+        # Reduce batch size for Azure OpenAI to avoid rate limiting
+        if self.batch_size > 100:
+            log.warning(f"Azure batch embedder initialization, batch size: {self.batch_size}, "
+                       f"reducing to 100 for better rate limit handling")
+            self.batch_size = 100
+        self.cache_path = f'./embedding_cache/{embedding_cache_file_name}_{self.embedder.__class__.__name__}_azure_embeddings.pkl'
+
+    def call(
+        self, input: BatchEmbedderInputType, model_kwargs: Optional[Dict] = {}, force_recreate: bool = False
+    ) -> BatchEmbedderOutputType:
+        """
+        Batch call to Azure OpenAI embedder with rate limiting
+
+        Args:
+            input: List of input texts
+            model_kwargs: Model parameters
+            force_recreate: Whether to force recreation
+
+        Returns:
+            Batch embedding output
+        """
+        # Check cache first
+        if not force_recreate and os.path.exists(self.cache_path):
+            try:
+                with open(self.cache_path, 'rb') as f:
+                    embeddings = pickle.load(f)
+                    log.info(f"Loaded cached Azure embeddings from: {self.cache_path}")
+                return embeddings
+            except Exception as e:
+                log.warning(f"Failed to load cache file {self.cache_path}: {e}, proceeding with fresh embedding")
+
+        if isinstance(input, str):
+            input = [input]
+
+        n = len(input)
+        embeddings: List[EmbedderOutput] = []
+
+        log.info(f"Starting Azure batch embedding processing, total {n} texts, batch size: {self.batch_size}")
+
+        for i in tqdm(
+            range(0, n, self.batch_size),
+            desc="Azure batch embedding",
+            disable=False,
+        ):
+            batch_input = input[i : min(i + self.batch_size, n)]
+
+            try:
+                # Add small delay between batches to help with rate limiting
+                if i > 0:
+                    time.sleep(0.5)  # 500ms delay between batches
+                
+                batch_output = self.embedder(
+                    input=batch_input, model_kwargs=model_kwargs
+                )
+                embeddings.append(batch_output)
+
+                # Validate batch output
+                if batch_output.error:
+                    log.error(f"Batch {i//self.batch_size + 1} embedding failed: {batch_output.error}")
+                elif batch_output.data:
+                    log.debug(f"Batch {i//self.batch_size + 1} successfully generated {len(batch_output.data)} embedding vectors")
+                else:
+                    log.warning(f"Batch {i//self.batch_size + 1} returned no embedding data")
+
+            except Exception as e:
+                log.error(f"Batch {i//self.batch_size + 1} processing exception: {e}")
+                # Create error embedding output
+                error_output = EmbedderOutput(
+                    data=[],
+                    error=str(e),
+                    raw_response=None
+                )
+                embeddings.append(error_output)
+
+        log.info(f"Azure batch embedding completed, processed {len(embeddings)} batches")
+
+        # Save to cache
+        try:
+            if not os.path.exists('./embedding_cache'):
+                os.makedirs('./embedding_cache')
+            with open(self.cache_path, 'wb') as f:
+                pickle.dump(embeddings, f)
+                log.info(f"Saved Azure embeddings cache to: {self.cache_path}")
+        except Exception as e:
+            log.warning(f"Failed to save cache to {self.cache_path}: {e}")
+
+        return embeddings
+
+
+class AzureToEmbeddings(DataComponent):
+    """Component that converts document sequences to embedding vector sequences, specifically optimized for Azure OpenAI API"""
+
+    def __init__(self, embedder, batch_size: int = 100, force_recreate_db: bool = False, embedding_cache_file_name: str = "default") -> None:
+        super().__init__(batch_size=batch_size)
+        self.embedder = embedder
+        self.batch_size = batch_size
+        self.batch_embedder = AzureBatchEmbedder(embedder=embedder, batch_size=batch_size, embedding_cache_file_name=embedding_cache_file_name)
+        self.force_recreate_db = force_recreate_db
+
+    def __call__(self, input: List[Document]) -> List[Document]:
+        """
+        Process list of documents, generating embedding vectors for each document
+
+        Args:
+            input: List of input documents
+
+        Returns:
+            List of documents containing embedding vectors
+        """
+        output = deepcopy(input)
+
+        # Convert to text list
+        embedder_input: List[str] = [chunk.text for chunk in output]
+
+        log.info(f"Starting to process embeddings for {len(embedder_input)} documents using Azure OpenAI")
+
+        # Batch process embeddings
+        outputs: List[EmbedderOutput] = self.batch_embedder(
+            input=embedder_input,
+            force_recreate=self.force_recreate_db
+        )
+
+        # Validate output
+        total_embeddings = 0
+        error_batches = 0
+
+        for batch_output in outputs:
+            if batch_output.error:
+                error_batches += 1
+                log.error(f"Found error batch: {batch_output.error}")
+            elif batch_output.data:
+                total_embeddings += len(batch_output.data)
+
+        log.info(f"Embedding statistics: total {total_embeddings} valid embeddings, {error_batches} error batches")
+
+        # Assign embedding vectors back to documents
+        doc_idx = 0
+        for batch_idx, batch_output in tqdm(
+            enumerate(outputs),
+            desc="Assigning embedding vectors to documents",
+            disable=False
+        ):
+            if batch_output.error:
+                # Create empty vectors for documents in error batches
+                batch_size_actual = min(self.batch_size, len(output) - doc_idx)
+                log.warning(f"Creating empty vectors for {batch_size_actual} documents in batch {batch_idx}")
+
+                for i in range(batch_size_actual):
+                    if doc_idx < len(output):
+                        output[doc_idx].vector = []
+                        doc_idx += 1
+            else:
+                # Assign normal embedding vectors
+                for embedding in batch_output.data:
+                    if doc_idx < len(output):
+                        if hasattr(embedding, 'embedding'):
+                            output[doc_idx].vector = embedding.embedding
+                        else:
+                            log.warning(f"Invalid embedding format for document {doc_idx}")
+                            output[doc_idx].vector = []
+                        doc_idx += 1
+
+        # Validate results
+        valid_count = 0
+        empty_count = 0
+
+        for doc in output:
+            if hasattr(doc, 'vector') and doc.vector and len(doc.vector) > 0:
+                valid_count += 1
+            else:
+                empty_count += 1
+
+        log.info(f"Embedding results: {valid_count} valid vectors, {empty_count} empty vectors")
+
+        if valid_count == 0:
+            log.error("❌ All documents have empty embedding vectors!")
+        elif empty_count > 0:
+            log.warning(f"⚠️ Found {empty_count} empty embedding vectors")
+        else:
+            log.info("✅ All documents successfully generated embedding vectors")
+
+        return output
+
+    def _extra_repr(self) -> str:
+        return f"batch_size={self.batch_size}"
 
 
 # if __name__ == "__main__":

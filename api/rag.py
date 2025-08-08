@@ -154,22 +154,30 @@ class RAG(adal.Component):
     """RAG with one repo.
     If you want to load a new repos, call prepare_retriever(repo_url_or_path) first."""
 
-    def __init__(self, provider="google", model=None, use_s3: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
+    def __init__(self, provider=None, model=None, use_s3: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
         """
         Initialize the RAG component.
 
         Args:
-            provider: Model provider to use (google, openai, openrouter, ollama)
+            provider: Model provider to use. If None, auto-detects Azure OpenAI if configured
             model: Model name to use with the provider
             use_s3: Whether to use S3 for database storage (default: False)
         """
         super().__init__()
 
+        # Import the helper functions
+        from api.config import get_embedder_config, is_ollama_embedder, is_azure_openai_configured
+
+        # Auto-detect provider if not specified
+        if provider is None:
+            if is_azure_openai_configured():
+                provider = "azure"
+                logger.info("Auto-detected Azure OpenAI configuration, using Azure provider")
+            else:
+                provider = "google"  # Default fallback
+
         self.provider = provider
         self.model = model
-
-        # Import the helper functions
-        from api.config import get_embedder_config, is_ollama_embedder
 
         # Determine if we're using Ollama embedder based on configuration
         self.is_ollama_embedder = is_ollama_embedder()
@@ -227,6 +235,13 @@ IMPORTANT FORMATTING RULES:
         from api.config import get_model_config
         generator_config = get_model_config(self.provider, self.model)
 
+        # Initialize model client with proper configuration
+        model_client_class = generator_config["model_client"]
+        if "initialize_kwargs" in generator_config:
+            model_client = model_client_class(**generator_config["initialize_kwargs"])
+        else:
+            model_client = model_client_class()
+
         # Set up the main generator
         self.generator = adal.Generator(
             template=RAG_TEMPLATE,
@@ -236,7 +251,7 @@ IMPORTANT FORMATTING RULES:
                 "system_prompt": system_prompt,
                 "contexts": None,
             },
-            model_client=generator_config["model_client"](),
+            model_client=model_client,
             model_kwargs=generator_config["model_kwargs"],
             output_processors=data_parser,
         )
