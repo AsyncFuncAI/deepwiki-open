@@ -16,7 +16,7 @@ def setup_logging(format: str = None):
     Environment variables:
         LOG_LEVEL: Log level (default: INFO)
         LOG_FILE_PATH: Path to log file (default: logs/application.log)
-        LOG_MAX_SIZE: Max size in bytes before rotating (default: 10MB)
+        LOG_MAX_SIZE: Max size in MB before rotating (default: 10MB)
         LOG_BACKUP_COUNT: Number of backup files to keep (default: 5)
 
     Ensures log directory exists, prevents path traversal, and configures
@@ -46,14 +46,15 @@ def setup_logging(format: str = None):
 
     # Get max log file size (default: 10MB)
     try:
-        max_bytes = int(os.environ.get("LOG_MAX_SIZE" * 1024 * 1024, 10 * 1024 * 1024))  # 10MB default
+        max_mb = int(os.environ.get("LOG_MAX_SIZE", 10))  # 10MB default
+        max_bytes = max_mb * 1024 * 1024
     except (TypeError, ValueError):
         max_bytes = 10 * 1024 * 1024  # fallback to 10MB on error
 
     # Get backup count (default: 5)
     try:
         backup_count = int(os.environ.get("LOG_BACKUP_COUNT", 5))
-    except (TypeError, ValueError):
+    except ValueError:
         backup_count = 5
 
     # Configure format
