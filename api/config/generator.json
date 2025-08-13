@@ -47,10 +47,10 @@
         "gpt-5": {
           "temperature": 1.0
         },
-         "gpt-5-nano": {
+        "gpt-5-nano": {
           "temperature": 1.0
         },
-         "gpt-5-mini": {
+        "gpt-5-mini": {
           "temperature": 1.0
         },
         "gpt-4o": {
