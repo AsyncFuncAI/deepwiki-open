@@ -217,7 +217,7 @@ async def get_model_config():
                     name="Google",
                     supportsCustomModel=True,
                     models=[
-                        Model(id="gemini-2.0-flash", name="Gemini 2.0 Flash")
+                        Model(id="gemini-2.5-flash", name="Gemini 2.5 Flash")
                     ]
                 )
             ],
