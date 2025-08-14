@@ -69,8 +69,7 @@
           "temperature": 1.0
         },
         "o4-mini": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 1.0
         }
       }
     },
