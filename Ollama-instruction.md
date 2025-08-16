@@ -59,12 +59,13 @@ cp api/config/embedder.ollama.json.bak api/config/embedder.json
 
 Start the backend:
 ```bash
-pip install -r api/requirements.txt
-python -m api.main
+pip install -r backend/api/requirements.txt
+cd backend && python -m api.main
 ```
 
 Start the frontend:
 ```bash
+cd frontend
 npm install
 npm run dev
 ```

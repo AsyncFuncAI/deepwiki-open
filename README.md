@@ -14,7 +14,7 @@
 [![Twitter/X](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://x.com/sashimikun_void)
 [![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/VQMBGR8u5v)
 
-[English](./README.md) | [简体中文](./README.zh.md) | [繁體中文](./README.zh-tw.md) | [日本語](./README.ja.md) | [Español](./README.es.md) | [한국어](./README.kr.md) | [Tiếng Việt](./README.vi.md) | [Português Brasileiro](./README.pt-br.md) | [Français](./README.fr.md) | [Русский](./README.ru.md)
+[English](./docs/README.md) | [简体中文](./docs/README.zh.md) | [繁體中文](./docs/README.zh-tw.md) | [日本語](./docs/README.ja.md) | [Español](./docs/README.es.md) | [한국어](./docs/README.kr.md) | [Tiếng Việt](./docs/README.vi.md) | [Português Brasileiro](./docs/README.pt-br.md) | [Français](./docs/README.fr.md) | [Русский](./docs/README.ru.md)
 
 ## ✨ Features
 
@@ -81,16 +81,17 @@ OLLAMA_HOST=your_ollama_host
 
 ```bash
 # Install Python dependencies
-pip install -r api/requirements.txt
+pip install -r backend/api/requirements.txt
 
 # Start the API server
-python -m api.main
+cd backend && python -m api.main
 ```
 
 #### Step 3: Start the Frontend
 
 ```bash
 # Install JavaScript dependencies
+cd frontend
 npm install
 # or
 yarn install
@@ -162,21 +163,25 @@ graph TD
 
 ```
 deepwiki/
-├── api/                  # Backend API server
-│   ├── main.py           # API entry point
-│   ├── api.py            # FastAPI implementation
-│   ├── rag.py            # Retrieval Augmented Generation
-│   ├── data_pipeline.py  # Data processing utilities
-│   └── requirements.txt  # Python dependencies
+├── backend/              # Backend API server
+│   ├── api/              # API source code
+│   │   ├── main.py       # API entry point
+│   │   ├── api.py        # FastAPI implementation
+│   │   ├── rag.py        # Retrieval Augmented Generation
+│   │   ├── data_pipeline.py  # Data processing utilities
+│   │   └── requirements.txt  # Python dependencies
+│   └── Dockerfile        # Backend Docker configuration
 │
-├── src/                  # Frontend Next.js app
+├── frontend/             # Frontend Next.js app
 │   ├── app/              # Next.js app directory
-│   │   └── page.tsx      # Main application page
-│   └── components/       # React components
-│       └── Mermaid.tsx   # Mermaid diagram renderer
+│   ├── components/       # React components
+│   ├── lib/              # Utility libraries
+│   ├── public/           # Static assets
+│   ├── package.json      # JavaScript dependencies
+│   └── Dockerfile        # Frontend Docker configuration
 │
-├── public/               # Static assets
-├── package.json          # JavaScript dependencies
+├── docs/                 # Documentation
+├── docker-compose.yml    # Docker Compose configuration
 └── .env                  # Environment variables (create this)
 ```
 
@@ -452,7 +457,7 @@ The API server provides:
 - RAG (Retrieval Augmented Generation)
 - Streaming chat completions
 
-For more details, see the [API README](./api/README.md).
+For more details, see the [API README](./backend/api/README.md).
 
 ## 🔌 OpenRouter Integration
 
