@@ -81,16 +81,17 @@ OLLAMA_HOST=your_ollama_host
 
 ```bash
 # Install Python dependencies
-pip install -r api/requirements.txt
+pip install -r backend/api/requirements.txt
 
 # Start the API server
-python -m api.main
+cd backend && python -m api.main
 ```
 
 #### Step 3: Start the Frontend
 
 ```bash
 # Install JavaScript dependencies
+cd frontend
 npm install
 # or
 yarn install
@@ -162,21 +163,25 @@ graph TD
 
 ```
 deepwiki/
-├── api/                  # Backend API server
-│   ├── main.py           # API entry point
-│   ├── api.py            # FastAPI implementation
-│   ├── rag.py            # Retrieval Augmented Generation
-│   ├── data_pipeline.py  # Data processing utilities
-│   └── requirements.txt  # Python dependencies
+├── backend/              # Backend API server
+│   ├── api/              # API source code
+│   │   ├── main.py       # API entry point
+│   │   ├── api.py        # FastAPI implementation
+│   │   ├── rag.py        # Retrieval Augmented Generation
+│   │   ├── data_pipeline.py  # Data processing utilities
+│   │   └── requirements.txt  # Python dependencies
+│   └── Dockerfile        # Backend Docker configuration
 │
-├── src/                  # Frontend Next.js app
+├── frontend/             # Frontend Next.js app
 │   ├── app/              # Next.js app directory
-│   │   └── page.tsx      # Main application page
-│   └── components/       # React components
-│       └── Mermaid.tsx   # Mermaid diagram renderer
+│   ├── components/       # React components
+│   ├── lib/              # Utility libraries
+│   ├── public/           # Static assets
+│   ├── package.json      # JavaScript dependencies
+│   └── Dockerfile        # Frontend Docker configuration
 │
-├── public/               # Static assets
-├── package.json          # JavaScript dependencies
+├── docs/                 # Documentation
+├── docker-compose.yml    # Docker Compose configuration
 └── .env                  # Environment variables (create this)
 ```
 
@@ -452,7 +457,7 @@ The API server provides:
 - RAG (Retrieval Augmented Generation)
 - Streaming chat completions
 
-For more details, see the [API README](./api/README.md).
+For more details, see the [API README](./backend/api/README.md).
 
 ## 🔌 OpenRouter Integration
 

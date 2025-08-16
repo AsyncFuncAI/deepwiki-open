@@ -3,15 +3,11 @@
  * This replaces the HTTP streaming endpoint with a WebSocket connection
  */
 
-// Get the server base URL from environment or use default
-const SERVER_BASE_URL = process.env.SERVER_BASE_URL || 'http://localhost:8001';
-
-// Convert HTTP URL to WebSocket URL
+// Use relative path for WebSocket connection to avoid CORS issues
 const getWebSocketUrl = () => {
-  const baseUrl = SERVER_BASE_URL;
-  // Replace http:// with ws:// or https:// with wss://
-  const wsBaseUrl = baseUrl.replace(/^http/, 'ws');
-  return `${wsBaseUrl}/ws/chat`;
+  // Use relative path that will be handled by Next.js rewrite rules
+  const wsUrl = '/ws/chat';
+  return wsUrl;
 };
 
 export interface ChatMessage {

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -23,11 +21,14 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      args:
+        - SERVER_BASE_URL=http://backend:8001
     container_name: deepwiki-frontend
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - SERVER_BASE_URL=http://backend:8001
     depends_on:
       backend:
         condition: service_healthy

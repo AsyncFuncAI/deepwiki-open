@@ -2,6 +2,11 @@
 # Build stage
 FROM node:20-alpine3.22 AS builder
 WORKDIR /app
+
+# Accept build argument
+ARG SERVER_BASE_URL=http://backend:8001
+ENV SERVER_BASE_URL=${SERVER_BASE_URL}
+
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --legacy-peer-deps
 COPY frontend/ ./
