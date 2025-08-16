@@ -177,8 +177,8 @@ DeepWiki ahora implementa un sistema flexible de selección de modelos basado en
 
 ### Proveedores y Modelos Soportados
 
-- **Google**: Predeterminado `gemini-2.0-flash`, también soporta `gemini-1.5-flash`, `gemini-1.0-pro`, etc.
-- **OpenAI**: Predeterminado `gpt-4o`, también soporta `o4-mini`, etc.
+- **Google**: Predeterminado `gemini-2.5-flash`, también soporta `gemini-2.5-flash-lite`, `gemini-2.5-pro`, etc.
+- **OpenAI**: Predeterminado `gpt-5-nano`, también soporta `gpt-5`, `4o`, etc.
 - **OpenRouter**: Acceso a múltiples modelos a través de una API unificada, incluyendo Claude, Llama, Mistral, etc.
 - **Ollama**: Soporte para modelos de código abierto ejecutados localmente como `llama3`
 
