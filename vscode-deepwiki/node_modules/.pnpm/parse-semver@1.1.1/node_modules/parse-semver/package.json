@@ -1,0 +1,37 @@
+{
+  "name": "parse-semver",
+  "version": "1.1.1",
+  "description": "Parse, normalize and validate given semver shorthand (e.g. gulp@v3.8.10) to object.",
+  "repository": "tunnckoCore/parse-semver",
+  "author": "Charlike Mike Reagent <@tunnckoCore> (http://www.tunnckocore.tk)",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "test": "standard && node test.js"
+  },
+  "dependencies": {
+    "semver": "^5.1.0"
+  },
+  "devDependencies": {
+    "assertit": "^0.1.0"
+  },
+  "keywords": [
+    "equal",
+    "helper",
+    "is",
+    "kindof",
+    "normalize",
+    "npm",
+    "object",
+    "parse",
+    "parser",
+    "range",
+    "semver",
+    "shallow",
+    "short",
+    "shorthand",
+    "utils",
+    "validate",
+    "version"
+  ]
+}

@@ -20,7 +20,7 @@
   "home": {
     "welcome": "Bem-vindo ao DeepWiki-Open",
     "welcomeTagline": "Documentação com IA para seus repositórios de código",
-    "description": "Gere documentação completa a partir de repositórios GitHub, GitLab ou Bitbucket com apenas alguns cliques.",
+    "description": "Gere documentação completa a partir de repositórios GitHub, GitLab, Bitbucket ou CNB com apenas alguns cliques.",
     "quickStart": "Início Rápido",
     "enterRepoUrl": "Digite uma URL de repositório em um destes formatos:",
     "advancedVisualization": "Visualização Avançada com Diagramas Mermaid",
@@ -31,7 +31,7 @@
   "form": {
     "repository": "Repositório",
     "configureWiki": "Configurar Wiki",
-    "repoPlaceholder": "proprietário/repo ou URL do GitHub/GitLab/Bitbucket",
+    "repoPlaceholder": "proprietário/repo ou URL do GitHub/GitLab/Bitbucket/CNB",
     "wikiLanguage": "Idioma da Wiki",
     "modelOptions": "Opções de Modelo",
     "modelProvider": "Provedor de Modelo",
@@ -111,7 +111,7 @@
     "cancel": "Cancelar",
     "home": "Início",
     "errorTitle": "Erro",
-    "errorMessageDefault": "Verifique se o seu repositório existe e é público. Formatos válidos são \"proprietário/repo\", \"https://github.com/proprietário/repo\", \"https://gitlab.com/proprietário/repo\", \"https://bitbucket.org/proprietário/repo\", ou caminhos de pastas locais como \"C:\\\\caminho\\\\para\\\\pasta\" ou \"/caminho/para/pasta\".",
+    "errorMessageDefault": "Verifique se o seu repositório existe e é público. Formatos válidos são \"proprietário/repo\", \"https://github.com/proprietário/repo\", \"https://gitlab.com/proprietário/repo\", \"https://bitbucket.org/proprietário/repo\", \"https://cnb.cool/proprietário/repo\", ou caminhos de pastas locais como \"C:\\\\caminho\\\\para\\\\pasta\" ou \"/caminho/para/pasta\".",
     "embeddingErrorDefault": "Este erro está relacionado com o sistema de embebimento utilizado para analisar o seu repositório. Verifique a configuração do modelo de embebimento, as chaves de API e tente novamente. Se o problema persistir, considere mudar para um provedor de embebimento diferente na configuração do modelo.",
     "backToHome": "Voltar ao Início",
     "exportWiki": "Exportar Wiki",
