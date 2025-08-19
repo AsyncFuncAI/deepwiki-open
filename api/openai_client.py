@@ -414,6 +414,8 @@ class OpenAIClient(ModelClient):
         """
         log.info(f"api_kwargs: {api_kwargs}")
         self._api_kwargs = api_kwargs
+        if self.sync_client is None:
+            self.sync_client = self.init_sync_client()
         if model_type == ModelType.EMBEDDER:
             return self.sync_client.embeddings.create(**api_kwargs)
         elif model_type == ModelType.LLM:
@@ -459,6 +461,8 @@ class OpenAIClient(ModelClient):
                     )]
                 )
         elif model_type == ModelType.IMAGE_GENERATION:
+            if self.sync_client is None:
+                self.sync_client = self.init_sync_client()
             # Determine which image API to call based on the presence of image/mask
             if "image" in api_kwargs:
                 if "mask" in api_kwargs:
@@ -521,8 +525,15 @@ class OpenAIClient(ModelClient):
     def from_dict(cls: type[T], data: Dict[str, Any]) -> T:
         obj = super().from_dict(data)
         # recreate the existing clients
-        obj.sync_client = obj.init_sync_client()
-        obj.async_client = obj.init_async_client()
+        try:
+            obj.sync_client = obj.init_sync_client()
+            # Initialize async client lazily to avoid env var issues during deserialization
+            obj.async_client = None
+        except Exception:
+            # If client initialization fails during deserialization, set to None
+            # They will be initialized lazily when first used
+            obj.sync_client = None
+            obj.async_client = None
         return obj
 
     def to_dict(self) -> Dict[str, Any]:

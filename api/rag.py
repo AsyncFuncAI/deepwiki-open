@@ -374,7 +374,8 @@ IMPORTANT FORMATTING RULES:
         self.transformed_docs = self._validate_and_filter_embeddings(self.transformed_docs)
 
         if not self.transformed_docs:
-            raise ValueError("No valid documents with embeddings found. Cannot create retriever.")
+            # Provide more specific error message for better user experience
+            raise ValueError("No valid documents with embeddings found. This may be due to embedding size inconsistencies or API errors during document processing. Please try again or check your repository content.")
 
         logger.info(f"Using {len(self.transformed_docs)} documents with valid embeddings for retrieval")
 
