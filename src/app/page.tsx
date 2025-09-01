@@ -247,6 +247,7 @@ export default function Home() {
 
   // State for configuration modal
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [branch, setBranch] = useState<string>('');
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -362,6 +363,10 @@ export default function Home() {
     if (isCustomModel && customModel) {
       params.append('custom_model', customModel);
     }
+    // Add branch parameter if provided
+    if (branch && branch.trim().length > 0) {
+      params.append('branch', branch.trim());
+    }
     // Add file filters configuration
     if (excludedDirs) {
       params.append('excluded_dirs', excludedDirs);
@@ -445,6 +450,8 @@ export default function Home() {
             isOpen={isConfigModalOpen}
             onClose={() => setIsConfigModalOpen(false)}
             repositoryInput={repositoryInput}
+            branchName={branch}
+            setBranchName={setBranch}
             selectedLanguage={selectedLanguage}
             setSelectedLanguage={setSelectedLanguage}
             supportedLanguages={supportedLanguages}

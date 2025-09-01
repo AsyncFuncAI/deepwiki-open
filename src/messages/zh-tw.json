@@ -30,6 +30,7 @@
   },
   "form": {
     "repository": "儲存庫",
+    "branchName": "分支名稱（可選）",
     "configureWiki": "設定 Wiki",
     "repoPlaceholder": "擁有者/儲存庫或 GitHub/GitLab/Bitbucket URL",
     "wikiLanguage": "Wiki 語言",

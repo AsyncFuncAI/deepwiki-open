@@ -30,6 +30,7 @@
   },
   "form": {
     "repository": "Репозиторий",
+    "branchName": "Имя ветки (необязательно)",
     "configureWiki": "Настроить Wiki",
     "repoPlaceholder": "owner/repo или URL GitHub/GitLab/Bitbucket",
     "wikiLanguage": "Язык Wiki",

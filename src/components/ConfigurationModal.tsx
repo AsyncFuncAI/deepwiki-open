@@ -11,6 +11,9 @@ interface ConfigurationModalProps {
 
   // Repository input
   repositoryInput: string;
+  // Branch name input
+  branchName: string;
+  setBranchName: (value: string) => void;
 
   // Language selection
   selectedLanguage: string;
@@ -64,6 +67,8 @@ export default function ConfigurationModal({
   isOpen,
   onClose,
   repositoryInput,
+  branchName,
+  setBranchName,
   selectedLanguage,
   setSelectedLanguage,
   supportedLanguages,
@@ -133,6 +138,21 @@ export default function ConfigurationModal({
               <div className="bg-[var(--background)]/70 p-3 rounded-md border border-[var(--border-color)] text-sm text-[var(--foreground)]">
                 {repositoryInput}
               </div>
+            </div>
+
+            {/* Branch name input */}
+            <div className="mb-4">
+              <label htmlFor="branchName" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                {t.form?.branchName || 'Branch name (optional)'}
+              </label>
+              <input
+                type="text"
+                id="branchName"
+                value={branchName}
+                onChange={(e) => setBranchName(e.target.value)}
+                className="input-japanese block w-full px-3 py-2 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+                placeholder={t.form?.branchPlaceholder || 'e.g., main, master, develop, feature/x'}
+              />
             </div>
 
             {/* Language selection */}

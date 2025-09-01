@@ -30,6 +30,7 @@
   },
   "form": {
     "repository": "リポジトリ",
+    "branchName": "ブランチ名（任意）",
     "configureWiki": "Wiki設定",
     "repoPlaceholder": "所有者/リポジトリまたはGitHub/GitLab/BitbucketのURL",
     "wikiLanguage": "Wiki言語",

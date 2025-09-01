@@ -30,6 +30,7 @@
   },
   "form": {
     "repository": "Repository",
+    "branchName": "Tên nhánh (tùy chọn)",
     "configureWiki": "Cấu hình Wiki",
     "repoPlaceholder": "owner/repo hoặc URL GitHub/GitLab/Bitbucket",
     "wikiLanguage": "Ngôn ngữ Wiki",

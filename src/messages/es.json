@@ -30,6 +30,7 @@
   },
   "form": {
     "repository": "Repositorio",
+    "branchName": "Nombre de rama (opcional)",
     "configureWiki": "Configurar Wiki",
     "repoPlaceholder": "propietario/repositorio o URL de GitHub/GitLab/Bitbucket",
     "wikiLanguage": "Idioma del Wiki",

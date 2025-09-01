@@ -30,6 +30,7 @@
     },
     "form": {
       "repository": "저장소",
+      "branchName": "브랜치 이름(선택 사항)",
       "configureWiki": "위키 구성",
       "repoPlaceholder": "owner/repo 또는 GitHub/GitLab/Bitbucket URL",
       "wikiLanguage": "위키 언어",

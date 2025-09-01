@@ -343,7 +343,7 @@ IMPORTANT FORMATTING RULES:
 
     def prepare_retriever(self, repo_url_or_path: str, type: str = "github", access_token: str = None,
                       excluded_dirs: List[str] = None, excluded_files: List[str] = None,
-                      included_dirs: List[str] = None, included_files: List[str] = None):
+                      included_dirs: List[str] = None, included_files: List[str] = None, branch: str = None):
         """
         Prepare the retriever for a repository.
         Will load database from local storage if available.
@@ -366,7 +366,8 @@ IMPORTANT FORMATTING RULES:
             excluded_dirs=excluded_dirs,
             excluded_files=excluded_files,
             included_dirs=included_dirs,
-            included_files=included_files
+            included_files=included_files,
+            branch=branch
         )
         logger.info(f"Loaded {len(self.transformed_docs)} documents for retrieval")
 

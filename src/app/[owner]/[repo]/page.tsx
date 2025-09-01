@@ -273,6 +273,12 @@ export default function RepoWikiPage() {
 
   // Default branch state
   const [defaultBranch, setDefaultBranch] = useState<string>('main');
+  const requestedBranch = searchParams.get('branch') || '';
+  useEffect(() => {
+    if (requestedBranch && requestedBranch.trim().length > 0) {
+      setDefaultBranch(requestedBranch.trim());
+    }
+  }, [requestedBranch]);
 
   // Helper function to generate proper repository file URLs
   const generateFileUrl = useCallback((filePath: string): string => {
@@ -509,6 +515,9 @@ Remember:
             content: promptContent
           }]
         };
+        if (requestedBranch) {
+          requestBody.branch = requestedBranch;
+        }
 
         // Add tokens if available
         addTokensToRequestBody(requestBody, currentToken, effectiveRepoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles, modelIncludedDirs, modelIncludedFiles);
@@ -683,7 +692,12 @@ Remember:
         type: effectiveRepoInfo.type,
         messages: [{
           role: 'user',
-content: `Analyze this GitHub repository ${owner}/${repo} and create a wiki structure for it.
+          content: `Analyze this GitHub repository ${owner}/${repo} and create a wiki structure for it.
+      }]
+      } as Record<string, any>;
+      if (requestedBranch) {
+        (requestBody as any).branch = requestedBranch;
+      }
 
 1. The complete file tree of the project:
 <file_tree>
