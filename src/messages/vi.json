@@ -33,6 +33,8 @@
     "configureWiki": "Cấu hình Wiki",
     "repoPlaceholder": "owner/repo hoặc URL GitHub/GitLab/Bitbucket",
     "wikiLanguage": "Ngôn ngữ Wiki",
+    "branchLabel": "Nhánh (Tùy chọn)",
+    "branchHelp": "Nếu để trống, nhánh mặc định của repository sẽ được sử dụng.",
     "modelOptions": "Tùy chọn mô hình",
     "modelProvider": "Nhà cung cấp mô hình",
     "modelSelection": "Lựa chọn mô hình",

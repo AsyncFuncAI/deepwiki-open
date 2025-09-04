@@ -76,6 +76,7 @@ export default function Home() {
   };
 
   const [repositoryInput, setRepositoryInput] = useState('https://github.com/AsyncFuncAI/deepwiki-open');
+  const [branch, setBranch] = useState<string>('');
 
   const REPO_CONFIG_CACHE_KEY = 'deepwikiRepoConfigCache';
 
@@ -98,6 +99,7 @@ export default function Home() {
           setExcludedFiles(config.excludedFiles || '');
           setIncludedDirs(config.includedDirs || '');
           setIncludedFiles(config.includedFiles || '');
+          setBranch(config.branch || '');
         }
       }
     } catch (error) {
@@ -322,6 +324,7 @@ export default function Home() {
           excludedFiles,
           includedDirs,
           includedFiles,
+          branch,
         };
         existingConfigs[currentRepoUrl] = configToSave;
         localStorage.setItem(REPO_CONFIG_CACHE_KEY, JSON.stringify(existingConfigs));
@@ -374,6 +377,11 @@ export default function Home() {
     }
     if (includedFiles) {
       params.append('included_files', includedFiles);
+    }
+
+    // Add branch parameter if provided
+    if (branch && branch.trim() !== '') {
+      params.append('branch', branch.trim());
     }
 
     // Add language parameter
@@ -445,6 +453,8 @@ export default function Home() {
             isOpen={isConfigModalOpen}
             onClose={() => setIsConfigModalOpen(false)}
             repositoryInput={repositoryInput}
+            branch={branch}
+            setBranch={setBranch}
             selectedLanguage={selectedLanguage}
             setSelectedLanguage={setSelectedLanguage}
             supportedLanguages={supportedLanguages}

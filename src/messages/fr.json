@@ -33,6 +33,8 @@
       "configureWiki": "Configurer le Wiki",
       "repoPlaceholder": "propriétaire/dépôt ou URL GitHub/GitLab/Bitbucket",
       "wikiLanguage": "Langue du Wiki",
+      "branchLabel": "Branche (facultatif)",
+      "branchHelp": "Si ce champ est vide, la branche par défaut du dépôt sera utilisée.",
       "modelOptions": "Options du Modèle",
       "modelProvider": "Fournisseur du Modèle",
       "modelSelection": "Sélection du Modèle",
