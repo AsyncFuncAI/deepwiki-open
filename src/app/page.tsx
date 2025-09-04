@@ -134,7 +134,7 @@ export default function Home() {
   const [excludedFiles, setExcludedFiles] = useState('');
   const [includedDirs, setIncludedDirs] = useState('');
   const [includedFiles, setIncludedFiles] = useState('');
-  const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>('github');
+  const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket' | 'azure'>('github');
   const [accessToken, setAccessToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -212,6 +212,8 @@ export default function Home() {
         type = 'gitlab';
       } else if (domain?.includes('bitbucket.org') || domain?.includes('bitbucket.')) {
         type = 'bitbucket';
+      } else if (domain?.includes('azure.com') || domain?.includes('dev.azure.com')) {
+        type = 'azure';
       } else {
         type = 'web'; // fallback for other git hosting services
       }
@@ -221,6 +223,13 @@ export default function Home() {
       if (parts.length >= 2) {
         repo = parts[parts.length - 1] || '';
         owner = parts[parts.length - 2] || '';
+        if (type === 'azure') {
+          const userInfoMatch = input.match(/^(?:https?:\/\/)?([^@\/=\s]+)@/);
+          const candidateOwner = userInfoMatch?.[1] || parts[0] || '';
+          owner = candidateOwner === '_git' ? (parts[0] || '') : candidateOwner;
+        } else {
+          owner = parts[parts.length - 2] || '';
+        }
       }
     }
     // Unsupported URL formats
