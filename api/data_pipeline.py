@@ -55,6 +55,21 @@ def count_tokens(text: str, is_ollama_embedder: bool = None) -> int:
         # Rough approximation: 4 characters per token
         return len(text) // 4
 
+def get_git_ignore_path_set(repo_path: str) -> set[str]:
+    try:
+        output = subprocess.run(
+            ["git", "ls-files", "--others", "--ignored", "--exclude-standard", "--directory"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return set(output.stdout.splitlines())
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error running git ls-files: {e}")
+        return set()
+
+
 def download_repo(repo_url: str, local_path: str, type: str = "github", access_token: str = None) -> str:
     """
     Downloads a Git repository (GitHub, GitLab, or Bitbucket) to a specified local path.
@@ -130,7 +145,7 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
 download_github_repo = download_repo
 
 def read_all_documents(path: str, is_ollama_embedder: bool = None, excluded_dirs: List[str] = None, excluded_files: List[str] = None,
-                      included_dirs: List[str] = None, included_files: List[str] = None):
+                      included_dirs: List[str] = None, included_files: List[str] = None, use_gitignore: bool = True):
     """
     Recursively reads all documents in a directory and its subdirectories.
 
@@ -146,6 +161,7 @@ def read_all_documents(path: str, is_ollama_embedder: bool = None, excluded_dirs
             When provided, only files in these directories will be processed.
         included_files (List[str], optional): List of file patterns to include exclusively.
             When provided, only files matching these patterns will be processed.
+        use_gitignore (bool, default: True): Whether to ignore the files in git ignore
 
     Returns:
         list: A list of Document objects with metadata.
@@ -192,7 +208,8 @@ def read_all_documents(path: str, is_ollama_embedder: bool = None, excluded_dirs
 
         if excluded_files is not None:
             final_excluded_files.update(excluded_files)
-
+        if use_gitignore:
+            final_excluded_dirs.update(get_git_ignore_path_set(path))
         # Convert back to lists for compatibility
         excluded_dirs = list(final_excluded_dirs)
         excluded_files = list(final_excluded_files)
