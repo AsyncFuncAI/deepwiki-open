@@ -33,6 +33,8 @@
     "configureWiki": "Wiki設定",
     "repoPlaceholder": "所有者/リポジトリまたはGitHub/GitLab/BitbucketのURL",
     "wikiLanguage": "Wiki言語",
+    "branchLabel": "ブランチ（任意）",
+    "branchHelp": "空の場合、リポジトリのデフォルトブランチが使用されます。",
     "modelOptions": "モデルオプション",
     "modelProvider": "モデルプロバイダー",
     "modelSelection": "モデル選択",

@@ -12,6 +12,10 @@ interface ConfigurationModalProps {
   // Repository input
   repositoryInput: string;
 
+  // Branch input
+  branch: string;
+  setBranch: (value: string) => void;
+
   // Language selection
   selectedLanguage: string;
   setSelectedLanguage: (value: string) => void;
@@ -64,6 +68,8 @@ export default function ConfigurationModal({
   isOpen,
   onClose,
   repositoryInput,
+  branch,
+  setBranch,
   selectedLanguage,
   setSelectedLanguage,
   supportedLanguages,
@@ -132,6 +138,29 @@ export default function ConfigurationModal({
               </label>
               <div className="bg-[var(--background)]/70 p-3 rounded-md border border-[var(--border-color)] text-sm text-[var(--foreground)]">
                 {repositoryInput}
+              </div>
+            </div>
+
+            {/* Branch input */}
+            <div className="mb-4">
+              <label htmlFor="branch-input" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                {t.form?.branchLabel || 'Branch (Optional)'}
+              </label>
+              <input
+                type="text"
+                id="branch-input"
+                value={branch}
+                onChange={(e) => setBranch(e.target.value)}
+                placeholder="e.g., main, master, develop"
+                className="input-japanese block w-full px-3 py-2 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+              />
+              <div className="flex items-start mt-2 text-xs text-[var(--muted)]">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>
+                  {t.form?.branchHelp || "If left empty, the repository's default branch will be used."}
+                </span>
               </div>
             </div>
 
