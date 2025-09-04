@@ -106,7 +106,8 @@ const addTokensToRequestBody = (
   excludedDirs?: string,
   excludedFiles?: string,
   includedDirs?: string,
-  includedFiles?: string
+  includedFiles?: string,
+  branch?: string
 ): void => {
   if (token !== '') {
     requestBody.token = token;
@@ -134,7 +135,9 @@ const addTokensToRequestBody = (
   if (includedFiles) {
     requestBody.included_files = includedFiles;
   }
-
+  if (branch) {
+    requestBody.branch = branch;
+  }
 };
 
 const createGithubHeaders = (githubToken: string): HeadersInit => {
@@ -199,6 +202,7 @@ export default function RepoWikiPage() {
       : repoUrl?.includes('github.com')
         ? 'github'
         : searchParams.get('type') || 'github';
+  const branch = searchParams.get('branch') || '';
 
   // Import language context for translations
   const { messages } = useLanguage();
@@ -210,8 +214,9 @@ export default function RepoWikiPage() {
     type: repoType,
     token: token || null,
     localPath: localPath || null,
-    repoUrl: repoUrl || null
-  }), [owner, repo, repoType, localPath, repoUrl, token]);
+    repoUrl: repoUrl || null,
+    branch: branch || null,
+  }), [owner, repo, repoType, localPath, repoUrl, token, branch]);
 
   // State variables
   const [isLoading, setIsLoading] = useState(true);
@@ -511,7 +516,7 @@ Remember:
         };
 
         // Add tokens if available
-        addTokensToRequestBody(requestBody, currentToken, effectiveRepoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles, modelIncludedDirs, modelIncludedFiles);
+        addTokensToRequestBody(requestBody, currentToken, effectiveRepoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles, modelIncludedDirs, modelIncludedFiles, branch);
 
         // Use WebSocket for communication
         let content = '';
@@ -808,7 +813,7 @@ IMPORTANT:
       };
 
       // Add tokens if available
-      addTokensToRequestBody(requestBody, currentToken, effectiveRepoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles, modelIncludedDirs, modelIncludedFiles);
+      addTokensToRequestBody(requestBody, currentToken, effectiveRepoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles, modelIncludedDirs, modelIncludedFiles, branch);
 
       // Use WebSocket for communication
       let responseText = '';
@@ -1211,22 +1216,31 @@ IMPORTANT:
         };
 
         const githubApiBaseUrl = getGithubApiUrl(effectiveRepoInfo.repoUrl);
-        // First, try to get the default branch from the repository info
-        let defaultBranchLocal = null;
-        try {
-          const repoInfoResponse = await fetch(`${githubApiBaseUrl}/repos/${owner}/${repo}`, {
-            headers: createGithubHeaders(currentToken)
-          });
-          
-          if (repoInfoResponse.ok) {
-            const repoData = await repoInfoResponse.json();
-            defaultBranchLocal = repoData.default_branch;
-            console.log(`Found default branch: ${defaultBranchLocal}`);
-            // Store the default branch in state
-            setDefaultBranch(defaultBranchLocal || 'main');
+        // First, try to get the default branch from effectiveRepoInfo or the repository info
+        let defaultBranchLocal = effectiveRepoInfo?.branch && `${effectiveRepoInfo.branch}`.trim() !== ''
+          ? `${effectiveRepoInfo.branch}`.trim()
+          : null;
+
+        // If branch not provided, fetch repository info to determine default branch
+        if (!defaultBranchLocal) {
+          try {
+            const repoInfoResponse = await fetch(`${githubApiBaseUrl}/repos/${owner}/${repo}`, {
+              headers: createGithubHeaders(currentToken)
+            });
+            
+            if (repoInfoResponse.ok) {
+              const repoData = await repoInfoResponse.json();
+              defaultBranchLocal = repoData.default_branch;
+              console.log(`Found default branch: ${defaultBranchLocal}`);
+              // Store the default branch in state
+              setDefaultBranch(defaultBranchLocal || 'main');
+            }
+          } catch (err) {
+            console.warn('Could not fetch repository info for default branch:', err);
           }
-        } catch (err) {
-          console.warn('Could not fetch repository info for default branch:', err);
+        } else {
+          // If we already have a branch from effectiveRepoInfo, store it
+          setDefaultBranch(defaultBranchLocal);
         }
 
         // Create list of branches to try, prioritizing the actual default branch
@@ -2243,7 +2257,7 @@ IMPORTANT:
         onApply={confirmRefresh}
         showWikiType={true}
         showTokenInput={effectiveRepoInfo.type !== 'local' && !currentToken} // Show token input if not local and no current token
-        repositoryType={effectiveRepoInfo.type as 'github' | 'gitlab' | 'bitbucket'}
+        repositoryType={effectiveRepoInfo.type as 'github' | 'gitlab' | 'bitbucket' | 'azure'}
         authRequired={authRequired}
         authCode={authCode}
         setAuthCode={setAuthCode}

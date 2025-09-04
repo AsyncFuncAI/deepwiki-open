@@ -37,7 +37,7 @@ interface ModelSelectionModalProps {
   
   // Token input for refresh
   showTokenInput?: boolean;
-  repositoryType?: 'github' | 'gitlab' | 'bitbucket';
+  repositoryType?: 'github' | 'gitlab' | 'bitbucket' | 'azure';
   // Authentication
   authRequired?: boolean;
   authCode?: string;
@@ -91,7 +91,7 @@ export default function ModelSelectionModal({
   
   // Token input state
   const [localAccessToken, setLocalAccessToken] = useState('');
-  const [localSelectedPlatform, setLocalSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>(repositoryType);
+  const [localSelectedPlatform, setLocalSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket' | 'azure'>(repositoryType);
   const [showTokenSection, setShowTokenSection] = useState(showTokenInput);
 
   // Reset local state when modal is opened

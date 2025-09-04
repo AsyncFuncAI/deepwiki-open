@@ -33,6 +33,8 @@
     "configureWiki": "配置Wiki",
     "repoPlaceholder": "所有者/仓库或GitHub/GitLab/Bitbucket URL",
     "wikiLanguage": "Wiki语言",
+    "branchLabel": "分支（可选）",
+    "branchHelp": "如果留空，将使用仓库的默认分支。",
     "modelOptions": "模型选项",
     "modelProvider": "模型提供商",
     "modelSelection": "模型选择",

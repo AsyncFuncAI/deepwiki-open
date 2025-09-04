@@ -33,6 +33,8 @@
       "configureWiki": "위키 구성",
       "repoPlaceholder": "owner/repo 또는 GitHub/GitLab/Bitbucket URL",
       "wikiLanguage": "위키 언어",
+      "branchLabel": "브랜치(선택 사항)",
+      "branchHelp": "비워두면 저장소의 기본 브랜치가 사용됩니다.",
       "modelOptions": "모델 옵션",
       "modelProvider": "모델 제공자",
       "modelSelection": "모델 선택",

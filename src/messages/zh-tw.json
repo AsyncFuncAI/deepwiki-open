@@ -33,6 +33,8 @@
     "configureWiki": "設定 Wiki",
     "repoPlaceholder": "擁有者/儲存庫或 GitHub/GitLab/Bitbucket URL",
     "wikiLanguage": "Wiki 語言",
+    "branchLabel": "分支（選填）",
+    "branchHelp": "若留空，將使用儲存庫的預設分支。",
     "modelOptions": "模型選項",
     "modelProvider": "模型提供商",
     "modelSelection": "模型選擇",
