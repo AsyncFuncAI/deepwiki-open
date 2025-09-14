@@ -1,11 +1,21 @@
 {
   "embedder": {
     "client_class": "OpenAIClient",
-    "batch_size": 500,
+    "initialize_kwargs": {
+      "api_key": "${OPENAI_API_KEY}",
+      "base_url": "${OPENAI_BASE_URL}"
+    },
+    "batch_size": 10,
     "model_kwargs": {
-      "model": "text-embedding-3-small",
+      "model": "text-embedding-v4",
       "dimensions": 256,
       "encoding_format": "float"
+    }
+  },
+  "embedder_ollama": {
+    "client_class": "OllamaClient",
+    "model_kwargs": {
+      "model": "nomic-embed-text"
     }
   },
   "retriever": {

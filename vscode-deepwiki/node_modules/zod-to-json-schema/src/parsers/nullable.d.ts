@@ -1,0 +1,10 @@
+import { ZodNullableDef } from "zod";
+import { JsonSchema7Type } from "../parseDef";
+import { Refs } from "../Refs";
+import { JsonSchema7NullType } from "./null";
+export type JsonSchema7NullableType = {
+    anyOf: [JsonSchema7Type, JsonSchema7NullType];
+} | {
+    type: [string, "null"];
+};
+export declare function parseNullableDef(def: ZodNullableDef, refs: Refs): JsonSchema7NullableType | undefined;

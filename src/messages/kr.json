@@ -20,7 +20,7 @@
     "home": {
       "welcome": "DeepWiki-Open에 오신 것을 환영합니다",
       "welcomeTagline": "코드 저장소를 위한 AI 기반 문서화",
-      "description": "GitHub, GitLab 또는 Bitbucket 저장소에서 클릭 한 번으로 종합 문서를 생성하세요.",
+      "description": "GitHub, GitLab, Bitbucket 또는 CNB 저장소에서 클릭 한 번으로 종합 문서를 생성하세요.",
       "quickStart": "빠른 시작",
       "enterRepoUrl": "다음 형식 중 하나로 저장소 URL을 입력하세요:",
       "advancedVisualization": "Mermaid 다이어그램을 활용한 고급 시각화",
@@ -31,7 +31,7 @@
     "form": {
       "repository": "저장소",
       "configureWiki": "위키 구성",
-      "repoPlaceholder": "owner/repo 또는 GitHub/GitLab/Bitbucket URL",
+      "repoPlaceholder": "owner/repo 또는 GitHub/GitLab/Bitbucket/CNB URL",
       "wikiLanguage": "위키 언어",
       "modelOptions": "모델 옵션",
       "modelProvider": "모델 제공자",
@@ -102,7 +102,7 @@
       "cancel": "취소",
       "home": "홈",
       "errorTitle": "오류",
-      "errorMessageDefault": "저장소가 존재하며 공개 상태인지 확인해 주세요. 유효한 형식은 \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\" 또는 로컬 폴더 경로 \"C:\\\\path\\\\to\\\\folder\" 혹은 \"/path/to/folder\" 입니다.",
+      "errorMessageDefault": "저장소가 존재하며 공개 상태인지 확인해 주세요. 유효한 형식은 \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", \"https://cnb.cool/owner/repo\" 또는 로컬 폴더 경로 \"C:\\\\path\\\\to\\\\folder\" 혹은 \"/path/to/folder\" 입니다.",
       "embeddingErrorDefault": "이 오류는 저장소를 분석하는 데 사용되는 문서 임베딩 시스템과 관련이 있습니다. 임베딩 모델 설정에서 다른 임베딩 제공자를 시도해 보세요. 문제가 지속되면 모델 설정에서 다른 임베딩 제공자를 변경해 보세요.",
       "backToHome": "홈으로 돌아가기",
       "exportWiki": "위키 내보내기",

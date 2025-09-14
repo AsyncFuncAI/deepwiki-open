@@ -1,0 +1,91 @@
+{
+  "name": "cockatiel",
+  "version": "3.2.1",
+  "description": "A resilience and transient-fault-handling library that allows developers to express policies such as Backoff, Retry, Circuit Breaker, Timeout, Bulkhead Isolation, and Fallback in a fluent and thread-safe manner. Inspired by .NET Polly.",
+  "main": "dist/index.js",
+  "module": "dist/esm/index.js",
+  "engines": {
+    "node": ">=16"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "prepublishOnly": "npm run compile",
+    "test": "rimraf dist && tsc && npm run test:unit && npm run test:fmt && npm run test:md",
+    "test:cover": "rimraf dist && tsc && nyc npm run test:unit",
+    "test:unit": "mocha",
+    "test:fmt": "prettier --list-different \"src/**/*.ts\" \"*.md\"",
+    "test:md": "remark -f readme.md -q",
+    "fmt": "remark readme.md -f -o readme.md && prettier --write \"src/**/*.ts\" \"*.md\"",
+    "compile": "rimraf dist && tsc && tsc -p tsconfig.esm.json",
+    "watch": "rimraf dist && tsc --watch"
+  },
+  "nyc": {
+    "all": true,
+    "instrument": true,
+    "include": [
+      "dist/**/*.js",
+      "src/**/*.ts"
+    ],
+    "extension": [
+      ".ts"
+    ],
+    "reporter": [
+      "cobertura",
+      "text-summary",
+      "html"
+    ],
+    "exclude": [
+      "**/*.test.{ts,js}"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/connor4312/cockatiel.git"
+  },
+  "keywords": [
+    "circuit-breaker",
+    "retry",
+    "backoff",
+    "jitter",
+    "resilience",
+    "timeout",
+    "fallback",
+    "fluent",
+    "polly"
+  ],
+  "author": "Connor Peet <connor@peet.io>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/connor4312/cockatiel/issues"
+  },
+  "homepage": "https://github.com/connor4312/cockatiel#readme",
+  "devDependencies": {
+    "@types/chai": "^4.3.1",
+    "@types/chai-as-promised": "^7.1.5",
+    "@types/chai-subset": "^1.3.3",
+    "@types/mocha": "^9.1.1",
+    "@types/node": "^16.11.7",
+    "@types/sinon": "^10.0.11",
+    "@types/sinon-chai": "^3.2.8",
+    "chai": "^4.3.6",
+    "chai-as-promised": "^7.1.1",
+    "chai-subset": "^1.6.0",
+    "mocha": "^10.0.0",
+    "nyc": "^15.1.0",
+    "prettier": "^3.3.3",
+    "remark-cli": "^10.0.1",
+    "remark-toc": "^8.0.1",
+    "remark-validate-links": "^11.0.2",
+    "rimraf": "^3.0.2",
+    "sinon": "^14.0.0",
+    "sinon-chai": "^3.7.0",
+    "source-map-support": "^0.5.21",
+    "typescript": "^5.5.3"
+  },
+  "prettier": {
+    "printWidth": 100,
+    "arrowParens": "avoid",
+    "singleQuote": true,
+    "trailingComma": "all"
+  }
+}
