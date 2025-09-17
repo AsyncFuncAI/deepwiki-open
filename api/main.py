@@ -4,6 +4,8 @@ import sys
 import logging
 from dotenv import load_dotenv
 
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")))
+
 # Load environment variables from .env file
 load_dotenv()
 
