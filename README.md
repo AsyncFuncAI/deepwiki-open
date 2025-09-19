@@ -19,7 +19,7 @@
 ## ✨ Features
 
 - **Instant Documentation**: Turn any GitHub, GitLab or BitBucket repo into a wiki in seconds
-- **Private Repository Support**: Securely access private repositories with personal access tokens
+- **Private Repository Support**: Securely access private repositories with personal access tokens and support for custom domain configurations
 - **Smart Analysis**: AI-powered understanding of code structure and relationships
 - **Beautiful Diagrams**: Automatic Mermaid diagrams to visualize architecture and data flow
 - **Easy Navigation**: Simple, intuitive interface to explore the wiki
@@ -232,6 +232,11 @@ DeepWiki uses JSON configuration files to manage various aspects of the system:
 3. **`repo.json`**: Configuration for repository handling
    - Contains file filters to exclude certain files and directories
    - Defines repository size limits and processing rules
+
+4. **`repository-providers.json`**: Configuration for repository provider matching
+   - Defines supported repository providers (GitHub, GitLab, Bitbucket)
+   - Contains URL patterns for automatic provider detection
+   - Supports wildcard matching for custom domain deployments
 
 By default, these files are located in the `api/config/` directory. You can customize their location using the `DEEPWIKI_CONFIG_DIR` environment variable.
 
