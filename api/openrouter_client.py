@@ -320,7 +320,8 @@ class OpenRouterClient(ModelClient):
                                     yield "Error: No response content from OpenRouter API"
 
                             return content_generator()
-                    except aiohttp.ClientError as e_client:
+                    except aiohttp.ClientError as e:
+                        e_client = e
                         log.error(f"Connection error with OpenRouter API: {str(e_client)}")
 
                         # Return a generator that yields the error message
@@ -328,7 +329,8 @@ class OpenRouterClient(ModelClient):
                             yield f"Connection error with OpenRouter API: {str(e_client)}. Please check your internet connection and that the OpenRouter API is accessible."
                         return connection_error_generator()
 
-            except RequestException as e_req:
+            except RequestException as e:
+                e_req = e
                 log.error(f"Error calling OpenRouter API asynchronously: {str(e_req)}")
 
                 # Return a generator that yields the error message
@@ -336,7 +338,8 @@ class OpenRouterClient(ModelClient):
                     yield f"Error calling OpenRouter API: {str(e_req)}"
                 return request_error_generator()
 
-            except Exception as e_unexp:
+            except Exception as e:
+                e_unexp = e
                 log.error(f"Unexpected error calling OpenRouter API asynchronously: {str(e_unexp)}")
 
                 # Return a generator that yields the error message
