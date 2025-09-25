@@ -459,8 +459,10 @@ This file contains...
             model_kwargs = {
                 "model": request.model,
                 "stream": True,
-                "temperature": model_config["temperature"]
+                #"temperature": model_config["temperature"]
             }
+            if "temperature" in model_config:
+                model_kwargs["temperature"] = model_config["temperature"]
             # Only add top_p if it exists in the model config
             if "top_p" in model_config:
                 model_kwargs["top_p"] = model_config["top_p"]

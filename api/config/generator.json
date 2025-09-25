@@ -70,6 +70,9 @@
         },
         "o4-mini": {
           "temperature": 1.0
+        },
+        "claude-3.7-sonnet": {
+          "temperature": 1.0
         }
       }
     },
