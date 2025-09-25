@@ -33,6 +33,8 @@
     "configureWiki": "Настроить Wiki",
     "repoPlaceholder": "owner/repo или URL GitHub/GitLab/Bitbucket",
     "wikiLanguage": "Язык Wiki",
+    "branchLabel": "Ветка (необязательно)",
+    "branchHelp": "Если оставить пустым, будет использована ветка по умолчанию репозитория.",
     "modelOptions": "Настройки модели",
     "modelProvider": "Поставщик модели",
     "modelSelection": "Выбор модели",
