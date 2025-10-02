@@ -1,0 +1,30 @@
+{
+  "providers": [
+    {
+      "type": "github",
+      "name": "GitHub",
+      "patterns": [
+        "*github.com*"
+      ],
+      "description": "GitHub.com public and enterprise instances"
+    },
+    {
+      "type": "gitlab",
+      "name": "GitLab", 
+      "patterns": [
+        "*gitlab.*"
+      ],
+      "description": "GitLab. and self-hosted instances"
+    },
+    {
+      "type": "bitbucket",
+      "name": "Bitbucket",
+      "patterns": [
+        "*bitbucket.*"
+      ],
+      "description": "Bitbucket cloud and server instances"
+    }
+  ],
+  "fallback": "github",
+  "comment": "Configuration instructions: patterns supports wildcard matching, where * represents any character. Simply add your private domain deployment domain name to the corresponding patterns array."
+} 

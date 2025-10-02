@@ -19,7 +19,7 @@
 ## ✨ Tính năng
 
 - **Tạo Tài liệu tức thì**: Biến bất kỳ Repository GitHub, GitLab hoặc BitBucket nào thành wiki chỉ trong vài giây
-- **Hỗ trợ Private Repository**: Truy cập Private Repository một cách an toàn với personal access tokens
+- **Hỗ trợ Private Repository**: Truy cập Private Repository một cách an toàn với personal access tokens và hỗ trợ cấu hình tên miền tùy chỉnh
 - **Phân tích thông minh**: Hiểu cấu trúc và mối quan hệ của source codes nhờ AI
 - **Tự động tạo Sơ đồ**: Tự động tạo sơ đồ Mermaid để trực quan hóa kiến trúc và luồng dữ liệu
 - **Dễ dàng thao tác**:Giao diện wiki đơn giản, trực quan để khám phá
@@ -290,6 +290,11 @@ DeepWiki sử dụng các tệp cấu hình JSON để quản lý các khía c�
 3. **`repo.json`**: Cấu hình xử lý repository
    - Chứa bộ lọc tệp để loại trừ một số tệp và thư mục nhất định
    - Xác định giới hạn kích thước repository và quy tắc xử lý
+
+4. **`repository-providers.json`**: Cấu hình khớp nhà cung cấp repository
+   - Xác định các nhà cung cấp repository được hỗ trợ (GitHub, GitLab, Bitbucket)
+   - Chứa các mẫu URL để tự động phát hiện nhà cung cấp
+   - Hỗ trợ khớp ký tự đại diện cho triển khai tên miền tùy chỉnh
 
 Mặc định, các tệp này nằm trong thư mục `api/config/`. Bạn có thể tùy chỉnh vị trí của chúng bằng biến môi trường `DEEPWIKI_CONFIG_DIR`.
 
