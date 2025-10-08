@@ -169,10 +169,11 @@ class RAG(adal.Component):
         self.model = model
 
         # Import the helper functions
-        from api.config import get_embedder_config, is_ollama_embedder
+        from api.config import get_embedder_config, get_embedder_type
 
-        # Determine if we're using Ollama embedder based on configuration
-        self.is_ollama_embedder = is_ollama_embedder()
+        # Determine embedder type based on current configuration
+        self.embedder_type = get_embedder_type()
+        self.is_ollama_embedder = (self.embedder_type == 'ollama')  # Backward compatibility
 
         # Check if Ollama model exists before proceeding
         if self.is_ollama_embedder:
@@ -187,7 +188,7 @@ class RAG(adal.Component):
 
         # Initialize components
         self.memory = Memory()
-        self.embedder = get_embedder()
+        self.embedder = get_embedder(embedder_type=self.embedder_type)
 
         self_weakref = weakref.ref(self)
         # Patch: ensure query embedding is always single string for Ollama
@@ -362,7 +363,7 @@ IMPORTANT FORMATTING RULES:
             repo_url_or_path,
             type,
             access_token,
-            is_ollama_embedder=self.is_ollama_embedder,
+            embedder_type=self.embedder_type,
             excluded_dirs=excluded_dirs,
             excluded_files=excluded_files,
             included_dirs=included_dirs,

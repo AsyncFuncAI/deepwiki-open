@@ -519,7 +519,7 @@ async def delete_wiki_cache(
 
     if WIKI_AUTH_MODE:
         logger.info("check the authorization code")
-        if WIKI_AUTH_CODE != authorization_code:
+        if not authorization_code or WIKI_AUTH_CODE != authorization_code:
             raise HTTPException(status_code=401, detail="Authorization code is invalid")
 
     logger.info(f"Attempting to delete wiki cache for {owner}/{repo} ({repo_type}), lang: {language}")
