@@ -449,7 +449,7 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
        - For sequence diagrams:
          - Start with "sequenceDiagram" directive on its own line
          - Define ALL participants at the beginning using "participant" keyword
-         - Optionally specify participant types: actor, participant (default), database, collections, queue
+         - Optionally specify participant types: actor, boundary, control, entity, database, collections, queue
          - Use descriptive but concise participant names, or use aliases: "participant A as Alice"
          - Use the correct Mermaid arrow syntax (8 types available):
            - -> solid line without arrow (rarely used)
