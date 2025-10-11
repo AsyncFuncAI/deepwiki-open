@@ -451,18 +451,16 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
          - Define ALL participants at the beginning using "participant" keyword
          - Optionally specify participant types: actor, participant (default), database, collections, queue
          - Use descriptive but concise participant names, or use aliases: "participant A as Alice"
-         - Use the correct Mermaid arrow syntax (10 types available):
+         - Use the correct Mermaid arrow syntax (8 types available):
            - -> solid line without arrow (rarely used)
            - --> dotted line without arrow (rarely used)
            - ->> solid line with arrowhead (most common for requests/calls)
            - -->> dotted line with arrowhead (most common for responses/returns)
-           - <<->> solid bidirectional arrow (synchronous two-way)
-           - <<-->> dotted bidirectional arrow (async two-way)
-           - -x solid line with X at end (failed/error message)
-           - --x dotted line with X at end (failed/error response)
+           - ->x solid line with X at end (failed/error message)
+           - -->x dotted line with X at end (failed/error response)
            - -) solid line with open arrow (async message, fire-and-forget)
            - --) dotted line with open arrow (async response)
-           - Examples: A->>B: Request, B-->>A: Response, A-xB: Error, A-)B: Async event
+           - Examples: A->>B: Request, B-->>A: Response, A->xB: Error, A-)B: Async event
          - Use +/- suffix for activation boxes: A->>+B: Start (activates B), B-->>-A: End (deactivates B)
          - Group related participants using "box": box GroupName ... end
          - Use structural elements for complex flows:
