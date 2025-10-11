@@ -472,7 +472,7 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
            - break BreakText ... end (for breaking flows/exceptions)
          - Add notes for clarification: "Note over A,B: Description", "Note right of A: Detail"
          - Use autonumber directive to add sequence numbers to messages
-         - NEVER use invalid syntax like -->|label|> (arrow must not end with >)
+         - NEVER use flowchart-style labels like A--|label|-->B. Always use a colon for labels: A->>B: My Label
 
 4.  **Tables:**
     *   Use Markdown tables to summarize information such as:
