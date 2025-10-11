@@ -14,6 +14,7 @@ import fnmatch
 
 # Configure logging
 from api.logging_config import setup_logging
+from api.config import load_repo_config
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -74,18 +75,20 @@ def should_exclude_file(file_name: str, excluded_patterns: List[str]) -> bool:
     return False
 
 
-def collect_all_files(path: str, config: Dict) -> List[str]:
+def collect_all_files(path: str, config: Dict) -> tuple[List[str], str]:
     """
     Collect ALL files from repository respecting include/exclude patterns.
+    Also finds and reads README.md during the same walk.
     
     Args:
         path: Root directory path
         config: Configuration with excluded_dirs and excluded_files
     
     Returns:
-        List of relative file paths
+        Tuple of (list of relative file paths, README content string)
     """
     all_files = []
+    readme_content = ""
     excluded_dirs = config.get('excluded_dirs', [])
     excluded_files = config.get('excluded_files', [])
     
@@ -102,9 +105,18 @@ def collect_all_files(path: str, config: Dict) -> List[str]:
                 rel_dir = os.path.relpath(root, path)
                 rel_file = os.path.join(rel_dir, file) if rel_dir != '.' else file
                 all_files.append(rel_file)
+                
+                # Find README.md (case-insensitive) during the same walk
+                if file.lower() == 'readme.md' and not readme_content:
+                    try:
+                        with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
+                            readme_content = f.read()
+                            logger.info(f"Found README.md at: {rel_file}")
+                    except Exception as e:
+                        logger.warning(f"Could not read README.md at {rel_file}: {str(e)}")
     
     logger.info(f"Collected {len(all_files)} files after filtering")
-    return all_files
+    return all_files, readme_content
 
 
 def group_files_by_directory(files: List[str]) -> Dict[str, List[str]]:
@@ -123,6 +135,7 @@ def group_files_by_directory(files: List[str]) -> Dict[str, List[str]]:
 def create_file_chunks(files: List[str], max_files_per_chunk: int = 500) -> List[Dict[str, Any]]:
     """
     Create intelligent chunks of files grouped by directory.
+    Ensures no chunk exceeds max_files_per_chunk by splitting large directories.
     
     Args:
         files: List of all file paths
@@ -139,18 +152,42 @@ def create_file_chunks(files: List[str], max_files_per_chunk: int = 500) -> List
     current_chunk_dirs = []
     
     for dir_name, dir_files in sorted(by_dir.items()):
-        # If adding this directory exceeds limit, save current chunk and start new one
-        if current_chunk_files and len(current_chunk_files) + len(dir_files) > max_files_per_chunk:
-            chunks.append({
-                'files': current_chunk_files[:],
-                'directories': current_chunk_dirs[:],
-                'file_count': len(current_chunk_files)
-            })
-            current_chunk_files = []
-            current_chunk_dirs = []
-        
-        current_chunk_files.extend(dir_files)
-        current_chunk_dirs.append(dir_name)
+        # Handle large directories that exceed max_files_per_chunk on their own
+        if len(dir_files) > max_files_per_chunk:
+            # First, save current chunk if it has files
+            if current_chunk_files:
+                chunks.append({
+                    'files': current_chunk_files[:],
+                    'directories': current_chunk_dirs[:],
+                    'file_count': len(current_chunk_files)
+                })
+                current_chunk_files = []
+                current_chunk_dirs = []
+            
+            # Split large directory across multiple chunks
+            logger.warning(f"Directory '{dir_name}' has {len(dir_files)} files, splitting across multiple chunks")
+            for i in range(0, len(dir_files), max_files_per_chunk):
+                chunk_slice = dir_files[i:i + max_files_per_chunk]
+                chunks.append({
+                    'files': chunk_slice,
+                    'directories': [f"{dir_name} (part {i//max_files_per_chunk + 1})"],
+                    'file_count': len(chunk_slice)
+                })
+        else:
+            # Normal case: check if adding this directory would exceed limit
+            if current_chunk_files and len(current_chunk_files) + len(dir_files) > max_files_per_chunk:
+                # Save current chunk and start new one
+                chunks.append({
+                    'files': current_chunk_files[:],
+                    'directories': current_chunk_dirs[:],
+                    'file_count': len(current_chunk_files)
+                })
+                current_chunk_files = []
+                current_chunk_dirs = []
+            
+            # Add directory to current chunk
+            current_chunk_files.extend(dir_files)
+            current_chunk_dirs.append(dir_name)
     
     # Add final chunk if it has files
     if current_chunk_files:
@@ -459,27 +496,12 @@ async def get_local_repo_structure(
     try:
         logger.info(f"Processing local repository at: {path} (chunk_size={chunk_size}, return_chunks={return_chunks})")
         
-        # Load configuration from repo.json
-        from api.config import load_repo_config
+        # Load configuration from repo.json (imported at the top)
         config_data = load_repo_config()
         file_filters = config_data.get('file_filters', {})
         
-        # Collect ALL files respecting patterns
-        all_files = collect_all_files(path, file_filters)
-        
-        # Find README.md (case-insensitive)
-        readme_content = ""
-        for root, dirs, files in os.walk(path):
-            for file in files:
-                if file.lower() == 'readme.md' and not readme_content:
-                    try:
-                        with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
-                            readme_content = f.read()
-                        break
-                    except Exception as e:
-                        logger.warning(f"Could not read README.md: {str(e)}")
-            if readme_content:
-                break
+        # Collect ALL files respecting patterns and find README in one pass
+        all_files, readme_content = collect_all_files(path, file_filters)
         
         # Decide whether to chunk based on repository size
         total_files = len(all_files)
