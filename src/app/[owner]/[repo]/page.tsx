@@ -9,7 +9,7 @@ import WikiTreeView from '@/components/WikiTreeView';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { RepoInfo } from '@/types/repoinfo';
 import getRepoUrl from '@/utils/getRepoUrl';
-import { extractUrlDomain, extractUrlPath } from '@/utils/urlDecoder';
+import { extractUrlDomain, extractUrlPath, detectRepositoryType } from '@/utils/urlDecoder';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -192,13 +192,9 @@ export default function RepoWikiPage() {
   const isCustomModelParam = searchParams.get('is_custom_model') === 'true';
   const customModelParam = searchParams.get('custom_model') || '';
   const language = searchParams.get('language') || 'en';
-  const repoType = repoUrl?.includes('bitbucket.org')
-    ? 'bitbucket'
-    : repoUrl?.includes('gitlab.com')
-      ? 'gitlab'
-      : repoUrl?.includes('github.com')
-        ? 'github'
-        : searchParams.get('type') || 'github';
+  const repoType = repoUrl 
+    ? detectRepositoryType(repoUrl)
+    : searchParams.get('type') || 'github';
 
   // Import language context for translations
   const { messages } = useLanguage();
@@ -287,16 +283,15 @@ export default function RepoWikiPage() {
     }
 
     try {
-      const url = new URL(repoUrl);
-      const hostname = url.hostname;
+      const detectedType = detectRepositoryType(repoUrl);
       
-      if (hostname === 'github.com' || hostname.includes('github')) {
+      if (detectedType === 'github') {
         // GitHub URL format: https://github.com/owner/repo/blob/branch/path
         return `${repoUrl}/blob/${defaultBranch}/${filePath}`;
-      } else if (hostname === 'gitlab.com' || hostname.includes('gitlab')) {
+      } else if (detectedType === 'gitlab') {
         // GitLab URL format: https://gitlab.com/owner/repo/-/blob/branch/path
         return `${repoUrl}/-/blob/${defaultBranch}/${filePath}`;
-      } else if (hostname === 'bitbucket.org' || hostname.includes('bitbucket')) {
+      } else if (detectedType === 'bitbucket') {
         // Bitbucket URL format: https://bitbucket.org/owner/repo/src/branch/path
         return `${repoUrl}/src/${defaultBranch}/${filePath}`;
       }

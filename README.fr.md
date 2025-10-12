@@ -20,7 +20,7 @@
 ## ✨ Fonctionnalités
 
 - **Documentation instantanée** : Transforme un dépôt GitHub, GitLab ou Bitbucket en wiki en quelques secondes
-- **Support des dépôts privés** : Accès sécurisé avec jetons d’accès personnels
+- **Support des dépôts privés** : Accès sécurisé avec jetons d'accès personnels et support pour les configurations de domaine personnalisé
 - **Analyse intelligente** : Compréhension de la structure et des relations du code via l’IA
 - **Diagrammes élégants** : Diagrammes Mermaid automatiques pour visualiser l’architecture et les flux de données
 - **Navigation facile** : Interface simple et intuitive
@@ -233,6 +233,11 @@ DeepWiki utilise des fichiers de configuration JSON pour gérer différents aspe
 3. **`repo.json`** : Configuration de la gestion des dépôts
    - Contient des filtres de fichiers pour exclure certains fichiers et répertoires
    - Définit les limites de taille des dépôts et les règles de traitement
+
+4. **`repository-providers.json`** : Configuration de correspondance des fournisseurs de dépôts
+   - Définit les fournisseurs de dépôts pris en charge (GitHub, GitLab, Bitbucket)
+   - Contient des modèles d'URL pour la détection automatique des fournisseurs
+   - Prend en charge la correspondance par caractères génériques pour les déploiements de domaine personnalisé
 
 Par défaut, ces fichiers sont situés dans le répertoire `api/config/`. Vous pouvez personnaliser leur emplacement à l'aide de la variable d'environnement `DEEPWIKI_CONFIG_DIR`.
 

@@ -19,7 +19,7 @@
 ## ✨ Características
 
 - **Documentación Instantánea**: Convierte cualquier repositorio de GitHub, GitLab o BitBucket en una wiki en segundos
-- **Soporte para Repositorios Privados**: Accede de forma segura a repositorios privados con tokens de acceso personal
+- **Soporte para Repositorios Privados**: Accede de forma segura a repositorios privados con tokens de acceso personal y soporte para configuraciones de dominio personalizado
 - **Análisis Inteligente**: Comprensión de la estructura y relaciones del código impulsada por IA
 - **Diagramas Hermosos**: Diagramas Mermaid automáticos para visualizar la arquitectura y el flujo de datos
 - **Navegación Sencilla**: Interfaz simple e intuitiva para explorar la wiki
@@ -216,6 +216,11 @@ DeepWiki utiliza archivos de configuración JSON para gestionar varios aspectos 
 3. **`repo.json`**: Configuración para manejo de repositorios
    - Contiene filtros de archivos para excluir ciertos archivos y directorios
    - Define límites de tamaño de repositorio y reglas de procesamiento
+
+4. **`repository-providers.json`**: Configuración para coincidencia de proveedores de repositorio
+   - Define los proveedores de repositorio soportados (GitHub, GitLab, Bitbucket)
+   - Contiene patrones de URL para detección automática de proveedores
+   - Soporta coincidencia con comodines para despliegues de dominio personalizado
 
 Por defecto, estos archivos se encuentran en el directorio `api/config/`. Puedes personalizar su ubicación usando la variable de entorno `DEEPWIKI_CONFIG_DIR`.
 

@@ -8,7 +8,7 @@ import ThemeToggle from '@/components/theme-toggle';
 import Mermaid from '../components/Mermaid';
 import ConfigurationModal from '@/components/ConfigurationModal';
 import ProcessedProjects from '@/components/ProcessedProjects';
-import { extractUrlPath, extractUrlDomain } from '@/utils/urlDecoder';
+import { extractUrlPath, detectRepositoryType } from '@/utils/urlDecoder';
 import { useProcessedProjects } from '@/hooks/useProcessedProjects';
 
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -204,17 +204,8 @@ export default function Home() {
       owner = 'local';
     }
     else if (customGitRegex.test(input)) {
-      // Detect repository type based on domain
-      const domain = extractUrlDomain(input);
-      if (domain?.includes('github.com')) {
-        type = 'github';
-      } else if (domain?.includes('gitlab.com') || domain?.includes('gitlab.')) {
-        type = 'gitlab';
-      } else if (domain?.includes('bitbucket.org') || domain?.includes('bitbucket.')) {
-        type = 'bitbucket';
-      } else {
-        type = 'web'; // fallback for other git hosting services
-      }
+        // Detect repository type using configurable detector
+        type = detectRepositoryType(input);
 
       fullPath = extractUrlPath(input)?.replace(/\.git$/, '');
       const parts = fullPath?.split('/') ?? [];
