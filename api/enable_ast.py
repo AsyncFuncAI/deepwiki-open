@@ -23,10 +23,28 @@ def enable_ast_chunking():
     if os.path.exists(embedder_config):
         shutil.copy2(embedder_config, backup_config)
         print(f"✅ Backed up current config to {backup_config}")
+        
+        # Load current config to preserve embedder settings
+        with open(embedder_config, 'r') as f:
+            current_config = json.load(f)
+    else:
+        current_config = {}
     
-    # Copy AST config to active config
-    shutil.copy2(ast_config, embedder_config)
-    print(f"✅ Enabled AST chunking (copied {ast_config} → {embedder_config})")
+    # Load AST config
+    with open(ast_config, 'r') as f:
+        ast_config_data = json.load(f)
+    
+    # Merge embedder settings from current config into AST config
+    if 'embedder_ollama' in current_config:
+        ast_config_data['embedder_ollama'] = current_config['embedder_ollama']
+    if 'retriever' in current_config:
+        ast_config_data['retriever'] = current_config['retriever']
+    
+    # Write merged config
+    with open(embedder_config, 'w') as f:
+        json.dump(ast_config_data, f, indent=2)
+    
+    print(f"✅ Enabled AST chunking with preserved embedder settings")
     
     # Verify the switch
     with open(embedder_config, 'r') as f:

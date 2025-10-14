@@ -1,4 +1,13 @@
 {
+  "embedder_ollama": {
+    "client_class": "OllamaClient",
+    "model_kwargs": {
+      "model": "nomic-embed-text"
+    }
+  },
+  "retriever": {
+    "top_k": 20
+  },
   "text_splitter": {
     "split_by": "ast",
     "chunk_size": 2000,
