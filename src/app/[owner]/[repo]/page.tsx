@@ -448,14 +448,31 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
        - Maximum node width should be 3-4 words
        - For sequence diagrams:
          - Start with "sequenceDiagram" directive on its own line
-         - Define ALL participants at the beginning
-         - Use descriptive but concise participant names
-         - Use the correct arrow types:
-           - ->> for request/asynchronous messages
-           - -->> for response messages
-           - -x for failed messages
-         - Include activation boxes using +/- notation
-         - Add notes for clarification using "Note over" or "Note right of"
+         - Define ALL participants at the beginning using "participant" keyword
+         - Optionally specify participant types: actor, boundary, control, entity, database, collections, queue
+         - Use descriptive but concise participant names, or use aliases: "participant A as Alice"
+         - Use the correct Mermaid arrow syntax (8 types available):
+           - -> solid line without arrow (rarely used)
+           - --> dotted line without arrow (rarely used)
+           - ->> solid line with arrowhead (most common for requests/calls)
+           - -->> dotted line with arrowhead (most common for responses/returns)
+           - ->x solid line with X at end (failed/error message)
+           - -->x dotted line with X at end (failed/error response)
+           - -) solid line with open arrow (async message, fire-and-forget)
+           - --) dotted line with open arrow (async response)
+           - Examples: A->>B: Request, B-->>A: Response, A->xB: Error, A-)B: Async event
+         - Use +/- suffix for activation boxes: A->>+B: Start (activates B), B-->>-A: End (deactivates B)
+         - Group related participants using "box": box GroupName ... end
+         - Use structural elements for complex flows:
+           - loop LoopText ... end (for iterations)
+           - alt ConditionText ... else ... end (for conditionals)
+           - opt OptionalText ... end (for optional flows)
+           - par ParallelText ... and ... end (for parallel actions)
+           - critical CriticalText ... option ... end (for critical regions)
+           - break BreakText ... end (for breaking flows/exceptions)
+         - Add notes for clarification: "Note over A,B: Description", "Note right of A: Detail"
+         - Use autonumber directive to add sequence numbers to messages
+         - NEVER use flowchart-style labels like A--|label|-->B. Always use a colon for labels: A->>B: My Label
 
 4.  **Tables:**
     *   Use Markdown tables to summarize information such as:
