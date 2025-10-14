@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        AST_CHUNKING: ${AST_CHUNKING:-false}  # Set to 'true' to enable AST chunking during build
     ports:
       - "${PORT:-8001}:${PORT:-8001}"  # API port
       - "3000:3000"  # Next.js port
@@ -27,3 +29,5 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Allow access to host machine from Docker

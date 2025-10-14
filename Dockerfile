@@ -2,6 +2,8 @@
 
 # Build argument for custom certificates directory
 ARG CUSTOM_CERT_DIR="certs"
+# Build argument for AST chunking (default to false)
+ARG AST_CHUNKING=false
 
 FROM node:20-alpine3.22 AS node_base
 
@@ -66,6 +68,15 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy Python dependencies
 COPY --from=py_deps /opt/venv /opt/venv
 COPY api/ ./api/
+
+# Configure AST chunking based on build argument
+RUN if [ "$AST_CHUNKING" = "true" ]; then \
+        echo "🚀 Enabling AST chunking during build..."; \
+        cd /app/api && python enable_ast.py enable; \
+    else \
+        echo "📝 Using default text chunking..."; \
+        cd /app/api && python enable_ast.py disable; \
+    fi
 
 # Copy Node app
 COPY --from=node_builder /app/public ./public
