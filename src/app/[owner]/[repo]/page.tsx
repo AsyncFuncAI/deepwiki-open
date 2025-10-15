@@ -1309,7 +1309,7 @@ IMPORTANT:
       }
       else if (effectiveRepoInfo.type === 'gitlab') {
         // GitLab API approach
-        const projectPath = extractUrlPath(effectiveRepoInfo.repoUrl ?? '') ?? `${owner}/${repo}`;
+        const projectPath = extractUrlPath(effectiveRepoInfo.repoUrl ?? '')?.replace(/\.git$/, '') || `${owner}/${repo}`;
         const projectDomain = extractUrlDomain(effectiveRepoInfo.repoUrl ?? "https://gitlab.com");
         const encodedProjectPath = encodeURIComponent(projectPath);
 
