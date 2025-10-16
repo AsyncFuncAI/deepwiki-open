@@ -548,13 +548,14 @@ This file contains...
                 async for chunk in response:
                     message = getattr(chunk, 'message', None)
                     text = None
-
                     if message:
                         # message might be a Message object or a dict-like object
-                        text = getattr(message, 'content', None) or message.get('content', None)
-
+                        if hasattr(message, 'get') and callable(message.get):
+                            text = message.get('content')
+                        else:
+                            text = getattr(message, 'content', None)
                     # Fallbacks
-                    if not text:
+                    if text is None:
                         text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
 
                     # Optional: ignore metadata lines starting with model= or created_at=
