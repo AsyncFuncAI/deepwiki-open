@@ -1,7 +1,7 @@
 import logging
 import os
 from pathlib import Path
-from logging.handlers import RotatingFileHandler
+from concurrent_log_handler import ConcurrentRotatingFileHandler as RotatingFileHandler
 
 
 class IgnoreLogChangeDetectedFilter(logging.Filter):

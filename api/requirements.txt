@@ -17,4 +17,5 @@ boto3>=1.34.0
 websockets>=11.0.3
 azure-identity>=1.12.0
 azure-core>=1.24.0
+concurrent-log-handler>=0.9.20
 
