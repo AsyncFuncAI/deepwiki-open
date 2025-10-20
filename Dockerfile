@@ -8,6 +8,8 @@ FROM node:20-alpine3.22 AS node_base
 FROM node_base AS node_deps
 WORKDIR /app
 COPY package.json package-lock.json ./
+# ** use this instead for speeding up, if in China
+# RUN npm ci --legacy-peer-deps --registry=https://registry.npmmirror.com
 RUN npm ci --legacy-peer-deps
 
 FROM node_base AS node_builder
@@ -27,6 +29,8 @@ WORKDIR /app
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 COPY api/requirements.txt ./api/
+# ** use this instead for speeding up, if in China
+RUN pip install -i https://mirrors.aliyun.com/pypi/simple/ --no-cache -r api/requirements.txt
 RUN pip install --no-cache -r api/requirements.txt
 
 # Use Python 3.11 as final image
@@ -36,6 +40,10 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install Node.js and npm
+
+# ** use this instead for speeding up, if in China
+# RUN sed -i 's@deb.debian.org@mirrors.aliyun.com@g' /etc/apt/sources.list.d/debian.sources \
+#    && apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
     curl \
     gnupg \
