@@ -54,7 +54,7 @@ echo "AZURE_OPENAI_VERSION=your_azure_openai_version" >> .env
 docker-compose up
 ```
 
-Detaillierte Anweisungen zur Verwendung von DeepWiki mit Ollama und Docker finden Sie unter [Ollama-Anweisungen](Ollama-instruction.md).
+Detaillierte Anweisungen zur Verwendung von DeepWiki mit Ollama und Docker finden Sie unter [Ollama-Anweisungen (Englisch)](Ollama-instruction.md).
 
 > 💡 **Wo erhalten Sie diese Schlüssel:**
 > - Holen Sie sich einen Google API-Schlüssel von [Google AI Studio](https://makersuite.google.com/app/apikey)
