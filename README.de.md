@@ -482,7 +482,7 @@ echo "OPENAI_API_KEY=your_openai_api_key" >> .env
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 echo "AZURE_OPENAI_API_KEY=your_azure_openai_api_key" >> .env
 echo "AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint" >> .env
-echo "AZURE_OPENAI_VERSION=your_azure_openai_version"  >>.env
+echo "AZURE_OPENAI_VERSION=your_azure_openai_version" >> .env
 echo "OLLAMA_HOST=your_ollama_host" >> .env
 
 # Führen Sie den Container mit der gebundenen .env-Datei aus
