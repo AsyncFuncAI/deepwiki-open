@@ -523,7 +523,7 @@ docker run -p 8001:8001 -p 3000:3000 \
   deepwiki-open
 ```
 
-#### Verwendung von selbstsignierte Zertifikaten in Docker
+#### Verwendung von selbstsignierten Zertifikaten in Docker
 
 Wenn Sie sich in einer Umgebung befinden, die selbstsignierte Zertifikate verwendet, können Sie diese in den Docker-Build einbeziehen:
 
