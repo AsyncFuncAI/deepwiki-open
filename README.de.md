@@ -244,7 +244,7 @@ Standardmäßig befinden sich diese Dateien im Verzeichnis `api/config/`. Sie k�
 
 Die Funktion der benutzerdefinierten Modellauswahl ist speziell für Service-Provider gedacht, die:
 
-- Mehrere KI-Modelloptionen Benutzern in Ihrer Organisation anbieten können
+- Benutzern in Ihrer Organisation mehrere KI-Modelloptionen anbieten können
 - Sich schnell an die sich schnell entwickelnde LLM-Landschaft anpassen können, ohne Code zu ändern
 - Spezialisierte oder feinabgestimmte Modelle unterstützen können, die nicht in der vordefinierten Liste enthalten sind
 
