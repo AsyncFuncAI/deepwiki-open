@@ -632,7 +632,7 @@ Um DeepResearch zu verwenden, aktivieren Sie einfach den Schieberegler "Tiefe Re
 
 ### Häufige Lösungen
 1. **Starten Sie beide Server neu**: Manchmal behebt ein einfacher Neustart die meisten Probleme
-2. **Überprüfen Sie Konsolenprotokollen**: Öffnen Sie die Browser-Entwicklertools, um JavaScript-Fehler anzuzeigen
+2. **Überprüfen Sie die Konsolenprotokolle**: Öffnen Sie die Browser-Entwicklertools, um JavaScript-Fehler anzuzeigen
 3. **Überprüfen Sie API-Protokolle**: Sehen Sie sich das Terminal an, in dem die API ausgeführt wird, um Python-Fehler zu sehen
 
 ## 🤝 Beitragen
