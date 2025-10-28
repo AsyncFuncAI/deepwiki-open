@@ -25,8 +25,8 @@
 - **Easy Navigation**: Simple, intuitive interface to explore the wiki
 - **Ask Feature**: Chat with your repository using RAG-powered AI to get accurate answers
 - **DeepResearch**: Multi-turn research process that thoroughly investigates complex topics
-- **Multiple Model Providers**: Support for Google Gemini, OpenAI, OpenRouter, and local Ollama models
-- **Flexible Embeddings**: Choose between OpenAI, Google AI, or local Ollama embeddings for optimal performance
+- **Multiple Model Providers**: Support for Google Gemini, OpenAI, ZhipuAI GLM-4, OpenRouter, and local Ollama models
+- **Flexible Embeddings**: Choose between OpenAI, Google AI, ZhipuAI, or local Ollama embeddings for optimal performance
 
 ## 🚀 Quick Start (Super Easy!)
 
@@ -42,6 +42,8 @@ echo "GOOGLE_API_KEY=your_google_api_key" > .env
 echo "OPENAI_API_KEY=your_openai_api_key" >> .env
 # Optional: Use Google AI embeddings instead of OpenAI (recommended if using Google models)
 echo "DEEPWIKI_EMBEDDER_TYPE=google" >> .env
+# Optional: Add ZhipuAI API key if you want to use GLM-4 models
+echo "ZHIPUAI_API_KEY=your_zhipuai_api_key" >> .env
 # Optional: Add OpenRouter API key if you want to use OpenRouter models
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 # Optional: Add Ollama host if not local. defaults to http://localhost:11434
@@ -59,6 +61,7 @@ For detailed instructions on using DeepWiki with Ollama and Docker, see [Ollama 
 > 💡 **Where to get these keys:**
 > - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 > - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+> - Get a ZhipuAI API key from [ZhipuAI Platform](https://open.bigmodel.cn/)
 > - Get Azure OpenAI credentials from [Azure Portal](https://portal.azure.com/) - create an Azure OpenAI resource and get the API key, endpoint, and API version
 
 ### Option 2: Manual Setup (Recommended)
@@ -72,6 +75,10 @@ GOOGLE_API_KEY=your_google_api_key
 OPENAI_API_KEY=your_openai_api_key
 # Optional: Use Google AI embeddings (recommended if using Google models)
 DEEPWIKI_EMBEDDER_TYPE=google
+# Optional: Add this if you want to use ZhipuAI GLM-4 models
+ZHIPUAI_API_KEY=your_zhipuai_api_key
+# Optional: Use ZhipuAI embeddings (recommended for Chinese repositories)
+# DEEPWIKI_EMBEDDER_TYPE=zhipuai
 # Optional: Add this if you want to use OpenRouter models
 OPENROUTER_API_KEY=your_openrouter_api_key
 # Optional: Add this if you want to use Azure OpenAI models
