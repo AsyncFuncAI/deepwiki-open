@@ -67,10 +67,10 @@ OPENROUTER_API_KEY=your_openrouter_api_key
 
 ```bash
 # Python 의존성 설치
-python -m pip install poetry==2.0.1 && poetry install
+python -m pip install poetry==2.0.1 && poetry --directory api install
 
 # API 서버 실행
-python -m api.main
+poetry --directory api run python -m api.main
 ```
 
 #### 3단계: 프론트엔드 시작
