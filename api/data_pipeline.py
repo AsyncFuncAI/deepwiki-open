@@ -170,8 +170,12 @@ def read_all_documents(path: str, embedder_type: str = None, is_ollama_embedder:
         embedder_type = 'ollama' if is_ollama_embedder else None
     documents = []
     # File extensions to look for, prioritizing code files
-    code_extensions = [".py", ".js", ".ts", ".java", ".cpp", ".c", ".h", ".hpp", ".go", ".rs",
-                       ".jsx", ".tsx", ".html", ".css", ".php", ".swift", ".cs"]
+    code_extensions = [
+        ".py", ".js", ".ts", ".java", ".cpp", ".c", ".h", ".hpp", ".go", ".rs",
+        ".jsx", ".tsx", ".html", ".css", ".php", ".swift", ".cs", ".ino", ".class", ".kts",
+        ".sh", ".bat", ".ps1", ".rb", ".pl", ".lua", ".m", ".mm", ".vb", ".dart",
+        ".sql", ".r", ".scala", ".erl", ".ex", ".exs", ".clj", ".groovy"
+    ]
     doc_extensions = [".md", ".txt", ".rst", ".json", ".yaml", ".yml"]
 
     # Determine filtering mode: inclusion or exclusion
