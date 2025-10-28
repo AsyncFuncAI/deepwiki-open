@@ -60,7 +60,8 @@ cp api/config/embedder.ollama.json.bak api/config/embedder.json
 Start the backend:
 ```bash
 python -m pip install poetry==2.0.1 && poetry --directory api install
-poetry --directory api run python -m api.main
+poetry --directory api env activate
+python -m api.main
 ```
 
 Start the frontend:

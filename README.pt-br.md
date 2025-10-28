@@ -76,7 +76,8 @@ OLLAMA_HOST=seu_host_ollama
 python -m pip install poetry==2.0.1 && poetry --directory api install
 
 # Inicie o servidor API
-poetry --directory api run python -m api.main
+poetry --directory api env activate
+python -m api.main
 ```
 
 #### Passo 3: Inicie o Frontend

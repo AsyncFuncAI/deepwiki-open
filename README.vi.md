@@ -70,7 +70,8 @@ OPENROUTER_API_KEY=your_openrouter_api_key
 python -m pip install poetry==2.0.1 && poetry --directory api install
 
 # Chạy API server
-poetry --directory api run python -m api.main
+poetry --directory api env activate
+python -m api.main
 ```
 
 #### Bước 3: Bắt đầu với Frontend

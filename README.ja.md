@@ -79,7 +79,8 @@ OPENROUTER_API_KEY=your_openrouter_api_key
 python -m pip install poetry==2.0.1 && poetry --directory api install
 
 # APIサーバーを起動
-poetry --directory api run python -m api.main
+poetry --directory api env activate
+python -m api.main
 ```
 
 #### ステップ 3: フロントエンドの起動

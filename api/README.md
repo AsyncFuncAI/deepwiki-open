@@ -110,6 +110,7 @@ This allows you to maintain different configurations for various environments or
 
 ```bash
 # From the project root
+poetry --directory api env activate
 python -m api.main
 ```
 
