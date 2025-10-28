@@ -4,9 +4,11 @@ This is the backend API for DeepWiki, providing smart code analysis and AI-power
 
 ## ✨ Features
 
-- **Streaming AI Responses**: Real-time responses using Google's Generative AI (Gemini)
+- **Multiple AI Providers**: Support for Google Gemini, OpenAI, ZhipuAI GLM-4, OpenRouter, AWS Bedrock, and Ollama
+- **Streaming AI Responses**: Real-time responses with streaming generation
 - **Smart Code Analysis**: Automatically analyzes GitHub repositories
 - **RAG Implementation**: Retrieval Augmented Generation for context-aware responses
+- **Flexible Embeddings**: Choose between OpenAI, Google, or ZhipuAI embeddings
 - **Local Storage**: All data stored locally - no cloud dependencies
 - **Conversation History**: Maintains context across multiple questions
 
@@ -30,6 +32,7 @@ OPENAI_API_KEY=your_openai_api_key        # Required for embeddings and OpenAI m
 
 # Optional API Keys
 OPENROUTER_API_KEY=your_openrouter_api_key  # Required only if using OpenRouter models
+ZHIPUAI_API_KEY=your_zhipuai_api_key        # Required only if using ZhipuAI (GLM) models
 
 # AWS Bedrock Configuration
 AWS_ACCESS_KEY_ID=your_aws_access_key_id      # Required for AWS Bedrock models
@@ -43,16 +46,21 @@ OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optional, for custom OpenA
 # Ollama host
 OLLAMA_HOST=https://your_ollama_host"  # Optional: Add Ollama host if not local. default: http://localhost:11434
 
+# ZhipuAI Configuration
+ZHIPUAI_VERIFY_SSL=false  # Optional: Disable SSL verification for proxy/VPN environments. default: true
+DEEPWIKI_EMBEDDER_TYPE=zhipuai  # Optional: Use ZhipuAI embeddings for RAG. default: openai
+
 # Server Configuration
 PORT=8001  # Optional, defaults to 8001
 ```
 
-If you're not using Ollama mode, you need to configure an OpenAI API key for embeddings. Other API keys are only required when configuring and using models from the corresponding providers.
+If you're not using Ollama mode, you need to configure an API key for embeddings (OpenAI by default, or set `DEEPWIKI_EMBEDDER_TYPE=zhipuai` to use ZhipuAI embeddings). Other API keys are only required when configuring and using models from the corresponding providers.
 
 > 💡 **Where to get these keys:**
 > - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 > - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
 > - Get an OpenRouter API key from [OpenRouter](https://openrouter.ai/keys)
+> - Get a ZhipuAI API key from [ZhipuAI Platform](https://open.bigmodel.cn/)
 > - Get AWS credentials from [AWS IAM Console](https://console.aws.amazon.com/iam/)
 
 #### Advanced Environment Configuration
@@ -63,6 +71,11 @@ DeepWiki supports multiple LLM providers. The environment variables above are re
 - **Google Gemini**: Requires `GOOGLE_API_KEY`
 - **OpenAI**: Requires `OPENAI_API_KEY`
 - **OpenRouter**: Requires `OPENROUTER_API_KEY`
+- **ZhipuAI (GLM)**: Requires `ZHIPUAI_API_KEY`
+  - Supports GLM-4 series models: glm-4-flash, glm-4-plus, glm-4, glm-4-air
+  - Includes embedding-3 for RAG functionality
+  - Optional: Set `DEEPWIKI_EMBEDDER_TYPE=zhipuai` to use ZhipuAI embeddings
+  - Optional: Set `ZHIPUAI_VERIFY_SSL=false` for proxy/VPN environments
 - **AWS Bedrock**: Requires `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
 - **Ollama**: No API key required (runs locally)
 
@@ -83,7 +96,7 @@ DeepWiki now uses JSON configuration files to manage various system components i
 
 1. **`generator.json`**: Configuration for text generation models
    - Located in `api/config/` by default
-   - Defines available model providers (Google, OpenAI, OpenRouter, AWS Bedrock, Ollama)
+   - Defines available model providers (Google, OpenAI, OpenRouter, ZhipuAI, AWS Bedrock, Ollama)
    - Specifies default and available models for each provider
    - Contains model-specific parameters like temperature and top_p
 
@@ -121,7 +134,7 @@ The API will be available at `http://localhost:8001`
 When you provide a GitHub repository URL, the API:
 - Clones the repository locally (if not already cloned)
 - Reads all files in the repository
-- Creates embeddings for the files using OpenAI
+- Creates embeddings for the files using your chosen embedder (OpenAI, Google, or ZhipuAI)
 - Stores the embeddings in a local database
 
 ### 2. Smart Retrieval (RAG)
