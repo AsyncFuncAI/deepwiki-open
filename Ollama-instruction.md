@@ -59,7 +59,8 @@ cp api/config/embedder.ollama.json.bak api/config/embedder.json
 
 Start the backend:
 ```bash
-python -m pip install poetry==2.0.1 && poetry install
+python -m pip install poetry==2.0.1 && poetry --directory api install
+poetry --directory api env activate
 python -m api.main
 ```
 
@@ -88,7 +89,7 @@ npm run dev
      -v ~/.adalflow:/root/.adalflow \
      -e OLLAMA_HOST=your_ollama_host \
      deepwiki:ollama-local
-   
+
    # For local repository analysis
    docker run -p 3000:3000 -p 8001:8001 --name deepwiki \
      -v ~/.adalflow:/root/.adalflow \
