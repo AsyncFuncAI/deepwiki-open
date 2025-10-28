@@ -1,4 +1,3 @@
-f
 # DeepWiki-Open
 
 ![Bannière DeepWiki](screenshots/Deepwiki.png)
