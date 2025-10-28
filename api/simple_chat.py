@@ -544,6 +544,23 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                     except Exception as e_azure:
                         logger.error(f"Error with Azure AI API: {str(e_azure)}")
                         yield f"\nError with Azure AI API: {str(e_azure)}\n\nPlease check that you have set the AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_VERSION environment variables with valid values."
+                elif request.provider == "zhipuai":
+                    try:
+                        # Get the response and handle it properly using the previously created api_kwargs
+                        logger.info("Making ZhipuAI API call")
+                        response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                        # Handle streaming response from ZhipuAI (OpenAI-compatible format)
+                        async for chunk in response:
+                            choices = getattr(chunk, "choices", [])
+                            if len(choices) > 0:
+                                delta = getattr(choices[0], "delta", None)
+                                if delta is not None:
+                                    text = getattr(delta, "content", None)
+                                    if text is not None:
+                                        yield text
+                    except Exception as e_zhipuai:
+                        logger.error(f"Error with ZhipuAI API: {str(e_zhipuai)}")
+                        yield f"\nError with ZhipuAI API: {str(e_zhipuai)}\n\nPlease check that you have set the ZHIPUAI_API_KEY environment variable with a valid API key."
                 else:
                     # Generate streaming response
                     response = model.generate_content(prompt, stream=True)

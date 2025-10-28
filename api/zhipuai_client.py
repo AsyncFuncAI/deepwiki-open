@@ -107,7 +107,7 @@ def get_probabilities(completion: ChatCompletion) -> List[List[TokenLogProb]]:
     log_probs = []
     for c in completion.choices:
         content = c.logprobs.content
-        print(content)
+        log.debug(f"Token logprobs content: {content}")
         log_probs_for_choice = []
         for openai_token_logprob in content:
             token = openai_token_logprob.token
@@ -328,7 +328,7 @@ class ZhipuAIClient(ModelClient):
                     system_prompt = match.group(1)
                     input_str = match.group(2)
                 else:
-                    print("No match found.")
+                    log.debug("No match found for system/user prompt pattern, using input as-is")
                 if system_prompt and input_str:
                     messages.append({"role": "system", "content": system_prompt})
                     messages.append({"role": "user", "content": input_str})
@@ -365,42 +365,8 @@ class ZhipuAIClient(ModelClient):
                 self.chat_completion_parser = handle_streaming_response
                 return self.sync_client.chat.completions.create(**api_kwargs)
             else:
-                log.debug("non-streaming call converted to streaming")
-                # Make a copy of api_kwargs to avoid modifying the original
-                streaming_kwargs = api_kwargs.copy()
-                streaming_kwargs["stream"] = True
-
-                # Get streaming response
-                stream_response = self.sync_client.chat.completions.create(**streaming_kwargs)
-
-                # Accumulate all content from the stream
-                accumulated_content = ""
-                id = ""
-                model = ""
-                created = 0
-                for chunk in stream_response:
-                    id = getattr(chunk, "id", None) or id
-                    model = getattr(chunk, "model", None) or model
-                    created = getattr(chunk, "created", 0) or created
-                    choices = getattr(chunk, "choices", [])
-                    if len(choices) > 0:
-                        delta = getattr(choices[0], "delta", None)
-                        if delta is not None:
-                            text = getattr(delta, "content", None)
-                            if text is not None:
-                                accumulated_content += text or ""
-                # Return the mock completion object that will be processed by the chat_completion_parser
-                return ChatCompletion(
-                    id = id,
-                    model=model,
-                    created=created,
-                    object="chat.completion",
-                    choices=[Choice(
-                        index=0,
-                        finish_reason="stop",
-                        message=ChatCompletionMessage(content=accumulated_content, role="assistant")
-                    )]
-                )
+                log.debug("non-streaming call")
+                return self.sync_client.chat.completions.create(**api_kwargs)
         else:
             raise ValueError(f"model_type {model_type} is not supported")
 
