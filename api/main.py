@@ -75,5 +75,6 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=port,
         reload=is_development,
+        workers=os.cpu_count() or 1, # In this place os.cpu_count() selected because we can have case when vCPU used
         reload_excludes=["**/logs/*", "**/__pycache__/*", "**/*.pyc"] if is_development else None,
     )
