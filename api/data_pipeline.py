@@ -393,7 +393,21 @@ def prepare_data_pipeline(embedder_type: str = None, is_ollama_embedder: bool = 
     if embedder_type is None:
         embedder_type = get_embedder_type()
 
-    splitter = TextSplitter(**configs["text_splitter"])
+    # Choose splitter based on configuration
+    split_by = configs.get("text_splitter", {}).get("split_by", "word")
+    if split_by == "ast":
+        # Use AST splitter for better code understanding
+        try:
+            from .ast_integration import ASTTextSplitter
+            splitter = ASTTextSplitter(**configs["text_splitter"])
+            print("🚀 Using AST-based chunking for better code understanding")
+        except ImportError as e:
+            print(f"⚠️  AST chunking not available, falling back to text: {e}")
+            splitter = TextSplitter(**configs["text_splitter"])
+    else:
+        # Use traditional text splitter
+        splitter = TextSplitter(**configs["text_splitter"])
+    
     embedder_config = get_embedder_config()
 
     embedder = get_embedder(embedder_type=embedder_type)
