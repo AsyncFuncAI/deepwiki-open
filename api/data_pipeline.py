@@ -278,7 +278,7 @@ def read_all_documents(path: str, embedder_type: str = None, is_ollama_embedder:
 
             # Check if file is in an excluded directory
             for excluded in excluded_dirs:
-                clean_excluded = excluded.strip("./").rstrip("/")
+                clean_excluded = excluded.split("./")[1].rstrip("/")
                 if clean_excluded in file_path_parts:
                     is_excluded = True
                     break
