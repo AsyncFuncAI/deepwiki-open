@@ -13,6 +13,8 @@ fastapi = ">=0.95.0"
 uvicorn = { extras = ["standard"], version = ">=0.21.1" }
 pydantic = ">=2.0.0"
 google-generativeai = ">=0.3.0"
+google-cloud-aiplatform = ">=1.38.0"
+google-auth = ">=2.23.0"
 tiktoken = ">=0.5.0"
 adalflow = ">=0.1.0"
 numpy = ">=1.24.0"
