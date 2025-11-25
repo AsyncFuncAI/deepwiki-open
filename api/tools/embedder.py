@@ -9,14 +9,16 @@ def get_embedder(is_local_ollama: bool = False, use_google_embedder: bool = Fals
     Args:
         is_local_ollama: Legacy parameter for Ollama embedder
         use_google_embedder: Legacy parameter for Google embedder  
-        embedder_type: Direct specification of embedder type ('ollama', 'google', 'openai')
+        embedder_type: Direct specification of embedder type ('zhipuai', 'ollama', 'google', 'openai')
     
     Returns:
         adal.Embedder: Configured embedder instance
     """
     # Determine which embedder config to use
     if embedder_type:
-        if embedder_type == 'ollama':
+        if embedder_type == 'zhipuai':
+            embedder_config = configs["embedder_zhipuai"]
+        elif embedder_type == 'ollama':
             embedder_config = configs["embedder_ollama"]
         elif embedder_type == 'google':
             embedder_config = configs["embedder_google"]
@@ -29,7 +31,9 @@ def get_embedder(is_local_ollama: bool = False, use_google_embedder: bool = Fals
     else:
         # Auto-detect based on current configuration
         current_type = get_embedder_type()
-        if current_type == 'ollama':
+        if current_type == 'zhipuai':
+            embedder_config = configs["embedder_zhipuai"]
+        elif current_type == 'ollama':
             embedder_config = configs["embedder_ollama"]
         elif current_type == 'google':
             embedder_config = configs["embedder_google"]

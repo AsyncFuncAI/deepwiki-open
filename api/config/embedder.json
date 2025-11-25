@@ -22,6 +22,13 @@
       "task_type": "SEMANTIC_SIMILARITY"
     }
   },
+  "embedder_zhipuai": {
+    "client_class": "ZhipuAIClient",
+    "batch_size": 50,
+    "model_kwargs": {
+      "model": "embedding-3"
+    }
+  },
   "retriever": {
     "top_k": 20
   },

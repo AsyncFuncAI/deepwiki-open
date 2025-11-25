@@ -13,6 +13,7 @@ from api.bedrock_client import BedrockClient
 from api.google_embedder_client import GoogleEmbedderClient
 from api.azureai_client import AzureAIClient
 from api.dashscope_client import DashscopeClient
+from api.zhipuai_client import ZhipuAIClient
 from adalflow import GoogleGenAIClient, OllamaClient
 
 # Get API keys from environment variables
@@ -60,7 +61,8 @@ CLIENT_CLASSES = {
     "OllamaClient": OllamaClient,
     "BedrockClient": BedrockClient,
     "AzureAIClient": AzureAIClient,
-    "DashscopeClient": DashscopeClient
+    "DashscopeClient": DashscopeClient,
+    "ZhipuAIClient": ZhipuAIClient
 }
 
 def replace_env_placeholders(config: Union[Dict[str, Any], List[Any], str, Any]) -> Union[Dict[str, Any], List[Any], str, Any]:
@@ -128,7 +130,7 @@ def load_generator_config():
             if provider_config.get("client_class") in CLIENT_CLASSES:
                 provider_config["model_client"] = CLIENT_CLASSES[provider_config["client_class"]]
             # Fall back to default mapping based on provider_id
-            elif provider_id in ["google", "openai", "openrouter", "ollama", "bedrock", "azure", "dashscope"]:
+            elif provider_id in ["google", "openai", "openrouter", "ollama", "bedrock", "azure", "dashscope", "zhipuai"]:
                 default_map = {
                     "google": GoogleGenAIClient,
                     "openai": OpenAIClient,
@@ -136,7 +138,8 @@ def load_generator_config():
                     "ollama": OllamaClient,
                     "bedrock": BedrockClient,
                     "azure": AzureAIClient,
-                    "dashscope": DashscopeClient
+                    "dashscope": DashscopeClient,
+                    "zhipuai": ZhipuAIClient
                 }
                 provider_config["model_client"] = default_map[provider_id]
             else:
@@ -149,7 +152,7 @@ def load_embedder_config():
     embedder_config = load_json_config("embedder.json")
 
     # Process client classes
-    for key in ["embedder", "embedder_ollama", "embedder_google"]:
+    for key in ["embedder", "embedder_ollama", "embedder_google", "embedder_zhipuai"]:
         if key in embedder_config and "client_class" in embedder_config[key]:
             class_name = embedder_config[key]["client_class"]
             if class_name in CLIENT_CLASSES:
@@ -165,7 +168,9 @@ def get_embedder_config():
         dict: The embedder configuration with model_client resolved
     """
     embedder_type = EMBEDDER_TYPE
-    if embedder_type == 'google' and 'embedder_google' in configs:
+    if embedder_type == 'zhipuai' and 'embedder_zhipuai' in configs:
+        return configs.get("embedder_zhipuai", {})
+    elif embedder_type == 'google' and 'embedder_google' in configs:
         return configs.get("embedder_google", {})
     elif embedder_type == 'ollama' and 'embedder_ollama' in configs:
         return configs.get("embedder_ollama", {})
@@ -217,9 +222,12 @@ def get_embedder_type():
     Get the current embedder type based on configuration.
     
     Returns:
-        str: 'ollama', 'google', or 'openai' (default)
+        str: 'zhipuai', 'ollama', 'google', or 'openai' (default)
     """
-    if is_ollama_embedder():
+    # Check EMBEDDER_TYPE environment variable first
+    if EMBEDDER_TYPE == 'zhipuai':
+        return 'zhipuai'
+    elif is_ollama_embedder():
         return 'ollama'
     elif is_google_embedder():
         return 'google'
@@ -316,7 +324,7 @@ if generator_config:
 
 # Update embedder configuration
 if embedder_config:
-    for key in ["embedder", "embedder_ollama", "embedder_google", "retriever", "text_splitter"]:
+    for key in ["embedder", "embedder_ollama", "embedder_google", "embedder_zhipuai", "retriever", "text_splitter"]:
         if key in embedder_config:
             configs[key] = embedder_config[key]
 

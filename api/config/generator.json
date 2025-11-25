@@ -193,6 +193,25 @@
           "top_p": 0.8
         }
       }
+    },
+    "zhipuai": {
+      "client_class": "ZhipuAIClient",
+      "default_model": "glm-4-flash",
+      "supportsCustomModel": true,
+      "models": {
+        "glm-4-flash": {
+          "temperature": 0.7
+        },
+        "glm-4-plus": {
+          "temperature": 0.7
+        },
+        "glm-4": {
+          "temperature": 0.7
+        },
+        "glm-4-air": {
+          "temperature": 0.7
+        }
+      }
     }
   }
 }
