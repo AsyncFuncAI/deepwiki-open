@@ -612,14 +612,36 @@ This file contains...
                     await websocket.send_text(error_msg)
                     # Close the WebSocket connection after sending the error message
                     await websocket.close()
+            elif request.provider == "dashscope":
+                try:
+                    # Get the response and handle it properly using the previously created api_kwargs
+                    logger.info("Making Dashscope API call")
+                    response = await model.acall(
+                        api_kwargs=api_kwargs, model_type=ModelType.LLM
+                    )
+                    # DashscopeClient.acall with stream=True returns an async
+                    # generator of plain text chunks
+                    async for text in response:
+                        if text:
+                            await websocket.send_text(text)
+                    # Explicitly close the WebSocket connection after the response is complete
+                    await websocket.close()
+                except Exception as e_dashscope:
+                    logger.error(f"Error with Dashscope API: {str(e_dashscope)}")
+                    error_msg = (
+                        f"\nError with Dashscope API: {str(e_dashscope)}\n\n"
+                        "Please check that you have set the DASHSCOPE_API_KEY (and optionally "
+                        "DASHSCOPE_WORKSPACE_ID) environment variables with valid values."
+                    )
+                    await websocket.send_text(error_msg)
+                    # Close the WebSocket connection after sending the error message
+                    await websocket.close()
             else:
-                # Generate streaming response
+                # Google Generative AI (default provider)
                 response = model.generate_content(prompt, stream=True)
-                # Stream the response
                 for chunk in response:
                     if hasattr(chunk, 'text'):
                         await websocket.send_text(chunk.text)
-                # Explicitly close the WebSocket connection after the response is complete
                 await websocket.close()
 
         except Exception as e_outer:
@@ -729,23 +751,52 @@ This file contains...
                             logger.error(f"Error with Azure AI API fallback: {str(e_fallback)}")
                             error_msg = f"\nError with Azure AI API fallback: {str(e_fallback)}\n\nPlease check that you have set the AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_VERSION environment variables with valid values."
                             await websocket.send_text(error_msg)
+                    elif request.provider == "dashscope":
+                        try:
+                            # Create new api_kwargs with the simplified prompt
+                            fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
+                                input=simplified_prompt,
+                                model_kwargs=model_kwargs,
+                                model_type=ModelType.LLM,
+                            )
+
+                            logger.info("Making fallback Dashscope API call")
+                            fallback_response = await model.acall(
+                                api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM
+                            )
+
+                            # DashscopeClient.acall (stream=True) returns an async
+                            # generator of text chunks
+                            async for text in fallback_response:
+                                if text:
+                                    await websocket.send_text(text)
+                        except Exception as e_fallback:
+                            logger.error(
+                                f"Error with Dashscope API fallback: {str(e_fallback)}"
+                            )
+                            error_msg = (
+                                f"\nError with Dashscope API fallback: {str(e_fallback)}\n\n"
+                                "Please check that you have set the DASHSCOPE_API_KEY (and optionally "
+                                "DASHSCOPE_WORKSPACE_ID) environment variables with valid values."
+                            )
+                            await websocket.send_text(error_msg)
                     else:
-                        # Initialize Google Generative AI model
+                        # Google Generative AI fallback (default provider)
                         model_config = get_model_config(request.provider, request.model)
                         fallback_model = genai.GenerativeModel(
-                            model_name=model_config["model"],
+                            model_name=model_config["model_kwargs"]["model"],
                             generation_config={
                                 "temperature": model_config["model_kwargs"].get("temperature", 0.7),
                                 "top_p": model_config["model_kwargs"].get("top_p", 0.8),
-                                "top_k": model_config["model_kwargs"].get("top_k", 40)
-                            }
+                                "top_k": model_config["model_kwargs"].get("top_k", 40),
+                            },
                         )
 
-                        # Get streaming response using simplified prompt
-                        fallback_response = fallback_model.generate_content(simplified_prompt, stream=True)
-                        # Stream the fallback response
+                        fallback_response = fallback_model.generate_content(
+                            simplified_prompt, stream=True
+                        )
                         for chunk in fallback_response:
-                            if hasattr(chunk, 'text'):
+                            if hasattr(chunk, "text"):
                                 await websocket.send_text(chunk.text)
                 except Exception as e2:
                     logger.error(f"Error in fallback streaming response: {str(e2)}")
@@ -767,3 +818,4 @@ This file contains...
             await websocket.close()
         except:
             pass
+        
