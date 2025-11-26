@@ -511,8 +511,23 @@ class DashscopeClient(ModelClient):
 
             completion = await self.async_client.chat.completions.create(**api_kwargs)
 
+            # For async calls with streaming enabled, wrap the AsyncStream
+            # into an async generator of plain text chunks so that callers
+            # can simply `async for text in response`.
             if api_kwargs.get("stream", False):
-                return handle_streaming_response(completion)
+
+                async def async_stream_generator():
+                    async for chunk in completion:
+                        log.debug(f"Raw async chunk completion: {chunk}")
+                        try:
+                            parsed_content = parse_stream_response(chunk)
+                        except Exception as e:
+                            log.error(f"Error parsing async stream chunk: {e}")
+                            parsed_content = None
+                        if parsed_content:
+                            yield parsed_content
+
+                return async_stream_generator()
             else:
                 return self.parse_chat_completion(completion)
         elif model_type == ModelType.EMBEDDER:
