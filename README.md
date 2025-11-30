@@ -353,7 +353,23 @@ export DEEPWIKI_EMBEDDER_TYPE=google
 
 # Use local Ollama embeddings
 export DEEPWIKI_EMBEDDER_TYPE=ollama
+
+# Use OpenRouter embeddings
+export DEEPWIKI_EMBEDDER_TYPE=openrouter
+export OPENAI_BASE_URL=https://openrouter.ai/api/v1
+export OPENROUTER_EMBEDDING_MODEL=openai/text-embedding-3-small  # Optional, defaults to openai/text-embedding-3-small
 ```
+
+**Available OpenRouter Embedding Models:**
+- `openai/text-embedding-3-small` - Default, balanced performance
+- `openai/text-embedding-3-large` - Highest capability for English and non-English
+- `google/gemini-embedding-001` - Unified experience across domains (science, legal, finance, coding)
+- `mistralai/mistral-embed-2312` - Optimized for semantic search/RAG (1024-dim vectors)
+- `qwen/qwen3-embedding-0.6b` - Lightweight multilingual model
+- `qwen/qwen3-embedding-4b` - Balanced multilingual model
+- `qwen/qwen3-embedding-8b` - Most capable Qwen model (32K context)
+
+View all models: https://openrouter.ai/models?output_modalities=embeddings
 
 **Note**: When switching embedders, you may need to regenerate your repository embeddings as different models produce different vector spaces.
 
@@ -406,7 +422,12 @@ docker-compose up
 | `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint                    | No | Required only if you want to use Azure OpenAI models                                                       |
 | `AZURE_OPENAI_VERSION` | Azure OpenAI version                     | No | Required only if you want to use Azure OpenAI models                                                       |
 | `OLLAMA_HOST`        | Ollama Host (default: http://localhost:11434)                | No | Required only if you want to use external Ollama server                                                  |
-| `DEEPWIKI_EMBEDDER_TYPE` | Embedder type: `openai`, `google`, or `ollama` (default: `openai`) | No | Controls which embedding provider to use                                                              |
+| `DEEPWIKI_EMBEDDER_TYPE` | Embedder type: `openai`, `google`, `ollama`, or `openrouter` (default: `openai`) | No | Controls which embedding provider to use                                                              |
+| `OPENAI_EMBEDDING_MODEL` | OpenAI embedding model name (default: `text-embedding-3-small`) | No | Used when `DEEPWIKI_EMBEDDER_TYPE=openai` |
+| `GOOGLE_EMBEDDING_MODEL` | Google embedding model name (default: `text-embedding-004`) | No | Used when `DEEPWIKI_EMBEDDER_TYPE=google` |
+| `OLLAMA_EMBEDDING_MODEL` | Ollama embedding model name (default: `nomic-embed-text`) | No | Used when `DEEPWIKI_EMBEDDER_TYPE=ollama` |
+| `OPENROUTER_EMBEDDING_MODEL` | OpenRouter embedding model name (default: `openai/text-embedding-3-small`) | No | Used when `DEEPWIKI_EMBEDDER_TYPE=openrouter` |
+| `OPENAI_BASE_URL` | Custom OpenAI-compatible API base URL | No | For OpenRouter embeddings, set to `https://openrouter.ai/api/v1` |
 | `PORT`               | Port for the API server (default: 8001)                      | No | If you host API and frontend on the same machine, make sure change port of `SERVER_BASE_URL` accordingly |
 | `SERVER_BASE_URL`    | Base URL for the API server (default: http://localhost:8001) | No |
 | `DEEPWIKI_AUTH_MODE` | Set to `true` or `1` to enable authorization mode. | No | Defaults to `false`. If enabled, `DEEPWIKI_AUTH_CODE` is required. |
@@ -414,8 +435,9 @@ docker-compose up
 
 **API Key Requirements:**
 - If using `DEEPWIKI_EMBEDDER_TYPE=openai` (default): `OPENAI_API_KEY` is required
-- If using `DEEPWIKI_EMBEDDER_TYPE=google`: `GOOGLE_API_KEY` is required  
+- If using `DEEPWIKI_EMBEDDER_TYPE=google`: `GOOGLE_API_KEY` is required
 - If using `DEEPWIKI_EMBEDDER_TYPE=ollama`: No API key required (local processing)
+- If using `DEEPWIKI_EMBEDDER_TYPE=openrouter`: `OPENROUTER_API_KEY` is required, and set `OPENAI_BASE_URL=https://openrouter.ai/api/v1`
 
 Other API keys are only required when configuring and using models from the corresponding providers.
 

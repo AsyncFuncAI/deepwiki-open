@@ -65,17 +65,20 @@ CLIENT_CLASSES = {
 
 def replace_env_placeholders(config: Union[Dict[str, Any], List[Any], str, Any]) -> Union[Dict[str, Any], List[Any], str, Any]:
     """
-    Recursively replace placeholders like "${ENV_VAR}" in string values
+    Recursively replace placeholders like "${ENV_VAR}" or "${ENV_VAR:-default}" in string values
     within a nested configuration structure (dicts, lists, strings)
-    with environment variable values. Logs a warning if a placeholder is not found.
+    with environment variable values. Logs a warning if a placeholder is not found and no default is provided.
     """
-    pattern = re.compile(r"\$\{([A-Z0-9_]+)\}")
+    pattern = re.compile(r"\$\{([A-Z0-9_]+)(?::-(.*?))?\}")
 
     def replacer(match: re.Match[str]) -> str:
         env_var_name = match.group(1)
+        default_value = match.group(2)
         original_placeholder = match.group(0)
         env_var_value = os.environ.get(env_var_name)
         if env_var_value is None:
+            if default_value is not None:
+                return default_value
             logger.warning(
                 f"Environment variable placeholder '{original_placeholder}' was not found in the environment. "
                 f"The placeholder string will be used as is."
@@ -149,7 +152,7 @@ def load_embedder_config():
     embedder_config = load_json_config("embedder.json")
 
     # Process client classes
-    for key in ["embedder", "embedder_ollama", "embedder_google"]:
+    for key in ["embedder", "embedder_ollama", "embedder_google", "embedder_openrouter"]:
         if key in embedder_config and "client_class" in embedder_config[key]:
             class_name = embedder_config[key]["client_class"]
             if class_name in CLIENT_CLASSES:
@@ -169,6 +172,8 @@ def get_embedder_config():
         return configs.get("embedder_google", {})
     elif embedder_type == 'ollama' and 'embedder_ollama' in configs:
         return configs.get("embedder_ollama", {})
+    elif embedder_type == 'openrouter' and 'embedder_openrouter' in configs:
+        return configs.get("embedder_openrouter", {})
     else:
         return configs.get("embedder", {})
 
@@ -316,7 +321,7 @@ if generator_config:
 
 # Update embedder configuration
 if embedder_config:
-    for key in ["embedder", "embedder_ollama", "embedder_google", "retriever", "text_splitter"]:
+    for key in ["embedder", "embedder_ollama", "embedder_google", "embedder_openrouter", "retriever", "text_splitter"]:
         if key in embedder_config:
             configs[key] = embedder_config[key]
 
