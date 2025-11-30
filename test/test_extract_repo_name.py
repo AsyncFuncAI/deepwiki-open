@@ -66,6 +66,36 @@ class TestExtractRepoNameFromUrl:
         assert result == "owner_repo"
 
         print("✓ Bitbucket URL tests passed")
+
+    def test_extract_repo_name_azure_urls(self):
+        """Test repository name extraction from Azure DevOps URLs"""
+
+        # Test standard Azure DevOps URL (new format)
+        azure_url = "https://dev.azure.com/microsoft/vscode/_git/vscode"
+        result = self.db_manager._extract_repo_name_from_url(azure_url, "azure")
+        assert result == "microsoft_vscode_vscode"
+
+        # Test Azure DevOps URL with .git suffix
+        azure_url_git = "https://dev.azure.com/myorg/myproject/_git/myrepo.git"
+        result = self.db_manager._extract_repo_name_from_url(azure_url_git, "azure")
+        assert result == "myorg_myproject_myrepo"
+
+        # Test Azure DevOps URL with trailing slash
+        azure_url_slash = "https://dev.azure.com/org/proj/_git/repo/"
+        result = self.db_manager._extract_repo_name_from_url(azure_url_slash, "azure")
+        assert result == "org_proj_repo"
+
+        # Test legacy Azure DevOps URL (visualstudio.com)
+        azure_legacy_url = "https://microsoft.visualstudio.com/DefaultCollection/_git/MyRepo"
+        result = self.db_manager._extract_repo_name_from_url(azure_legacy_url, "azure")
+        assert result == "microsoft_DefaultCollection_MyRepo"
+
+        # Test legacy URL with .git suffix
+        azure_legacy_git = "https://myorg.visualstudio.com/MyProject/_git/MyRepo.git"
+        result = self.db_manager._extract_repo_name_from_url(azure_legacy_git, "azure")
+        assert result == "myorg_MyProject_MyRepo"
+
+        print("✓ Azure DevOps URL tests passed")
     
     def test_extract_repo_name_local_paths(self):
         """Test repository name extraction from local paths"""

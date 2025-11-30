@@ -115,6 +115,11 @@ def download_repo(repo_url: str, local_path: str, repo_type: str = None, access_
             elif repo_type == "bitbucket":
                 # Format: https://x-token-auth:{token}@bitbucket.org/owner/repo.git
                 clone_url = urlunparse((parsed.scheme, f"x-token-auth:{encoded_token}@{parsed.netloc}", parsed.path, '', '', ''))
+            elif repo_type == "azure":
+                # Format: https://{token}@dev.azure.com/org/project/_git/repo
+                # Azure DevOps uses PAT directly as username (like GitHub)
+                # Works for both dev.azure.com and legacy *.visualstudio.com domains
+                clone_url = urlunparse((parsed.scheme, f"{encoded_token}@{parsed.netloc}", parsed.path, '', '', ''))
 
             logger.info("Using access token for authentication")
 
@@ -680,10 +685,117 @@ def get_bitbucket_file_content(repo_url: str, file_path: str, access_token: str 
     except Exception as e:
         raise ValueError(f"Failed to get file content: {str(e)}")
 
+def get_azure_file_content(repo_url: str, file_path: str, access_token: str = None) -> str:
+    """
+    Retrieves the content of a file from an Azure DevOps repository using the Azure DevOps REST API.
+
+    Args:
+        repo_url (str): The URL of the Azure DevOps repository
+                       (e.g., "https://dev.azure.com/org/project/_git/repo" or
+                       "https://org.visualstudio.com/project/_git/repo")
+        file_path (str): The path to the file within the repository (e.g., "src/main.py")
+        access_token (str, optional): Azure DevOps personal access token for private repositories
+
+    Returns:
+        str: The content of the file as a string
+
+    Raises:
+        ValueError: If the file cannot be fetched or if the URL is not a valid Azure DevOps URL
+    """
+    try:
+        # Parse the repository URL
+        parsed_url = urlparse(repo_url)
+        if not parsed_url.scheme or not parsed_url.netloc:
+            raise ValueError("Not a valid Azure DevOps repository URL")
+
+        # Extract organization, project, and repository from URL
+        # New format: https://dev.azure.com/{organization}/{project}/_git/{repository}
+        # Legacy format: https://{organization}.visualstudio.com/{project}/_git/{repository}
+
+        path_parts = parsed_url.path.strip('/').split('/')
+
+        if parsed_url.netloc == "dev.azure.com":
+            # New format: path is /{organization}/{project}/_git/{repository}
+            if len(path_parts) < 4 or '_git' not in path_parts:
+                raise ValueError("Invalid Azure DevOps URL format - expected format: https://dev.azure.com/org/project/_git/repo")
+
+            organization = path_parts[0]
+            project = path_parts[1]
+            # Repository is after _git
+            git_index = path_parts.index('_git')
+            if git_index + 1 >= len(path_parts):
+                raise ValueError("Repository name not found in URL")
+            repository = path_parts[git_index + 1]
+
+            api_base = f"https://dev.azure.com/{organization}"
+        elif parsed_url.netloc.endswith('.visualstudio.com'):
+            # Legacy format: organization is in subdomain, path is /{project}/_git/{repository}
+            organization = parsed_url.netloc.split('.')[0]
+
+            if len(path_parts) < 3 or '_git' not in path_parts:
+                raise ValueError("Invalid Azure DevOps URL format - expected format: https://org.visualstudio.com/project/_git/repo")
+
+            project = path_parts[0]
+            git_index = path_parts.index('_git')
+            if git_index + 1 >= len(path_parts):
+                raise ValueError("Repository name not found in URL")
+            repository = path_parts[git_index + 1]
+
+            # Convert legacy URL to new API format
+            api_base = f"https://dev.azure.com/{organization}"
+        else:
+            raise ValueError("Not a valid Azure DevOps URL (expected dev.azure.com or *.visualstudio.com domain)")
+
+        # Build the API URL
+        # API endpoint: https://dev.azure.com/{organization}/{project}/_apis/git/repositories/{repositoryId}/items
+        api_url = f"{api_base}/{project}/_apis/git/repositories/{repository}/items"
+
+        # Set up query parameters
+        params = {
+            'path': file_path,
+            'includeContent': 'true',
+            'api-version': '7.1'
+        }
+
+        # Set up authentication headers
+        headers = {}
+        if access_token:
+            # Azure DevOps uses Basic auth with base64 encoded :{PAT}
+            # The username part is empty, only the PAT is used
+            credentials = f":{access_token}"
+            encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
+            headers["Authorization"] = f"Basic {encoded_credentials}"
+
+        logger.info(f"Fetching file content from Azure DevOps API: {api_url}")
+
+        try:
+            response = requests.get(api_url, headers=headers, params=params)
+            response.raise_for_status()
+        except RequestException as e:
+            raise ValueError(f"Error fetching file content: {e}")
+
+        try:
+            content_data = response.json()
+        except json.JSONDecodeError:
+            raise ValueError("Invalid response from Azure DevOps API")
+
+        # Check for error response
+        if "message" in content_data and "typeKey" in content_data:
+            raise ValueError(f"Azure DevOps API error: {content_data['message']}")
+
+        # Azure DevOps API returns file content in the 'content' field
+        if "content" in content_data:
+            return content_data["content"]
+        else:
+            raise ValueError("File content not found in Azure DevOps API response")
+
+    except Exception as e:
+        raise ValueError(f"Failed to get file content: {str(e)}")
+
 
 def get_file_content(repo_url: str, file_path: str, repo_type: str = None, access_token: str = None) -> str:
     """
-    Retrieves the content of a file from a Git repository (GitHub or GitLab).
+    Retrieves the content of a file from a Git repository (GitHub, GitLab, Bitbucket, or Azure DevOps).
 
     Args:
         repo_type (str): Type of repository
@@ -703,8 +815,10 @@ def get_file_content(repo_url: str, file_path: str, repo_type: str = None, acces
         return get_gitlab_file_content(repo_url, file_path, access_token)
     elif repo_type == "bitbucket":
         return get_bitbucket_file_content(repo_url, file_path, access_token)
+    elif repo_type == "azure":
+        return get_azure_file_content(repo_url, file_path, access_token)
     else:
-        raise ValueError("Unsupported repository type. Only GitHub, GitLab, and Bitbucket are supported.")
+        raise ValueError("Unsupported repository type. Only GitHub, GitLab, Bitbucket, and Azure DevOps are supported.")
 
 class DatabaseManager:
     """
@@ -760,7 +874,40 @@ class DatabaseManager:
         # Extract owner and repo name to create unique identifier
         url_parts = repo_url_or_path.rstrip('/').split('/')
 
-        if repo_type in ["github", "gitlab", "bitbucket"] and len(url_parts) >= 5:
+        if repo_type == "azure":
+            # Azure DevOps URL format: https://dev.azure.com/{org}/{project}/_git/{repo}
+            # Legacy format: https://{org}.visualstudio.com/{project}/_git/{repo}
+            try:
+                from urllib.parse import urlparse
+                parsed = urlparse(repo_url_or_path)
+
+                if parsed.netloc == "dev.azure.com":
+                    # New format: path is /{org}/{project}/_git/{repo}
+                    path_parts = parsed.path.strip('/').split('/')
+                    if len(path_parts) >= 4 and '_git' in path_parts:
+                        org = path_parts[0]
+                        project = path_parts[1]
+                        git_index = path_parts.index('_git')
+                        repo = path_parts[git_index + 1] if git_index + 1 < len(path_parts) else ''
+                        repo_name = f"{org}_{project}_{repo}".replace(".git", "")
+                    else:
+                        repo_name = url_parts[-1].replace(".git", "")
+                elif parsed.netloc.endswith('.visualstudio.com'):
+                    # Legacy format: org is in subdomain
+                    org = parsed.netloc.split('.')[0]
+                    path_parts = parsed.path.strip('/').split('/')
+                    if len(path_parts) >= 3 and '_git' in path_parts:
+                        project = path_parts[0]
+                        git_index = path_parts.index('_git')
+                        repo = path_parts[git_index + 1] if git_index + 1 < len(path_parts) else ''
+                        repo_name = f"{org}_{project}_{repo}".replace(".git", "")
+                    else:
+                        repo_name = url_parts[-1].replace(".git", "")
+                else:
+                    repo_name = url_parts[-1].replace(".git", "")
+            except Exception:
+                repo_name = url_parts[-1].replace(".git", "")
+        elif repo_type in ["github", "gitlab", "bitbucket"] and len(url_parts) >= 5:
             # GitHub URL format: https://github.com/owner/repo
             # GitLab URL format: https://gitlab.com/owner/repo or https://gitlab.com/group/subgroup/repo
             # Bitbucket URL format: https://bitbucket.org/owner/repo
