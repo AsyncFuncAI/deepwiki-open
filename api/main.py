@@ -45,11 +45,19 @@ if is_development:
 import uvicorn
 
 # Check for required environment variables
-required_env_vars = ['GOOGLE_API_KEY', 'OPENAI_API_KEY']
-missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
-if missing_vars:
-    logger.warning(f"Missing environment variables: {', '.join(missing_vars)}")
-    logger.warning("Some functionality may not work correctly without these variables.")
+# At minimum, one of these API keys or Ollama setup should be present
+api_keys_present = any([
+    os.environ.get('GOOGLE_API_KEY'),
+    os.environ.get('OPENAI_API_KEY'),
+    os.environ.get('OPENROUTER_API_KEY'),
+    os.environ.get('DEEPSEEK_API_KEY'),
+    os.environ.get('OLLAMA_HOST')  # Ollama can work without API key
+])
+
+if not api_keys_present:
+    logger.warning("No API keys configured (GOOGLE_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY) and no Ollama host found.")
+    logger.warning("At minimum, you need one of: GOOGLE_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, or a local Ollama setup.")
+    logger.warning("Some functionality may not work correctly without proper configuration.")
 
 # Configure Google Generative AI
 import google.generativeai as genai
