@@ -2,6 +2,13 @@
 
 ![DeepWiki Banner](screenshots/Deepwiki.png)
 
+> **📢 Fork Notice**  
+> This is a **fork** of [AsyncFuncAI/deepwiki-open](https://github.com/AsyncFuncAI/deepwiki-open) with additional experimental features and improvements.  
+> **For stable features and official releases**, please follow the [original repository](https://github.com/AsyncFuncAI/deepwiki-open).
+>
+> **What's special about this fork:**  
+> If you're looking for support for **DeepSeek**, **OpenRouter**, and **OpenRouter Embeddings** (recently introduced), you've found the right place!
+
 **DeepWiki** is my own implementation attempt of DeepWiki, automatically creates beautiful, interactive wikis for any GitHub, GitLab, or BitBucket repository! Just enter a repo name, and DeepWiki will:
 
 1. Analyze the code structure
@@ -42,7 +49,8 @@ cp .env.example .env
 
 # Edit .env file and add your API keys
 # At minimum, you need one of: GOOGLE_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, or OLLAMA setup
-# See .env.example for all available configuration options
+# IMPORTANT: The application will exit immediately if no API keys are configured
+# See .env.example for all available configuration options with detailed descriptions
 
 # Run with Docker Compose
 docker-compose up
@@ -51,6 +59,7 @@ docker-compose up
 For detailed instructions on using DeepWiki with Ollama and Docker, see [Ollama Instructions](Ollama-instruction.md).
 
 > 💡 **Where to get these keys:**
+>
 > - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 > - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
 > - Get an OpenRouter API key from [OpenRouter](https://openrouter.ai/)
@@ -69,6 +78,7 @@ cp .env.example .env
 
 # Edit .env and add your API keys
 # At minimum, you need one of: GOOGLE_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, or OLLAMA setup
+# IMPORTANT: The application will exit immediately if no API keys are configured
 # See .env.example for all available configuration options and detailed descriptions
 ```
 
@@ -215,11 +225,13 @@ DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # Optional, for custom config fi
 DeepWiki uses JSON configuration files to manage various aspects of the system:
 
 1. **`generator.json`**: Configuration for text generation models
+
    - Defines available model providers (Google, OpenAI, OpenRouter, Azure, Ollama)
    - Specifies default and available models for each provider
    - Contains model-specific parameters like temperature and top_p
 
 2. **`embedder.json`**: Configuration for embedding models and text processing
+
    - Defines embedding models for vector storage
    - Contains retriever configuration for RAG
    - Specifies text splitter settings for document chunking
@@ -317,11 +329,11 @@ docker-compose up
 
 ### Available Embedder Types
 
-| Type | Description | API Key Required | Notes |
-|------|-------------|------------------|-------|
+| Type     | Description                 | API Key Required | Notes                               |
+| -------- | --------------------------- | ---------------- | ----------------------------------- |
 | `openai` | OpenAI embeddings (default) | `OPENAI_API_KEY` | Uses `text-embedding-3-small` model |
-| `google` | Google AI embeddings | `GOOGLE_API_KEY` | Uses `text-embedding-004` model |
-| `ollama` | Local Ollama embeddings | None | Requires local Ollama installation |
+| `google` | Google AI embeddings        | `GOOGLE_API_KEY` | Uses `text-embedding-004` model     |
+| `ollama` | Local Ollama embeddings     | None             | Requires local Ollama installation  |
 
 ### Why Use Google AI Embeddings?
 
@@ -351,6 +363,7 @@ export OPENROUTER_EMBEDDING_MODEL=openai/text-embedding-3-small  # Optional, def
 ```
 
 **Available OpenRouter Embedding Models:**
+
 - `openai/text-embedding-3-small` - Default, balanced performance
 - `openai/text-embedding-3-large` - Highest capability for English and non-English
 - `google/gemini-embedding-001` - Unified experience across domains (science, legal, finance, coding)
@@ -367,18 +380,21 @@ View all models: https://openrouter.ai/models?output_modalities=embeddings
 
 DeepWiki uses Python's built-in `logging` module for diagnostic output. You can configure the verbosity and log file destination via environment variables:
 
-| Variable        | Description                                                        | Default                      |
-|-----------------|--------------------------------------------------------------------|------------------------------|
-| `LOG_LEVEL`     | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).             | INFO                         |
-| `LOG_FILE_PATH` | Path to the log file. If set, logs will be written to this file.   | `api/logs/application.log`   |
+| Variable        | Description                                                      | Default                    |
+| --------------- | ---------------------------------------------------------------- | -------------------------- |
+| `LOG_LEVEL`     | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).           | INFO                       |
+| `LOG_FILE_PATH` | Path to the log file. If set, logs will be written to this file. | `api/logs/application.log` |
 
 To enable debug logging and direct logs to a custom file:
+
 ```bash
 export LOG_LEVEL=DEBUG
 export LOG_FILE_PATH=./debug.log
 python -m api.main
 ```
+
 Or with Docker Compose:
+
 ```bash
 LOG_LEVEL=DEBUG LOG_FILE_PATH=./debug.log docker-compose up
 ```
@@ -391,6 +407,7 @@ Alternatively, you can store these settings in your `.env` file:
 LOG_LEVEL=DEBUG
 LOG_FILE_PATH=./debug.log
 ```
+
 Then simply run:
 
 ```bash
@@ -406,6 +423,7 @@ docker-compose up
 DeepWiki uses environment variables for configuration. A comprehensive `.env.example` file is provided in the repository with all available options and detailed descriptions.
 
 **Quick Setup:**
+
 ```bash
 cp .env.example .env
 # Edit .env and add your API keys
@@ -413,29 +431,32 @@ cp .env.example .env
 
 **Key Environment Variables:**
 
-| Variable             | Description                                                  | Required | Default |
-|----------------------|--------------------------------------------------------------|----------|---------|
-| `GOOGLE_API_KEY`     | Google Gemini API key for AI generation and embeddings      | Conditional* | - |
-| `OPENAI_API_KEY`     | OpenAI API key for embeddings and models                     | Conditional* | - |
-| `OPENROUTER_API_KEY` | OpenRouter API key for alternative models                    | No | - |
-| `DEEPSEEK_API_KEY`   | DeepSeek API key for DeepSeek models                         | No | - |
-| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key                                       | No | - |
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint URL                                 | No | - |
-| `AZURE_OPENAI_VERSION` | Azure OpenAI API version                                   | No | - |
-| `DEEPWIKI_EMBEDDER_TYPE` | Embedder type: `openai`, `google`, `ollama`, `openrouter` | No | `openai` |
-| `OLLAMA_HOST`        | Ollama host URL                                              | No | `http://localhost:11434` |
-| `PORT`               | API server port                                              | No | `8001` |
-| `SERVER_BASE_URL`    | Base URL for API server                                      | No | `http://localhost:8001` |
-| `DEEPWIKI_AUTH_MODE` | Enable authorization mode (`true` or `1`)                    | No | `false` |
-| `DEEPWIKI_AUTH_CODE` | Authorization code (when auth mode is enabled)               | No | - |
-| `LOG_LEVEL`          | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)        | No | `INFO` |
-| `LOG_FILE_PATH`      | Path to log file                                             | No | `api/logs/application.log` |
+| Variable                 | Description                                               | Required      | Default                    |
+| ------------------------ | --------------------------------------------------------- | ------------- | -------------------------- |
+| `GOOGLE_API_KEY`         | Google Gemini API key for AI generation and embeddings    | Conditional\* | -                          |
+| `OPENAI_API_KEY`         | OpenAI API key for embeddings and models                  | Conditional\* | -                          |
+| `OPENROUTER_API_KEY`     | OpenRouter API key for alternative models                 | Conditional\* | -                          |
+| `DEEPSEEK_API_KEY`       | DeepSeek API key for DeepSeek models                      | Conditional\* | -                          |
+| `AZURE_OPENAI_API_KEY`   | Azure OpenAI API key                                      | No            | -                          |
+| `AZURE_OPENAI_ENDPOINT`  | Azure OpenAI endpoint URL                                 | No            | -                          |
+| `AZURE_OPENAI_VERSION`   | Azure OpenAI API version                                  | No            | -                          |
+| `DEEPWIKI_EMBEDDER_TYPE` | Embedder type: `openai`, `google`, `ollama`, `openrouter` | No            | `openai`                   |
+| `OLLAMA_HOST`            | Ollama host URL                                           | No            | `http://localhost:11434`   |
+| `PORT`                   | API server port                                           | No            | `8001`                     |
+| `SERVER_BASE_URL`        | Base URL for API server                                   | No            | `http://localhost:8001`    |
+| `DEEPWIKI_AUTH_MODE`     | Enable authorization mode (`true` or `1`)                 | No            | `false`                    |
+| `DEEPWIKI_AUTH_CODE`     | Authorization code (when auth mode is enabled)            | No            | -                          |
+| `LOG_LEVEL`              | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)     | No            | `INFO`                     |
+| `LOG_FILE_PATH`          | Path to log file                                          | No            | `api/logs/application.log` |
 
-*At minimum, you need one of: `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, or a local Ollama setup.
+\*At minimum, you need one of: `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, or a local Ollama setup.
 
-For a complete list of all environment variables with detailed descriptions, see the [`.env.example`](.env.example) file.
+**IMPORTANT**: The application will exit immediately on startup if no API keys are configured. This ensures you're aware of missing configuration before attempting to generate wikis.
+
+For a complete list of all environment variables with detailed descriptions, see the comprehensive [`.env.example`](.env.example) file.
 
 **API Key Requirements:**
+
 - If using `DEEPWIKI_EMBEDDER_TYPE=openai` (default): `OPENAI_API_KEY` is required
 - If using `DEEPWIKI_EMBEDDER_TYPE=google`: `GOOGLE_API_KEY` is required
 - If using `DEEPWIKI_EMBEDDER_TYPE=ollama`: No API key required (local processing)
@@ -480,6 +501,7 @@ docker run -p 8001:8001 -p 3000:3000 \
 ```
 
 This command also mounts `~/.adalflow` on your host to `/root/.adalflow` in the container. This path is used to store:
+
 - Cloned repositories (`~/.adalflow/repos/`)
 - Their embeddings and indexes (`~/.adalflow/databases/`)
 - Cached generated wiki content (`~/.adalflow/wikicache/`)
@@ -517,6 +539,7 @@ docker run -p 8001:8001 -p 3000:3000 \
 ```
 
 This command also mounts `~/.adalflow` on your host to `/root/.adalflow` in the container. This path is used to store:
+
 - Cloned repositories (`~/.adalflow/repos/`)
 - Their embeddings and indexes (`~/.adalflow/databases/`)
 - Cached generated wiki content (`~/.adalflow/wikicache/`)
@@ -566,6 +589,7 @@ docker build --build-arg CUSTOM_CERT_DIR=my-custom-certs .
 ### API Server Details
 
 The API server provides:
+
 - Repository cloning and indexing
 - RAG (Retrieval Augmented Generation)
 - Streaming chat completions
@@ -589,6 +613,7 @@ DeepWiki now supports [OpenRouter](https://openrouter.ai/) as a model provider, 
 4. **Select Model**: Choose from popular models like GPT-4o, Claude 3.5 Sonnet, Gemini 2.0, and more
 
 OpenRouter is particularly useful if you want to:
+
 - Try different models without signing up for multiple services
 - Access models that might be restricted in your region
 - Compare performance across different model providers
@@ -622,39 +647,49 @@ To use DeepResearch, simply toggle the "Deep Research" switch in the Ask interfa
 ## 📱 Screenshots
 
 ![DeepWiki Main Interface](screenshots/Interface.png)
-*The main interface of DeepWiki*
+_The main interface of DeepWiki_
 
 ![Private Repository Support](screenshots/privaterepo.png)
-*Access private repositories with personal access tokens*
+_Access private repositories with personal access tokens_
 
 ![DeepResearch Feature](screenshots/DeepResearch.png)
-*DeepResearch conducts multi-turn investigations for complex topics*
+_DeepResearch conducts multi-turn investigations for complex topics_
 
 ### Demo Video
 
 [![DeepWiki Demo Video](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)
 
-*Watch DeepWiki in action!*
+_Watch DeepWiki in action!_
 
 ## ❓ Troubleshooting
 
 ### API Key Issues
-- **"Missing environment variables"**: Make sure your `.env` file is in the project root and contains the required API keys
+
+- **"No API keys configured - Application exiting"**: The application now exits immediately if no API keys or Ollama host are configured. Add at least one API key to your `.env` file:
+  - `GOOGLE_API_KEY` for Google Gemini
+  - `OPENAI_API_KEY` for OpenAI
+  - `OPENROUTER_API_KEY` for OpenRouter
+  - `DEEPSEEK_API_KEY` for DeepSeek
+  - Or set up local Ollama with `OLLAMA_HOST`
+- **"Missing environment variables"**: Make sure your `.env` file is in the project root and contains the required API keys. Use `.env.example` as a reference.
 - **"API key not valid"**: Check that you've copied the full key correctly with no extra spaces
 - **"OpenRouter API error"**: Verify your OpenRouter API key is valid and has sufficient credits
 - **"Azure OpenAI API error"**: Verify your Azure OpenAI credentials (API key, endpoint, and version) are correct and the service is properly deployed
 
 ### Connection Problems
+
 - **"Cannot connect to API server"**: Make sure the API server is running on port 8001
 - **"CORS error"**: The API is configured to allow all origins, but if you're having issues, try running both frontend and backend on the same machine
 
 ### Generation Issues
+
 - **"Error generating wiki"**: For very large repositories, try a smaller one first
 - **"Invalid repository format"**: Make sure you're using a valid GitHub, GitLab or Bitbucket URL format
 - **"Could not fetch repository structure"**: For private repositories, ensure you've entered a valid personal access token with appropriate permissions
 - **"Diagram rendering error"**: The app will automatically try to fix broken diagrams
 
 ### Common Solutions
+
 1. **Restart both servers**: Sometimes a simple restart fixes most issues
 2. **Check console logs**: Open browser developer tools to see any JavaScript errors
 3. **Check API logs**: Look at the terminal where the API is running for Python errors
@@ -662,6 +697,7 @@ To use DeepResearch, simply toggle the "Deep Research" switch in the Ask interfa
 ## 🤝 Contributing
 
 Contributions are welcome! Feel free to:
+
 - Open issues for bugs or feature requests
 - Submit pull requests to improve the code
 - Share your feedback and ideas
