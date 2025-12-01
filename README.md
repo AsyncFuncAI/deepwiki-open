@@ -25,7 +25,7 @@
 - **Easy Navigation**: Simple, intuitive interface to explore the wiki
 - **Ask Feature**: Chat with your repository using RAG-powered AI to get accurate answers
 - **DeepResearch**: Multi-turn research process that thoroughly investigates complex topics
-- **Multiple Model Providers**: Support for Google Gemini, OpenAI, OpenRouter, and local Ollama models
+- **Multiple Model Providers**: Support for Google Gemini, OpenAI, DeepSeek, OpenRouter, and local Ollama models
 - **Flexible Embeddings**: Choose between OpenAI, Google AI, or local Ollama embeddings for optimal performance
 
 ## 🚀 Quick Start (Super Easy!)
@@ -44,6 +44,8 @@ echo "OPENAI_API_KEY=your_openai_api_key" >> .env
 echo "DEEPWIKI_EMBEDDER_TYPE=google" >> .env
 # Optional: Add OpenRouter API key if you want to use OpenRouter models
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
+# Optional: Add DeepSeek API key if you want to use DeepSeek models
+echo "DEEPSEEK_API_KEY=your_deepseek_api_key" >> .env
 # Optional: Add Ollama host if not local. defaults to http://localhost:11434
 echo "OLLAMA_HOST=your_ollama_host" >> .env
 # Optional: Add Azure API key, endpoint and version if you want to use azure openai models
@@ -59,6 +61,7 @@ For detailed instructions on using DeepWiki with Ollama and Docker, see [Ollama 
 > 💡 **Where to get these keys:**
 > - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 > - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+> - Get a DeepSeek API key from [DeepSeek Platform](https://platform.deepseek.com/api_keys)
 > - Get Azure OpenAI credentials from [Azure Portal](https://portal.azure.com/) - create an Azure OpenAI resource and get the API key, endpoint, and API version
 
 ### Option 2: Manual Setup (Recommended)
@@ -74,6 +77,8 @@ OPENAI_API_KEY=your_openai_api_key
 DEEPWIKI_EMBEDDER_TYPE=google
 # Optional: Add this if you want to use OpenRouter models
 OPENROUTER_API_KEY=your_openrouter_api_key
+# Optional: Add this if you want to use DeepSeek models
+DEEPSEEK_API_KEY=your_deepseek_api_key
 # Optional: Add this if you want to use Azure OpenAI models
 AZURE_OPENAI_API_KEY=your_azure_openai_api_key
 AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint
@@ -119,7 +124,7 @@ DeepWiki uses AI to:
 
 1. Clone and analyze the GitHub, GitLab, or Bitbucket repository (including private repos with token authentication)
 2. Create embeddings of the code for smart retrieval
-3. Generate documentation with context-aware AI (using Google Gemini, OpenAI, OpenRouter, Azure OpenAI, or local Ollama models)
+3. Generate documentation with context-aware AI (using Google Gemini, OpenAI, DeepSeek, OpenRouter, Azure OpenAI, or local Ollama models)
 4. Create visual diagrams to explain code relationships
 5. Organize everything into a structured wiki
 6. Enable intelligent Q&A with the repository through the Ask feature
