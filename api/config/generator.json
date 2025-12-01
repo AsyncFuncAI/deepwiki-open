@@ -19,6 +19,21 @@
         }
       }
     },
+    "deepseek": {
+      "client_class": "DeepSeekClient",
+      "default_model": "deepseek-chat",
+      "supportsCustomModel": true,
+      "models": {
+        "deepseek-chat": {
+          "temperature": 0.7,
+          "top_p": 0.95
+        },
+        "deepseek-reasoner": {
+          "temperature": 0.7,
+          "top_p": 0.95
+        }
+      }
+    },
     "google": {
       "default_model": "gemini-2.5-flash",
       "supportsCustomModel": true,
