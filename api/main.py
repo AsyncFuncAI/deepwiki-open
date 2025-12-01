@@ -55,9 +55,10 @@ api_keys_present = any([
 ])
 
 if not api_keys_present:
-    logger.warning("No API keys configured (GOOGLE_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY) and no Ollama host found.")
-    logger.warning("At minimum, you need one of: GOOGLE_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, or a local Ollama setup.")
-    logger.warning("Some functionality may not work correctly without proper configuration.")
+    logger.error("No API keys configured (GOOGLE_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY) and no Ollama host found.")
+    logger.error("At minimum, you need one of: GOOGLE_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, or a local Ollama setup.")
+    logger.error("Cannot start server without proper configuration.")
+    sys.exit(1)
 
 # Configure Google Generative AI
 import google.generativeai as genai
