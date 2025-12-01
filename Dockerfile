@@ -55,14 +55,14 @@ RUN apt-get update && apt-get install -y \
 
 # Update certificates if custom ones were provided and copied successfully
 RUN if [ -n "${CUSTOM_CERT_DIR}" ]; then \
-        mkdir -p /usr/local/share/ca-certificates && \
-        if [ -d "${CUSTOM_CERT_DIR}" ]; then \
-            cp -r ${CUSTOM_CERT_DIR}/* /usr/local/share/ca-certificates/ 2>/dev/null || true; \
-            update-ca-certificates; \
-            echo "Custom certificates installed successfully."; \
-        else \
-            echo "Warning: ${CUSTOM_CERT_DIR} not found. Skipping certificate installation."; \
-        fi \
+    mkdir -p /usr/local/share/ca-certificates && \
+    if [ -d "${CUSTOM_CERT_DIR}" ]; then \
+    cp -r ${CUSTOM_CERT_DIR}/* /usr/local/share/ca-certificates/ 2>/dev/null || true; \
+    update-ca-certificates; \
+    echo "Custom certificates installed successfully."; \
+    else \
+    echo "Warning: ${CUSTOM_CERT_DIR} not found. Skipping certificate installation."; \
+    fi \
     fi
 
 ENV PATH="/opt/venv/bin:$PATH"
@@ -80,24 +80,30 @@ COPY --from=node_builder /app/.next/static ./.next/static
 EXPOSE ${PORT:-8001} 3000
 
 # Create a script to run both backend and frontend
-RUN echo '#!/bin/bash\n\
-# Load environment variables from .env file if it exists\n\
-if [ -f .env ]; then\n\
-  export $(grep -v "^#" .env | xargs -r)\n\
-fi\n\
-\n\
-# Check for required environment variables\n\
-if [ -z "$OPENAI_API_KEY" ] || [ -z "$GOOGLE_API_KEY" ]; then\n\
-  echo "Warning: OPENAI_API_KEY and/or GOOGLE_API_KEY environment variables are not set."\n\
-  echo "These are required for DeepWiki to function properly."\n\
-  echo "You can provide them via a mounted .env file or as environment variables when running the container."\n\
-fi\n\
-\n\
-# Start the API server in the background with the configured port\n\
-python -m api.main --port ${PORT:-8001} &\n\
-PORT=3000 HOSTNAME=0.0.0.0 node server.js &\n\
-wait -n\n\
-exit $?' > /app/start.sh && chmod +x /app/start.sh
+RUN cat <<'EOF' > /app/start.sh \
+    && chmod +x /app/start.sh
+#!/bin/bash
+
+[ -f .env ] && export $(grep -v "^#" .env | xargs -r)
+
+api_keys_present=0
+[ -n "$GOOGLE_API_KEY" ] && api_keys_present=1
+[ -n "$OPENAI_API_KEY" ] && api_keys_present=1
+[ -n "$OPENROUTER_API_KEY" ] && api_keys_present=1
+[ -n "$DEEPSEEK_API_KEY" ] && api_keys_present=1
+[ -n "$OLLAMA_HOST" ] && api_keys_present=1
+
+if [ $api_keys_present -eq 0 ]; then
+  echo "Warning: No API keys configured and no Ollama host found."
+  echo "Need at least one API key or a local Ollama setup."
+fi
+
+python -m api.main --port "${PORT:-8001}" &
+PORT=3000 HOSTNAME=0.0.0.0 node server.js &
+
+wait -n
+exit $?
+EOF
 
 # Set environment variables
 ENV PORT=8001
