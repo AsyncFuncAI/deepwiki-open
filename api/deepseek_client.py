@@ -271,43 +271,12 @@ class DeepSeekClient(ModelClient):
                 self.chat_completion_parser = handle_streaming_response
                 return self.sync_client.chat.completions.create(**api_kwargs)
             else:
-                log.debug("non-streaming call converted to streaming")
-                # Make a copy of api_kwargs to avoid modifying the original
-                streaming_kwargs = api_kwargs.copy()
-                streaming_kwargs["stream"] = True
-
-                # Get streaming response
-                stream_response = self.sync_client.chat.completions.create(**streaming_kwargs)
-
-                # Accumulate all content from the stream
-                accumulated_content = ""
-                id = ""
-                model = ""
-                created = 0
-                for chunk in stream_response:
-                    id = getattr(chunk, "id", None) or id
-                    model = getattr(chunk, "model", None) or model
-                    created = getattr(chunk, "created", 0) or created
-                    choices = getattr(chunk, "choices", [])
-                    if len(choices) > 0:
-                        delta = getattr(choices[0], "delta", None)
-                        if delta is not None:
-                            text = getattr(delta, "content", None)
-                            if text is not None:
-                                accumulated_content += text or ""
-                                
-                # Return the mock completion object that will be processed by the chat_completion_parser
-                return ChatCompletion(
-                    id=id,
-                    model=model,
-                    created=created,
-                    object="chat.completion",
-                    choices=[Choice(
-                        index=0,
-                        finish_reason="stop",
-                        message=ChatCompletionMessage(content=accumulated_content, role="assistant")
-                    )]
-                )
+                log.debug("non-streaming call")
+                # Ensure the parser expects a standard ChatCompletion object
+                self.chat_completion_parser = get_first_message_content
+                # Perform a direct non-streaming API call
+                # This returns a full ChatCompletion object including the `usage` field
+                return self.sync_client.chat.completions.create(**api_kwargs)
         else:
             raise ValueError(f"model_type {model_type} is not supported")
 
