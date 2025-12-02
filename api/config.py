@@ -207,17 +207,28 @@ def is_google_embedder():
     client_class = embedder_config.get("client_class", "")
     return client_class == "GoogleEmbedderClient"
 
+def is_openrouter_embedder():
+    """
+    Check if the current embedder configuration uses OpenRouter.
+
+    Returns:
+        bool: True if using OpenRouter embedder, False otherwise
+    """
+    return EMBEDDER_TYPE == 'openrouter'
+
 def get_embedder_type():
     """
     Get the current embedder type based on configuration.
     
     Returns:
-        str: 'ollama', 'google', or 'openai' (default)
+        str: 'ollama', 'google', 'openrouter', or 'openai' (default)
     """
     if is_ollama_embedder():
         return 'ollama'
     elif is_google_embedder():
         return 'google'
+    elif is_openrouter_embedder():
+        return 'openrouter'
     else:
         return 'openai'
 
