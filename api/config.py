@@ -11,6 +11,7 @@ from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.bedrock_client import BedrockClient
 from api.google_embedder_client import GoogleEmbedderClient
+from api.vertexai_embedder_client import VertexAIEmbedderClient
 from api.azureai_client import AzureAIClient
 from api.dashscope_client import DashscopeClient
 from adalflow import GoogleGenAIClient, OllamaClient
@@ -55,6 +56,7 @@ CONFIG_DIR = os.environ.get('DEEPWIKI_CONFIG_DIR', None)
 CLIENT_CLASSES = {
     "GoogleGenAIClient": GoogleGenAIClient,
     "GoogleEmbedderClient": GoogleEmbedderClient,
+    "VertexAIEmbedderClient": VertexAIEmbedderClient,
     "OpenAIClient": OpenAIClient,
     "OpenRouterClient": OpenRouterClient,
     "OllamaClient": OllamaClient,
@@ -149,7 +151,7 @@ def load_embedder_config():
     embedder_config = load_json_config("embedder.json")
 
     # Process client classes
-    for key in ["embedder", "embedder_ollama", "embedder_google"]:
+    for key in ["embedder", "embedder_ollama", "embedder_google", "embedder_vertex"]:
         if key in embedder_config and "client_class" in embedder_config[key]:
             class_name = embedder_config[key]["client_class"]
             if class_name in CLIENT_CLASSES:
@@ -169,6 +171,8 @@ def get_embedder_config():
         return configs.get("embedder_google", {})
     elif embedder_type == 'ollama' and 'embedder_ollama' in configs:
         return configs.get("embedder_ollama", {})
+    elif embedder_type == 'vertex' and 'embedder_vertex' in configs:
+        return configs.get("embedder_vertex", {})
     else:
         return configs.get("embedder", {})
 
@@ -212,15 +216,37 @@ def is_google_embedder():
     client_class = embedder_config.get("client_class", "")
     return client_class == "GoogleEmbedderClient"
 
+def is_vertex_embedder():
+    """
+    Check if the current embedder configuration uses VertexAIEmbedderClient.
+
+    Returns:
+        bool: True if using VertexAIEmbedderClient, False otherwise
+    """
+    embedder_config = get_embedder_config()
+    if not embedder_config:
+        return False
+
+    # Check if model_client is VertexAIEmbedderClient
+    model_client = embedder_config.get("model_client")
+    if model_client:
+        return model_client.__name__ == "VertexAIEmbedderClient"
+
+    # Fallback: check client_class string
+    client_class = embedder_config.get("client_class", "")
+    return client_class == "VertexAIEmbedderClient"
+
 def get_embedder_type():
     """
     Get the current embedder type based on configuration.
-    
+
     Returns:
-        str: 'ollama', 'google', or 'openai' (default)
+        str: 'ollama', 'google', 'vertex', or 'openai' (default)
     """
     if is_ollama_embedder():
         return 'ollama'
+    elif is_vertex_embedder():
+        return 'vertex'
     elif is_google_embedder():
         return 'google'
     else:
@@ -316,7 +342,7 @@ if generator_config:
 
 # Update embedder configuration
 if embedder_config:
-    for key in ["embedder", "embedder_ollama", "embedder_google", "retriever", "text_splitter"]:
+    for key in ["embedder", "embedder_ollama", "embedder_google", "embedder_vertex", "retriever", "text_splitter"]:
         if key in embedder_config:
             configs[key] = embedder_config[key]
 

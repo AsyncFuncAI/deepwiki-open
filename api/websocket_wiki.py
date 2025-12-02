@@ -33,11 +33,12 @@ class ChatCompletionRequest(BaseModel):
     """
     Model for requesting a chat completion.
     """
-    repo_url: str = Field(..., description="URL of the repository to query")
+    repo_url: Optional[str] = Field(None, description="URL of the repository to query (not used for local repos)")
     messages: List[ChatMessage] = Field(..., description="List of chat messages")
     filePath: Optional[str] = Field(None, description="Optional path to a file in the repository to include in the prompt")
     token: Optional[str] = Field(None, description="Personal access token for private repositories")
-    type: Optional[str] = Field("github", description="Type of repository (e.g., 'github', 'gitlab', 'bitbucket')")
+    type: Optional[str] = Field("github", description="Type of repository (e.g., 'github', 'gitlab', 'bitbucket', 'local')")
+    localPath: Optional[str] = Field(None, description="Local filesystem path for local repositories")
 
     # model parameters
     provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama, azure)")
@@ -95,8 +96,14 @@ async def handle_websocket_chat(websocket: WebSocket):
                 included_files = [unquote(file_pattern) for file_pattern in request.included_files.split('\n') if file_pattern.strip()]
                 logger.info(f"Using custom included files: {included_files}")
 
-            request_rag.prepare_retriever(request.repo_url, request.type, request.token, excluded_dirs, excluded_files, included_dirs, included_files)
-            logger.info(f"Retriever prepared for {request.repo_url}")
+            # Use localPath for local repos, repo_url for remote repos
+            # For local repos, check both localPath and repo_url (frontend may send path in either field)
+            if request.type == 'local':
+                repo_path_or_url = request.localPath or request.repo_url
+            else:
+                repo_path_or_url = request.repo_url
+            request_rag.prepare_retriever(repo_path_or_url, request.type, request.token, excluded_dirs, excluded_files, included_dirs, included_files)
+            logger.info(f"Retriever prepared for {repo_path_or_url}")
         except ValueError as e:
             if "No valid documents with embeddings found" in str(e):
                 logger.error(f"No valid embeddings found: {str(e)}")
@@ -232,7 +239,12 @@ async def handle_websocket_chat(websocket: WebSocket):
                 context_text = ""
 
         # Get repository information
-        repo_url = request.repo_url
+        # Use localPath for local repos, repo_url for remote repos
+        # For local repos, check both localPath and repo_url (frontend may send path in either field)
+        if request.type == 'local':
+            repo_url = request.localPath or request.repo_url
+        else:
+            repo_url = request.repo_url
         repo_name = repo_url.split("/")[-1] if "/" in repo_url else repo_url
 
         # Determine repository type
@@ -391,7 +403,13 @@ This file contains...
         file_content = ""
         if request.filePath:
             try:
-                file_content = get_file_content(request.repo_url, request.filePath, request.type, request.token)
+                # Use localPath for local repos, repo_url for remote repos
+                # For local repos, check both localPath and repo_url (frontend may send path in either field)
+                if request.type == 'local':
+                    repo_path_or_url_for_file = request.localPath or request.repo_url
+                else:
+                    repo_path_or_url_for_file = request.repo_url
+                file_content = get_file_content(repo_path_or_url_for_file, request.filePath, request.type, request.token)
                 logger.info(f"Successfully retrieved content for file: {request.filePath}")
             except Exception as e:
                 logger.error(f"Error retrieving file content: {str(e)}")
