@@ -64,7 +64,6 @@ For detailed instructions on using DeepWiki with Ollama and Docker, see [Ollama 
 > - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
 > - Get an OpenRouter API key from [OpenRouter](https://openrouter.ai/)
 > - Get a DeepSeek API key from [DeepSeek Platform](https://platform.deepseek.com/api_keys)
-> - Get Azure OpenAI credentials from [Azure Portal](https://portal.azure.com/) - create an Azure OpenAI resource and get the API key, endpoint, and API version
 
 ### Option 2: Manual Setup (Recommended)
 
@@ -119,7 +118,7 @@ DeepWiki uses AI to:
 
 1. Clone and analyze the GitHub, GitLab, or Bitbucket repository (including private repos with token authentication)
 2. Create embeddings of the code for smart retrieval
-3. Generate documentation with context-aware AI (using Google Gemini, OpenAI, DeepSeek, OpenRouter, Azure OpenAI, or local Ollama models)
+3. Generate documentation with context-aware AI (using Google Gemini, OpenAI, DeepSeek, OpenRouter, or local Ollama models)
 4. Create visual diagrams to explain code relationships
 5. Organize everything into a structured wiki
 6. Enable intelligent Q&A with the repository through the Ask feature
@@ -139,7 +138,7 @@ graph TD
     M -->|OpenAI| E2[Generate with OpenAI]
     M -->|OpenRouter| E3[Generate with OpenRouter]
     M -->|Local Ollama| E4[Generate with Ollama]
-    M -->|Azure| E5[Generate with Azure]
+    M -->|DeepSeek| E5[Generate with DeepSeek]
 
     E1 --> E[Generate Documentation]
     E2 --> E
@@ -192,10 +191,10 @@ DeepWiki now implements a flexible provider-based model selection system support
 ### Supported Providers and Models
 
 - **Google**: Default `gemini-2.5-flash`, also supports `gemini-2.5-flash-lite`, `gemini-2.5-pro`, etc.
-- **OpenAI**: Default `gpt-5-nano`, also supports `gpt-5`, `4o`, etc.
+- **OpenAI**: Default `gpt-5-nano`, also supports `gpt-5`, `gpt-4o`, etc.
 - **OpenRouter**: Access to multiple models via a unified API, including Claude, Llama, Mistral, etc.
-- **Azure OpenAI**: Default `gpt-4o`, also supports `o4-mini`, etc.
-- **Ollama**: Support for locally running open-source models like `llama3`
+- **DeepSeek**: Default `deepseek-chat`, also supports `deepseek-reasoner`
+- **Ollama**: Support for locally running open-source models like `llama3`, `qwen3`
 
 ### Environment Variables
 
@@ -206,9 +205,7 @@ Each provider requires its corresponding API key environment variables:
 GOOGLE_API_KEY=your_google_api_key        # Required for Google Gemini models
 OPENAI_API_KEY=your_openai_api_key        # Required for OpenAI models
 OPENROUTER_API_KEY=your_openrouter_api_key # Required for OpenRouter models
-AZURE_OPENAI_API_KEY=your_azure_openai_api_key  #Required for Azure OpenAI models
-AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint  #Required for Azure OpenAI models
-AZURE_OPENAI_VERSION=your_azure_openai_version  #Required for Azure OpenAI models
+DEEPSEEK_API_KEY=your_deepseek_api_key    # Required for DeepSeek models
 
 # OpenAI API Base URL Configuration
 OPENAI_BASE_URL=https://custom-api-endpoint.com/v1  # Optional, for custom OpenAI API endpoints
@@ -226,7 +223,7 @@ DeepWiki uses JSON configuration files to manage various aspects of the system:
 
 1. **`generator.json`**: Configuration for text generation models
 
-   - Defines available model providers (Google, OpenAI, OpenRouter, Azure, Ollama)
+   - Defines available model providers (Google, OpenAI, OpenRouter, DeepSeek, Ollama)
    - Specifies default and available models for each provider
    - Contains model-specific parameters like temperature and top_p
 

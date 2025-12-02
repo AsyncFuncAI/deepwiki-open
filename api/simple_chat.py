@@ -11,12 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY
 from api.data_pipeline import count_tokens, get_file_content
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
-from api.bedrock_client import BedrockClient
-from api.azureai_client import AzureAIClient
+from api.deepseek_client import DeepSeekClient
 from api.rag import RAG
 from api.prompts import (
     DEEP_RESEARCH_FIRST_ITERATION_PROMPT,
@@ -63,7 +62,7 @@ class ChatCompletionRequest(BaseModel):
     type: Optional[str] = Field("github", description="Type of repository (e.g., 'github', 'gitlab', 'bitbucket')")
 
     # model parameters
-    provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama, bedrock, azure)")
+    provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama, deepseek)")
     model: Optional[str] = Field(None, description="Model name for the specified provider")
 
     language: Optional[str] = Field("en", description="Language for content generation (e.g., 'en', 'ja', 'zh', 'es', 'kr', 'vi')")
@@ -394,44 +393,23 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM
             )
-        elif request.provider == "bedrock":
-            logger.info(f"Using AWS Bedrock with model: {request.model}")
+        elif request.provider == "deepseek":
+            logger.info(f"Using DeepSeek with model: {request.model}")
 
-            # Check if AWS credentials are set
-            if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
-                logger.warning("AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY not configured, but continuing with request")
-                # We'll let the BedrockClient handle this and return an error message
+            # Check if DeepSeek API key is set
+            if not DEEPSEEK_API_KEY:
+                logger.warning("DEEPSEEK_API_KEY not configured, but continuing with request")
 
-            # Initialize Bedrock client
-            model = BedrockClient()
-            model_kwargs = {
-                "model": request.model,
-                "temperature": model_config["temperature"],
-                "top_p": model_config["top_p"]
-            }
-
-            api_kwargs = model.convert_inputs_to_api_kwargs(
-                input=prompt,
-                model_kwargs=model_kwargs,
-                model_type=ModelType.LLM
-            )
-        elif request.provider == "azure":
-            logger.info(f"Using Azure AI with model: {request.model}")
-
-            # Initialize Azure AI client
-            model = AzureAIClient()
+            # Initialize DeepSeek client
+            model = DeepSeekClient()
             model_kwargs = {
                 "model": request.model,
                 "stream": True,
-                "temperature": model_config.get("temperature"),
-                "top_p": model_config.get("top_p"),
+                "temperature": model_config["temperature"]
             }
-            if "max_tokens" in model_config:
-                model_kwargs["max_tokens"] = model_config["max_tokens"]
-            if "frequency_penalty" in model_config:
-                model_kwargs["frequency_penalty"] = model_config["frequency_penalty"]
-            if "presence_penalty" in model_config:
-                model_kwargs["presence_penalty"] = model_config["presence_penalty"]
+            # Only add top_p if it exists in the model config
+            if "top_p" in model_config:
+                model_kwargs["top_p"] = model_config["top_p"]
 
             api_kwargs = model.convert_inputs_to_api_kwargs(
                 input=prompt,
@@ -489,37 +467,23 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                     except Exception as e_openai:
                         logger.error(f"Error with Openai API: {str(e_openai)}")
                         yield f"\nError with Openai API: {str(e_openai)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
-                elif request.provider == "bedrock":
+                elif request.provider == "deepseek":
                     try:
                         # Get the response and handle it properly using the previously created api_kwargs
-                        logger.info("Making AWS Bedrock API call")
+                        logger.info("Making DeepSeek API call")
                         response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                        # Handle response from Bedrock (not streaming yet)
-                        if isinstance(response, str):
-                            yield response
-                        else:
-                            # Try to extract text from the response
-                            yield str(response)
-                    except Exception as e_bedrock:
-                        logger.error(f"Error with AWS Bedrock API: {str(e_bedrock)}")
-                        yield f"\nError with AWS Bedrock API: {str(e_bedrock)}\n\nPlease check that you have set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables with valid credentials."
-                elif request.provider == "azure":
-                    try:
-                        # Get the response and handle it properly using the previously created api_kwargs
-                        logger.info("Making Azure AI API call")
-                        response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                        # Handle streaming response from Azure AI
+                        # Handle streaming response from DeepSeek (same format as OpenAI)
                         async for chunk in response:
-                            choices = getattr(chunk, "choices", [])
-                            if len(choices) > 0:
-                                delta = getattr(choices[0], "delta", None)
-                                if delta is not None:
+                           choices = getattr(chunk, "choices", [])
+                           if len(choices) > 0:
+                               delta = getattr(choices[0], "delta", None)
+                               if delta is not None:
                                     text = getattr(delta, "content", None)
                                     if text is not None:
                                         yield text
-                    except Exception as e_azure:
-                        logger.error(f"Error with Azure AI API: {str(e_azure)}")
-                        yield f"\nError with Azure AI API: {str(e_azure)}\n\nPlease check that you have set the AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_VERSION environment variables with valid values."
+                    except Exception as e_deepseek:
+                        logger.error(f"Error with DeepSeek API: {str(e_deepseek)}")
+                        yield f"\nError with DeepSeek API: {str(e_deepseek)}\n\nPlease check that you have set the DEEPSEEK_API_KEY environment variable with a valid API key."
                 else:
                     # Generate streaming response
                     response = model.generate_content(prompt, stream=True)
@@ -607,7 +571,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                             except Exception as e_fallback:
                                 logger.error(f"Error with Openai API fallback: {str(e_fallback)}")
                                 yield f"\nError with Openai API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
-                        elif request.provider == "bedrock":
+                        elif request.provider == "deepseek":
                             try:
                                 # Create new api_kwargs with the simplified prompt
                                 fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
@@ -617,32 +581,10 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                                 )
 
                                 # Get the response using the simplified prompt
-                                logger.info("Making fallback AWS Bedrock API call")
+                                logger.info("Making fallback DeepSeek API call")
                                 fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
 
-                                # Handle response from Bedrock
-                                if isinstance(fallback_response, str):
-                                    yield fallback_response
-                                else:
-                                    # Try to extract text from the response
-                                    yield str(fallback_response)
-                            except Exception as e_fallback:
-                                logger.error(f"Error with AWS Bedrock API fallback: {str(e_fallback)}")
-                                yield f"\nError with AWS Bedrock API fallback: {str(e_fallback)}\n\nPlease check that you have set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables with valid credentials."
-                        elif request.provider == "azure":
-                            try:
-                                # Create new api_kwargs with the simplified prompt
-                                fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
-                                    input=simplified_prompt,
-                                    model_kwargs=model_kwargs,
-                                    model_type=ModelType.LLM
-                                )
-
-                                # Get the response using the simplified prompt
-                                logger.info("Making fallback Azure AI API call")
-                                fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
-
-                                # Handle streaming fallback response from Azure AI
+                                # Handle streaming fallback_response from DeepSeek
                                 async for chunk in fallback_response:
                                     choices = getattr(chunk, "choices", [])
                                     if len(choices) > 0:
@@ -652,8 +594,8 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                                             if text is not None:
                                                 yield text
                             except Exception as e_fallback:
-                                logger.error(f"Error with Azure AI API fallback: {str(e_fallback)}")
-                                yield f"\nError with Azure AI API fallback: {str(e_fallback)}\n\nPlease check that you have set the AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_VERSION environment variables with valid values."
+                                logger.error(f"Error with DeepSeek API fallback: {str(e_fallback)}")
+                                yield f"\nError with DeepSeek API fallback: {str(e_fallback)}\n\nPlease check that you have set the DEEPSEEK_API_KEY environment variable with a valid API key."
                         else:
                             # Initialize Google Generative AI model
                             model_config = get_model_config(request.provider, request.model)
