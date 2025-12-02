@@ -20,7 +20,7 @@
   "home": {
     "welcome": "Добро пожаловать в DeepWiki-Open",
     "welcomeTagline": "Документация с поддержкой ИИ для ваших репозиториев кода",
-    "description": "Создавайте подробную документацию из репозиториев GitHub, GitLab или Bitbucket всего за несколько кликов.",
+    "description": "Создавайте подробную документацию из репозиториев GitHub, GitLab, Bitbucket или Codeberg всего за несколько кликов.",
     "quickStart": "Быстрый старт",
     "enterRepoUrl": "Введите URL репозитория в одном из следующих форматов:",
     "advancedVisualization": "Продвинутая визуализация с диаграммами Mermaid",
@@ -31,7 +31,7 @@
   "form": {
     "repository": "Репозиторий",
     "configureWiki": "Настроить Wiki",
-    "repoPlaceholder": "owner/repo или URL GitHub/GitLab/Bitbucket",
+    "repoPlaceholder": "owner/repo или URL GitHub/GitLab/Bitbucket/Codeberg",
     "wikiLanguage": "Язык Wiki",
     "modelOptions": "Настройки модели",
     "modelProvider": "Поставщик модели",
@@ -111,7 +111,7 @@
     "cancel": "Отмена",
     "home": "Главная",
     "errorTitle": "Ошибка",
-    "errorMessageDefault": "Пожалуйста, убедитесь, что ваш репозиторий существует и является публичным. Допустимые форматы: \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\" или локальные пути вроде \"C:\\\\path\\\\to\\\\folder\" или \"/path/to/folder\".",
+    "errorMessageDefault": "Пожалуйста, убедитесь, что ваш репозиторий существует и является публичным. Допустимые форматы: \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", \"https://codeberg.org/owner/repo\" или локальные пути вроде \"C:\\\\path\\\\to\\\\folder\" или \"/path/to/folder\".",
     "embeddingErrorDefault": "Ошибка связана с системой встраивания документов для анализа репозитория. Проверьте конфигурацию модели встраивания, API-ключи и повторите попытку. Если проблема сохраняется, попробуйте сменить поставщика модели в настройках.",
     "backToHome": "Назад на главную",
     "exportWiki": "Экспортировать Wiki",
