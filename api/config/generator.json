@@ -1,20 +1,20 @@
 {
-  "default_provider": "google",
+  "default_provider": "deepseek",
   "providers": {
     "dashscope": {
       "default_model": "qwen-plus",
       "supportsCustomModel": true,
       "models": {
         "qwen-plus": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 0.3,
+          "top_p": 0.85
         },
         "qwen-turbo": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 0.3,
+          "top_p": 0.85
         },
         "deepseek-r1": {
-          "temperature": 0.7,
+          "temperature": 0.2,
           "top_p": 0.8
         }
       }
@@ -25,12 +25,12 @@
       "supportsCustomModel": true,
       "models": {
         "deepseek-chat": {
-          "temperature": 0.7,
-          "top_p": 0.95
+          "temperature": 0.2,
+          "top_p": 0.8
         },
         "deepseek-reasoner": {
-          "temperature": 0.7,
-          "top_p": 0.95
+          "temperature": 0.2,
+          "top_p": 0.8
         }
       }
     },
@@ -39,19 +39,19 @@
       "supportsCustomModel": true,
       "models": {
         "gemini-2.5-flash": {
-          "temperature": 1.0,
+          "temperature": 0.2,
           "top_p": 0.8,
-          "top_k": 20
+          "top_k": 40
         },
         "gemini-2.5-flash-lite": {
-          "temperature": 1.0,
+          "temperature": 0.2,
           "top_p": 0.8,
-          "top_k": 20
+          "top_k": 40
         },
         "gemini-2.5-pro": {
-          "temperature": 1.0,
+          "temperature": 0.2,
           "top_p": 0.8,
-          "top_k": 20
+          "top_k": 25
         }
       }
     },
@@ -60,70 +60,128 @@
       "supportsCustomModel": true,
       "models": {
         "gpt-5": {
-          "temperature": 1.0
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
         },
         "gpt-5-nano": {
-          "temperature": 1.0
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
         },
         "gpt-5-mini": {
-          "temperature": 1.0
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
         },
         "gpt-4o": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
         },
         "gpt-4.1": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
         },
         "o1": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
         },
         "o3": {
-          "temperature": 1.0
+          "temperature": 0.3,
+          "top_p": 0.9,
+          "frequency_penalty": 0.1,
+          "presence_penalty": 0.0
         },
         "o4-mini": {
-          "temperature": 1.0
+          "temperature": 0.3,
+          "top_p": 0.9,
+          "frequency_penalty": 0.1,
+          "presence_penalty": 0.0
         }
       }
     },
     "openrouter": {
-      "default_model": "openai/gpt-5-nano",
+      "default_model": "google/gemini-2.5-flash",
       "supportsCustomModel": true,
       "models": {
+        "x-ai/grok-4.1-fast:free": {
+          "temperature": 0.2,
+          "top_p": 0.8,
+          "top_k": 40,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
+        },
+        "qwen/qwen3-coder:free": {
+          "temperature": 0.3,
+          "top_p": 0.9,
+          "top_k": 40,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
+        },
+        "moonshotai/kimi-k2:free": {
+          "temperature": 0.3,
+          "top_p": 0.9,
+          "top_k": 40,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
+        },
+        "openai/gpt-oss-20b:free": {
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0,
+          "top_k": 40
+        },
+        "openai/gpt-oss-120b:exacto": {
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
+        },
         "openai/gpt-5-nano": {
-          "temperature": 0.7,
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0,
+          "top_k": 40
+        },
+        "openai/gpt-5.1-codex-mini": {
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
+        },
+        "openai/gpt-5.1": {
+          "temperature": 0.3,
+          "top_p": 0.9,
+          "frequency_penalty": 0.1,
+          "presence_penalty": 0.0
+        },        
+        "google/gemini-2.5-flash-lite": {
+          "temperature": 0.2,
           "top_p": 0.8
         },
-        "openai/gpt-4o": {
-          "temperature": 0.7,
+        "google/gemini-2.5-flash": {
+          "temperature": 0.2,
           "top_p": 0.8
         },
-        "deepseek/deepseek-r1": {
-          "temperature": 0.7,
-          "top_p": 0.8
+        "anthropic/claude-haiku-4.5": {
+          "temperature": 0.3,
+          "top_p": 0.9,
+          "frequency_penalty": 0.1,
+          "presence_penalty": 0.0
         },
-        "openai/gpt-4.1": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "openai/o1": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "openai/o3": {
-          "temperature": 1.0
-        },
-        "openai/o4-mini": {
-          "temperature": 1.0
-        },
-        "anthropic/claude-3.7-sonnet": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "anthropic/claude-3.5-sonnet": {
-          "temperature": 0.7,
+        "anthropic/claude-sonnet-4.5": {
+          "temperature": 0.2,
           "top_p": 0.8
         }
       }
@@ -134,23 +192,29 @@
       "models": {
         "qwen3:1.7b": {
           "options": {
-            "temperature": 0.7,
-            "top_p": 0.8,
-            "num_ctx": 32000
+            "temperature": 0.3,
+            "top_p": 0.9,
+            "num_ctx": 32000,
+            "repeat_penalty": 1.15,
+            "num_predict": 1536
           }
         },
         "llama3:8b": {
           "options": {
-            "temperature": 0.7,
-            "top_p": 0.8,
-            "num_ctx": 8000
+            "temperature": 0.3,
+            "top_p": 0.9,
+            "num_ctx": 8000,
+            "repeat_penalty": 1.15,
+            "num_predict": 1536
           }
         },
         "qwen3:8b": {
           "options": {
-            "temperature": 0.7,
-            "top_p": 0.8,
-            "num_ctx": 32000
+            "temperature": 0.3,
+            "top_p": 0.9,
+            "num_ctx": 32000,
+            "repeat_penalty": 1.15,
+            "num_predict": 1536
           }
         }
       }
@@ -161,28 +225,28 @@
       "supportsCustomModel": true,
       "models": {
         "anthropic.claude-3-sonnet-20240229-v1:0": {
-          "temperature": 0.7,
+          "temperature": 0.2,
           "top_p": 0.8
         },
         "anthropic.claude-3-haiku-20240307-v1:0": {
-          "temperature": 0.7,
+          "temperature": 0.2,
           "top_p": 0.8
         },
         "anthropic.claude-3-opus-20240229-v1:0": {
-          "temperature": 0.7,
+          "temperature": 0.2,
           "top_p": 0.8
         },
         "amazon.titan-text-express-v1": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 0.3,
+          "top_p": 0.85
         },
         "cohere.command-r-v1:0": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 0.3,
+          "top_p": 0.85
         },
         "ai21.j2-ultra-v1": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 0.3,
+          "top_p": 0.85
         }
       }
     },
@@ -192,23 +256,30 @@
       "supportsCustomModel": true,
       "models": {
         "gpt-4o": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
         },
         "gpt-4": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
         },
         "gpt-35-turbo": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
         },
         "gpt-4-turbo": {
-          "temperature": 0.7,
-          "top_p": 0.8
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "frequency_penalty": 0.15,
+          "presence_penalty": 0.0
         }
       }
     }
   }
 }
-

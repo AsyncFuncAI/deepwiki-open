@@ -382,6 +382,7 @@ def get_model_config(provider="google", model=None):
     # Prepare base configuration
     result = {
         "model_client": model_client,
+        "model": model,
     }
 
     # Provider-specific adjustments

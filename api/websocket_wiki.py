@@ -502,9 +502,15 @@ This file contains...
             model_kwargs = {
                 "model": request.model,
                 "stream": True,
-                "temperature": model_config["temperature"],
-                "top_p": model_config["top_p"]
+                "temperature": model_config.get("temperature"),
+                "top_p": model_config.get("top_p"),
             }
+            if "max_tokens" in model_config:
+                model_kwargs["max_tokens"] = model_config["max_tokens"]
+            if "frequency_penalty" in model_config:
+                model_kwargs["frequency_penalty"] = model_config["frequency_penalty"]
+            if "presence_penalty" in model_config:
+                model_kwargs["presence_penalty"] = model_config["presence_penalty"]
 
             api_kwargs = model.convert_inputs_to_api_kwargs(
                 input=prompt,

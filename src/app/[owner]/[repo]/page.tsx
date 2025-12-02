@@ -415,14 +415,21 @@ export default function RepoWikiPage() {
         // Get repository URL
         const repoUrl = getRepoUrl(effectiveRepoInfo);
 
-        // Create the prompt content - simplified to avoid message dialogs
- const promptContent =
-`You are an expert technical writer and software architect.
-Your task is to generate a comprehensive and accurate technical wiki page in Markdown format about a specific feature, system, or module within a given software project.
+        // Create the prompt content - synced to current standards
+        const promptContent =
+`You are a senior software architect (10+ years experience) and technical writer.
+Your task is to generate a clear, comprehensive, and actionable technical wiki page in Markdown about a specific feature, system, or module in this project.
 
 You will be given:
 1. The "[WIKI_PAGE_TOPIC]" for the page you need to create.
 2. A list of "[RELEVANT_SOURCE_FILES]" from the project that you MUST use as the sole basis for the content. You have access to the full content of these files. You MUST use AT LEAST 5 relevant source files for comprehensive coverage - if fewer are provided, search for additional related files in the codebase.
+
+Override: Absolute, Concise
+
+Language Style:
+- Plain, direct words only. No corporate/academic buzzwords.
+- Banned: comprehensive, robust, leverage, utilize, facilitate, seamless, cutting-edge, holistic, synergy, streamline.
+- Use instead: "use" not "utilize", "complete" not "comprehensive", "strong" not "robust".
 
 CRITICAL STARTING INSTRUCTION:
 The very first thing on the page MUST be a \`<details>\` block listing ALL the \`[RELEVANT_SOURCE_FILES]\` you used to generate the content. There MUST be AT LEAST 5 source files listed - if fewer were provided, you MUST find additional related files to include.
@@ -437,7 +444,13 @@ ${filePaths.map(path => `- [${path}](${generateFileUrl(path)})`).join('\n')}
 <!-- Add additional relevant files if fewer than 5 were provided -->
 </details>
 
-Immediately after the \`<details>\` block, the main title of the page should be a H1 Markdown heading: \`# ${page.title}\`.
+Immediately after the \`<details>\` block, add the H1 title: \`# ${page.title}\`.
+
+Quality Standards:
+- Multi-dimensional analysis: Functional behavior, Architectural design, Implementation details, Operational concerns, and Evolution/maintainability.
+- Production-ready insights: performance, scalability, security, reliability/fault tolerance, and observability.
+- Explain design decisions and trade-offs grounded in the source files.
+- Make it actionable: specific guidance to use, extend, and safely modify the code.
 
 Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
 
@@ -447,11 +460,9 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
     *   Explain the architecture, components, data flow, or logic relevant to the section's focus, as evidenced in the source files.
     *   Identify key functions, classes, data structures, API endpoints, or configuration elements pertinent to that section.
 
-3.  **Mermaid Diagrams:**
-    *   EXTENSIVELY use Mermaid diagrams (e.g., \`flowchart TD\`, \`sequenceDiagram\`, \`classDiagram\`, \`erDiagram\`, \`graph TD\`) to visually represent architectures, flows, relationships, and schemas found in the source files.
-    *   Ensure diagrams are accurate and directly derived from information in the \`[RELEVANT_SOURCE_FILES]\`.
-    *   Provide a brief explanation before or after each diagram to give context.
-    *   CRITICAL: All diagrams MUST follow strict vertical orientation:
+3.  **Mermaid Diagrams (when essential):**
+    *   Include at most 1–2 diagrams (e.g., \`graph TD\`, \`sequenceDiagram\`, \`classDiagram\`, \`erDiagram\`) only if they materially improve clarity.
+    *   Keep diagrams concise and derived from code; CRITICAL: follow strict top-down orientation:
        - Use "graph TD" (top-down) directive for flow diagrams
        - NEVER use "graph LR" (left-right)
        - Maximum node width should be 3-4 words
@@ -490,8 +501,8 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
         *   Configuration options, their types, and default values.
         *   Data model fields, types, constraints, and descriptions.
 
-5.  **Code Snippets (ENTIRELY OPTIONAL):**
-    *   Include short, relevant code snippets (e.g., Python, Java, JavaScript, SQL, JSON, YAML) directly from the \`[RELEVANT_SOURCE_FILES]\` to illustrate key implementation details, data structures, or configurations.
+5.  **Code Snippets (optional):**
+    *   Include short, focused snippets from the \`[RELEVANT_SOURCE_FILES]\` to illustrate key details.
     *   Ensure snippets are well-formatted within Markdown code blocks with appropriate language identifiers.
 
 6.  **Source Citations (EXTREMELY IMPORTANT):**
@@ -517,7 +528,7 @@ IMPORTANT: Generate the content in ${language === 'en' ? 'English' :
             language === "pt-br" ? "Brazilian Portuguese (Português Brasileiro)" :
             language === "fr" ? "Français (French)" :
             language === "ru" ? "Русский (Russian)" :
-            'English'} language.
+            'English'}.
 
 Remember:
 - Ground every claim in the provided source files.
