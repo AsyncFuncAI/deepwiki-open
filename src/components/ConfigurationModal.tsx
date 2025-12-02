@@ -105,50 +105,88 @@ export default function ConfigurationModal({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4 text-center bg-black/50">
-        <div className="relative transform overflow-hidden rounded-lg bg-[var(--card-bg)] text-left shadow-xl transition-all sm:my-8 sm:max-w-2xl sm:w-full">
-          {/* Modal header with close button */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)]">
-            <h3 className="text-lg font-medium text-[var(--accent-primary)]">
-              <span className="text-[var(--accent-primary)]">{t.form?.configureWiki || 'Configure Wiki'}</span>
-            </h3>
+      <div className="flex min-h-screen items-center justify-center p-4 text-center">
+        {/* Cyberpunk Modal Backdrop */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black/90 via-[var(--background)]/95 to-black/90 backdrop-blur-md scanlines"></div>
+
+        <div className="relative transform overflow-hidden card-cyberpunk text-left shadow-2xl transition-all sm:my-8 sm:max-w-4xl sm:w-full border-2 border-[var(--accent-primary)]/30">
+          {/* Animated Border Effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-primary)] via-[var(--accent-secondary)] to-[var(--accent-tertiary)] opacity-20">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-pulse"></div>
+          </div>
+
+          {/* Modal Header */}
+          <div className="relative flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] bg-gradient-to-r from-[var(--surface)]/90 to-[var(--card-bg)]/90">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="absolute -inset-1 bg-[var(--accent-primary)]/30 rounded-full blur-md neon-glow-cyan"></div>
+                <div className="relative w-8 h-8 bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-secondary)] rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+              </div>
+              <h3 className="font-cyberpunk text-lg text-[var(--accent-primary)] neon-glow-cyan">
+                {t.form?.configureWiki || 'CONFIGURE_WIKI.EXE'}
+              </h3>
+            </div>
             <button
               type="button"
               onClick={onClose}
-              className="text-[var(--muted)] hover:text-[var(--foreground)] focus:outline-none transition-colors"
+              className="relative group p-2 rounded-lg border border-[var(--border-color)] hover:border-[var(--error)] hover:bg-[var(--error)]/10 transition-all duration-300"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-5 w-5 text-[var(--muted)] group-hover:text-[var(--error)] neon-glow-magenta transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
+              <div className="absolute inset-0 bg-[var(--error)]/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </button>
           </div>
 
           {/* Modal body */}
-          <div className="p-6 max-h-[70vh] overflow-y-auto">
-            {/* Repository info */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
-                {t.form?.repository || 'Repository'}
-              </label>
-              <div className="bg-[var(--background)]/70 p-3 rounded-md border border-[var(--border-color)] text-sm text-[var(--foreground)]">
-                {repositoryInput}
+          <div className="p-6 max-h-[70vh] overflow-y-auto bg-gradient-to-b from-[var(--surface)]/30 to-[var(--card-bg)]/30">
+            {/* Repository Display */}
+            <div className="mb-6 card-cyberpunk border border-[var(--accent-primary)]/30">
+              <div className="flex items-center gap-3 p-4">
+                <div className="flex-shrink-0">
+                  <svg className="w-5 h-5 text-[var(--accent-primary)] neon-glow-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="font-cyberpunk text-xs text-[var(--accent-primary)] uppercase tracking-wider mb-1 block">
+                    REPOSITORY_TARGET
+                  </label>
+                  <div className="input-cyberpunk font-mono text-xs text-[var(--foreground)] break-all">
+                    {repositoryInput}
+                  </div>
+                </div>
+                <div className="flex-shrink-0">
+                  <div className="w-3 h-3 rounded-full bg-[var(--success)] neon-glow-green animate-pulse"></div>
+                </div>
               </div>
             </div>
 
-            {/* Language selection */}
-            <div className="mb-4">
-              <label htmlFor="language-select" className="block text-sm font-medium text-[var(--foreground)] mb-2">
-                {t.form?.wikiLanguage || 'Wiki Language'}
-              </label>
+            {/* Language Configuration */}
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-4 h-4 text-[var(--accent-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                </svg>
+                <label className="font-cyberpunk text-sm text-[var(--accent-secondary)] uppercase tracking-wider">
+                  LANGUAGE_PROTOCOL
+                </label>
+              </div>
               <select
-                id="language-select"
                 value={selectedLanguage}
                 onChange={(e) => setSelectedLanguage(e.target.value)}
-                className="input-japanese block w-full px-3 py-2 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+                className="input-cyberpunk w-full font-mono text-sm appearance-none cursor-pointer hover:border-[var(--accent-secondary)] transition-colors"
               >
-                {
-                  Object.entries(supportedLanguages).map(([key, value])=> <option key={key} value={key}>{value}</option>)
-                }
+                {Object.entries(supportedLanguages).map(([key, value]) => (
+                  <option key={key} value={key} className="bg-[var(--surface)] text-[var(--foreground)]">
+                    {value}
+                  </option>
+                ))}
               </select>
             </div>
 

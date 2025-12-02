@@ -1,27 +1,29 @@
 import type { Metadata } from "next";
-import { Noto_Sans_JP, Noto_Serif_JP, Geist_Mono } from "next/font/google";
+import { Orbitron, JetBrains_Mono, Space_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 
-// Japanese-friendly fonts
-const notoSansJP = Noto_Sans_JP({
-  variable: "--font-geist-sans",
+// Cyberpunk-inspired typography system
+const orbitron = Orbitron({
+  variable: "--font-display",
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  weight: ["400", "700", "900"],
   display: "swap",
 });
 
-const notoSerifJP = Noto_Serif_JP({
-  variable: "--font-serif-jp",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  weight: ["400", "700"],
   display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const spaceMono = Space_Mono({
+  variable: "--font-body",
   subsets: ["latin"],
+  weight: ["400", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -37,9 +39,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${notoSansJP.variable} ${notoSerifJP.variable} ${geistMono.variable} antialiased`}
+        className={`${orbitron.variable} ${jetbrainsMono.variable} ${spaceMono.variable} antialiased cyberpunk-grid`}
       >
-        <ThemeProvider attribute="data-theme" defaultTheme="system" enableSystem>
+        <ThemeProvider attribute="data-theme" defaultTheme="dark" enableSystem>
           <LanguageProvider>
             {children}
           </LanguageProvider>
