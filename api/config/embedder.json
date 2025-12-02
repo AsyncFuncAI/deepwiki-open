@@ -26,12 +26,11 @@
     "client_class": "OpenAIClient",
     "batch_size": 500,
     "initialize_kwargs": {
-      "env_api_key_name": "OPENROUTER_API_KEY"
+      "env_api_key_name": "OPENROUTER_API_KEY",
+      "base_url": "https://openrouter.ai/api/v1"
     },
     "model_kwargs": {
-      "model": "${OPENROUTER_EMBEDDING_MODEL:-openai/text-embedding-3-small}",
-      "dimensions": 256,
-      "encoding_format": "float"
+      "model": "${OPENROUTER_EMBEDDING_MODEL:-openai/text-embedding-3-small}"
     }
   },
   "retriever": {
