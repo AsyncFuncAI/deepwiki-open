@@ -1,24 +1,6 @@
 {
   "default_provider": "deepseek",
   "providers": {
-    "dashscope": {
-      "default_model": "qwen-plus",
-      "supportsCustomModel": true,
-      "models": {
-        "qwen-plus": {
-          "temperature": 0.3,
-          "top_p": 0.85
-        },
-        "qwen-turbo": {
-          "temperature": 0.3,
-          "top_p": 0.85
-        },
-        "deepseek-r1": {
-          "temperature": 0.2,
-          "top_p": 0.8
-        }
-      }
-    },
     "deepseek": {
       "client_class": "DeepSeekClient",
       "default_model": "deepseek-chat",
@@ -216,68 +198,6 @@
             "repeat_penalty": 1.15,
             "num_predict": 1536
           }
-        }
-      }
-    },
-    "bedrock": {
-      "client_class": "BedrockClient",
-      "default_model": "anthropic.claude-3-sonnet-20240229-v1:0",
-      "supportsCustomModel": true,
-      "models": {
-        "anthropic.claude-3-sonnet-20240229-v1:0": {
-          "temperature": 0.2,
-          "top_p": 0.8
-        },
-        "anthropic.claude-3-haiku-20240307-v1:0": {
-          "temperature": 0.2,
-          "top_p": 0.8
-        },
-        "anthropic.claude-3-opus-20240229-v1:0": {
-          "temperature": 0.2,
-          "top_p": 0.8
-        },
-        "amazon.titan-text-express-v1": {
-          "temperature": 0.3,
-          "top_p": 0.85
-        },
-        "cohere.command-r-v1:0": {
-          "temperature": 0.3,
-          "top_p": 0.85
-        },
-        "ai21.j2-ultra-v1": {
-          "temperature": 0.3,
-          "top_p": 0.85
-        }
-      }
-    },
-    "azure": {
-      "client_class": "AzureAIClient",
-      "default_model": "gpt-4o",
-      "supportsCustomModel": true,
-      "models": {
-        "gpt-4o": {
-          "temperature": 0.2,
-          "top_p": 0.9,
-          "frequency_penalty": 0.15,
-          "presence_penalty": 0.0
-        },
-        "gpt-4": {
-          "temperature": 0.2,
-          "top_p": 0.9,
-          "frequency_penalty": 0.15,
-          "presence_penalty": 0.0
-        },
-        "gpt-35-turbo": {
-          "temperature": 0.2,
-          "top_p": 0.9,
-          "frequency_penalty": 0.15,
-          "presence_penalty": 0.0
-        },
-        "gpt-4-turbo": {
-          "temperature": 0.2,
-          "top_p": 0.9,
-          "frequency_penalty": 0.15,
-          "presence_penalty": 0.0
         }
       }
     }

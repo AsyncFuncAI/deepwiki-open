@@ -24,13 +24,14 @@ def check_ollama_model_exists(model_name: str, ollama_host: str = None) -> bool:
     
     Args:
         model_name: Name of the model to check
-        ollama_host: Ollama host URL, defaults to localhost:11434
+        ollama_host: Ollama host URL, defaults to OLLAMA_HOST from config
         
     Returns:
         bool: True if model exists, False otherwise
     """
     if ollama_host is None:
-        ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        from api.config import OLLAMA_HOST
+        ollama_host = OLLAMA_HOST
     
     try:
         # Remove /api prefix if present and add it back
