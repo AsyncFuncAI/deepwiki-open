@@ -1,3 +1,4 @@
+import asyncio
 import os
 import logging
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
@@ -8,7 +9,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, Field
 import google.generativeai as genai
-import asyncio
+from aiofiles import os as aioos, open
 
 # Configure logging
 from api.logging_config import setup_logging
@@ -35,6 +36,10 @@ app.add_middleware(
 # Helper function to get adalflow root path
 def get_adalflow_default_root_path():
     return os.path.expanduser(os.path.join("~", ".adalflow"))
+
+async def awalk_collect(path: str):
+    # Вернёт list[(root, dirs, files)]
+    return await asyncio.to_thread(lambda: list(os.walk(path)))
 
 # --- Pydantic Models ---
 class WikiPage(BaseModel):
@@ -281,7 +286,8 @@ async def get_local_repo_structure(path: str = Query(None, description="Path to 
             content={"error": "No path provided. Please provide a 'path' query parameter."}
         )
 
-    if not os.path.isdir(path):
+    is_dir = await aioos.path.isdir(path)
+    if not is_dir:
         return JSONResponse(
             status_code=404,
             content={"error": f"Directory not found: {path}"}
@@ -292,7 +298,7 @@ async def get_local_repo_structure(path: str = Query(None, description="Path to 
         file_tree_lines = []
         readme_content = ""
 
-        for root, dirs, files in os.walk(path):
+        for root, dirs, files in await awalk_collect(path):
             # Exclude hidden dirs/files and virtual envs
             dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__' and d != 'node_modules' and d != '.venv']
             for file in files:
@@ -304,8 +310,8 @@ async def get_local_repo_structure(path: str = Query(None, description="Path to 
                 # Find README.md (case-insensitive)
                 if file.lower() == 'readme.md' and not readme_content:
                     try:
-                        with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
-                            readme_content = f.read()
+                        async with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
+                            readme_content = await f.read()
                     except Exception as e:
                         logger.warning(f"Could not read README.md: {str(e)}")
                         readme_content = ""
@@ -413,11 +419,13 @@ def get_wiki_cache_path(owner: str, repo: str, repo_type: str, language: str) ->
 async def read_wiki_cache(owner: str, repo: str, repo_type: str, language: str) -> Optional[WikiCacheData]:
     """Reads wiki cache data from the file system."""
     cache_path = get_wiki_cache_path(owner, repo, repo_type, language)
-    if os.path.exists(cache_path):
+    path_exists = await aioos.path.exists(cache_path)
+    if path_exists:
         try:
-            with open(cache_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                return WikiCacheData(**data)
+            async with open(cache_path, 'r', encoding='utf-8') as f:
+                file_content = await f.read()
+            data = json.loads(file_content)
+            return WikiCacheData(**data)
         except Exception as e:
             logger.error(f"Error reading wiki cache from {cache_path}: {e}")
             return None
@@ -445,8 +453,8 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
 
 
         logger.info(f"Writing cache file to: {cache_path}")
-        with open(cache_path, 'w', encoding='utf-8') as f:
-            json.dump(payload.model_dump(), f, indent=2)
+        async with open(cache_path, 'w', encoding='utf-8') as f:
+            await f.write(json.dumps(payload.model_dump(), indent=2))
         logger.info(f"Wiki cache successfully saved to {cache_path}")
         return True
     except IOError as e:
@@ -525,9 +533,10 @@ async def delete_wiki_cache(
     logger.info(f"Attempting to delete wiki cache for {owner}/{repo} ({repo_type}), lang: {language}")
     cache_path = get_wiki_cache_path(owner, repo, repo_type, language)
 
-    if os.path.exists(cache_path):
+    path_exists = await aioos.path.exists(cache_path)
+    if path_exists:
         try:
-            os.remove(cache_path)
+            await aioos.remove(cache_path)
             logger.info(f"Successfully deleted wiki cache: {cache_path}")
             return {"message": f"Wiki cache for {owner}/{repo} ({language}) deleted successfully"}
         except Exception as e:
@@ -584,18 +593,19 @@ async def get_processed_projects():
     # WIKI_CACHE_DIR is already defined globally in the file
 
     try:
-        if not os.path.exists(WIKI_CACHE_DIR):
+        path_exists = await aioos.path.exists(WIKI_CACHE_DIR)
+        if not path_exists:
             logger.info(f"Cache directory {WIKI_CACHE_DIR} not found. Returning empty list.")
             return []
 
         logger.info(f"Scanning for project cache files in: {WIKI_CACHE_DIR}")
-        filenames = await asyncio.to_thread(os.listdir, WIKI_CACHE_DIR) # Use asyncio.to_thread for os.listdir
+        filenames = await aioos.listdir(WIKI_CACHE_DIR)
 
         for filename in filenames:
             if filename.startswith("deepwiki_cache_") and filename.endswith(".json"):
                 file_path = os.path.join(WIKI_CACHE_DIR, filename)
                 try:
-                    stats = await asyncio.to_thread(os.stat, file_path) # Use asyncio.to_thread for os.stat
+                    stats = await aioos.stat(file_path)
                     parts = filename.replace("deepwiki_cache_", "").replace(".json", "").split('_')
 
                     # Expecting repo_type_owner_repo_language
