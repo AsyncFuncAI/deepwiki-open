@@ -18,6 +18,8 @@ interface ModelSelectionModalProps {
   customModel: string;
   setCustomModel: (value: string) => void;
   onApply: (token?: string) => void;
+  forceRefetch: boolean;
+  setForceRefetch: (forceRefetch: boolean) => void;
 
   // Wiki type options
   isComprehensiveView: boolean;
@@ -75,6 +77,8 @@ export default function ModelSelectionModal({
   showWikiType = true,
   showTokenInput = false,
   repositoryType = 'github',
+  forceRefetch,
+  setForceRefetch,
 }: ModelSelectionModalProps) {
   const { messages: t } = useLanguage();
 
@@ -187,6 +191,8 @@ export default function ModelSelectionModal({
               setIncludedDirs={showFileFilters ? (value: string) => setLocalIncludedDirs(value) : undefined}
               includedFiles={localIncludedFiles}
               setIncludedFiles={showFileFilters ? (value: string) => setLocalIncludedFiles(value) : undefined}
+              forceRefetch={forceRefetch}
+              setForceRefetch={setForceRefetch}
             />
 
             {/* Token Input Section for refresh */}
