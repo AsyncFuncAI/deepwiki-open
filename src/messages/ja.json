@@ -60,6 +60,8 @@
     "personalAccessToken": "{platform}個人アクセストークン",
     "tokenPlaceholder": "{platform}トークンを入力してください",
     "tokenSecurityNote": "トークンはメモリ内にのみ保存され、永続化されることはありません。",
+    "forceRegeneration": "強制再生成",
+    "forceRegenerationDescription": "有効なコンテンツが既に存在する場合でも、すべてのページを再生成します。一部のページが正しく生成されなかった場合に使用してください。",
     "defaultFiltersInfo": "デフォルトのフィルターは、node_modules、.git、および一般的なビルドアーティファクトファイルのような一般的なディレクトリを含みます。",
     "fileFilterTitle": "ファイルフィルター設定",
     "advancedOptions": "詳細オプション",

@@ -60,6 +60,8 @@
     "personalAccessToken": "{platform} 個人存取權杖",
     "tokenPlaceholder": "輸入您的 {platform} 權杖",
     "tokenSecurityNote": "權杖僅儲存在記憶體中，絕不會持久化。",
+    "forceRegeneration": "強制重新生成",
+    "forceRegenerationDescription": "即使已存在有效內容，也重新生成所有頁面。如果某些頁面未正確生成，請使用此選項。",
     "defaultFiltersInfo": "預設過濾器包括 node_modules、.git 和常見的建置檔案。",
     "fileFilterTitle": "檔案過濾設定",
     "advancedOptions": "進階選項",

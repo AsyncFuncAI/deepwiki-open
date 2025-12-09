@@ -60,6 +60,8 @@
     "personalAccessToken": "Token de Acesso Pessoal do {platform}",
     "tokenPlaceholder": "Digite seu token do {platform}",
     "tokenSecurityNote": "O token é armazenado apenas na memória e nunca é persistido.",
+    "forceRegeneration": "Forçar Regeneração",
+    "forceRegenerationDescription": "Regenerar todas as páginas, mesmo que já exista conteúdo válido. Use isso se algumas páginas não foram geradas corretamente.",
     "defaultFiltersInfo": "Os filtros padrão incluem diretórios comuns como node_modules, .git e arquivos de artefatos de compilação comuns.",
     "fileFilterTitle": "Configuração de Filtro de Arquivos",
     "advancedOptions": "Opções Avançadas",

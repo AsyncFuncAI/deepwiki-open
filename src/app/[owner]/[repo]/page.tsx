@@ -10,10 +10,16 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { RepoInfo } from '@/types/repoinfo';
 import getRepoUrl from '@/utils/getRepoUrl';
 import { extractUrlDomain, extractUrlPath } from '@/utils/urlDecoder';
+import { safeLocalStorage } from '@/utils/localStorage';
+import { createLogger } from '@/utils/logger';
+import { isValidContent, getInvalidReason } from '@/utils/contentValidation';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FaBitbucket, FaBookOpen, FaComments, FaDownload, FaExclamationTriangle, FaFileExport, FaFolder, FaGithub, FaGitlab, FaHome, FaSync, FaTimes } from 'react-icons/fa';
+
+// Create logger for this component
+const logger = createLogger('WikiPage');
 // Define the WikiSection and WikiStructure types directly in this file
 // since the imported types don't have the sections and rootSections properties
 interface WikiSection {
@@ -259,6 +265,8 @@ export default function RepoWikiPage() {
   // Wiki type state - default to comprehensive view
   const isComprehensiveParam = searchParams.get('comprehensive') !== 'false';
   const [isComprehensiveView, setIsComprehensiveView] = useState(isComprehensiveParam);
+  // Force regeneration flag - when true, regenerate all pages even if content exists
+  const [forceRegeneration, setForceRegeneration] = useState(false);
   // Using useRef for activeContentRequests to maintain a single instance across renders
   // This map tracks which pages are currently being processed to prevent duplicate requests
   // Note: In a multi-threaded environment, additional synchronization would be needed,
@@ -373,16 +381,38 @@ export default function RepoWikiPage() {
   const generatePageContent = useCallback(async (page: WikiPage, owner: string, repo: string) => {
     return new Promise<void>(async (resolve) => {
       try {
-        // Skip if content already exists
-        if (generatedPages[page.id]?.content) {
+        // Check if content already exists and is valid
+        const existingContent = generatedPages[page.id]?.content;
+        const contentIsValid = isValidContent(existingContent);
+
+        logger.verbose(`Checking page ${page.id} (${page.title}):`, {
+          hasContent: !!existingContent,
+          contentLength: existingContent?.length || 0,
+          isValid: contentIsValid,
+          forceRegeneration,
+        });
+
+        // Skip if content already exists and is valid, unless force regeneration is enabled
+        if (existingContent && contentIsValid && !forceRegeneration) {
+          logger.verbose(`Skipping page ${page.id} (${page.title}): Valid content already exists`);
           resolve();
           return;
+        }
+
+        // Log why we're regenerating if content exists
+        if (existingContent && !contentIsValid) {
+          const reason = getInvalidReason(existingContent);
+          logger.info(`Regenerating page ${page.id} (${page.title}): ${reason}`);
+        } else if (existingContent && forceRegeneration) {
+          logger.info(`Force regenerating page ${page.id} (${page.title})`);
+        } else {
+          logger.info(`Generating new content for page ${page.id} (${page.title})`);
         }
 
         // Skip if this page is already being processed
         // Use a synchronized pattern to avoid race conditions
         if (activeContentRequests.get(page.id)) {
-          console.log(`Page ${page.id} (${page.title}) is already being processed, skipping duplicate call`);
+          logger.verbose(`Page ${page.id} (${page.title}) is already being processed, skipping duplicate call`);
           resolve();
           return;
         }
@@ -654,7 +684,7 @@ Remember:
 
         resolve();
       } catch (err) {
-        console.error(`Error generating content for page ${page.id}:`, err);
+        logger.error(`Error generating content for page ${page.id}:`, err);
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         // Update page state to show error
         setGeneratedPages(prev => ({
@@ -678,7 +708,7 @@ Remember:
         setLoadingMessage(undefined); // Clear specific loading message
       }
     });
-  }, [generatedPages, currentToken, effectiveRepoInfo, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests, generateFileUrl]);
+  }, [generatedPages, currentToken, effectiveRepoInfo, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests, generateFileUrl, forceRegeneration]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -942,9 +972,13 @@ IMPORTANT:
         // Clean up markdown delimiters
       responseText = responseText.replace(/^```(?:xml)?\s*/i, '').replace(/```\s*$/i, '');
 
+      // Debug: Log the response text to see what we're getting
+      console.log('Response text received:', responseText.substring(0, 500));
+
       // Extract wiki structure from response
       const xmlMatch = responseText.match(/<wiki_structure>[\s\S]*?<\/wiki_structure>/m);
       if (!xmlMatch) {
+        console.error('Full response text:', responseText);
         throw new Error('No valid XML found in response');
       }
 
@@ -1121,6 +1155,9 @@ IMPORTANT:
                     console.log("All page generation tasks completed.");
                     setIsLoading(false);
                     setLoadingMessage(undefined);
+                    // Reset force regeneration flag after completion
+                    setForceRegeneration(false);
+                    logger.info('Wiki generation completed, force regeneration flag reset');
                   } else {
                     // Only process more if there are items remaining and we're under capacity
                     if (queue.length > 0 && activeRequests < MAX_CONCURRENT) {
@@ -1138,10 +1175,14 @@ IMPORTANT:
             console.log("Queue empty and no active requests after loop, ensuring loading is false.");
             setIsLoading(false);
             setLoadingMessage(undefined);
+            setForceRegeneration(false);
+            logger.info('Wiki generation completed (early completion), force regeneration flag reset');
           } else if (pages.length === 0) {
             // Handle case where there were no pages to begin with
             setIsLoading(false);
             setLoadingMessage(undefined);
+            setForceRegeneration(false);
+            logger.info('No pages to generate, force regeneration flag reset');
           }
         };
 
@@ -1572,10 +1613,14 @@ IMPORTANT:
 
   // No longer needed as we use the modal directly
 
-  const confirmRefresh = useCallback(async (newToken?: string) => {
+  const confirmRefresh = useCallback(async (newToken?: string, forceRegen: boolean = false) => {
     setShowModelOptions(false);
     setLoadingMessage(messages.loading?.clearingCache || 'Clearing server cache...');
     setIsLoading(true); // Show loading indicator immediately
+
+    // Set force regeneration flag
+    setForceRegeneration(forceRegen);
+    logger.info(`Starting wiki refresh with force regeneration: ${forceRegen}`);
 
     try {
       const params = new URLSearchParams({
@@ -1654,7 +1699,7 @@ IMPORTANT:
 
     // Clear the localStorage cache (if any remnants or if it was used before this change)
     const localStorageCacheKey = getCacheKey(effectiveRepoInfo.owner, effectiveRepoInfo.repo, effectiveRepoInfo.type, language, isComprehensiveView);
-    localStorage.removeItem(localStorageCacheKey);
+    safeLocalStorage.removeItem(localStorageCacheKey);
 
     // Reset cache loaded flag
     cacheLoadedSuccessfully.current = false;

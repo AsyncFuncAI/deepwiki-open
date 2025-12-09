@@ -60,6 +60,8 @@
     "personalAccessToken": "Token truy cập cá nhân {platform}",
     "tokenPlaceholder": "Nhập token {platform} của bạn",
     "tokenSecurityNote": "Token chỉ được lưu trong bộ nhớ và không bao giờ được lưu trữ vĩnh viễn.",
+    "forceRegeneration": "Buộc tạo lại",
+    "forceRegenerationDescription": "Tạo lại tất cả các trang, ngay cả khi nội dung hợp lệ đã tồn tại. Sử dụng tính năng này nếu một số trang không được tạo đúng cách.",
     "defaultFiltersInfo": "Lọc mặc định bao gồm các thư mục thông thường như node_modules, .git và các tệp tài liệu xây dựng thông thường.",
     "fileFilterTitle": "Cấu hình Lọc Tệp",
     "advancedOptions": "Tùy chọn nâng cao",

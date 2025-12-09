@@ -8,6 +8,13 @@
       "encoding_format": "float"
     }
   },
+  "embedder_azure": {
+    "client_class": "AzureAIClient",
+    "batch_size": 96,
+    "model_kwargs": {
+      "model": "embed-v-4-0"
+    }
+  },
   "embedder_ollama": {
     "client_class": "OllamaClient",
     "model_kwargs": {

@@ -3,6 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { locales } from '@/i18n';
+import { safeLocalStorage } from '@/utils/localStorage';
 
 type Messages = Record<string, any>;
 type LanguageContextType = {
@@ -102,22 +103,16 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (Object.keys(supportedLanguages).length > 0) {
       const loadLanguage = async () => {
         try {
-          // Only access localStorage in the browser
-          let storedLanguage;
-          if (typeof window !== 'undefined') {
-            storedLanguage = localStorage.getItem('language');
-    
-            // If no language is stored, detect browser language
-            if (!storedLanguage) {
-              console.log('No language in localStorage, detecting browser language');
-              storedLanguage = detectBrowserLanguage();
-    
-              // Store the detected language
-              localStorage.setItem('language', storedLanguage);
-            }
-          } else {
-            console.log('Running on server-side, using default language');
-            storedLanguage = 'en';
+          // Get stored language using safe localStorage
+          let storedLanguage = safeLocalStorage.getItem('language');
+
+          // If no language is stored, detect browser language
+          if (!storedLanguage) {
+            console.log('No language in localStorage, detecting browser language');
+            storedLanguage = detectBrowserLanguage();
+
+            // Store the detected language
+            safeLocalStorage.setItem('language', storedLanguage);
           }
     
           console.log('Supported languages loaded, validating language:', storedLanguage);
@@ -161,10 +156,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       setLanguageState(validLanguage);
       setMessages(langMessages);
 
-      // Store in localStorage (only in browser)
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('language', validLanguage);
-      }
+      // Store in localStorage
+      safeLocalStorage.setItem('language', validLanguage);
 
       // Update HTML lang attribute (only in browser)
       if (typeof document !== 'undefined') {

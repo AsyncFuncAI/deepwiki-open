@@ -149,7 +149,7 @@ def load_embedder_config():
     embedder_config = load_json_config("embedder.json")
 
     # Process client classes
-    for key in ["embedder", "embedder_ollama", "embedder_google"]:
+    for key in ["embedder", "embedder_ollama", "embedder_google", "embedder_azure"]:
         if key in embedder_config and "client_class" in embedder_config[key]:
             class_name = embedder_config[key]["client_class"]
             if class_name in CLIENT_CLASSES:
@@ -169,6 +169,8 @@ def get_embedder_config():
         return configs.get("embedder_google", {})
     elif embedder_type == 'ollama' and 'embedder_ollama' in configs:
         return configs.get("embedder_ollama", {})
+    elif embedder_type == 'azure' and 'embedder_azure' in configs:
+        return configs.get("embedder_azure", {})
     else:
         return configs.get("embedder", {})
 
@@ -215,14 +217,16 @@ def is_google_embedder():
 def get_embedder_type():
     """
     Get the current embedder type based on configuration.
-    
+
     Returns:
-        str: 'ollama', 'google', or 'openai' (default)
+        str: 'ollama', 'google', 'azure', or 'openai' (default)
     """
     if is_ollama_embedder():
         return 'ollama'
     elif is_google_embedder():
         return 'google'
+    elif EMBEDDER_TYPE == 'azure':
+        return 'azure'
     else:
         return 'openai'
 
@@ -316,7 +320,7 @@ if generator_config:
 
 # Update embedder configuration
 if embedder_config:
-    for key in ["embedder", "embedder_ollama", "embedder_google", "retriever", "text_splitter"]:
+    for key in ["embedder", "embedder_ollama", "embedder_google", "embedder_azure", "retriever", "text_splitter"]:
         if key in embedder_config:
             configs[key] = embedder_config[key]
 

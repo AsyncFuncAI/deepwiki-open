@@ -17,7 +17,7 @@ interface ModelSelectionModalProps {
   setIsCustomModel: (value: boolean) => void;
   customModel: string;
   setCustomModel: (value: string) => void;
-  onApply: (token?: string) => void;
+  onApply: (token?: string, forceRegeneration?: boolean) => void;
 
   // Wiki type options
   isComprehensiveView: boolean;
@@ -88,11 +88,14 @@ export default function ModelSelectionModal({
   const [localExcludedFiles, setLocalExcludedFiles] = useState(excludedFiles);
   const [localIncludedDirs, setLocalIncludedDirs] = useState(includedDirs);
   const [localIncludedFiles, setLocalIncludedFiles] = useState(includedFiles);
-  
+
   // Token input state
   const [localAccessToken, setLocalAccessToken] = useState('');
   const [localSelectedPlatform, setLocalSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>(repositoryType);
   const [showTokenSection, setShowTokenSection] = useState(showTokenInput);
+
+  // Force regeneration state
+  const [forceRegeneration, setForceRegeneration] = useState(false);
 
   // Reset local state when modal is opened
   useEffect(() => {
@@ -109,6 +112,7 @@ export default function ModelSelectionModal({
       setLocalSelectedPlatform(repositoryType);
       setLocalAccessToken('');
       setShowTokenSection(showTokenInput);
+      setForceRegeneration(false);
     }
   }, [isOpen, provider, model, isCustomModel, customModel, isComprehensiveView, excludedDirs, excludedFiles, includedDirs, includedFiles, repositoryType, showTokenInput]);
 
@@ -123,12 +127,12 @@ export default function ModelSelectionModal({
     if (setExcludedFiles) setExcludedFiles(localExcludedFiles);
     if (setIncludedDirs) setIncludedDirs(localIncludedDirs);
     if (setIncludedFiles) setIncludedFiles(localIncludedFiles);
-    
-    // Pass token to onApply if needed
+
+    // Pass token and force regeneration flag to onApply
     if (showTokenInput) {
-      onApply(localAccessToken);
+      onApply(localAccessToken, forceRegeneration);
     } else {
-      onApply();
+      onApply(undefined, forceRegeneration);
     }
     onClose();
   };
@@ -202,6 +206,26 @@ export default function ModelSelectionModal({
                   onToggleTokenSection={() => setShowTokenSection(!showTokenSection)}
                   allowPlatformChange={false} // Don't allow platform change during refresh
                 />
+
+                {/* Force Regeneration Option */}
+                <div className="mt-4 p-3 bg-[var(--background)]/30 rounded-md border border-[var(--border-color)]">
+                  <label className="flex items-start cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={forceRegeneration}
+                      onChange={(e) => setForceRegeneration(e.target.checked)}
+                      className="mt-1 mr-3 h-4 w-4 rounded border-[var(--border-color)] text-[var(--accent-primary)] focus:ring-[var(--accent-primary)] focus:ring-offset-0"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-[var(--foreground)]">
+                        {t.form?.forceRegeneration || 'Force Regeneration'}
+                      </span>
+                      <p className="text-xs text-[var(--muted)] mt-1">
+                        {t.form?.forceRegenerationDescription || 'Regenerate all pages, even if valid content already exists. Use this if some pages were not generated correctly.'}
+                      </p>
+                    </div>
+                  </label>
+                </div>
               </>
             )}
             {/* Authorization Code Input */}

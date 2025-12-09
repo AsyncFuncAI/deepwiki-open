@@ -60,6 +60,8 @@
     "personalAccessToken": "{platform}个人访问令牌",
     "tokenPlaceholder": "输入您的{platform}令牌",
     "tokenSecurityNote": "令牌仅存储在内存中，从不持久化。",
+    "forceRegeneration": "强制重新生成",
+    "forceRegenerationDescription": "即使已存在有效内容，也重新生成所有页面。如果某些页面未正确生成，请使用此选项。",
     "defaultFiltersInfo": "默认过滤器包括node_modules、.git和常见的构建文件。",
     "fileFilterTitle": "文件过滤配置",
     "advancedOptions": "高级选项",

@@ -60,6 +60,8 @@
       "personalAccessToken": "{platform} 개인 액세스 토큰",
       "tokenPlaceholder": "{platform} 토큰을 입력하세요",
       "tokenSecurityNote": "토큰은 메모리에만 저장되며, 영구적으로 보존되지 않습니다.",
+      "forceRegeneration": "강제 재생성",
+      "forceRegenerationDescription": "유효한 콘텐츠가 이미 존재하더라도 모든 페이지를 재생성합니다. 일부 페이지가 올바르게 생성되지 않은 경우 사용하세요.",
       "defaultFiltersInfo": "기본 필터에는 node_modules,.git 및 일반적인 빌드 파일이 포함됩니다.",
       "fileFilterTitle": "파일 필터 구성",
       "advancedOptions": "고급 옵션",

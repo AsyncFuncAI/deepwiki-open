@@ -12,6 +12,7 @@ import { extractUrlPath, extractUrlDomain } from '@/utils/urlDecoder';
 import { useProcessedProjects } from '@/hooks/useProcessedProjects';
 
 import { useLanguage } from '@/contexts/LanguageContext';
+import { safeLocalStorage } from '@/utils/localStorage';
 
 // Define the demo mermaid charts outside the component
 const DEMO_FLOW_CHART = `graph TD
@@ -82,7 +83,7 @@ export default function Home() {
   const loadConfigFromCache = (repoUrl: string) => {
     if (!repoUrl) return;
     try {
-      const cachedConfigs = localStorage.getItem(REPO_CONFIG_CACHE_KEY);
+      const cachedConfigs = safeLocalStorage.getItem(REPO_CONFIG_CACHE_KEY);
       if (cachedConfigs) {
         const configs = JSON.parse(cachedConfigs);
         const config = configs[repoUrl.trim()];
@@ -309,7 +310,7 @@ export default function Home() {
     try {
       const currentRepoUrl = repositoryInput.trim();
       if (currentRepoUrl) {
-        const existingConfigs = JSON.parse(localStorage.getItem(REPO_CONFIG_CACHE_KEY) || '{}');
+        const existingConfigs = JSON.parse(safeLocalStorage.getItem(REPO_CONFIG_CACHE_KEY) || '{}');
         const configToSave = {
           selectedLanguage,
           isComprehensiveView,
@@ -324,7 +325,7 @@ export default function Home() {
           includedFiles,
         };
         existingConfigs[currentRepoUrl] = configToSave;
-        localStorage.setItem(REPO_CONFIG_CACHE_KEY, JSON.stringify(existingConfigs));
+        safeLocalStorage.setItem(REPO_CONFIG_CACHE_KEY, JSON.stringify(existingConfigs));
       }
     } catch (error) {
       console.error('Error saving config to localStorage:', error);

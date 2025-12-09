@@ -60,6 +60,8 @@
       "personalAccessToken": "Jeton d’accès personnel {platform}",
       "tokenPlaceholder": "Entrez votre jeton {platform}",
       "tokenSecurityNote": "Le jeton est stocké uniquement en mémoire et jamais sauvegardé.",
+      "forceRegeneration": "Forcer la régénération",
+      "forceRegenerationDescription": "Régénérer toutes les pages, même si un contenu valide existe déjà. Utilisez cette option si certaines pages n'ont pas été générées correctement.",
       "defaultFiltersInfo": "Les filtres par défaut incluent les répertoires courants comme node_modules, .git et les fichiers de build.",
       "fileFilterTitle": "Configuration du filtre de fichiers",
       "advancedOptions": "Options avancées",
