@@ -35,11 +35,12 @@ wheels/
 *.venv
 # testing
 /coverage
-/temp/
+
 
 # next.js
 /.next/
 /out/
+/temp/
 
 # production
 /build

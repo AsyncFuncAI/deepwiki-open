@@ -279,7 +279,8 @@ IMPORTANT:You MUST respond in {language_name} language.
 <style>
 - Be concise but thorough
 - Use markdown formatting to improve readability
-- Cite specific files and code sections when relevant
+- Cite specific files using **full relative paths from the repository root**
+- Include code sections when relevant
 </style>"""
             elif is_final_iteration:
                 system_prompt = f"""<role>
@@ -309,7 +310,7 @@ IMPORTANT:You MUST respond in {language_name} language.
 <style>
 - Be concise but thorough
 - Use markdown formatting to improve readability
-- Cite specific files and code sections when relevant
+- Cite specific files using **full relative paths from the repository root**
 - Structure your response with clear headings
 - End with actionable insights or recommendations when appropriate
 </style>"""
@@ -342,7 +343,7 @@ IMPORTANT:You MUST respond in {language_name} language.
 - Be concise but thorough
 - Focus on providing new information, not repeating what's already been covered
 - Use markdown formatting to improve readability
-- Cite specific files and code sections when relevant
+- Cite specific files using **full relative paths from the repository root**
 </style>"""
         else:
             system_prompt = f"""<role>
@@ -383,7 +384,7 @@ This file contains...
 <style>
 - Use concise, direct language
 - Prioritize accuracy over verbosity
-- When showing code, include line numbers and file paths when relevant
+- When showing code, include line numbers and **full relative file paths from repo root**
 - Use markdown formatting to improve readability
 </style>"""
 

@@ -291,8 +291,11 @@ export default function RepoWikiPage() {
   // Default branch state
   const [defaultBranch, setDefaultBranch] = useState<string>('main');
 
-  // Helper function to generate proper repository file URLs
-  const generateFileUrl = useCallback((filePath: string): string => {
+  // Commit hash state
+  const [commitHash, setCommitHash] = useState<string>('');
+
+  // Helper function to generate proper repository file URLs with optional line numbers
+  const generateFileUrl = useCallback((filePath: string, lineStart?: number, lineEnd?: number): string => {
     if (effectiveRepoInfo.type === 'local') {
       // For local repositories, we can't generate web URLs
       return filePath;
@@ -306,16 +309,41 @@ export default function RepoWikiPage() {
     try {
       const url = new URL(repoUrl);
       const hostname = url.hostname;
-      
+      let fileUrl = '';
+
+      // Use commit hash if available, otherwise use default branch
+      const ref = commitHash || defaultBranch;
+
       if (hostname === 'github.com' || hostname.includes('github')) {
-        // GitHub URL format: https://github.com/owner/repo/blob/branch/path
-        return `${repoUrl}/blob/${defaultBranch}/${filePath}`;
+        // GitHub URL format: https://github.com/owner/repo/blob/commit-hash/path#L1-L50
+        fileUrl = `${repoUrl}/blob/${ref}/${filePath}`;
+        if (lineStart) {
+          fileUrl += `#L${lineStart}`;
+          if (lineEnd && lineEnd !== lineStart) {
+            fileUrl += `-L${lineEnd}`;
+          }
+        }
+        return fileUrl;
       } else if (hostname === 'gitlab.com' || hostname.includes('gitlab')) {
-        // GitLab URL format: https://gitlab.com/owner/repo/-/blob/branch/path
-        return `${repoUrl}/-/blob/${defaultBranch}/${filePath}`;
+        // GitLab URL format: https://gitlab.com/owner/repo/-/blob/commit-hash/path#L1-50
+        fileUrl = `${repoUrl}/-/blob/${ref}/${filePath}`;
+        if (lineStart) {
+          fileUrl += `#L${lineStart}`;
+          if (lineEnd && lineEnd !== lineStart) {
+            fileUrl += `-${lineEnd}`;
+          }
+        }
+        return fileUrl;
       } else if (hostname === 'bitbucket.org' || hostname.includes('bitbucket')) {
-        // Bitbucket URL format: https://bitbucket.org/owner/repo/src/branch/path
-        return `${repoUrl}/src/${defaultBranch}/${filePath}`;
+        // Bitbucket URL format: https://bitbucket.org/owner/repo/src/commit-hash/path#lines-1:50
+        fileUrl = `${repoUrl}/src/${ref}/${filePath}`;
+        if (lineStart) {
+          fileUrl += `#lines-${lineStart}`;
+          if (lineEnd && lineEnd !== lineStart) {
+            fileUrl += `:${lineEnd}`;
+          }
+        }
+        return fileUrl;
       }
     } catch (error) {
       console.warn('Error generating file URL:', error);
@@ -323,7 +351,7 @@ export default function RepoWikiPage() {
 
     // Fallback to just the file path
     return filePath;
-  }, [effectiveRepoInfo, defaultBranch]);
+  }, [effectiveRepoInfo, defaultBranch, commitHash]);
 
   // Memoize repo info to avoid triggering updates in callbacks
 
@@ -527,7 +555,21 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
 6.  **Source Citations (EXTREMELY IMPORTANT):**
     *   For EVERY piece of significant information, explanation, diagram, table entry, or code snippet, you MUST cite the specific source file(s) and relevant line numbers from which the information was derived.
     *   Place citations at the end of the paragraph, under the diagram/table, or after the code snippet.
-    *   Use the exact format: \`Sources: [filename.ext:start_line-end_line]()\` for a range, or \`Sources: [filename.ext:line_number]()\` for a single line. Multiple files can be cited: \`Sources: [file1.ext:1-10](), [file2.ext:5](), [dir/file3.ext]()\` (if the whole file is relevant and line numbers are not applicable or too broad).
+    *   **Citation Format Examples:**
+        - For a line range: \`Sources: [src/app/page.tsx:1-50](${effectiveRepoInfo.repoUrl}/blob/${commitHash || defaultBranch}/src/app/page.tsx#L1-L50)\`
+        - For a single line: \`Sources: [api/main.py:42](${effectiveRepoInfo.repoUrl}/blob/${commitHash || defaultBranch}/api/main.py#L42)\`
+        - For multiple files: \`Sources: [src/components/file1.ts:1-10](url1) [api/file2.py:5](url2) [public/js/file3.js:20-30](url3)\`
+        - In-text reference: \`The configuration is defined in [config/settings.json:15-30](url)\`
+    *   **URL Format Rules:**
+        - GitHub: \`${effectiveRepoInfo.repoUrl}/blob/${commitHash || defaultBranch}/path/to/file.ext#L1-L50\`
+        - Always include the full repository URL, commit hash (or branch name), full relative file path, and line numbers
+        - Use #L prefix for line numbers (e.g., #L1-L50 for ranges, #L42 for single lines)
+    *   **CRITICAL FORMATTING RULES:**
+        - ALWAYS use the FULL relative path from the repository root in the link text (e.g., "public/js/radar-chart.js:1-754" NOT just "radar-chart.js:1-754").
+        - NEVER output just the filename. Always include the directory path.
+        - ALWAYS use the FULL relative path even for in-text references (e.g., "defined in [src/utils/helper.ts:42](url)").
+        - Do NOT use commas between source citations - just separate them with spaces.
+        - The link text format is: \`[full/path/to/file.ext:line-range](url)\`
     *   If an entire section is overwhelmingly based on one or two files, you can cite them under the section heading in addition to more specific citations within the section.
     *   IMPORTANT: You MUST cite AT LEAST 5 different source files throughout the wiki page to ensure comprehensive coverage.
 
@@ -811,7 +853,7 @@ Return your analysis in the following XML format:
       <description>[Brief description of what this page will cover]</description>
       <importance>high|medium|low</importance>
       <relevant_files>
-        <file_path>[Path to a relevant file]</file_path>
+        <file_path>[Full relative path to file from repo root]</file_path>
         <!-- More file paths as needed -->
       </relevant_files>
       <related_pages>
@@ -858,7 +900,7 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 IMPORTANT:
 1. Create ${isComprehensiveView ? '8-12' : '4-6'} pages that would make a ${isComprehensiveView ? 'comprehensive' : 'concise'} wiki for this repository
 2. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
-3. The relevant_files should be actual files from the repository that would be used to generate that page
+3. The relevant_files should be actual files from the repository that would be used to generate that page. IMPORTANT: You MUST use the full relative path (e.g., "src/components/Button.tsx" NOT "Button.tsx").
 4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
         }]
       };
@@ -1033,9 +1075,38 @@ IMPORTANT:
           (importanceEl.textContent === 'high' ? 'high' :
             importanceEl.textContent === 'medium' ? 'medium' : 'low') : 'medium';
 
+        // Create a map for file path resolution
+        const validFiles = new Set(fileTree.split('\n').map(p => p.trim()).filter(p => p));
+        const filenameMap = new Map<string, string[]>();
+        validFiles.forEach(path => {
+          const filename = path.split('/').pop();
+          if (filename) {
+            if (!filenameMap.has(filename)) {
+              filenameMap.set(filename, []);
+            }
+            filenameMap.get(filename)?.push(path);
+          }
+        });
+
         const filePaths: string[] = [];
         filePathEls.forEach(el => {
-          if (el.textContent) filePaths.push(el.textContent);
+          let path = el.textContent?.trim();
+          if (path) {
+            // Validate and fix path if necessary
+            if (!validFiles.has(path)) {
+              // Try to correct common issues (like missing directory)
+              const filename = path.split('/').pop();
+              if (filename && filenameMap.has(filename)) {
+                const candidates = filenameMap.get(filename);
+                if (candidates && candidates.length > 0) {
+                  // If there's an exact match for the filename in the repo, use it
+                  // If multiple, use the first one (often the most relevant or shallowest)
+                  path = candidates[0];
+                }
+              }
+            }
+            filePaths.push(path);
+          }
         });
 
         const relatedPages: string[] = [];
@@ -1284,13 +1355,32 @@ IMPORTANT:
           const repoInfoResponse = await fetch(`${githubApiBaseUrl}/repos/${owner}/${repo}`, {
             headers: createGithubHeaders(currentToken)
           });
-          
+
           if (repoInfoResponse.ok) {
             const repoData = await repoInfoResponse.json();
             defaultBranchLocal = repoData.default_branch;
             console.log(`Found default branch: ${defaultBranchLocal}`);
             // Store the default branch in state
             setDefaultBranch(defaultBranchLocal || 'main');
+
+            // Get the latest commit hash for the default branch
+            try {
+              const branchResponse = await fetch(`${githubApiBaseUrl}/repos/${owner}/${repo}/branches/${defaultBranchLocal || 'main'}`, {
+                headers: createGithubHeaders(currentToken)
+              });
+
+              if (branchResponse.ok) {
+                const branchData = await branchResponse.json();
+                const latestCommitHash = branchData.commit?.sha;
+                if (latestCommitHash) {
+                  // Use short hash (first 8 characters)
+                  setCommitHash(latestCommitHash.substring(0, 8));
+                  console.log(`Found commit hash: ${latestCommitHash.substring(0, 8)}`);
+                }
+              }
+            } catch (err) {
+              console.warn('Could not fetch commit hash:', err);
+            }
           }
         } catch (err) {
           console.warn('Could not fetch repository info for default branch:', err);
@@ -1761,12 +1851,104 @@ IMPORTANT:
               }
 
               // Update repoInfo
+              let repoInfoForCommitHash = effectiveRepoInfo;
               if(cachedData.repo) {
                 setEffectiveRepoInfo(cachedData.repo);
+                repoInfoForCommitHash = cachedData.repo;
               } else if (cachedData.repo_url && !effectiveRepoInfo.repoUrl) {
                 const updatedRepoInfo = { ...effectiveRepoInfo, repoUrl: cachedData.repo_url };
                 setEffectiveRepoInfo(updatedRepoInfo); // Update effective repo info state
+                repoInfoForCommitHash = updatedRepoInfo;
                 console.log('Using cached repo_url:', cachedData.repo_url);
+              }
+
+              // Fetch commit hash for cached wiki data
+              console.log('Attempting to fetch commit hash for cached wiki...');
+              console.log('repoInfoForCommitHash.type:', repoInfoForCommitHash.type);
+              console.log('repoInfoForCommitHash.repoUrl:', repoInfoForCommitHash.repoUrl);
+              console.log('repoInfoForCommitHash.owner:', repoInfoForCommitHash.owner);
+              console.log('repoInfoForCommitHash.repo:', repoInfoForCommitHash.repo);
+
+              if (repoInfoForCommitHash.type === 'github' && repoInfoForCommitHash.repoUrl) {
+                const owner = repoInfoForCommitHash.owner;
+                const repo = repoInfoForCommitHash.repo;
+
+                console.log('Fetching commit hash for:', owner, '/', repo);
+
+                const getGithubApiUrl = (repoUrl: string): string => {
+                  try {
+                    const url = new URL(repoUrl);
+                    const hostname = url.hostname;
+                    if (hostname === 'github.com') {
+                      return 'https://api.github.com';
+                    }
+                    return `${url.protocol}//${hostname}/api/v3`;
+                  } catch {
+                    return 'https://api.github.com';
+                  }
+                };
+
+                const createGithubHeaders = (token: string | null) => {
+                  const headers: Record<string, string> = {
+                    'Accept': 'application/vnd.github.v3+json'
+                  };
+                  if (token) {
+                    headers['Authorization'] = `token ${token}`;
+                  }
+                  return headers;
+                };
+
+                const githubApiBaseUrl = getGithubApiUrl(repoInfoForCommitHash.repoUrl!);
+                const currentToken = repoInfoForCommitHash.type === 'github' ? (typeof window !== 'undefined' ? localStorage.getItem('github_token') : null) :
+                                   repoInfoForCommitHash.type === 'gitlab' ? (typeof window !== 'undefined' ? localStorage.getItem('gitlab_token') : null) : null;
+
+                console.log('GitHub API URL:', githubApiBaseUrl);
+                console.log('Has token:', !!currentToken);
+
+                try {
+                  const repoInfoResponse = await fetch(`${githubApiBaseUrl}/repos/${owner}/${repo}`, {
+                    headers: createGithubHeaders(currentToken)
+                  });
+
+                  console.log('Repo info response status:', repoInfoResponse.status);
+
+                  if (repoInfoResponse.ok) {
+                    const repoData = await repoInfoResponse.json();
+                    const defaultBranchLocal = repoData.default_branch;
+                    setDefaultBranch(defaultBranchLocal || 'main');
+                    console.log('Default branch:', defaultBranchLocal);
+
+                    // Get the latest commit hash
+                    try {
+                      const branchResponse = await fetch(`${githubApiBaseUrl}/repos/${owner}/${repo}/branches/${defaultBranchLocal || 'main'}`, {
+                        headers: createGithubHeaders(currentToken)
+                      });
+
+                      console.log('Branch response status:', branchResponse.status);
+
+                      if (branchResponse.ok) {
+                        const branchData = await branchResponse.json();
+                        const latestCommitHash = branchData.commit?.sha;
+                        if (latestCommitHash) {
+                          setCommitHash(latestCommitHash.substring(0, 8));
+                          console.log(`✅ Found commit hash for cached wiki: ${latestCommitHash.substring(0, 8)}`);
+                        } else {
+                          console.warn('No commit SHA in branch data');
+                        }
+                      } else {
+                        console.warn('Branch response not OK:', await branchResponse.text());
+                      }
+                    } catch (err) {
+                      console.error('Error fetching commit hash for cached wiki:', err);
+                    }
+                  } else {
+                    console.warn('Repo info response not OK:', await repoInfoResponse.text());
+                  }
+                } catch (err) {
+                  console.error('Error fetching repository info for cached wiki:', err);
+                }
+              } else {
+                console.log('Skipping commit hash fetch - not a GitHub repo or missing repoUrl');
               }
 
               // Ensure the cached structure has sections and rootSections
@@ -2199,6 +2381,9 @@ IMPORTANT:
                   <div className="prose prose-sm md:prose-base lg:prose-lg max-w-none">
                     <Markdown
                       content={generatedPages[currentPageId].content}
+                      repoUrl={effectiveRepoInfo.repoUrl || undefined}
+                      defaultBranch={defaultBranch}
+                      commitHash={commitHash}
                     />
                   </div>
 

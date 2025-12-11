@@ -149,7 +149,7 @@ export default function ProcessedProjects({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('searchPlaceholder')}
-            className="input-japanese block w-full pl-4 pr-12 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--background)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)]"
+            className="block w-full pl-4 pr-12 py-3 border border-[#e0e0e0] dark:border-neutral-700 rounded-lg bg-white dark:bg-[#1f1f1f] text-[#242424] dark:text-neutral-200 placeholder:text-[#8f8f8f] dark:placeholder:text-neutral-400 focus:outline-none focus:border-[#6096ff] focus:ring-2 focus:ring-[#6096ff]/20 transition-all shadow-sm"
           />
           {searchQuery && (
             <button
@@ -162,10 +162,10 @@ export default function ProcessedProjects({
         </div>
 
         {/* View Toggle */}
-        <div className="flex items-center bg-[var(--background)] border border-[var(--border-color)] rounded-lg p-1">
+        <div className="flex items-center bg-[var(--background)] border border-[var(--border-color)] rounded-[8.4px] p-1">
           <button
             onClick={() => setViewMode('card')}
-            className={`p-2 rounded transition-colors ${
+            className={`p-2 rounded-[8.4px] transition-colors ${
               viewMode === 'card'
                 ? 'bg-[var(--accent-primary)] text-white'
                 : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-bg)]'
@@ -176,7 +176,7 @@ export default function ProcessedProjects({
           </button>
           <button
             onClick={() => setViewMode('list')}
-            className={`p-2 rounded transition-colors ${
+            className={`p-2 rounded-[8.4px] transition-colors ${
               viewMode === 'list'
                 ? 'bg-[var(--accent-primary)] text-white'
                 : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-bg)]'
@@ -192,40 +192,50 @@ export default function ProcessedProjects({
       {error && <p className="text-[var(--highlight)]">{t('errorLoading')} {error}</p>}
 
       {!isLoading && !error && filteredProjects.length > 0 && (
-        <div className={viewMode === 'card' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-2'}>
+        <div className={viewMode === 'card' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 p-2 sm:p-3' : 'space-y-2'}>
             {filteredProjects.map((project) => (
             viewMode === 'card' ? (
-              <div key={project.id} className="relative p-4 border border-[var(--border-color)] rounded-lg bg-[var(--card-bg)] shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02]">
+              <div key={project.id} className="relative group bg-white dark:bg-[#1f1f1f] border border-[#e0e0e0] dark:border-neutral-700 rounded-lg min-h-[112px] shadow-sm hover:shadow-md transition-all p-4 hover:-translate-y-[2px] hover:bg-[#f8f8f8] dark:hover:bg-neutral-700/80">
                 <button
                   type="button"
                   onClick={() => handleDelete(project)}
-                  className="absolute top-2 right-2 text-[var(--muted)] hover:text-[var(--foreground)]"
+                  className="absolute top-2 right-2 text-[var(--muted)] hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   title="Delete project"
                 >
                   <FaTimes className="h-4 w-4" />
                 </button>
                 <Link
                   href={`/${project.owner}/${project.repo}?type=${project.repo_type}&language=${project.language}`}
-                  className="block"
+                  className="block focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 >
-                  <h3 className="text-lg font-semibold text-[var(--link-color)] hover:underline mb-2 line-clamp-2">
-                    {project.name}
-                  </h3>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    <span className="px-2 py-1 text-xs bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] rounded-full border border-[var(--accent-primary)]/20">
-                      {project.repo_type}
-                    </span>
-                    <span className="px-2 py-1 text-xs bg-[var(--background)] text-[var(--muted)] rounded-full border border-[var(--border-color)]">
-                      {project.language}
+                  <div className="flex items-center gap-3 min-h-[96px]">
+                    <div className="flex-1">
+                      <h3 className="text-[#242424] dark:text-neutral-100 font-semibold line-clamp-2 mb-2">
+                        {project.name}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span className={project.repo_type === 'github'
+                          ? 'inline-flex items-center gap-1 rounded-md border border-[#e0e0e0] dark:border-neutral-700 bg-[#6096ff]/10 text-[#6096ff] px-2.5 py-1 text-xs font-medium'
+                          : 'inline-flex items-center rounded-md border border-[#e0e0e0] dark:border-neutral-700 bg-[#f0f0f0] dark:bg-neutral-800 text-[#242424] dark:text-neutral-300 px-2.5 py-1 text-xs font-medium'
+                        }>
+                          {project.repo_type}
+                        </span>
+                        <span className="inline-flex items-center rounded-md border border-[#e0e0e0] dark:border-neutral-700 bg-[#f0f0f0] dark:bg-neutral-800 text-[#242424] dark:text-neutral-300 px-2.5 py-1 text-xs font-medium">
+                          {project.language}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#8f8f8f] dark:text-neutral-400">
+                        {t('processedOn')} {new Date(project.submittedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <span className="ml-auto size-8 rounded-[8.4px] border border-neutral-200 bg-neutral-200 text-neutral-600 transition-colors flex items-center justify-center group-hover:bg-neutral-300 group-hover:text-neutral-700 dark:border-neutral-700 dark:bg-neutral-700 dark:text-neutral-200 dark:group-hover:bg-neutral-600 dark:group-hover:text-neutral-100">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"></path></svg>
                     </span>
                   </div>
-                  <p className="text-xs text-[var(--muted)]">
-                    {t('processedOn')} {new Date(project.submittedAt).toLocaleDateString()}
-                  </p>
                 </Link>
               </div>
             ) : (
-              <div key={project.id} className="relative p-3 border border-[var(--border-color)] rounded-lg bg-[var(--card-bg)] hover:bg-[var(--background)] transition-colors">
+              <div key={project.id} className="relative min-h-[112px] p-4 border border-[#e0e0e0] dark:border-neutral-700 rounded-lg bg-white dark:bg-[#1f1f1f] transition-colors hover:bg-[#f8f8f8] dark:hover:bg-neutral-700/80 shadow-sm hover:shadow-md">
                 <button
                   type="button"
                   onClick={() => handleDelete(project)}
@@ -239,15 +249,15 @@ export default function ProcessedProjects({
                   className="flex items-center justify-between"
                 >
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-medium text-[var(--link-color)] hover:underline truncate">
+                    <h3 className="text-base font-semibold text-[#6096ff] hover:underline truncate">
                       {project.name}
                     </h3>
-                    <p className="text-xs text-[var(--muted)] mt-1">
+                    <p className="text-xs text-[#8f8f8f] dark:text-neutral-400 mt-1">
                       {t('processedOn')} {new Date(project.submittedAt).toLocaleDateString()} • {project.repo_type} • {project.language}
                     </p>
                   </div>
                   <div className="flex gap-2 ml-4">
-                    <span className="px-2 py-1 text-xs bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] rounded border border-[var(--accent-primary)]/20">
+                    <span className="px-2.5 py-[2px] text-xs bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] rounded-[8.4px] border border-[var(--accent-primary)]/20">
                       {project.repo_type}
                     </span>
                   </div>

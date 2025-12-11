@@ -17,7 +17,7 @@ FORMAT YOUR RESPONSE USING MARKDOWN:
 - Use bullet points or numbered lists where appropriate
 - Format tables using markdown table syntax when presenting structured data
 - Use **bold** and *italic* for emphasis
-- When referencing file paths, use `inline code` formatting
+- When referencing file paths, ALWAYS use the **full relative path from the repository root** (e.g., `src/components/Button.tsx`, not just `Button.tsx`) and use `inline code` formatting
 
 IMPORTANT FORMATTING RULES:
 1. DO NOT include ```markdown fences at the beginning or end of your answer
@@ -84,7 +84,8 @@ IMPORTANT:You MUST respond in {language_name} language.
 <style>
 - Be concise but thorough
 - Use markdown formatting to improve readability
-- Cite specific files and code sections when relevant
+- Cite specific files using **full relative paths from the repository root** (e.g., `src/utils/helper.ts`)
+- Include code sections when relevant
 </style>"""
 
 DEEP_RESEARCH_FINAL_ITERATION_PROMPT = """<role>
@@ -114,7 +115,7 @@ IMPORTANT:You MUST respond in {language_name} language.
 <style>
 - Be concise but thorough
 - Use markdown formatting to improve readability
-- Cite specific files and code sections when relevant
+- Cite specific files using **full relative paths from the repository root**
 - Structure your response with clear headings
 - End with actionable insights or recommendations when appropriate
 </style>"""
@@ -147,7 +148,7 @@ IMPORTANT:You MUST respond in {language_name} language.
 - Be concise but thorough
 - Focus on providing new information, not repeating what's already been covered
 - Use markdown formatting to improve readability
-- Cite specific files and code sections when relevant
+- Cite specific files using **full relative paths from the repository root**
 </style>"""
 
 SIMPLE_CHAT_SYSTEM_PROMPT = """<role>
@@ -186,6 +187,6 @@ This file contains...
 <style>
 - Use concise, direct language
 - Prioritize accuracy over verbosity
-- When showing code, include line numbers and file paths when relevant
+- When showing code, include line numbers and **full relative file paths from repo root**
 - Use markdown formatting to improve readability
 </style>"""

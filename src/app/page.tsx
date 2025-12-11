@@ -392,118 +392,113 @@ export default function Home() {
   };
 
   return (
-    <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
-      <header className="max-w-6xl mx-auto mb-6 h-fit w-full">
-        <div
-          className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-[var(--card-bg)] rounded-lg shadow-custom border border-[var(--border-color)] p-4">
-          <div className="flex items-center">
-            <div className="bg-[var(--accent-primary)] p-2 rounded-lg mr-3">
+    <div className="h-screen bg-[#f8f8f8] dark:bg-[#101010] p-4 md:p-8 flex flex-col">
+      <header className="container mx-auto max-w-7xl px-4 sm:px-6 md:px-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6 mb-8 sm:mb-10">
+          <div className="flex items-center gap-3">
+            <div className="bg-[#6096ff] p-2.5 rounded-lg">
               <FaWikipediaW className="text-2xl text-white" />
             </div>
-            <div className="mr-6">
-              <h1 className="text-xl md:text-2xl font-bold text-[var(--accent-primary)]">{t('common.appName')}</h1>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-semibold text-[#242424] dark:text-neutral-100">{t('common.appName')}</h1>
               <div className="flex flex-wrap items-baseline gap-x-2 md:gap-x-3 mt-0.5">
-                <p className="text-xs text-[var(--muted)] whitespace-nowrap">{t('common.tagline')}</p>
+                <p className="text-sm text-[#8f8f8f] dark:text-neutral-400 whitespace-nowrap">{t('common.tagline')}</p>
                 <div className="hidden md:inline-block">
                   <Link href="/wiki/projects"
-                    className="text-xs font-medium text-[var(--accent-primary)] hover:text-[var(--highlight)] hover:underline whitespace-nowrap">
+                    className="text-xs font-medium text-[#6096ff] hover:text-[#5086ef] hover:underline whitespace-nowrap">
                     {t('nav.wikiProjects')}
                   </Link>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <form onSubmit={handleFormSubmit} className="flex flex-col gap-3 w-full max-w-3xl">
-            {/* Repository URL input and submit button */}
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  value={repositoryInput}
-                  onChange={handleRepositoryInputChange}
-                  placeholder={t('form.repoPlaceholder') || "owner/repo, GitHub/GitLab/BitBucket URL, or local folder path"}
-                  className="input-japanese block w-full pl-10 pr-3 py-2.5 border-[var(--border-color)] rounded-lg bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
-                />
-                {error && (
-                  <div className="text-[var(--highlight)] text-xs mt-1">
-                    {error}
-                  </div>
-                )}
-              </div>
+        {/* Hero headline */}
+        <div className="mt-4 sm:mt-6 mb-6">
+          <h2 className="text-3xl sm:text-4xl font-semibold text-[#242424] dark:text-neutral-100 text-center">
+            Which repo would you like to understand?
+          </h2>
+        </div>
+
+        <form onSubmit={handleFormSubmit} className="mb-6 sm:mb-8">
+          <div className="w-full max-w-2xl mx-auto">
+            <div className="flex items-center gap-2 sm:gap-3 bg-white dark:bg-[#1f1f1f] border border-[#e0e0e0] dark:border-neutral-800 rounded-lg px-4 py-3 shadow-sm hover:shadow-md transition-shadow">
+              <input
+                type="text"
+                value={repositoryInput}
+                onChange={handleRepositoryInputChange}
+                placeholder="Search for repositories (or paste a link)"
+                className="flex-1 h-10 px-0 bg-transparent text-[#242424] dark:text-neutral-200 placeholder:text-[#8f8f8f] dark:placeholder:text-neutral-400 outline-none border-none focus:outline-none"
+              />
               <button
                 type="submit"
-                className="btn-japanese px-6 py-2.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-10 px-6 rounded-md bg-[#6096ff] text-white hover:bg-[#5086ef] transition-colors focus-visible:ring-2 focus-visible:ring-[#6096ff] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? t('common.processing') : t('common.generateWiki')}
               </button>
             </div>
-          </form>
+          </div>
+          {error && (
+            <div className="text-[var(--highlight)] text-xs mt-2">
+              {error}
+            </div>
+          )}
+        </form>
 
-          {/* Configuration Modal */}
-          <ConfigurationModal
-            isOpen={isConfigModalOpen}
-            onClose={() => setIsConfigModalOpen(false)}
-            repositoryInput={repositoryInput}
-            selectedLanguage={selectedLanguage}
-            setSelectedLanguage={setSelectedLanguage}
-            supportedLanguages={supportedLanguages}
-            isComprehensiveView={isComprehensiveView}
-            setIsComprehensiveView={setIsComprehensiveView}
-            provider={provider}
-            setProvider={setProvider}
-            model={model}
-            setModel={setModel}
-            isCustomModel={isCustomModel}
-            setIsCustomModel={setIsCustomModel}
-            customModel={customModel}
-            setCustomModel={setCustomModel}
-            selectedPlatform={selectedPlatform}
-            setSelectedPlatform={setSelectedPlatform}
-            accessToken={accessToken}
-            setAccessToken={setAccessToken}
-            excludedDirs={excludedDirs}
-            setExcludedDirs={setExcludedDirs}
-            excludedFiles={excludedFiles}
-            setExcludedFiles={setExcludedFiles}
-            includedDirs={includedDirs}
-            setIncludedDirs={setIncludedDirs}
-            includedFiles={includedFiles}
-            setIncludedFiles={setIncludedFiles}
-            onSubmit={handleGenerateWiki}
-            isSubmitting={isSubmitting}
-            authRequired={authRequired}
-            authCode={authCode}
-            setAuthCode={setAuthCode}
-            isAuthLoading={isAuthLoading}
-          />
-
-        </div>
+        {/* Configuration Modal */}
+        <ConfigurationModal
+          isOpen={isConfigModalOpen}
+          onClose={() => setIsConfigModalOpen(false)}
+          repositoryInput={repositoryInput}
+          selectedLanguage={selectedLanguage}
+          setSelectedLanguage={setSelectedLanguage}
+          supportedLanguages={supportedLanguages}
+          isComprehensiveView={isComprehensiveView}
+          setIsComprehensiveView={setIsComprehensiveView}
+          provider={provider}
+          setProvider={setProvider}
+          model={model}
+          setModel={setModel}
+          isCustomModel={isCustomModel}
+          setIsCustomModel={setIsCustomModel}
+          customModel={customModel}
+          setCustomModel={setCustomModel}
+          selectedPlatform={selectedPlatform}
+          setSelectedPlatform={setSelectedPlatform}
+          accessToken={accessToken}
+          setAccessToken={setAccessToken}
+          excludedDirs={excludedDirs}
+          setExcludedDirs={setExcludedDirs}
+          excludedFiles={excludedFiles}
+          setExcludedFiles={setExcludedFiles}
+          includedDirs={includedDirs}
+          setIncludedDirs={setIncludedDirs}
+          includedFiles={includedFiles}
+          setIncludedFiles={setIncludedFiles}
+          onSubmit={handleGenerateWiki}
+          isSubmitting={isSubmitting}
+          authRequired={authRequired}
+          authCode={authCode}
+          setAuthCode={setAuthCode}
+          isAuthLoading={isAuthLoading}
+        />
       </header>
 
-      <main className="flex-1 max-w-6xl mx-auto w-full overflow-y-auto">
+      <main className="flex-1 container mx-auto max-w-7xl px-4 sm:px-6 md:px-0 w-full overflow-y-auto pb-12 sm:pb-16">
         <div
-          className="min-h-full flex flex-col items-center p-8 pt-10 bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
+          className="min-h-full flex flex-col items-center p-8 pt-10 bg-white dark:bg-[#1f1f1f] rounded-lg shadow-sm">
 
           {/* Conditionally show processed projects or welcome content */}
           {!projectsLoading && projects.length > 0 ? (
             <div className="w-full">
-              {/* Header section for existing projects */}
-              <div className="flex flex-col items-center w-full max-w-2xl mb-8 mx-auto">
-                <div className="flex flex-col sm:flex-row items-center mb-6 gap-4">
-                  <div className="relative">
-                    <div className="absolute -inset-1 bg-[var(--accent-primary)]/20 rounded-full blur-md"></div>
-                    <FaWikipediaW className="text-5xl text-[var(--accent-primary)] relative z-10" />
-                  </div>
-                  <div className="text-center sm:text-left">
-                    <h2 className="text-2xl font-bold text-[var(--foreground)] font-serif mb-1">{t('projects.existingProjects')}</h2>
-                    <p className="text-[var(--accent-primary)] text-sm max-w-md">{t('projects.browseExisting')}</p>
-                  </div>
-                </div>
+              <div className="flex items-center justify-between mb-4 sm:mb-5">
+                <h2 className="sr-only">{t('projects.existingProjects')}</h2>
+                <Link href="/wiki/projects" className="text-[#6096ff] hover:text-[#5086ef] dark:text-blue-300 focus-visible:ring-2 focus-visible:ring-[#6096ff] focus-visible:ring-offset-2 font-medium">
+                  {t('projects.browseExisting')}
+                </Link>
               </div>
-
-              {/* Show processed projects */}
               <ProcessedProjects
                 showHeader={false}
                 maxItems={6}
