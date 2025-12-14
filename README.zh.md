@@ -74,7 +74,7 @@ OPENROUTER_API_KEY=your_openrouter_api_key
 
 ```bash
 # 安装Python依赖
-python -m pip install poetry==2.0.1 && poetry install
+python -m pip install poetry==2.0.1 && poetry install -C api
 
 # 启动API服务器
 python -m api.main

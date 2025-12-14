@@ -76,7 +76,7 @@ OPENROUTER_API_KEY=your_openrouter_api_key
 
 ```bash
 # Pythonの依存関係をインストール
-python -m pip install poetry==2.0.1 && poetry install
+python -m pip install poetry==2.0.1 && poetry install -C api
 
 # APIサーバーを起動
 python -m api.main

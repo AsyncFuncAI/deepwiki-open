@@ -73,7 +73,7 @@ OLLAMA_HOST=seu_host_ollama
 
 ```bash
 # Instale as dependências Python
-python -m pip install poetry==2.0.1 && poetry install
+python -m pip install poetry==2.0.1 && poetry install -C api
 
 # Inicie o servidor API
 python -m api.main
