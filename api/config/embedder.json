@@ -22,6 +22,19 @@
       "task_type": "SEMANTIC_SIMILARITY"
     }
   },
+  "embedder_vertex": {
+    "client_class": "VertexAIEmbedderClient",
+    "initialize_kwargs": {
+      "project_id": "${GOOGLE_CLOUD_PROJECT}",
+      "location": "${GOOGLE_CLOUD_LOCATION}"
+    },
+    "batch_size": 15,
+    "model_kwargs": {
+      "model": "text-embedding-005",
+      "task_type": "SEMANTIC_SIMILARITY",
+      "auto_truncate": true
+    }
+  },
   "retriever": {
     "top_k": 20
   },
