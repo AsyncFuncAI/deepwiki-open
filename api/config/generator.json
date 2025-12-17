@@ -20,9 +20,15 @@
       }
     },
     "google": {
-      "default_model": "gemini-2.5-flash",
+      "default_model": "gemini-3-flash-preview",
       "supportsCustomModel": true,
       "models": {
+        "gemini-3-flash-preview": {
+          "temperature": 1.0,
+          "top_p": 0.8,
+          "top_k": 20,
+          "thinking_level": "high"
+        },
         "gemini-2.5-flash": {
           "temperature": 1.0,
           "top_p": 0.8,
