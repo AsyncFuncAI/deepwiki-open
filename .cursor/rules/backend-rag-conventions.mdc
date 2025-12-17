@@ -1,0 +1,31 @@
+---
+description: Rules for Python backend development, Adalflow RAG pipeline, and API conventions.
+globs:
+  - "api/**/*.py"
+alwaysApply: false
+---
+
+# Backend & RAG Conventions
+
+This project uses FastAPI and the `adalflow` framework to build a robust RAG pipeline.
+
+## Python & FastAPI Patterns
+- **Pydantic Models**: Use Pydantic for all request/response schemas. Define them in `api/api.py` or `api/websocket_wiki.py`.
+- **Async Handlers**: Use `async def` for API endpoints and WebSocket handlers to maintain high concurrency.
+- **Error Handling**: Use `fastapi.HTTPException` for REST errors. For WebSockets, send a descriptive text message before closing the connection.
+
+## Adalflow & RAG Logic
+- **Component Pattern**: The `RAG` class in `api/rag.py` must inherit from `adal.Component`.
+- **Memory**: Use the `Memory` class (from `adalflow`) for conversation history management.
+- **Data Pipeline**: Use `api/data_pipeline.py` for repository cloning and document parsing. Respect the exclusion filters defined in `repo.json`.
+- **Embedders**: Always initialize embedders via `get_embedder` in `api/tools/embedder.py`.
+- **Prompts**: Centralize all LLM prompts in `api/prompts.py`. Use templates for dynamic content.
+
+## Vector Database (FAISS)
+- Vector indices are managed by `DatabaseManager` in `api/data_pipeline.py`.
+- Ensure embedding dimensions are validated before insertion (see `_validate_and_filter_embeddings` in `api/rag.py`).
+
+## Anti-Patterns
+- Do not hardcode API keys; use environment variables via `api/config.py`.
+- Avoid blocking synchronous calls in async routes (use `run_in_threadpool` if necessary).
+- Do not bypass the `DatabaseManager` for file system operations in `~/.adalflow`.
