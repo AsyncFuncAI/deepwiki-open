@@ -1,13 +1,12 @@
-
 # DeepWiki-Open
 
 ![Bannière DeepWiki](screenshots/Deepwiki.png)
 
 **DeepWiki** est ma propre tentative d’implémentation de DeepWiki, un outil qui crée automatiquement des wikis magnifiques et interactifs pour n’importe quel dépôt GitHub, GitLab ou Bitbucket ! Il suffit d’entrer un nom de dépôt, et DeepWiki :
 
-1. Analyse la structure du code  
-2. Génère une documentation complète  
-3. Crée des diagrammes visuels pour expliquer le fonctionnement  
+1. Analyse la structure du code
+2. Génère une documentation complète
+3. Crée des diagrammes visuels pour expliquer le fonctionnement
 4. Organise le tout dans un wiki facile à naviguer
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
@@ -82,9 +81,10 @@ OLLAMA_HOST=votre_hote_ollama
 
 ```bash
 # Installer dépendances Python
-python -m pip install poetry==2.0.1 && poetry install
+python -m pip install poetry==2.0.1 && poetry --directory api install
 
 # Démarrer le serveur API
+poetry --directory api env activate
 python -m api.main
 ```
 

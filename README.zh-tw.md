@@ -80,9 +80,10 @@ OLLAMA_HOST=your_ollama_host
 
 ```bash
 # 安裝 Python 相依性
-python -m pip install poetry==2.0.1 && poetry install
+python -m pip install poetry==2.0.1 && poetry --directory api install
 
 # 啟動 API 伺服器
+poetry --directory api env activate
 python -m api.main
 ```
 
@@ -304,7 +305,7 @@ docker-compose up
 
 | 變數             | 說明                                                  | 必需 | 備註                                                                                                     |
 |----------------------|--------------------------------------------------------------|----------|----------------------------------------------------------------------------------------------------------|
-| `GOOGLE_API_KEY`     | Google Gemini API 金鑰，用於 AI 產生                      | 否 | 只有在您想使用 Google Gemini 模型時才需要                                                    
+| `GOOGLE_API_KEY`     | Google Gemini API 金鑰，用於 AI 產生                      | 否 | 只有在您想使用 Google Gemini 模型時才需要
 | `OPENAI_API_KEY`     | OpenAI API 金鑰，用於嵌入                                | 是 | 備註：即使您不使用 OpenAI 模型，這個也是必需的，因為它用於嵌入              |
 | `OPENROUTER_API_KEY` | OpenRouter API 金鑰，用於替代模型                    | 否 | 只有在您想使用 OpenRouter 模型時才需要                                                       |
 | `OLLAMA_HOST`        | Ollama 主機（預設：http://localhost:11434）                | 否 | 只有在您想使用外部 Ollama 伺服器時才需要                                                  |
