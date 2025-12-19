@@ -289,34 +289,6 @@ class BedrockClient(ModelClient):
             log.error(f"Error parsing Bedrock embedding response: {e}")
             return EmbedderOutput(data=[], error=str(e), raw_response=response)
 
-    def _format_embedding_body(
-        self,
-        provider: str,
-        text: str,
-        model_kwargs: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """Format embedding request body based on provider."""
-        if provider == "amazon":
-            body: Dict[str, Any] = {"inputText": text}
-
-            # Titan Embeddings models accept `dimensions` as a top-level key (e.g. titan-embed-text-v2).
-            # Do NOT send `embeddingConfig`; Bedrock rejects extraneous keys for these models.
-            dimensions = model_kwargs.get("dimensions")
-            if dimensions is not None:
-                body["dimensions"] = int(dimensions)
-
-            normalize = model_kwargs.get("normalize")
-            if normalize is not None:
-                body["normalize"] = bool(normalize)
-
-            return body
-
-        if provider == "cohere":
-            input_type = model_kwargs.get("input_type") or "search_document"
-            return {"texts": [text], "input_type": input_type}
-
-        raise ValueError(f"Embedding provider '{provider}' is not supported by AWS Bedrock client")
-
     @backoff.on_exception(
         backoff.expo,
         (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError),
@@ -428,7 +400,15 @@ class BedrockClient(ModelClient):
                     raise ValueError(f"Embeddings not found in response: {response_body}")
             else:
                 for text in texts:
-                    request_body = self._format_embedding_body(provider, text, model_kwargs)
+                    request_body: Dict[str, Any] = {"inputText": text}
+
+                    dimensions = model_kwargs.get("dimensions")
+                    if dimensions is not None:
+                        request_body["dimensions"] = int(dimensions)
+
+                    normalize = model_kwargs.get("normalize")
+                    if normalize is not None:
+                        request_body["normalize"] = bool(normalize)
 
                     # Make the API call
                     response = self.sync_client.invoke_model(
