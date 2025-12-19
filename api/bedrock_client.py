@@ -72,6 +72,44 @@ class BedrockClient(ModelClient):
         self.sync_client = self.init_sync_client()
         self.async_client = None  # Initialize async client only when needed
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]):
+        """Create an instance from a dictionary."""
+        return cls(**data)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "aws_access_key_id": self.aws_access_key_id,
+            "aws_secret_access_key": self.aws_secret_access_key,
+            "aws_session_token": self.aws_session_token,
+            "aws_region": self.aws_region,
+            "aws_role_arn": self.aws_role_arn,
+        }
+
+    def __getstate__(self):
+        """
+        Customize serialization to exclude non-picklable client objects.
+        This method is called by pickle when saving the object's state.
+        """
+        state = self.__dict__.copy()
+        # Remove the unpicklable client instances
+        if 'sync_client' in state:
+            del state['sync_client']
+        if 'async_client' in state:
+            del state['async_client']
+        return state
+
+    def __setstate__(self, state):
+        """
+        Customize deserialization to re-create the client objects.
+        This method is called by pickle when loading the object's state.
+        """
+        self.__dict__.update(state)
+        # Re-initialize the clients after unpickling
+        self.sync_client = self.init_sync_client()
+        self.async_client = None  # It will be lazily initialized when acall is used
+
     def init_sync_client(self):
         """Initialize the synchronous AWS Bedrock client."""
         try:
