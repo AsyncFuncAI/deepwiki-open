@@ -22,6 +22,14 @@
       "task_type": "SEMANTIC_SIMILARITY"
     }
   },
+  "embedder_bedrock": {
+    "client_class": "BedrockClient",
+    "batch_size": 100,
+    "model_kwargs": {
+      "model": "amazon.titan-embed-text-v2:0",
+      "dimensions": 256
+    }
+  },
   "retriever": {
     "top_k": 20
   },
