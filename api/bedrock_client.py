@@ -6,10 +6,10 @@ import logging
 import boto3
 import botocore
 import backoff
-from typing import Dict, Any, Optional, List, Generator, Union, AsyncGenerator
+from typing import Dict, Any, Optional, List, Generator, Union, AsyncGenerator, Sequence
 
 from adalflow.core.model_client import ModelClient
-from adalflow.core.types import ModelType, GeneratorOutput
+from adalflow.core.types import ModelType, GeneratorOutput, EmbedderOutput
 
 # Configure logging
 from api.logging_config import setup_logging
@@ -39,6 +39,7 @@ class BedrockClient(ModelClient):
         self,
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
+        aws_session_token: Optional[str] = None,
         aws_region: Optional[str] = None,
         aws_role_arn: Optional[str] = None,
         *args,
@@ -49,14 +50,22 @@ class BedrockClient(ModelClient):
         Args:
             aws_access_key_id: AWS access key ID. If not provided, will use environment variable AWS_ACCESS_KEY_ID.
             aws_secret_access_key: AWS secret access key. If not provided, will use environment variable AWS_SECRET_ACCESS_KEY.
+            aws_session_token: AWS session token. If not provided, will use environment variable AWS_SESSION_TOKEN.
             aws_region: AWS region. If not provided, will use environment variable AWS_REGION.
             aws_role_arn: AWS IAM role ARN for role-based authentication. If not provided, will use environment variable AWS_ROLE_ARN.
         """
         super().__init__(*args, **kwargs)
-        from api.config import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, AWS_ROLE_ARN
+        from api.config import (
+            AWS_ACCESS_KEY_ID,
+            AWS_SECRET_ACCESS_KEY,
+            AWS_SESSION_TOKEN,
+            AWS_REGION,
+            AWS_ROLE_ARN,
+        )
 
         self.aws_access_key_id = aws_access_key_id or AWS_ACCESS_KEY_ID
         self.aws_secret_access_key = aws_secret_access_key or AWS_SECRET_ACCESS_KEY
+        self.aws_session_token = aws_session_token or AWS_SESSION_TOKEN
         self.aws_region = aws_region or AWS_REGION or "us-east-1"
         self.aws_role_arn = aws_role_arn or AWS_ROLE_ARN
         
@@ -70,6 +79,7 @@ class BedrockClient(ModelClient):
             session = boto3.Session(
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
+                aws_session_token=self.aws_session_token,
                 region_name=self.aws_region
             )
             
@@ -218,6 +228,66 @@ class BedrockClient(ModelClient):
                         return response[key]
             return str(response)
 
+    def parse_embedding_response(self, response: Any) -> EmbedderOutput:
+        """Parse Bedrock embedding response to EmbedderOutput format."""
+        from adalflow.core.types import Embedding
+
+        try:
+            embedding_data: List[Embedding] = []
+
+            if isinstance(response, dict) and "embeddings" in response:
+                embeddings = response.get("embeddings") or []
+                embedding_data = [
+                    Embedding(embedding=emb, index=i) for i, emb in enumerate(embeddings)
+                ]
+            elif isinstance(response, dict) and "embedding" in response:
+                emb = response.get("embedding") or []
+                embedding_data = [Embedding(embedding=emb, index=0)]
+            else:
+                raise ValueError(f"Unexpected embedding response type: {type(response)}")
+
+            return EmbedderOutput(data=embedding_data, error=None, raw_response=response)
+        except Exception as e:
+            log.error(f"Error parsing Bedrock embedding response: {e}")
+            return EmbedderOutput(data=[], error=str(e), raw_response=response)
+
+    def _invoke_model_json(self, model_id: str, body_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Invoke Bedrock Runtime and return decoded JSON body."""
+        if not self.sync_client:
+            raise RuntimeError("AWS Bedrock client not initialized. Check your AWS credentials and region.")
+
+        response = self.sync_client.invoke_model(
+            modelId=model_id,
+            body=json.dumps(body_dict),
+            contentType="application/json",
+            accept="application/json",
+        )
+
+        raw = response["body"].read()
+        if isinstance(raw, (bytes, bytearray)):
+            raw = raw.decode("utf-8")
+        return json.loads(raw)
+
+    def _format_embedding_body(
+        self,
+        provider: str,
+        text: str,
+        model_kwargs: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Format embedding request body based on provider."""
+        if provider == "amazon":
+            body: Dict[str, Any] = {"inputText": text}
+            dimensions = model_kwargs.get("dimensions") or model_kwargs.get("output_embedding_length")
+            if dimensions is not None:
+                body["embeddingConfig"] = {"outputEmbeddingLength": int(dimensions)}
+            return body
+
+        if provider == "cohere":
+            input_type = model_kwargs.get("input_type") or "search_document"
+            return {"texts": [text], "input_type": input_type}
+
+        raise ValueError(f"Embedding provider '{provider}' is not supported by AWS Bedrock client")
+
     @backoff.on_exception(
         backoff.expo,
         (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError),
@@ -286,6 +356,44 @@ class BedrockClient(ModelClient):
             except Exception as e:
                 log.error(f"Error calling AWS Bedrock API: {str(e)}")
                 return f"Error: {str(e)}"
+        elif model_type == ModelType.EMBEDDER:
+            model_id = api_kwargs.get("model", "amazon.titan-embed-text-v2:0")
+            provider = self._get_model_provider(model_id)
+
+            inputs = api_kwargs.get("input")
+            if isinstance(inputs, str):
+                texts = [inputs]
+            elif isinstance(inputs, Sequence):
+                texts = list(inputs)
+            else:
+                raise TypeError("input must be a string or sequence of strings")
+
+            model_kwargs = api_kwargs.get("model_kwargs") or {}
+
+            embeddings: List[List[float]] = []
+            raw_responses: List[Dict[str, Any]] = []
+
+            if provider == "cohere":
+                # Cohere supports batch; send all texts at once.
+                request_body = {
+                    "texts": texts,
+                    "input_type": model_kwargs.get("input_type") or "search_document",
+                }
+                response_body = self._invoke_model_json(model_id=model_id, body_dict=request_body)
+                raw_responses.append(response_body)
+                batch_embeddings = response_body.get("embeddings") or []
+                embeddings = batch_embeddings
+            else:
+                for text in texts:
+                    request_body = self._format_embedding_body(provider, text, model_kwargs)
+                    response_body = self._invoke_model_json(model_id=model_id, body_dict=request_body)
+                    raw_responses.append(response_body)
+                    emb = response_body.get("embedding")
+                    if emb is None:
+                        raise ValueError(f"Embedding not found in response: {response_body}")
+                    embeddings.append(emb)
+
+            return {"embeddings": embeddings, "raw_responses": raw_responses}
         else:
             raise ValueError(f"Model type {model_type} is not supported by AWS Bedrock client")
 
@@ -312,6 +420,18 @@ class BedrockClient(ModelClient):
             if "top_p" in model_kwargs:
                 api_kwargs["top_p"] = model_kwargs["top_p"]
             
+            return api_kwargs
+        elif model_type == ModelType.EMBEDDER:
+            if isinstance(input, str):
+                inputs = [input]
+            elif isinstance(input, Sequence):
+                inputs = list(input)
+            else:
+                raise TypeError("input must be a string or sequence of strings")
+
+            api_kwargs["model"] = model_kwargs.get("model", "amazon.titan-embed-text-v2:0")
+            api_kwargs["input"] = inputs
+            api_kwargs["model_kwargs"] = model_kwargs
             return api_kwargs
         else:
             raise ValueError(f"Model type {model_type} is not supported by AWS Bedrock client")
