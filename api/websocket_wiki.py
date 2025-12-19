@@ -9,8 +9,16 @@ from adalflow.core.types import ModelType
 from fastapi import WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import BaseModel, Field
 
-from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY
+from api.config import (
+    get_model_config,
+    configs,
+    OPENROUTER_API_KEY,
+    OPENAI_API_KEY,
+    AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY,
+)
 from api.data_pipeline import count_tokens, get_file_content
+from api.bedrock_client import BedrockClient
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.azureai_client import AzureAIClient
@@ -40,7 +48,10 @@ class ChatCompletionRequest(BaseModel):
     type: Optional[str] = Field("github", description="Type of repository (e.g., 'github', 'gitlab', 'bitbucket')")
 
     # model parameters
-    provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama, azure)")
+    provider: str = Field(
+        "google",
+        description="Model provider (google, openai, openrouter, ollama, bedrock, azure, dashscope)",
+    )
     model: Optional[str] = Field(None, description="Model name for the specified provider")
 
     language: Optional[str] = Field("en", description="Language for content generation (e.g., 'en', 'ja', 'zh', 'es', 'kr', 'vi')")
@@ -494,6 +505,25 @@ This file contains...
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM
             )
+        if request.provider == "bedrock":
+            logger.info(f"Using AWS Bedrock with model: {request.model}")
+
+            if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
+                logger.warning(
+                    "AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY not configured, but continuing with request")
+
+            model = BedrockClient()
+            model_kwargs = {
+                "model": request.model,
+                "temperature": model_config["temperature"],
+                "top_p": model_config["top_p"],
+            }
+
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=prompt,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
         elif request.provider == "azure":
             logger.info(f"Using Azure AI with model: {request.model}")
 
@@ -589,6 +619,24 @@ This file contains...
                     error_msg = f"\nError with Openai API: {str(e_openai)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
                     await websocket.send_text(error_msg)
                     # Close the WebSocket connection after sending the error message
+                    await websocket.close()
+            elif request.provider == "bedrock":
+                try:
+                    logger.info("Making AWS Bedrock API call")
+                    response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                    if isinstance(response, str):
+                        await websocket.send_text(response)
+                    else:
+                        await websocket.send_text(str(response))
+                    await websocket.close()
+                except Exception as e_bedrock:
+                    logger.error(f"Error with AWS Bedrock API: {str(e_bedrock)}")
+                    error_msg = (
+                        f"\nError with AWS Bedrock API: {str(e_bedrock)}\n\n"
+                        "Please check that you have set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY "
+                        "environment variables with valid credentials."
+                    )
+                    await websocket.send_text(error_msg)
                     await websocket.close()
             elif request.provider == "azure":
                 try:
@@ -725,6 +773,33 @@ This file contains...
                             logger.error(f"Error with Openai API fallback: {str(e_fallback)}")
                             error_msg = f"\nError with Openai API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
                             await websocket.send_text(error_msg)
+                    elif request.provider == "bedrock":
+                        try:
+                            fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
+                                input=simplified_prompt,
+                                model_kwargs=model_kwargs,
+                                model_type=ModelType.LLM,
+                            )
+
+                            logger.info("Making fallback AWS Bedrock API call")
+                            fallback_response = await model.acall(
+                                api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM
+                            )
+
+                            if isinstance(fallback_response, str):
+                                await websocket.send_text(fallback_response)
+                            else:
+                                await websocket.send_text(str(fallback_response))
+                        except Exception as e_fallback:
+                            logger.error(
+                                f"Error with AWS Bedrock API fallback: {str(e_fallback)}"
+                            )
+                            error_msg = (
+                                f"\nError with AWS Bedrock API fallback: {str(e_fallback)}\n\n"
+                                "Please check that you have set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY "
+                                "environment variables with valid credentials."
+                            )
+                            await websocket.send_text(error_msg)
                     elif request.provider == "azure":
                         try:
                             # Create new api_kwargs with the simplified prompt
@@ -818,4 +893,3 @@ This file contains...
             await websocket.close()
         except:
             pass
-        
