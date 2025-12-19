@@ -414,7 +414,7 @@ class BedrockClient(ModelClient):
                     modelId=model_id,
                     body=request_body,
                 )
-                
+
                 # Parse the response
                 response_body = json.loads(response["body"].read())
                 raw_responses.append(response_body)
@@ -435,7 +435,7 @@ class BedrockClient(ModelClient):
                         modelId=model_id,
                         body=request_body,
                     )
-                    
+
                     # Parse the response
                     response_body = json.loads(response["body"].read())
                     raw_responses.append(response_body)
