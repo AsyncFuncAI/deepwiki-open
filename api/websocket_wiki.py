@@ -546,8 +546,21 @@ This file contains...
                 response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
                 # Handle streaming response from Ollama
                 async for chunk in response:
-                    text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
+                    message = getattr(chunk, 'message', None)
+                    text = None
+                    if message:
+                        # message might be a Message object or a dict-like object
+                        if hasattr(message, 'get') and callable(message.get):
+                            text = message.get('content')
+                        else:
+                            text = getattr(message, 'content', None)
+                    # Fallbacks
+                    if text is None:
+                        text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
+
+                    # Optional: ignore metadata lines starting with model= or created_at=
                     if text and not text.startswith('model=') and not text.startswith('created_at='):
+                        # clean up thinking tags
                         text = text.replace('<think>', '').replace('</think>', '')
                         await websocket.send_text(text)
                 # Explicitly close the WebSocket connection after the response is complete
