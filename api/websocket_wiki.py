@@ -505,7 +505,7 @@ This file contains...
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM
             )
-        if request.provider == "bedrock":
+        elif request.provider == "bedrock":
             logger.info(f"Using AWS Bedrock with model: {request.model}")
 
             if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:

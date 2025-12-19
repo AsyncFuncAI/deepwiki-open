@@ -412,7 +412,7 @@ class BedrockClient(ModelClient):
                 # Make the API call
                 response = self.sync_client.invoke_model(
                     modelId=model_id,
-                    body=request_body,
+                    body=json.dumps(request_body),
                 )
 
                 # Parse the response
@@ -433,7 +433,7 @@ class BedrockClient(ModelClient):
                     # Make the API call
                     response = self.sync_client.invoke_model(
                         modelId=model_id,
-                        body=request_body,
+                        body=json.dumps(request_body),
                     )
 
                     # Parse the response
