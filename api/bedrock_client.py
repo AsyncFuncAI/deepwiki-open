@@ -289,23 +289,6 @@ class BedrockClient(ModelClient):
             log.error(f"Error parsing Bedrock embedding response: {e}")
             return EmbedderOutput(data=[], error=str(e), raw_response=response)
 
-    def _invoke_model_json(self, model_id: str, body_dict: Dict[str, Any]) -> Dict[str, Any]:
-        """Invoke Bedrock Runtime and return decoded JSON body."""
-        if not self.sync_client:
-            raise RuntimeError("AWS Bedrock client not initialized. Check your AWS credentials and region.")
-
-        response = self.sync_client.invoke_model(
-            modelId=model_id,
-            body=json.dumps(body_dict),
-            contentType="application/json",
-            accept="application/json",
-        )
-
-        raw = response["body"].read()
-        if isinstance(raw, (bytes, bytearray)):
-            raw = raw.decode("utf-8")
-        return json.loads(raw)
-
     def _format_embedding_body(
         self,
         provider: str,
@@ -425,15 +408,38 @@ class BedrockClient(ModelClient):
                     "texts": texts,
                     "input_type": model_kwargs.get("input_type") or "search_document",
                 }
-                response_body = self._invoke_model_json(model_id=model_id, body_dict=request_body)
+
+                # Make the API call
+                response = self.sync_client.invoke_model(
+                    modelId=model_id,
+                    body=request_body,
+                )
+                
+                # Parse the response
+                response_body = json.loads(response["body"].read())
                 raw_responses.append(response_body)
-                batch_embeddings = response_body.get("embeddings") or []
-                embeddings = batch_embeddings
+
+                batch_embeddings = response_body.get("embeddings")
+                if isinstance(batch_embeddings, list):
+                    embeddings = batch_embeddings
+                elif isinstance(batch_embeddings, dict) and "float" in batch_embeddings:
+                    embeddings = batch_embeddings["float"]
+                else:
+                    raise ValueError(f"Embeddings not found in response: {response_body}")
             else:
                 for text in texts:
                     request_body = self._format_embedding_body(provider, text, model_kwargs)
-                    response_body = self._invoke_model_json(model_id=model_id, body_dict=request_body)
+
+                    # Make the API call
+                    response = self.sync_client.invoke_model(
+                        modelId=model_id,
+                        body=request_body,
+                    )
+                    
+                    # Parse the response
+                    response_body = json.loads(response["body"].read())
                     raw_responses.append(response_body)
+
                     emb = response_body.get("embedding")
                     if emb is None:
                         raise ValueError(f"Embedding not found in response: {response_body}")
