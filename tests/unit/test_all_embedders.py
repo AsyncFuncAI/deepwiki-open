@@ -199,6 +199,27 @@ class TestEmbedderFactory:
 
 class TestEmbedderClients:
     """Test individual embedder clients."""
+
+    def test_bedrock_embedder_request_format(self):
+        """Test Bedrock embedder request body formatting (Titan v2)."""
+        from api.bedrock_client import BedrockClient
+
+        with patch("api.bedrock_client.boto3.Session") as mock_session_cls:
+            mock_session = MagicMock()
+            mock_session.client.return_value = MagicMock()
+            mock_session_cls.return_value = mock_session
+
+            client = BedrockClient()
+
+            body = client._format_embedding_body(
+                provider="amazon",
+                text="hello",
+                model_kwargs={"dimensions": 256},
+            )
+
+            assert body["inputText"] == "hello"
+            assert body["dimensions"] == 256
+            assert "embeddingConfig" not in body, "Titan v2 must not send embeddingConfig"
     
     def test_google_embedder_client(self):
         """Test Google embedder client directly."""

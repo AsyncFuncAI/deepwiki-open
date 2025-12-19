@@ -277,9 +277,17 @@ class BedrockClient(ModelClient):
         """Format embedding request body based on provider."""
         if provider == "amazon":
             body: Dict[str, Any] = {"inputText": text}
-            dimensions = model_kwargs.get("dimensions") or model_kwargs.get("output_embedding_length")
+
+            # Titan Embeddings models accept `dimensions` as a top-level key (e.g. titan-embed-text-v2).
+            # Do NOT send `embeddingConfig`; Bedrock rejects extraneous keys for these models.
+            dimensions = model_kwargs.get("dimensions")
             if dimensions is not None:
-                body["embeddingConfig"] = {"outputEmbeddingLength": int(dimensions)}
+                body["dimensions"] = int(dimensions)
+
+            normalize = model_kwargs.get("normalize")
+            if normalize is not None:
+                body["normalize"] = bool(normalize)
+
             return body
 
         if provider == "cohere":
