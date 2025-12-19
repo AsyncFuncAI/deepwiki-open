@@ -541,14 +541,18 @@ async def root():
                 "POST /api/wiki_cache - Store wiki data to cache"
             ],
             "Sync": [
-                "GET /api/sync/status - Get sync scheduler status",
+                "GET /api/sync/status - Get sync scheduler status and statistics",
                 "GET /api/sync/projects - List all sync projects",
                 "POST /api/sync/projects - Add project for periodic sync",
                 "GET /api/sync/projects/{repo_type}/{owner}/{repo} - Get project sync status",
                 "PUT /api/sync/projects/{repo_type}/{owner}/{repo} - Update project sync settings",
                 "DELETE /api/sync/projects/{repo_type}/{owner}/{repo} - Remove project from sync",
                 "POST /api/sync/projects/{repo_type}/{owner}/{repo}/trigger - Manually trigger sync",
-                "GET /api/sync/projects/{repo_type}/{owner}/{repo}/check - Check for updates"
+                "GET /api/sync/projects/{repo_type}/{owner}/{repo}/check - Check for updates",
+                "GET /api/sync/projects/{repo_type}/{owner}/{repo}/history - Get sync history",
+                "POST /api/sync/projects/{repo_type}/{owner}/{repo}/reset - Reset retry count",
+                "POST /api/sync/webhook/{repo_type}/{owner}/{repo} - Webhook for push events",
+                "POST /api/sync/batch/trigger - Batch trigger sync for multiple projects"
             ],
             "LocalRepo": [
                 "GET /local_repo/structure - Get structure of a local repository (with path parameter)",
@@ -656,6 +660,13 @@ class SyncStatusResponse(BaseModel):
     enabled: bool
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    # Retry tracking
+    retry_count: int = 0
+    last_retry: Optional[str] = None
+    # Statistics
+    total_syncs: int = 0
+    successful_syncs: int = 0
+    failed_syncs: int = 0
 
 
 class SyncTriggerResponse(BaseModel):
@@ -816,34 +827,211 @@ async def check_for_updates(repo_type: str, owner: str, repo: str):
 @app.get("/api/sync/status")
 async def get_scheduler_status():
     """
-    Get the overall status of the sync scheduler.
+    Get the overall status of the sync scheduler with comprehensive statistics.
     """
     try:
         scheduler = get_scheduler()
-        projects = scheduler.get_all_projects()
-
-        # Count projects by status
-        status_counts = {
-            "pending": 0,
-            "in_progress": 0,
-            "completed": 0,
-            "failed": 0,
-            "disabled": 0
-        }
-
-        for p in projects:
-            status = p.get("sync_status", "pending")
-            if not p.get("enabled", True):
-                status_counts["disabled"] += 1
-            elif status in status_counts:
-                status_counts[status] += 1
-
-        return {
-            "scheduler_running": scheduler._running,
-            "total_projects": len(projects),
-            "status_counts": status_counts,
-            "check_interval_seconds": scheduler.check_interval
-        }
+        return scheduler.get_stats()
     except Exception as e:
         logger.error(f"Error getting scheduler status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Sync History Endpoint ---
+
+class SyncHistoryEntry(BaseModel):
+    """Model for sync history entry"""
+    timestamp: str
+    status: str
+    commit_hash: Optional[str] = None
+    document_count: Optional[int] = None
+    embedding_count: Optional[int] = None
+    duration_seconds: Optional[float] = None
+    error_message: Optional[str] = None
+    triggered_by: str = "scheduler"
+
+
+@app.get("/api/sync/projects/{repo_type}/{owner}/{repo}/history", response_model=List[SyncHistoryEntry])
+async def get_sync_history(
+    repo_type: str,
+    owner: str,
+    repo: str,
+    limit: int = Query(default=50, le=100, description="Maximum number of history entries to return")
+):
+    """
+    Get sync history for a specific project.
+
+    Returns the most recent sync operations with details like status, duration, and errors.
+    """
+    try:
+        scheduler = get_scheduler()
+        history = scheduler.get_project_history(owner, repo, repo_type, limit=limit)
+        if history is None:
+            raise HTTPException(status_code=404, detail="Project not found")
+        return [SyncHistoryEntry(**h) for h in history]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting sync history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Retry Reset Endpoint ---
+
+@app.post("/api/sync/projects/{repo_type}/{owner}/{repo}/reset", response_model=SyncStatusResponse)
+async def reset_project_retries(repo_type: str, owner: str, repo: str):
+    """
+    Reset retry count for a failed project.
+
+    This allows a failed project to be retried immediately without waiting for the backoff period.
+    Useful when the underlying issue has been fixed.
+    """
+    try:
+        scheduler = get_scheduler()
+        result = scheduler.reset_project_retries(owner, repo, repo_type)
+        if not result:
+            raise HTTPException(status_code=404, detail="Project not found")
+        return SyncStatusResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resetting project retries: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Webhook Endpoint ---
+
+class WebhookPayload(BaseModel):
+    """Model for webhook payload from GitHub/GitLab/Bitbucket"""
+    ref: Optional[str] = None  # Git ref (e.g., refs/heads/main)
+    repository: Optional[Dict[str, Any]] = None
+    # GitHub specific
+    pusher: Optional[Dict[str, Any]] = None
+    # GitLab specific
+    project: Optional[Dict[str, Any]] = None
+    # Bitbucket specific
+    push: Optional[Dict[str, Any]] = None
+
+
+@app.post("/api/sync/webhook/{repo_type}/{owner}/{repo}")
+async def sync_webhook(
+    repo_type: str,
+    owner: str,
+    repo: str,
+    payload: WebhookPayload = None,
+    request: Request = None
+):
+    """
+    Webhook endpoint for receiving push notifications from GitHub, GitLab, or Bitbucket.
+
+    Configure your repository webhook to POST to this endpoint on push events.
+    The sync will be triggered immediately when a push is received.
+
+    GitHub webhook: Settings > Webhooks > Add webhook
+    - Payload URL: https://your-server/api/sync/webhook/github/{owner}/{repo}
+    - Content type: application/json
+    - Events: Just the push event
+
+    GitLab webhook: Settings > Webhooks
+    - URL: https://your-server/api/sync/webhook/gitlab/{owner}/{repo}
+    - Trigger: Push events
+
+    Bitbucket webhook: Repository settings > Webhooks
+    - URL: https://your-server/api/sync/webhook/bitbucket/{owner}/{repo}
+    - Triggers: Repository push
+    """
+    try:
+        scheduler = get_scheduler()
+
+        # Check if project exists
+        status = scheduler.get_project_status(owner, repo, repo_type)
+        if not status:
+            # Auto-register the project if it doesn't exist
+            if repo_type == "github":
+                repo_url = f"https://github.com/{owner}/{repo}"
+            elif repo_type == "gitlab":
+                repo_url = f"https://gitlab.com/{owner}/{repo}"
+            elif repo_type == "bitbucket":
+                repo_url = f"https://bitbucket.org/{owner}/{repo}"
+            else:
+                raise HTTPException(status_code=400, detail=f"Unknown repo type: {repo_type}")
+
+            scheduler.add_project(
+                repo_url=repo_url,
+                owner=owner,
+                repo=repo,
+                repo_type=repo_type,
+                enabled=True
+            )
+            logger.info(f"Auto-registered project from webhook: {owner}/{repo}")
+
+        # Trigger sync
+        result = await scheduler.trigger_sync(owner, repo, repo_type, triggered_by="webhook")
+
+        return {
+            "message": f"Sync triggered for {owner}/{repo}",
+            "success": result.get("success", False),
+            "triggered_by": "webhook",
+            **result
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing webhook: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Batch Operations ---
+
+class BatchSyncRequest(BaseModel):
+    """Request for batch sync operation"""
+    projects: List[Dict[str, str]] = Field(
+        ...,
+        description="List of projects to sync, each with repo_type, owner, repo"
+    )
+
+
+@app.post("/api/sync/batch/trigger")
+async def batch_trigger_sync(request: BatchSyncRequest):
+    """
+    Trigger sync for multiple projects at once.
+
+    Useful for syncing all projects after a deployment or configuration change.
+    """
+    try:
+        scheduler = get_scheduler()
+        results = []
+
+        for project in request.projects:
+            repo_type = project.get("repo_type", "github")
+            owner = project.get("owner")
+            repo = project.get("repo")
+
+            if not owner or not repo:
+                results.append({
+                    "owner": owner,
+                    "repo": repo,
+                    "success": False,
+                    "error": "Missing owner or repo"
+                })
+                continue
+
+            result = await scheduler.trigger_sync(owner, repo, repo_type, triggered_by="batch")
+            results.append({
+                "owner": owner,
+                "repo": repo,
+                **result
+            })
+
+        successful = sum(1 for r in results if r.get("success", False))
+        return {
+            "total": len(results),
+            "successful": successful,
+            "failed": len(results) - successful,
+            "results": results
+        }
+    except Exception as e:
+        logger.error(f"Error in batch sync: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
