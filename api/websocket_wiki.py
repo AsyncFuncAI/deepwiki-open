@@ -517,11 +517,9 @@ This file contains...
                 "model": request.model,
             }
 
-            if "temperature" in model_config:
-                model_kwargs["temperature"] = model_config["temperature"]
-
-            if "top_p" in model_config:
-                model_kwargs["top_p"] = model_config["top_p"]
+            for key in ["temperature", "top_p"]:
+                if key in model_config:
+                    model_kwargs[key] = model_config[key]
 
             api_kwargs = model.convert_inputs_to_api_kwargs(
                 input=prompt,
