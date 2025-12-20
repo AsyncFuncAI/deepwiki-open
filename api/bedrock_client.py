@@ -6,10 +6,10 @@ import logging
 import boto3
 import botocore
 import backoff
-from typing import Dict, Any, Optional, List, Generator, Union, AsyncGenerator
+from typing import Dict, Any, Optional, List, Generator, Union, AsyncGenerator, Sequence
 
 from adalflow.core.model_client import ModelClient
-from adalflow.core.types import ModelType, GeneratorOutput
+from adalflow.core.types import ModelType, GeneratorOutput, EmbedderOutput
 
 # Configure logging
 from api.logging_config import setup_logging
@@ -39,6 +39,7 @@ class BedrockClient(ModelClient):
         self,
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
+        aws_session_token: Optional[str] = None,
         aws_region: Optional[str] = None,
         aws_role_arn: Optional[str] = None,
         *args,
@@ -49,19 +50,65 @@ class BedrockClient(ModelClient):
         Args:
             aws_access_key_id: AWS access key ID. If not provided, will use environment variable AWS_ACCESS_KEY_ID.
             aws_secret_access_key: AWS secret access key. If not provided, will use environment variable AWS_SECRET_ACCESS_KEY.
+            aws_session_token: AWS session token. If not provided, will use environment variable AWS_SESSION_TOKEN.
             aws_region: AWS region. If not provided, will use environment variable AWS_REGION.
             aws_role_arn: AWS IAM role ARN for role-based authentication. If not provided, will use environment variable AWS_ROLE_ARN.
         """
         super().__init__(*args, **kwargs)
-        from api.config import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, AWS_ROLE_ARN
+        from api.config import (
+            AWS_ACCESS_KEY_ID,
+            AWS_SECRET_ACCESS_KEY,
+            AWS_SESSION_TOKEN,
+            AWS_REGION,
+            AWS_ROLE_ARN,
+        )
 
         self.aws_access_key_id = aws_access_key_id or AWS_ACCESS_KEY_ID
         self.aws_secret_access_key = aws_secret_access_key or AWS_SECRET_ACCESS_KEY
+        self.aws_session_token = aws_session_token or AWS_SESSION_TOKEN
         self.aws_region = aws_region or AWS_REGION or "us-east-1"
         self.aws_role_arn = aws_role_arn or AWS_ROLE_ARN
         
         self.sync_client = self.init_sync_client()
         self.async_client = None  # Initialize async client only when needed
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]):
+        """Create an instance from a dictionary."""
+        return cls(**data)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "aws_access_key_id": self.aws_access_key_id,
+            "aws_secret_access_key": self.aws_secret_access_key,
+            "aws_session_token": self.aws_session_token,
+            "aws_region": self.aws_region,
+            "aws_role_arn": self.aws_role_arn,
+        }
+
+    def __getstate__(self):
+        """
+        Customize serialization to exclude non-picklable client objects.
+        This method is called by pickle when saving the object's state.
+        """
+        state = self.__dict__.copy()
+        # Remove the unpicklable client instances
+        if 'sync_client' in state:
+            del state['sync_client']
+        if 'async_client' in state:
+            del state['async_client']
+        return state
+
+    def __setstate__(self, state):
+        """
+        Customize deserialization to re-create the client objects.
+        This method is called by pickle when loading the object's state.
+        """
+        self.__dict__.update(state)
+        # Re-initialize the clients after unpickling
+        self.sync_client = self.init_sync_client()
+        self.async_client = None  # It will be lazily initialized when acall is used
 
     def init_sync_client(self):
         """Initialize the synchronous AWS Bedrock client."""
@@ -70,6 +117,7 @@ class BedrockClient(ModelClient):
             session = boto3.Session(
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
+                aws_session_token=self.aws_session_token,
                 region_name=self.aws_region
             )
             
@@ -218,6 +266,29 @@ class BedrockClient(ModelClient):
                         return response[key]
             return str(response)
 
+    def parse_embedding_response(self, response: Any) -> EmbedderOutput:
+        """Parse Bedrock embedding response to EmbedderOutput format."""
+        from adalflow.core.types import Embedding
+
+        try:
+            embedding_data: List[Embedding] = []
+
+            if isinstance(response, dict) and "embeddings" in response:
+                embeddings = response.get("embeddings") or []
+                embedding_data = [
+                    Embedding(embedding=emb, index=i) for i, emb in enumerate(embeddings)
+                ]
+            elif isinstance(response, dict) and "embedding" in response:
+                emb = response.get("embedding") or []
+                embedding_data = [Embedding(embedding=emb, index=0)]
+            else:
+                raise ValueError(f"Unexpected embedding response type: {type(response)}")
+
+            return EmbedderOutput(data=embedding_data, error=None, raw_response=response)
+        except Exception as e:
+            log.error(f"Error parsing Bedrock embedding response: {e}")
+            return EmbedderOutput(data=[], error=str(e), raw_response=response)
+
     @backoff.on_exception(
         backoff.expo,
         (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError),
@@ -286,6 +357,72 @@ class BedrockClient(ModelClient):
             except Exception as e:
                 log.error(f"Error calling AWS Bedrock API: {str(e)}")
                 return f"Error: {str(e)}"
+        elif model_type == ModelType.EMBEDDER:
+            model_id = api_kwargs.get("model", "amazon.titan-embed-text-v2:0")
+            provider = self._get_model_provider(model_id)
+
+            texts = api_kwargs.get("input", [])
+
+            model_kwargs = api_kwargs.get("model_kwargs") or {}
+
+            embeddings: List[List[float]] = []
+            raw_responses: List[Dict[str, Any]] = []
+
+            if provider == "amazon":
+                # Amazon Titan Embed Text does not support batch; send one at a time.
+                for text in texts:
+                    request_body: Dict[str, Any] = {"inputText": text}
+
+                    dimensions = model_kwargs.get("dimensions")
+                    if dimensions is not None:
+                        request_body["dimensions"] = int(dimensions)
+
+                    normalize = model_kwargs.get("normalize")
+                    if normalize is not None:
+                        request_body["normalize"] = bool(normalize)
+
+                    # Make the API call
+                    response = self.sync_client.invoke_model(
+                        modelId=model_id,
+                        body=json.dumps(request_body),
+                    )
+
+                    # Parse the response
+                    response_body = json.loads(response["body"].read())
+                    raw_responses.append(response_body)
+
+                    emb = response_body.get("embedding")
+                    if emb is None:
+                        raise ValueError(f"Embedding not found in response: {response_body}")
+                    embeddings.append(emb)
+
+            elif provider == "cohere":
+                # Cohere supports batch; send all texts at once.
+                request_body = {
+                    "texts": texts,
+                    "input_type": model_kwargs.get("input_type") or "search_document",
+                }
+
+                # Make the API call
+                response = self.sync_client.invoke_model(
+                    modelId=model_id,
+                    body=json.dumps(request_body),
+                )
+
+                # Parse the response
+                response_body = json.loads(response["body"].read())
+                raw_responses.append(response_body)
+
+                batch_embeddings = response_body.get("embeddings")
+                if isinstance(batch_embeddings, list):
+                    embeddings = batch_embeddings
+                elif isinstance(batch_embeddings, dict) and "float" in batch_embeddings:
+                    embeddings = batch_embeddings["float"]
+                else:
+                    raise ValueError(f"Embeddings not found in response: {response_body}")
+            else:
+                raise NotImplementedError(f"Embedding provider '{provider}' is not supported by the Bedrock client.")
+            return {"embeddings": embeddings, "raw_responses": raw_responses}
         else:
             raise ValueError(f"Model type {model_type} is not supported by AWS Bedrock client")
 
@@ -312,6 +449,18 @@ class BedrockClient(ModelClient):
             if "top_p" in model_kwargs:
                 api_kwargs["top_p"] = model_kwargs["top_p"]
             
+            return api_kwargs
+        elif model_type == ModelType.EMBEDDER:
+            if isinstance(input, str):
+                inputs = [input]
+            elif isinstance(input, Sequence):
+                inputs = list(input)
+            else:
+                raise TypeError("input must be a string or sequence of strings")
+
+            api_kwargs["model"] = model_kwargs.get("model", "amazon.titan-embed-text-v2:0")
+            api_kwargs["input"] = inputs
+            api_kwargs["model_kwargs"] = model_kwargs
             return api_kwargs
         else:
             raise ValueError(f"Model type {model_type} is not supported by AWS Bedrock client")
