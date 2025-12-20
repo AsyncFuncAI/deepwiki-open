@@ -368,31 +368,8 @@ class BedrockClient(ModelClient):
             embeddings: List[List[float]] = []
             raw_responses: List[Dict[str, Any]] = []
 
-            if provider == "cohere":
-                # Cohere supports batch; send all texts at once.
-                request_body = {
-                    "texts": texts,
-                    "input_type": model_kwargs.get("input_type") or "search_document",
-                }
-
-                # Make the API call
-                response = self.sync_client.invoke_model(
-                    modelId=model_id,
-                    body=json.dumps(request_body),
-                )
-
-                # Parse the response
-                response_body = json.loads(response["body"].read())
-                raw_responses.append(response_body)
-
-                batch_embeddings = response_body.get("embeddings")
-                if isinstance(batch_embeddings, list):
-                    embeddings = batch_embeddings
-                elif isinstance(batch_embeddings, dict) and "float" in batch_embeddings:
-                    embeddings = batch_embeddings["float"]
-                else:
-                    raise ValueError(f"Embeddings not found in response: {response_body}")
-            else:
+            if provider == "amazon":
+                # Amazon Titan Embed Text does not support batch; send one at a time.
                 for text in texts:
                     request_body: Dict[str, Any] = {"inputText": text}
 
@@ -419,6 +396,32 @@ class BedrockClient(ModelClient):
                         raise ValueError(f"Embedding not found in response: {response_body}")
                     embeddings.append(emb)
 
+            elif provider == "cohere":
+                # Cohere supports batch; send all texts at once.
+                request_body = {
+                    "texts": texts,
+                    "input_type": model_kwargs.get("input_type") or "search_document",
+                }
+
+                # Make the API call
+                response = self.sync_client.invoke_model(
+                    modelId=model_id,
+                    body=json.dumps(request_body),
+                )
+
+                # Parse the response
+                response_body = json.loads(response["body"].read())
+                raw_responses.append(response_body)
+
+                batch_embeddings = response_body.get("embeddings")
+                if isinstance(batch_embeddings, list):
+                    embeddings = batch_embeddings
+                elif isinstance(batch_embeddings, dict) and "float" in batch_embeddings:
+                    embeddings = batch_embeddings["float"]
+                else:
+                    raise ValueError(f"Embeddings not found in response: {response_body}")
+            else:
+                raise NotImplementedError(f"Embedding provider '{provider}' is not supported by the Bedrock client.")
             return {"embeddings": embeddings, "raw_responses": raw_responses}
         else:
             raise ValueError(f"Model type {model_type} is not supported by AWS Bedrock client")
