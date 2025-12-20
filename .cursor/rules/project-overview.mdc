@@ -1,0 +1,36 @@
+---
+description: General project context, architecture, and tech stack overview.
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# DeepWiki-Open Project Overview
+
+DeepWiki-Open is a full-stack RAG (Retrieval-Augmented Generation) application designed to generate and interact with documentation for software repositories.
+
+## Tech Stack
+- **Frontend**: Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, Mermaid.js.
+- **Backend**: FastAPI (Python 3.10+), Adalflow (RAG framework), FAISS (Vector DB).
+- **AI**: Provider-agnostic (OpenAI, Google Gemini, Ollama, Azure, OpenRouter, etc.).
+
+## Core Architecture
+- **Modular Monolith**: The backend is organized into functional modules within `api/`.
+- **RAG Pipeline**: Uses `adalflow` to orchestrate document ingestion, embedding, and retrieval.
+- **Communication**: REST for configuration/metadata; WebSockets (`/ws/chat`) for real-time streaming chat.
+- **Persistence**: 
+  - Repositories: `~/.adalflow/repos/`
+  - Vector DBs: `~/.adalflow/databases/`
+  - Wiki Cache: `~/.adalflow/wikicache/` (JSON)
+
+## Key Directories
+- `api/`: FastAPI backend logic.
+- `api/tools/`: Embedders and utility clients.
+- `src/app/`: Next.js pages and API routes.
+- `src/components/`: Reusable React components.
+- `src/utils/`: Frontend utilities (WebSocket client, etc.).
+
+## Development Principles
+- **Provider Agnostic**: Always use the factory patterns in `api/config.py` and `api/tools/embedder.py` when adding LLM support.
+- **Type Safety**: Maintain parity between Pydantic models in `api/` and TypeScript interfaces in `src/types`.
+- **Streaming First**: Prioritize streaming responses for AI interactions to improve UX.

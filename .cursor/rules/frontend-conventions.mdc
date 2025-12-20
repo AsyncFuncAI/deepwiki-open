@@ -1,0 +1,33 @@
+---
+description: Rules for Next.js frontend, TypeScript types, and UI component development.
+globs:
+  - "src/**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Frontend & UI Conventions
+
+The frontend is a Next.js application focused on repository visualization and AI interaction.
+
+## Next.js & React Patterns
+- **App Router**: Use the `src/app` directory for routing. Dynamic repository routes follow the `[owner]/[repo]` pattern.
+- **Server vs. Client**: Use `"use client"` only for components requiring state, effects, or browser APIs (e.g., `Ask.tsx`, `WikiTreeView.tsx`).
+- **TypeScript**: Strictly type all component props and API responses. Sync with backend Pydantic models.
+
+## AI & Chat UI
+- **WebSockets**: Use `src/utils/websocketClient.ts` for all chat interactions. Do not implement raw WebSocket logic in components.
+- **Markdown Rendering**: Use the `Markdown` component for AI responses to support syntax highlighting and Mermaid diagrams.
+- **Streaming**: Handle partial message updates in the UI to provide a "typing" effect.
+
+## State & Data
+- **Local Storage**: Cache generated wiki structures in `localStorage` to allow instant navigation.
+- **i18n**: Use `next-intl` for all user-facing strings. Access via `useTranslations` hook.
+- **Context**: Use `LanguageContext` for global language state.
+
+## Styling
+- **Tailwind CSS**: Use Tailwind for all styling. Follow the existing design system (dark/light mode support via `next-themes`).
+- **Icons**: Use `lucide-react` for consistent iconography.
+
+## Anti-Patterns
+- Do not fetch data directly from the backend in components; use the Next.js API proxy routes in `src/app/api/`.
+- Avoid large monolithic components; break down complex views like the Wiki page into smaller sub-components.

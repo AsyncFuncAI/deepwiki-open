@@ -3,7 +3,8 @@ import os
 from typing import List, Optional
 from urllib.parse import unquote
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types as genai_types
 from adalflow.components.model_client.ollama_client import OllamaClient
 from adalflow.core.types import ModelType
 from fastapi import FastAPI, HTTPException
@@ -11,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, GOOGLE_API_KEY
 from api.data_pipeline import count_tokens, get_file_content
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
@@ -450,14 +451,23 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 model_type=ModelType.LLM,
             )
         else:
-            # Initialize Google Generative AI model (default provider)
-            model = genai.GenerativeModel(
-                model_name=model_config["model"],
-                generation_config={
-                    "temperature": model_config["temperature"],
-                    "top_p": model_config["top_p"],
-                    "top_k": model_config["top_k"],
-                },
+            # Initialize Google Generative AI client (new google-genai SDK)
+            google_client = genai.Client(api_key=GOOGLE_API_KEY)
+            google_model_name = model_config["model"]
+            
+            # Build thinking_config if thinking_level is specified (for Gemini 3 models)
+            thinking_config = None
+            if "thinking_level" in model_config:
+                thinking_config = genai_types.ThinkingConfig(
+                    thinking_level=model_config["thinking_level"].upper()
+                )
+                logger.info(f"Using thinking_level: {model_config['thinking_level']}")
+            
+            google_generation_config = genai_types.GenerateContentConfig(
+                temperature=model_config["temperature"],
+                top_p=model_config["top_p"],
+                top_k=model_config["top_k"],
+                thinking_config=thinking_config
             )
 
         # Create a streaming response
@@ -550,10 +560,14 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                             "DASHSCOPE_WORKSPACE_ID) environment variables with valid values."
                         )
                 else:
-                    # Google Generative AI (default provider)
-                    response = model.generate_content(prompt, stream=True)
+                    # Google Generative AI (default provider) - using new google-genai SDK
+                    response = google_client.models.generate_content_stream(
+                        model=google_model_name,
+                        contents=prompt,
+                        config=google_generation_config
+                    )
                     for chunk in response:
-                        if hasattr(chunk, "text"):
+                        if hasattr(chunk, "text") and chunk.text:
                             yield chunk.text
 
             except Exception as e_outer:
@@ -711,22 +725,31 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                                     "DASHSCOPE_WORKSPACE_ID) environment variables with valid values."
                                 )
                         else:
-                            # Google Generative AI fallback (default provider)
+                            # Google Generative AI fallback (default provider) - using new google-genai SDK
                             model_config = get_model_config(request.provider, request.model)
-                            fallback_model = genai.GenerativeModel(
-                                model_name=model_config["model_kwargs"]["model"],
-                                generation_config={
-                                    "temperature": model_config["model_kwargs"].get("temperature", 0.7),
-                                    "top_p": model_config["model_kwargs"].get("top_p", 0.8),
-                                    "top_k": model_config["model_kwargs"].get("top_k", 40),
-                                },
+                            
+                            # Build thinking_config if thinking_level is specified
+                            fallback_thinking_config = None
+                            if "thinking_level" in model_config["model_kwargs"]:
+                                fallback_thinking_config = genai_types.ThinkingConfig(
+                                    thinking_level=model_config["model_kwargs"]["thinking_level"].upper()
+                                )
+                            
+                            fallback_generation_config = genai_types.GenerateContentConfig(
+                                temperature=model_config["model_kwargs"].get("temperature", 0.7),
+                                top_p=model_config["model_kwargs"].get("top_p", 0.8),
+                                top_k=model_config["model_kwargs"].get("top_k", 40),
+                                thinking_config=fallback_thinking_config
                             )
-
-                            fallback_response = fallback_model.generate_content(
-                                simplified_prompt, stream=True
+                            
+                            fallback_client = genai.Client(api_key=GOOGLE_API_KEY)
+                            fallback_response = fallback_client.models.generate_content_stream(
+                                model=model_config["model_kwargs"]["model"],
+                                contents=simplified_prompt,
+                                config=fallback_generation_config
                             )
                             for chunk in fallback_response:
-                                if hasattr(chunk, "text"):
+                                if hasattr(chunk, "text") and chunk.text:
                                     yield chunk.text
                     except Exception as e2:
                         logger.error(f"Error in fallback streaming response: {str(e2)}")

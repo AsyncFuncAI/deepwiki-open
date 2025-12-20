@@ -18,8 +18,9 @@
     "client_class": "GoogleEmbedderClient",
     "batch_size": 100,
     "model_kwargs": {
-      "model": "text-embedding-004",
-      "task_type": "SEMANTIC_SIMILARITY"
+      "model": "gemini-embedding-001",
+      "task_type": "SEMANTIC_SIMILARITY",
+      "output_dimensionality": 3072
     }
   },
   "embedder_bedrock": {
