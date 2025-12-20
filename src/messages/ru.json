@@ -90,7 +90,9 @@
     "excludeModeDescription": "Укажите пути, которые нужно исключить из обработки (поведение по умолчанию)",
     "includeModeDescription": "Укажите только те пути, которые нужно включить, игнорируя остальные",
     "authorizationCode": "Код авторизации",
-    "authorizationRequired": "Для генерации Wiki требуется авторизация."
+    "authorizationRequired": "Для генерации Wiki требуется авторизация.",
+    "needRefetchRepo": "Полностью обновить репозиторий"
+
   },
   "footer": {
     "copyright": "DeepWiki — документация с поддержкой ИИ для репозиториев кода"

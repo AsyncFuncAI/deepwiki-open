@@ -90,7 +90,8 @@
     "excludeModeDescription": "Specify paths to exclude from processing (default behavior)",
     "includeModeDescription": "Specify only the paths to include, ignoring all others",
     "authorizationCode": "Authorization Code",
-    "authorizationRequired": "Authentication is required to generate the wiki."
+    "authorizationRequired": "Authentication is required to generate the wiki.",
+    "needRefetchRepo": "Force refetch repository"
   },
   "footer": {
     "copyright": "DeepWiki - AI-powered documentation for code repositories"
