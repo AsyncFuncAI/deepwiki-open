@@ -361,13 +361,7 @@ class BedrockClient(ModelClient):
             model_id = api_kwargs.get("model", "amazon.titan-embed-text-v2:0")
             provider = self._get_model_provider(model_id)
 
-            inputs = api_kwargs.get("input")
-            if isinstance(inputs, str):
-                texts = [inputs]
-            elif isinstance(inputs, Sequence):
-                texts = list(inputs)
-            else:
-                raise TypeError("input must be a string or sequence of strings")
+            texts = api_kwargs.get("input", [])
 
             model_kwargs = api_kwargs.get("model_kwargs") or {}
 
