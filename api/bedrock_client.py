@@ -171,11 +171,15 @@ class BedrockClient(ModelClient):
         """
         seg = model_id.split(".")
         if len(seg) < 2:
-            return "amazon" # Default to Amazon if format is unexpected
+            # Default to Amazon if format is unexpected
+            return "amazon"
+
         if len(seg) == 2:
+            # non-regional format
             return seg[0]
-        else:
-            return seg[1]
+
+        # regional format
+        return seg[1]
 
     def _format_prompt_for_provider(self, provider: str, prompt: str, messages=None) -> Dict[str, Any]:
         """Format the prompt according to the provider's requirements.
