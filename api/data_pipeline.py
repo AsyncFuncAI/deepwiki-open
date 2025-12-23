@@ -847,6 +847,21 @@ class DatabaseManager:
         Returns:
             List[Document]: List of Document objects
         """
+        def _embedding_vector_length(doc: Document) -> int:
+            vector = getattr(doc, "vector", None)
+            if vector is None:
+                return 0
+            try:
+                if hasattr(vector, "shape"):
+                    if len(vector.shape) == 0:
+                        return 0
+                    return int(vector.shape[-1])
+                if hasattr(vector, "__len__"):
+                    return int(len(vector))
+            except Exception:
+                return 0
+            return 0
+
         # Handle backward compatibility
         if embedder_type is None and is_ollama_embedder is not None:
             embedder_type = 'ollama' if is_ollama_embedder else None
@@ -857,8 +872,24 @@ class DatabaseManager:
                 self.db = LocalDB.load_state(self.repo_paths["save_db_file"])
                 documents = self.db.get_transformed_data(key="split_and_embed")
                 if documents:
-                    logger.info(f"Loaded {len(documents)} documents from existing database")
-                    return documents
+                    lengths = [_embedding_vector_length(doc) for doc in documents]
+                    non_empty = sum(1 for n in lengths if n > 0)
+                    empty = len(lengths) - non_empty
+                    sample_sizes = sorted({n for n in lengths if n > 0})[:3]
+                    logger.info(
+                        "Loaded %s documents from existing database (embeddings: %s non-empty, %s empty; sample_dims=%s)",
+                        len(documents),
+                        non_empty,
+                        empty,
+                        sample_sizes,
+                    )
+
+                    if non_empty == 0:
+                        logger.warning(
+                            "Existing database contains no usable embeddings. Rebuilding embeddings..."
+                        )
+                    else:
+                        return documents
             except Exception as e:
                 logger.error(f"Error loading existing database: {e}")
                 # Continue to create a new database

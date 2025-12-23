@@ -88,42 +88,62 @@ class GoogleEmbedderClient(ModelClient):
             from adalflow.core.types import Embedding
             
             embedding_data = []
+
+            def _extract_embedding_value(obj):
+                if obj is None:
+                    return None
+                if isinstance(obj, dict):
+                    if "embedding" in obj:
+                        return obj.get("embedding")
+                    if "embeddings" in obj:
+                        return obj.get("embeddings")
+                if hasattr(obj, "embedding"):
+                    return getattr(obj, "embedding")
+                if hasattr(obj, "embeddings"):
+                    return getattr(obj, "embeddings")
+                for method_name in ("model_dump", "to_dict", "dict"):
+                    if hasattr(obj, method_name):
+                        try:
+                            dumped = getattr(obj, method_name)()
+                            if isinstance(dumped, dict):
+                                if "embedding" in dumped:
+                                    return dumped.get("embedding")
+                                if "embeddings" in dumped:
+                                    return dumped.get("embeddings")
+                        except Exception:
+                            pass
+                return None
             
-            if isinstance(response, dict):
-                if 'embedding' in response:
-                    embedding_value = response['embedding']
-                    if isinstance(embedding_value, list) and len(embedding_value) > 0:
-                        # Check if it's a single embedding (list of floats) or batch (list of lists)
-                        if isinstance(embedding_value[0], (int, float)):
-                            # Single embedding response: {'embedding': [float, ...]}
-                            embedding_data = [Embedding(embedding=embedding_value, index=0)]
-                        else:
-                            # Batch embeddings response: {'embedding': [[float, ...], [float, ...], ...]}
-                            embedding_data = [
-                                Embedding(embedding=emb_list, index=i) 
-                                for i, emb_list in enumerate(embedding_value)
-                            ]
-                    else:
-                        log.warning(f"Empty or invalid embedding data: {embedding_value}")
-                        embedding_data = []
-                elif 'embeddings' in response:
-                    # Alternative batch format: {'embeddings': [{'embedding': [float, ...]}, ...]}
+            embedding_value = _extract_embedding_value(response)
+            if embedding_value is None:
+                log.warning("Unexpected embedding response type/structure: %s", type(response))
+                embedding_data = []
+            elif isinstance(embedding_value, list) and len(embedding_value) > 0:
+                if isinstance(embedding_value[0], (int, float)):
+                    embedding_data = [Embedding(embedding=embedding_value, index=0)]
+                elif isinstance(embedding_value[0], list):
                     embedding_data = [
-                        Embedding(embedding=item['embedding'], index=i) 
-                        for i, item in enumerate(response['embeddings'])
+                        Embedding(embedding=emb_list, index=i)
+                        for i, emb_list in enumerate(embedding_value)
+                        if isinstance(emb_list, list) and len(emb_list) > 0
                     ]
                 else:
-                    log.warning(f"Unexpected response structure: {response.keys()}")
-                    embedding_data = []
-            elif hasattr(response, 'embeddings'):
-                # Custom batch response object from our implementation
-                embedding_data = [
-                    Embedding(embedding=emb, index=i) 
-                    for i, emb in enumerate(response.embeddings)
-                ]
+                    extracted = []
+                    for item in embedding_value:
+                        item_emb = _extract_embedding_value(item)
+                        if isinstance(item_emb, list) and len(item_emb) > 0:
+                            extracted.append(item_emb)
+                    embedding_data = [
+                        Embedding(embedding=emb_list, index=i)
+                        for i, emb_list in enumerate(extracted)
+                    ]
             else:
-                log.warning(f"Unexpected response type: {type(response)}")
+                log.warning("Empty or invalid embedding data parsed from response")
                 embedding_data = []
+
+            if embedding_data:
+                first_dim = len(embedding_data[0].embedding) if embedding_data[0].embedding is not None else 0
+                log.info("Parsed %s embedding(s) (dim=%s)", len(embedding_data), first_dim)
             
             return EmbedderOutput(
                 data=embedding_data,
@@ -201,7 +221,16 @@ class GoogleEmbedderClient(ModelClient):
         if model_type != ModelType.EMBEDDER:
             raise ValueError(f"GoogleEmbedderClient only supports EMBEDDER model type")
             
-        log.info(f"Google AI Embeddings API kwargs: {api_kwargs}")
+        safe_log_kwargs = {k: v for k, v in api_kwargs.items() if k not in {"content", "contents"}}
+        if "content" in api_kwargs:
+            safe_log_kwargs["content_chars"] = len(str(api_kwargs.get("content", "")))
+        if "contents" in api_kwargs:
+            try:
+                contents = api_kwargs.get("contents")
+                safe_log_kwargs["contents_count"] = len(contents) if hasattr(contents, "__len__") else None
+            except Exception:
+                safe_log_kwargs["contents_count"] = None
+        log.info("Google AI Embeddings call kwargs (sanitized): %s", safe_log_kwargs)
         
         try:
             # Use embed_content for single text or batch embedding
