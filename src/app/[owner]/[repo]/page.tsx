@@ -1094,7 +1094,7 @@ IMPORTANT:
         console.log(`Starting generation for ${pages.length} pages with controlled concurrency`);
 
         // Maximum concurrent requests
-        const MAX_CONCURRENT = 1;
+        const MAX_CONCURRENT = 3;
 
         // Create a queue of pages
         const queue = [...pages];
