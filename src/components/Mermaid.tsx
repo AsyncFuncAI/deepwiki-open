@@ -2,6 +2,46 @@ import React, { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
 // We'll use dynamic import for svg-pan-zoom
 
+const MERMAID_LABELS_RE = /(\|)([^|\n]+)(\|)|(\()([^()\n]+)(\))|(\[)([^\[\]\n]+)(\])|(\{)([^{}\n]+)(\})/g;
+
+function preprocessMermaidLabels(input: string): string {
+  return input.replace(
+    MERMAID_LABELS_RE,
+    (
+      match,
+      o1: string | undefined,
+      i1: string | undefined,
+      c1: string | undefined,
+      o2: string | undefined,
+      i2: string | undefined,
+      c2: string | undefined,
+      o3: string | undefined,
+      i3: string | undefined,
+      c3: string | undefined,
+      o4: string | undefined,
+      i4: string | undefined,
+      c4: string | undefined
+    ) => {
+      const open = o1 ?? o2 ?? o3 ?? o4;
+      const inner = i1 ?? i2 ?? i3 ?? i4;
+      const close = c1 ?? c2 ?? c3 ?? c4;
+
+      if (!open || !close || inner == null) return match;
+
+      const trimmedInner = inner.trim();
+      const isAlreadyQuoted =
+        trimmedInner.length >= 2 &&
+        trimmedInner.startsWith('"') &&
+        trimmedInner.endsWith('"');
+
+      const quotedInnerMatch = inner.match(/^\s*"(.*)"\s*$/);
+      const unquotedInner = isAlreadyQuoted && quotedInnerMatch ? quotedInnerMatch[1] : inner;
+      const escapedInner = unquotedInner.replace(/"/g, '&quot;');
+      return `${open}"${escapedInner}"${close}`;
+    }
+  );
+}
+
 // Initialize mermaid with defaults - Japanese aesthetic
 mermaid.initialize({
   startOnLoad: true,
@@ -365,8 +405,10 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled
         setError(null);
         setSvg('');
 
+        const preprocessedChart = preprocessMermaidLabels(chart);
+
         // Render the chart directly without preprocessing
-        const { svg: renderedSvg } = await mermaid.render(idRef.current, chart);
+        const { svg: renderedSvg } = await mermaid.render(idRef.current, preprocessedChart);
 
         if (!isMounted) return;
 
@@ -392,7 +434,7 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled
           if (mermaidRef.current) {
             mermaidRef.current.innerHTML = `
               <div class="text-red-500 dark:text-red-400 text-xs mb-1">Syntax error in diagram</div>
-              <pre class="text-xs overflow-auto p-2 bg-gray-100 dark:bg-gray-800 rounded">${chart}</pre>
+              <pre class="text-xs overflow-auto p-2 bg-gray-100 dark:bg-gray-800 rounded">${preprocessMermaidLabels(chart)}</pre>
             `;
           }
         }
