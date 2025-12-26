@@ -35,9 +35,8 @@ if is_development:
             item_path = os.path.join(current_dir, item)
             if os.path.isdir(item_path) and item != "logs":
                 api_subdirs.append(item_path)
-        
-        # Also add Python files in the api root directory
-        api_subdirs.append(current_dir + "/*.py")
+            elif os.path.isfile(item_path) and item.endswith(".py"):
+                api_subdirs.append(item_path)
         
         return original_watch(*api_subdirs, **kwargs)
     watchfiles.watch = patched_watch

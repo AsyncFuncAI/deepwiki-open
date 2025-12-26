@@ -7,7 +7,6 @@ import json
 import tiktoken
 import logging
 import base64
-import re
 import glob
 from adalflow.utils import get_adalflow_default_root_path
 from adalflow.core.db import LocalDB
@@ -31,7 +30,7 @@ def count_tokens(text: str, embedder_type: str = None, is_ollama_embedder: bool 
 
     Args:
         text (str): The text to count tokens for.
-        embedder_type (str, optional): The embedder type ('openai', 'google', 'ollama').
+        embedder_type (str, optional): The embedder type ('openai', 'google', 'ollama', 'bedrock').
                                      If None, will be determined from configuration.
         is_ollama_embedder (bool, optional): DEPRECATED. Use embedder_type instead.
                                            If None, will be determined from configuration.
@@ -56,6 +55,9 @@ def count_tokens(text: str, embedder_type: str = None, is_ollama_embedder: bool 
         elif embedder_type == 'google':
             # Google uses similar tokenization to GPT models for rough estimation
             encoding = tiktoken.get_encoding("cl100k_base")
+        elif embedder_type == 'bedrock':
+            # Bedrock embedding models vary; use a common GPT-like encoding for rough estimation
+            encoding = tiktoken.get_encoding("cl100k_base")
         else:  # OpenAI or default
             # Use OpenAI embedding model encoding
             encoding = tiktoken.encoding_for_model("text-embedding-3-small")
@@ -67,11 +69,12 @@ def count_tokens(text: str, embedder_type: str = None, is_ollama_embedder: bool 
         # Rough approximation: 4 characters per token
         return len(text) // 4
 
-def download_repo(repo_url: str, local_path: str, type: str = "github", access_token: str = None) -> str:
+def download_repo(repo_url: str, local_path: str, repo_type: str = None, access_token: str = None) -> str:
     """
     Downloads a Git repository (GitHub, GitLab, or Bitbucket) to a specified local path.
 
     Args:
+        repo_type(str): Type of repository
         repo_url (str): The URL of the Git repository to clone.
         local_path (str): The local directory where the repository will be cloned.
         access_token (str, optional): Access token for private repositories.
@@ -102,17 +105,19 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
         clone_url = repo_url
         if access_token:
             parsed = urlparse(repo_url)
+            # URL-encode the token to handle special characters
+            encoded_token = quote(access_token, safe='')
             # Determine the repository type and format the URL accordingly
-            if type == "github":
+            if repo_type == "github":
                 # Format: https://{token}@{domain}/owner/repo.git
                 # Works for both github.com and enterprise GitHub domains
-                clone_url = urlunparse((parsed.scheme, f"{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
-            elif type == "gitlab":
+                clone_url = urlunparse((parsed.scheme, f"{encoded_token}@{parsed.netloc}", parsed.path, '', '', ''))
+            elif repo_type == "gitlab":
                 # Format: https://oauth2:{token}@gitlab.com/owner/repo.git
-                clone_url = urlunparse((parsed.scheme, f"oauth2:{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
-            elif type == "bitbucket":
+                clone_url = urlunparse((parsed.scheme, f"oauth2:{encoded_token}@{parsed.netloc}", parsed.path, '', '', ''))
+            elif repo_type == "bitbucket":
                 # Format: https://x-token-auth:{token}@bitbucket.org/owner/repo.git
-                clone_url = urlunparse((parsed.scheme, f"x-token-auth:{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
+                clone_url = urlunparse((parsed.scheme, f"x-token-auth:{encoded_token}@{parsed.netloc}", parsed.path, '', '', ''))
 
             logger.info("Using access token for authentication")
 
@@ -131,9 +136,13 @@ def download_repo(repo_url: str, local_path: str, type: str = "github", access_t
 
     except subprocess.CalledProcessError as e:
         error_msg = e.stderr.decode('utf-8')
-        # Sanitize error message to remove any tokens
-        if access_token and access_token in error_msg:
+        # Sanitize error message to remove any tokens (both raw and URL-encoded)
+        if access_token:
+            # Remove raw token
             error_msg = error_msg.replace(access_token, "***TOKEN***")
+            # Also remove URL-encoded token to prevent leaking encoded version
+            encoded_token = quote(access_token, safe='')
+            error_msg = error_msg.replace(encoded_token, "***TOKEN***")
         raise ValueError(f"Error during cloning: {error_msg}")
     except Exception as e:
         raise ValueError(f"An unexpected error occurred: {str(e)}")
@@ -689,11 +698,12 @@ def get_bitbucket_file_content(repo_url: str, file_path: str, access_token: str 
         raise ValueError(f"Failed to get file content: {str(e)}")
 
 
-def get_file_content(repo_url: str, file_path: str, type: str = "github", access_token: str = None) -> str:
+def get_file_content(repo_url: str, file_path: str, repo_type: str = None, access_token: str = None) -> str:
     """
     Retrieves the content of a file from a Git repository (GitHub or GitLab).
 
     Args:
+        repo_type (str): Type of repository
         repo_url (str): The URL of the repository
         file_path (str): The path to the file within the repository
         access_token (str, optional): Access token for private repositories
@@ -704,14 +714,14 @@ def get_file_content(repo_url: str, file_path: str, type: str = "github", access
     Raises:
         ValueError: If the file cannot be fetched or if the URL is not valid
     """
-    if type == "github":
+    if repo_type == "github":
         return get_github_file_content(repo_url, file_path, access_token)
-    elif type == "gitlab":
+    elif repo_type == "gitlab":
         return get_gitlab_file_content(repo_url, file_path, access_token)
-    elif type == "bitbucket":
+    elif repo_type == "bitbucket":
         return get_bitbucket_file_content(repo_url, file_path, access_token)
     else:
-        raise ValueError("Unsupported repository URL. Only GitHub and GitLab are supported.")
+        raise ValueError("Unsupported repository type. Only GitHub, GitLab, and Bitbucket are supported.")
 
 class DatabaseManager:
     """
@@ -723,14 +733,15 @@ class DatabaseManager:
         self.repo_url_or_path = None
         self.repo_paths = None
 
-    def prepare_database(self, repo_url_or_path: str, type: str = "github", access_token: str = None, 
-                       embedder_type: str = None, is_ollama_embedder: bool = None,
-                       excluded_dirs: List[str] = None, excluded_files: List[str] = None,
-                       included_dirs: List[str] = None, included_files: List[str] = None) -> List[Document]:
+    def prepare_database(self, repo_url_or_path: str, repo_type: str = None, access_token: str = None,
+                         embedder_type: str = None, is_ollama_embedder: bool = None,
+                         excluded_dirs: List[str] = None, excluded_files: List[str] = None,
+                         included_dirs: List[str] = None, included_files: List[str] = None) -> List[Document]:
         """
         Create a new database from the repository.
 
         Args:
+            repo_type(str): Type of repository
             repo_url_or_path (str): The URL or local path of the repository
             access_token (str, optional): Access token for private repositories
             embedder_type (str, optional): Embedder type to use ('openai', 'google', 'ollama').
@@ -750,7 +761,7 @@ class DatabaseManager:
             embedder_type = 'ollama' if is_ollama_embedder else None
         
         self.reset_database()
-        self._create_repo(repo_url_or_path, type, access_token)
+        self._create_repo(repo_url_or_path, repo_type, access_token)
         return self.prepare_db_index(embedder_type=embedder_type, excluded_dirs=excluded_dirs, excluded_files=excluded_files,
                                    included_dirs=included_dirs, included_files=included_files)
 
@@ -777,7 +788,7 @@ class DatabaseManager:
             repo_name = url_parts[-1].replace(".git", "")
         return repo_name
 
-    def _create_repo(self, repo_url_or_path: str, repo_type: str = "github", access_token: str = None) -> None:
+    def _create_repo(self, repo_url_or_path: str, repo_type: str = None, access_token: str = None) -> None:
         """
         Download and prepare all paths.
         Paths:
@@ -785,12 +796,16 @@ class DatabaseManager:
         ~/.adalflow/databases/{owner}_{repo_name}.pkl
 
         Args:
+            repo_type(str): Type of repository
             repo_url_or_path (str): The URL or local path of the repository
             access_token (str, optional): Access token for private repositories
         """
         logger.info(f"Preparing repo storage for {repo_url_or_path}...")
 
         try:
+            # Strip whitespace to handle URLs with leading/trailing spaces
+            repo_url_or_path = repo_url_or_path.strip()
+            
             root_path = get_adalflow_default_root_path()
 
             os.makedirs(root_path, exist_ok=True)
@@ -880,16 +895,17 @@ class DatabaseManager:
         logger.info(f"Total transformed documents: {len(transformed_docs)}")
         return transformed_docs
 
-    def prepare_retriever(self, repo_url_or_path: str, type: str = "github", access_token: str = None):
+    def prepare_retriever(self, repo_url_or_path: str, repo_type: str = None, access_token: str = None):
         """
         Prepare the retriever for a repository.
         This is a compatibility method for the isolated API.
 
         Args:
+            repo_type(str): Type of repository
             repo_url_or_path (str): The URL or local path of the repository
             access_token (str, optional): Access token for private repositories
 
         Returns:
             List[Document]: List of Document objects
         """
-        return self.prepare_database(repo_url_or_path, type, access_token)
+        return self.prepare_database(repo_url_or_path, repo_type, access_token)

@@ -80,7 +80,7 @@ OLLAMA_HOST=your_ollama_host
 
 ```bash
 # 安裝 Python 相依性
-pip install -r api/requirements.txt
+python -m pip install poetry==2.0.1 && poetry install -C api
 
 # 啟動 API 伺服器
 python -m api.main

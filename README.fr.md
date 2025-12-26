@@ -82,7 +82,7 @@ OLLAMA_HOST=votre_hote_ollama
 
 ```bash
 # Installer dépendances Python
-pip install -r api/requirements.txt
+python -m pip install poetry==2.0.1 && poetry install -C api
 
 # Démarrer le serveur API
 python -m api.main
