@@ -258,7 +258,7 @@ def read_all_documents(path: str, embedder_type: str = None, is_ollama_embedder:
             # Check if file is in an included directory
             if included_dirs:
                 for included in included_dirs:
-                    clean_included = included.strip("./").rstrip("/")
+                    clean_included = included.removeprefix("./").removesuffix("/")
                     if clean_included in file_path_parts:
                         is_included = True
                         break
@@ -287,7 +287,7 @@ def read_all_documents(path: str, embedder_type: str = None, is_ollama_embedder:
 
             # Check if file is in an excluded directory
             for excluded in excluded_dirs:
-                clean_excluded = excluded.strip("./").rstrip("/")
+                clean_excluded = excluded.removeprefix("./").removesuffix("/")
                 if clean_excluded in file_path_parts:
                     is_excluded = True
                     break
