@@ -134,7 +134,7 @@ export default function Home() {
   const [excludedFiles, setExcludedFiles] = useState('');
   const [includedDirs, setIncludedDirs] = useState('');
   const [includedFiles, setIncludedFiles] = useState('');
-  const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>('github');
+  const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket' | 'codeberg'>('github');
   const [accessToken, setAccessToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -212,6 +212,8 @@ export default function Home() {
         type = 'gitlab';
       } else if (domain?.includes('bitbucket.org') || domain?.includes('bitbucket.')) {
         type = 'bitbucket';
+      } else if (domain?.includes('codeberg.org') || domain?.includes('codeberg.')) {
+        type = 'codeberg';
       } else {
         type = 'web'; // fallback for other git hosting services
       }
@@ -257,6 +259,10 @@ export default function Home() {
     if (!parsedRepo) {
       setError('Invalid repository format. Use "owner/repo", GitHub/GitLab/BitBucket URL, or a local folder path like "/path/to/folder" or "C:\\path\\to\\folder".');
       return;
+    }
+
+    if (parsedRepo.type && !['local', 'web'].includes(parsedRepo.type)) {
+      setSelectedPlatform(parsedRepo.type as 'github' | 'gitlab' | 'bitbucket' | 'codeberg');
     }
 
     // If valid, open the configuration modal
@@ -341,6 +347,12 @@ export default function Home() {
       return;
     }
 
+    const detectedType = parsedRepo.type;
+    const effectiveRepoType = detectedType === 'web' ? selectedPlatform : detectedType;
+    if (effectiveRepoType && effectiveRepoType !== selectedPlatform && effectiveRepoType !== 'local') {
+      setSelectedPlatform(effectiveRepoType as 'github' | 'gitlab' | 'bitbucket' | 'codeberg');
+    }
+
     const { owner, repo, type, localPath } = parsedRepo;
 
     // Store tokens in query params if they exist
@@ -349,7 +361,7 @@ export default function Home() {
       params.append('token', accessToken);
     }
     // Always include the type parameter
-    params.append('type', (type == 'local' ? type : selectedPlatform) || 'github');
+    params.append('type', (type == 'local' ? type : effectiveRepoType) || 'github');
     // Add local path if it exists
     if (localPath) {
       params.append('local_path', encodeURIComponent(localPath));

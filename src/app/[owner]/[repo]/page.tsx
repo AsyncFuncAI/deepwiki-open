@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FaBitbucket, FaBookOpen, FaComments, FaDownload, FaExclamationTriangle, FaFileExport, FaFolder, FaGithub, FaGitlab, FaHome, FaSync, FaTimes } from 'react-icons/fa';
+import { SiCodeberg } from 'react-icons/si';
 // Define the WikiSection and WikiStructure types directly in this file
 // since the imported types don't have the sections and rootSections properties
 interface WikiSection {
@@ -173,6 +174,18 @@ const createBitbucketHeaders = (bitbucketToken: string): HeadersInit => {
   return headers;
 };
 
+const createCodebergHeaders = (codebergToken: string): HeadersInit => {
+  const headers: HeadersInit = {
+    'Accept': 'application/json',
+  };
+
+  if (codebergToken) {
+    headers['Authorization'] = `token ${codebergToken}`;
+  }
+
+  return headers;
+};
+
 
 export default function RepoWikiPage() {
   // Get route parameters and search params
@@ -203,11 +216,13 @@ export default function RepoWikiPage() {
   })();
   const repoType = repoHost?.includes('bitbucket')
     ? 'bitbucket'
-    : repoHost?.includes('gitlab')
-      ? 'gitlab'
-      : repoHost?.includes('github')
-        ? 'github'
-        : searchParams.get('type') || 'github';
+    : repoHost?.includes('codeberg')
+      ? 'codeberg'
+      : repoHost?.includes('gitlab')
+        ? 'gitlab'
+        : repoHost?.includes('github')
+          ? 'github'
+          : searchParams.get('type') || 'github';
 
   // Import language context for translations
   const { messages } = useLanguage();
@@ -1314,8 +1329,8 @@ IMPORTANT:
           }
         } catch (err) {
           console.warn('Could not fetch README.md, continuing with empty README', err);
-        }
       }
+    }
       else if (effectiveRepoInfo.type === 'gitlab') {
         // GitLab API approach
         const projectPath = extractUrlPath(effectiveRepoInfo.repoUrl ?? '')?.replace(/\.git$/, '') || `${owner}/${repo}`;
@@ -1397,6 +1412,92 @@ IMPORTANT:
         } catch (err) {
           console.error("Error during GitLab repository tree retrieval:", err);
           throw err;
+        }
+      }
+      else if (effectiveRepoInfo.type === 'codeberg') {
+        const repoPathRaw = extractUrlPath(effectiveRepoInfo.repoUrl ?? '')?.replace(/\.git$/, '') || `${owner}/${repo}`;
+        const encodedRepoPath = repoPathRaw.split('/').map(encodeURIComponent).join('/');
+
+        let apiBaseUrl = 'https://codeberg.org/api/v1';
+        if (effectiveRepoInfo.repoUrl) {
+          try {
+            const parsedUrl = new URL(effectiveRepoInfo.repoUrl);
+            apiBaseUrl = `${parsedUrl.protocol}//${parsedUrl.hostname}${parsedUrl.port ? `:${parsedUrl.port}` : ''}/api/v1`;
+          } catch (err) {
+            console.warn('Could not parse Codeberg repository URL, defaulting to public API', err);
+          }
+        }
+
+        const headers = createCodebergHeaders(currentToken);
+        let defaultBranchLocal = 'main';
+        let apiErrorDetails = '';
+
+        // Fetch repository info to determine default branch
+        try {
+          const repoInfoResponse = await fetch(`${apiBaseUrl}/repos/${encodedRepoPath}`, { headers });
+          if (repoInfoResponse.ok) {
+            const repoInfoData = await repoInfoResponse.json();
+            defaultBranchLocal = repoInfoData?.default_branch || defaultBranchLocal;
+          } else {
+            const errorText = await repoInfoResponse.text();
+            apiErrorDetails = `Status: ${repoInfoResponse.status}, Response: ${errorText}`;
+            console.warn(`Could not fetch Codeberg repository info: ${apiErrorDetails}`);
+          }
+        } catch (err) {
+          console.warn('Network error fetching Codeberg repository info:', err);
+        }
+
+        setDefaultBranch(defaultBranchLocal);
+
+        let treeData: unknown = null;
+        try {
+          const treeResponse = await fetch(`${apiBaseUrl}/repos/${encodedRepoPath}/git/trees/${encodeURIComponent(defaultBranchLocal)}?recursive=1`, { headers });
+          if (treeResponse.ok) {
+            treeData = await treeResponse.json();
+          } else {
+            const errorText = await treeResponse.text();
+            apiErrorDetails = `Status: ${treeResponse.status}, Response: ${errorText}`;
+            console.error(`Error fetching Codeberg repository structure: ${apiErrorDetails}`);
+          }
+        } catch (err) {
+          console.error('Network error fetching Codeberg repository tree:', err);
+        }
+
+        const treeEntries = (treeData && typeof treeData === 'object' && 'tree' in (treeData as Record<string, unknown>)
+          ? (treeData as { tree: Array<{ type: string; path: string }> }).tree
+          : (treeData as { entries?: Array<{ type: string; path: string }> })?.entries) || [];
+
+        if (!Array.isArray(treeEntries) || treeEntries.length === 0) {
+          if (apiErrorDetails) {
+            throw new Error(`Could not fetch repository structure. Codeberg API Error: ${apiErrorDetails}`);
+          } else {
+            throw new Error('Could not fetch repository structure. Repository might not exist, be empty or private.');
+          }
+        }
+
+        fileTreeData = treeEntries
+          .filter((item: { type: string; path: string }) => item.type === 'blob')
+          .map((item: { type: string; path: string }) => item.path)
+          .join('\n');
+
+        // Fetch README if available
+        try {
+          const readmeResponse = await fetch(`${apiBaseUrl}/repos/${encodedRepoPath}/readme?ref=${encodeURIComponent(defaultBranchLocal)}`, { headers });
+          if (readmeResponse.ok) {
+            const readmeData = await readmeResponse.json();
+            if (readmeData?.content) {
+              const sanitized = (readmeData.content as string).replace(/\s/g, '');
+              try {
+                readmeContent = atob(sanitized);
+              } catch (decodeError) {
+                console.warn('Failed to decode Codeberg README content:', decodeError);
+              }
+            }
+          } else {
+            console.warn(`Could not fetch Codeberg README.md, status: ${readmeResponse.status}`);
+          }
+        } catch (err) {
+          console.warn('Could not fetch Codeberg README.md, continuing with empty README', err);
         }
       }
       else if (effectiveRepoInfo.type === 'bitbucket') {
@@ -2059,6 +2160,8 @@ IMPORTANT:
                       <FaGithub className="mr-2" />
                     ) : effectiveRepoInfo.type === 'gitlab' ? (
                       <FaGitlab className="mr-2" />
+                    ) : effectiveRepoInfo.type === 'codeberg' ? (
+                      <SiCodeberg className="mr-2" />
                     ) : (
                       <FaBitbucket className="mr-2" />
                     )}
@@ -2269,7 +2372,7 @@ IMPORTANT:
         onApply={confirmRefresh}
         showWikiType={true}
         showTokenInput={effectiveRepoInfo.type !== 'local' && !currentToken} // Show token input if not local and no current token
-        repositoryType={effectiveRepoInfo.type as 'github' | 'gitlab' | 'bitbucket'}
+        repositoryType={effectiveRepoInfo.type as 'github' | 'gitlab' | 'bitbucket' | 'codeberg'}
         authRequired={authRequired}
         authCode={authCode}
         setAuthCode={setAuthCode}

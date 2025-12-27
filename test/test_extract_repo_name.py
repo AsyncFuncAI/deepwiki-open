@@ -66,6 +66,14 @@ class TestExtractRepoNameFromUrl:
         assert result == "owner_repo"
 
         print("✓ Bitbucket URL tests passed")
+
+    def test_extract_repo_name_codeberg_urls(self):
+        """Test repository name extraction from Codeberg URLs"""
+        codeberg_url = "https://codeberg.org/owner/repo"
+        result = self.db_manager._extract_repo_name_from_url(codeberg_url, "codeberg")
+        assert result == "owner_repo"
+
+        print("✓ Codeberg URL tests passed")
     
     def test_extract_repo_name_local_paths(self):
         """Test repository name extraction from local paths"""

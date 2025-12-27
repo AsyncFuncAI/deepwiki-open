@@ -20,7 +20,7 @@
     "home": {
       "welcome": "Bienvenue sur DeepWiki-Open",
       "welcomeTagline": "Documentation propulsée par l’IA pour vos dépôts de code",
-      "description": "Générez une documentation complète à partir de dépôts GitHub, GitLab ou Bitbucket en quelques clics.",
+      "description": "Générez une documentation complète à partir de dépôts GitHub, GitLab, Bitbucket ou Codeberg en quelques clics.",
       "quickStart": "Démarrage rapide",
       "enterRepoUrl": "Entrez une URL de dépôt dans l’un des formats suivants :",
       "advancedVisualization": "Visualisation avancée avec des diagrammes Mermaid",
@@ -31,7 +31,7 @@
     "form": {
       "repository": "Dépôt",
       "configureWiki": "Configurer le Wiki",
-      "repoPlaceholder": "propriétaire/dépôt ou URL GitHub/GitLab/Bitbucket",
+      "repoPlaceholder": "propriétaire/dépôt ou URL GitHub/GitLab/Bitbucket/Codeberg",
       "wikiLanguage": "Langue du Wiki",
       "modelOptions": "Options du Modèle",
       "modelProvider": "Fournisseur du Modèle",
@@ -111,7 +111,7 @@
       "cancel": "Annuler",
       "home": "Accueil",
       "errorTitle": "Erreur",
-      "errorMessageDefault": "Veuillez vérifier que votre dépôt existe et est public. Les formats valides sont \"propriétaire/dépôt\", \"https://github.com/propriétaire/dépôt\", \"https://gitlab.com/propriétaire/dépôt\", \"https://bitbucket.org/propriétaire/dépôt\" ou des chemins locaux comme \"C:\\\\chemin\\\\vers\\\\dossier\" ou \"/chemin/vers/dossier\".",
+      "errorMessageDefault": "Veuillez vérifier que votre dépôt existe et est public. Les formats valides sont \"propriétaire/dépôt\", \"https://github.com/propriétaire/dépôt\", \"https://gitlab.com/propriétaire/dépôt\", \"https://bitbucket.org/propriétaire/dépôt\", \"https://codeberg.org/propriétaire/dépôt\" ou des chemins locaux comme \"C:\\\\chemin\\\\vers\\\\dossier\" ou \"/chemin/vers/dossier\".",
       "embeddingErrorDefault": "Cette erreur est liée au système d’indexation utilisé pour analyser votre dépôt. Veuillez vérifier la configuration du modèle d’indexation, les clés API, puis réessayez. Si le problème persiste, envisagez d’utiliser un autre fournisseur d’indexation dans les paramètres du modèle.",
       "backToHome": "Retour à l’accueil",
       "exportWiki": "Exporter le Wiki",
