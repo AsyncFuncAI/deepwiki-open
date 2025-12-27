@@ -2,44 +2,102 @@ import React, { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
 // We'll use dynamic import for svg-pan-zoom
 
-const MERMAID_LABELS_RE = /(\|)([^|\n]+)(\|)|(\()([^()\n]+)(\))|(\[)([^\[\]\n]+)(\])|(\{)([^{}\n]+)(\})/g;
-
 function preprocessMermaidLabels(input: string): string {
-  return input.replace(
-    MERMAID_LABELS_RE,
-    (
-      match,
-      o1: string | undefined,
-      i1: string | undefined,
-      c1: string | undefined,
-      o2: string | undefined,
-      i2: string | undefined,
-      c2: string | undefined,
-      o3: string | undefined,
-      i3: string | undefined,
-      c3: string | undefined,
-      o4: string | undefined,
-      i4: string | undefined,
-      c4: string | undefined
-    ) => {
-      const open = o1 ?? o2 ?? o3 ?? o4;
-      const inner = i1 ?? i2 ?? i3 ?? i4;
-      const close = c1 ?? c2 ?? c3 ?? c4;
+  const normalizeInner = (rawInner: string): string => {
+    const trimmedInner = rawInner.trim();
+    const isAlreadyQuoted =
+      trimmedInner.length >= 2 &&
+      trimmedInner.startsWith('"') &&
+      trimmedInner.endsWith('"');
 
-      if (!open || !close || inner == null) return match;
+    const quotedInnerMatch = rawInner.match(/^\s*"(.*)"\s*$/);
+    const unquotedInner = isAlreadyQuoted && quotedInnerMatch ? quotedInnerMatch[1] : rawInner;
+    return unquotedInner.replace(/"/g, '&quot;');
+  };
 
-      const trimmedInner = inner.trim();
-      const isAlreadyQuoted =
-        trimmedInner.length >= 2 &&
-        trimmedInner.startsWith('"') &&
-        trimmedInner.endsWith('"');
+  const processLine = (line: string): string => {
+    let out = '';
+    let i = 0;
+    let inQuotes = false;
 
-      const quotedInnerMatch = inner.match(/^\s*"(.*)"\s*$/);
-      const unquotedInner = isAlreadyQuoted && quotedInnerMatch ? quotedInnerMatch[1] : inner;
-      const escapedInner = unquotedInner.replace(/"/g, '&quot;');
-      return `${open}"${escapedInner}"${close}`;
+    const findMatchingClose = (openChar: '(' | '[' | '{', closeChar: ')' | ']' | '}'): number => {
+      let depth = 0;
+      let j = i;
+      let innerInQuotes = false;
+
+      while (j < line.length) {
+        const ch = line[j];
+
+        if (ch === '"') {
+          innerInQuotes = !innerInQuotes;
+          j += 1;
+          continue;
+        }
+
+        if (innerInQuotes) {
+          j += 1;
+          continue;
+        }
+
+        if (ch === openChar) {
+          depth += 1;
+        } else if (ch === closeChar) {
+          depth -= 1;
+          if (depth === 0) return j;
+        }
+
+        j += 1;
+      }
+
+      return -1;
+    };
+
+    while (i < line.length) {
+      const ch = line[i];
+
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+        out += ch;
+        i += 1;
+        continue;
+      }
+
+      if (!inQuotes && ch === '|') {
+        const end = line.indexOf('|', i + 1);
+        if (end !== -1) {
+          const inner = line.slice(i + 1, end);
+          const escapedInner = normalizeInner(inner);
+          out += `|"${escapedInner}"|`;
+          i = end + 1;
+          continue;
+        }
+      }
+
+      if (!inQuotes && (ch === '(' || ch === '[' || ch === '{')) {
+        const openChar = ch as '(' | '[' | '{';
+        const closeChar: ')' | ']' | '}' = openChar === '(' ? ')' : openChar === '[' ? ']' : '}';
+        const end = findMatchingClose(openChar, closeChar);
+
+        if (end !== -1) {
+          const inner = line.slice(i + 1, end);
+          const escapedInner = normalizeInner(inner);
+          out += `${openChar}"${escapedInner}"${closeChar}`;
+          i = end + 1;
+          continue;
+        }
+      }
+
+      out += ch;
+      i += 1;
     }
-  );
+
+    return out;
+  };
+
+  return input
+    .split('\n')
+    .map((line) => processLine(line))
+    .join('\n');
 }
 
 // Initialize mermaid with defaults - Japanese aesthetic
