@@ -262,16 +262,16 @@ def get_embedder_type():
     Returns:
         str: 'bedrock', 'ollama', 'google', 'azure', or 'openai' (default)
     """
-    if is_bedrock_embedder():
-        return 'bedrock'
-    elif is_ollama_embedder():
-        return 'ollama'
-    elif is_google_embedder():
-        return 'google'
-    elif is_azure_embedder():
-        return 'azure'
-    else:
-        return 'openai'
+    embedder_checks = {
+        'bedrock': is_bedrock_embedder,
+        'ollama': is_ollama_embedder,
+        'google': is_google_embedder,
+        'azure': is_azure_embedder,
+    }
+    for embedder_type, check_func in embedder_checks.items():
+        if check_func():
+            return embedder_type
+    return 'openai'
 
 # Load repository and file filters configuration
 def load_repo_config():
