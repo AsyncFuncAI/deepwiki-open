@@ -43,7 +43,7 @@ if is_development:
 
 import uvicorn
 
-# Check for Azure environment variables
+# Configure providers based on settings
 from api.config import configs
 import google.generativeai as genai
 
