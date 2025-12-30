@@ -152,7 +152,7 @@ def load_embedder_config():
     embedder_config = load_json_config("embedder.json")
 
     # Process client classes
-    for key in ["embedder", "embedder_ollama", "embedder_google", "embedder_bedrock"]:
+    for key in ["embedder", "embedder_ollama", "embedder_google", "embedder_bedrock", "embedder_azure"]:
         if key in embedder_config and "client_class" in embedder_config[key]:
             class_name = embedder_config[key]["client_class"]
             if class_name in CLIENT_CLASSES:
@@ -174,6 +174,8 @@ def get_embedder_config():
         return configs.get("embedder_google", {})
     elif embedder_type == 'ollama' and 'embedder_ollama' in configs:
         return configs.get("embedder_ollama", {})
+    elif embedder_type == 'azure' and 'embedder_azure' in configs:
+        return configs.get("embedder_azure", {})
     else:
         return configs.get("embedder", {})
 
@@ -235,12 +237,30 @@ def is_bedrock_embedder():
     client_class = embedder_config.get("client_class", "")
     return client_class == "BedrockClient"
 
+def is_azure_embedder():
+    """
+    Check if the current embedder configuration uses AzureAIClient.
+
+    Returns:
+        bool: True if using AzureAIClient, False otherwise
+    """
+    embedder_config = get_embedder_config()
+    if not embedder_config:
+        return False
+
+    model_client = embedder_config.get("model_client")
+    if model_client:
+        return model_client.__name__ == "AzureAIClient"
+
+    client_class = embedder_config.get("client_class", "")
+    return client_class == "AzureAIClient"
+
 def get_embedder_type():
     """
     Get the current embedder type based on configuration.
-    
+
     Returns:
-        str: 'bedrock', 'ollama', 'google', or 'openai' (default)
+        str: 'bedrock', 'ollama', 'google', 'azure', or 'openai' (default)
     """
     if is_bedrock_embedder():
         return 'bedrock'
@@ -248,6 +268,8 @@ def get_embedder_type():
         return 'ollama'
     elif is_google_embedder():
         return 'google'
+    elif is_azure_embedder():
+        return 'azure'
     else:
         return 'openai'
 
@@ -341,7 +363,7 @@ if generator_config:
 
 # Update embedder configuration
 if embedder_config:
-    for key in ["embedder", "embedder_ollama", "embedder_google", "embedder_bedrock", "retriever", "text_splitter"]:
+    for key in ["embedder", "embedder_ollama", "embedder_google", "embedder_bedrock", "embedder_azure", "retriever", "text_splitter"]:
         if key in embedder_config:
             configs[key] = embedder_config[key]
 
