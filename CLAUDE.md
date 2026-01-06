@@ -43,30 +43,27 @@ This document outlines a comprehensive plan to migrate DeepWiki from a FastAPI +
 ### Single Django Application
 - **Framework**: Django 6.0
 - **Architecture**: Monolithic Django app with:
-  - Django REST Framework (DRF) for API endpoints
+  - Django views (function-based and class-based) for all endpoints
+  - Django templates with HTMX for dynamic UI
   - Django Channels for WebSocket support
-  - Django templates with HTMX for dynamic UI (alternative to React)
-  - OR Server-Side Rendered React with Django (hybrid approach)
+  - No separate API layer - all functionality rendered through Django views
 
 ## Migration Strategy
 
-We propose a **phased migration approach** with three possible frontend strategies:
+We propose a **phased migration approach** using **Django Templates + HTMX**:
 
-### Frontend Strategy Options
+### Frontend Strategy: Django Templates + HTMX
 
-#### Option A: Django Templates + HTMX (Recommended for simplicity)
-- **Pros**: Full Django integration, no build step, simpler deployment
-- **Cons**: Less interactive than React, requires rewriting UI components
-
-#### Option B: Django + Server-Side React (Hybrid)
-- **Pros**: Keeps React components, better for complex UI
-- **Cons**: Requires build pipeline, more complex setup
-
-#### Option C: Django + Separate React SPA
-- **Pros**: Minimal frontend changes, clear separation
-- **Cons**: Still requires Node.js for build, doesn't fully consolidate stack
-
-**Recommendation**: Start with Option A (Django Templates + HTMX) for maximum simplification, with Option B as a fallback if UI complexity demands it.
+- **Approach**: Full Django integration with server-side rendering
+- **Benefits**:
+  - No build step required
+  - Simpler deployment (single application)
+  - Full Django ecosystem integration
+  - Better SEO with server-side rendering
+  - Reduced complexity (no separate API contracts)
+- **Trade-offs**:
+  - Requires rewriting UI components from React to Django templates
+  - Less client-side interactivity (mitigated by HTMX)
 
 ## Detailed Migration Plan
 
@@ -74,14 +71,13 @@ We propose a **phased migration approach** with three possible frontend strategi
 
 #### 1.1 Project Configuration
 - [ ] Update `autodocs/settings.py` with production-ready configurations:
-  - Configure CORS settings
   - Set up static and media files
   - Configure logging
-  - Add Django REST Framework
-  - Add Django Channels
+  - Add Django Channels for WebSocket support
   - Configure ASGI for WebSocket support
   - Add environment variable management (django-environ)
-  - Configure security settings
+  - Configure security settings (CSRF, session, etc.)
+  - Set up caching framework (Redis)
 
 #### 1.2 Database Design
 - [ ] Design Django models for:
@@ -97,34 +93,38 @@ We propose a **phased migration approach** with three possible frontend strategi
 #### 1.3 Core App Structure
 - [ ] Reorganize `autodocumenter` app:
   - `models.py`: Django models
-  - `views.py`: DRF ViewSets and API views
-  - `serializers.py`: DRF serializers
+  - `views.py`: Django views (function-based and class-based)
+  - `forms.py`: Django forms for user input
   - `urls.py`: URL routing
   - `consumers.py`: Django Channels WebSocket consumers
   - `tasks.py`: Background tasks (Celery/Django-Q)
   - `services/`: Business logic layer
   - `utils/`: Utility functions
+  - `templates/`: Django templates
+  - `static/`: Static assets (CSS, JS, images)
 
-### Phase 2: API Migration (Weeks 3-5)
+### Phase 2: Views and Endpoints Migration (Weeks 3-5)
 
-#### 2.1 RESTful Endpoints Migration
-Migrate all FastAPI endpoints to Django REST Framework:
+#### 2.1 Endpoint Migration to Django Views
+Migrate all FastAPI endpoints to Django views with templates or JSON responses:
 
-| FastAPI Endpoint | Django Endpoint | Notes |
-|-----------------|-----------------|-------|
-| `GET /` | `api/` | Root endpoint with API info |
-| `GET /health` | `api/health/` | Health check |
-| `GET /lang/config` | `api/config/language/` | Language configuration |
-| `GET /auth/status` | `api/auth/status/` | Auth status check |
-| `POST /auth/validate` | `api/auth/validate/` | Auth validation |
-| `GET /models/config` | `api/models/config/` | Model configuration |
-| `POST /export/wiki` | `api/wiki/export/` | Wiki export |
-| `GET /local_repo/structure` | `api/repos/local/structure/` | Local repo structure |
-| `GET /api/wiki_cache` | `api/wiki/cache/` | Get wiki cache |
-| `POST /api/wiki_cache` | `api/wiki/cache/` | Save wiki cache |
-| `DELETE /api/wiki_cache` | `api/wiki/cache/` | Delete wiki cache |
-| `GET /api/processed_projects` | `api/projects/processed/` | List processed projects |
-| `POST /chat/completions/stream` | `api/chat/completions/stream/` | Streaming chat (HTTP) |
+| FastAPI Endpoint | Django URL Pattern | View Type | Notes |
+|-----------------|-----------------|-----------|-------|
+| `GET /` | `/` | Template view | Home page with repository input |
+| `GET /health` | `/health/` | JSON view | Health check endpoint |
+| `GET /lang/config` | `/config/language/` | JSON view | Language configuration |
+| `GET /auth/status` | `/auth/status/` | JSON view | Auth status check |
+| `POST /auth/validate` | `/auth/validate/` | JSON view | Auth validation |
+| `GET /models/config` | `/models/config/` | JSON view | Model configuration |
+| `POST /export/wiki` | `/wiki/export/` | File download view | Wiki export (Markdown/JSON) |
+| `GET /local_repo/structure` | `/repos/local/structure/` | JSON view | Local repo structure |
+| `GET /api/wiki_cache` | `/wiki/cache/` | JSON view | Get wiki cache |
+| `POST /api/wiki_cache` | `/wiki/cache/` | JSON view | Save wiki cache |
+| `DELETE /api/wiki_cache` | `/wiki/cache/` | JSON view | Delete wiki cache |
+| `GET /api/processed_projects` | `/projects/` | Template/JSON view | List processed projects |
+| `POST /chat/completions/stream` | `/chat/stream/` | Streaming view | Streaming chat (HTTP) |
+| N/A | `/wiki/<owner>/<repo>/` | Template view | Wiki display page |
+| N/A | `/chat/` | Template view | Chat interface page |
 
 #### 2.2 WebSocket Migration
 - [ ] Migrate WebSocket endpoint to Django Channels:
@@ -194,71 +194,56 @@ Create Django services by migrating existing modules:
 - [ ] Implement task status endpoints
 - [ ] Add progress tracking for frontend
 
-### Phase 4: Frontend Migration (Weeks 7-10)
+### Phase 4: Frontend Migration with Django Templates + HTMX (Weeks 7-10)
 
-#### 4.1 Frontend Strategy A: Django Templates + HTMX
-
-**Step 1: Template Structure**
+#### 4.1 Template Structure
 - [ ] Create Django template hierarchy:
   - `base.html`: Base layout with theme support
   - `home.html`: Home page with repository input
   - `wiki.html`: Wiki display page
   - `chat.html`: Chat interface
   - `projects.html`: Processed projects list
-  - `components/`: Reusable template fragments
+  - `components/`: Reusable template fragments (included with `{% include %}`)
 
-**Step 2: Static Assets**
+#### 4.2 Static Assets Setup
 - [ ] Migrate CSS from `reference_impl/app/globals.css`
-- [ ] Set up Tailwind CSS with Django
-- [ ] Migrate theme toggle functionality
-- [ ] Set up icon library (replace react-icons)
+- [ ] Set up Tailwind CSS with Django (using django-tailwind or standalone)
+- [ ] Migrate theme toggle functionality to vanilla JS
+- [ ] Set up icon library (replace react-icons with Font Awesome or similar)
+- [ ] Configure Django static files collection
 
-**Step 3: HTMX Integration**
-- [ ] Install and configure HTMX
-- [ ] Implement dynamic loading patterns
+#### 4.3 HTMX Integration
+- [ ] Install and configure HTMX via CDN or static files
+- [ ] Implement dynamic loading patterns:
+  - Out-of-band swaps for live updates
+  - Polling for progress indicators
+  - Event-driven updates
 - [ ] Create HTMX-powered components:
-  - Model selection modal
+  - Model selection modal (with `hx-get` and `hx-target`)
   - Configuration modal
-  - Project list with auto-refresh
-  - File tree view
+  - Project list with auto-refresh (`hx-trigger="every 5s"`)
+  - File tree view with lazy loading
+- [ ] Implement form submissions with HTMX (replace fetch calls)
 
-**Step 4: WebSocket Integration**
-- [ ] Implement WebSocket client in vanilla JS
+#### 4.4 WebSocket Integration
+- [ ] Implement WebSocket client in vanilla JavaScript
 - [ ] Create chat interface with message streaming
-- [ ] Handle connection lifecycle in UI
+- [ ] Handle connection lifecycle in UI (reconnection logic)
+- [ ] Integrate with HTMX for seamless updates
 
-**Step 5: Internationalization (i18n)**
+#### 4.5 Internationalization (i18n)
 - [ ] Configure Django i18n framework
-- [ ] Migrate translation files from `reference_impl/messages/`
-- [ ] Implement language selector
-- [ ] Set up language context in templates
+- [ ] Create translation files using `django-admin makemessages`
+- [ ] Migrate translation strings from `reference_impl/messages/`
+- [ ] Implement language selector in base template
+- [ ] Set up language context in templates with `{% trans %}` tags
+- [ ] Configure language middleware
 
-**Step 6: State Management**
-- [ ] Implement client-side state with localStorage
+#### 4.6 State Management
+- [ ] Implement client-side state with localStorage (vanilla JS)
 - [ ] Create configuration persistence system
 - [ ] Handle cache management in browser
-
-#### 4.2 Frontend Strategy B: Django + Server-Side React (Alternative)
-
-**Step 1: React Build Pipeline**
-- [ ] Set up django-webpack-loader
-- [ ] Configure Webpack for React builds
-- [ ] Integrate build output with Django static files
-
-**Step 2: Server-Side Rendering Setup**
-- [ ] Configure React SSR with Django
-- [ ] Set up hydration strategy
-- [ ] Implement component loading system
-
-**Step 3: Component Migration**
-- [ ] Migrate React components from `reference_impl/components/`
-- [ ] Update API calls to use Django endpoints
-- [ ] Adjust WebSocket client for Django Channels
-
-**Step 4: Routing**
-- [ ] Map Next.js routes to Django URLs
-- [ ] Implement client-side routing with React Router
-- [ ] Handle authentication-protected routes
+- [ ] Use cookies/session for server-side state when appropriate
 
 ### Phase 5: Data Migration (Week 11)
 
@@ -335,9 +320,10 @@ Create Django services by migrating existing modules:
 #### 8.1 Documentation
 - [ ] Update README.md with new setup instructions
 - [ ] Document Django architecture
-- [ ] Create API documentation (DRF automatic docs)
+- [ ] Document view endpoints and URL patterns
 - [ ] Update deployment guide
 - [ ] Create development setup guide
+- [ ] Document HTMX patterns used in the application
 
 #### 8.2 Code Cleanup
 - [ ] Remove `api/` directory (FastAPI code)
@@ -406,24 +392,23 @@ Create Django services by migrating existing modules:
 
 ### Remove (No Longer Needed)
 - FastAPI
-- Uvicorn (replaced by Daphne or kept for ASGI)
+- Uvicorn (replaced by Daphne for ASGI)
 - Next.js
-- React (if using Option A)
-- Node.js build tools
+- React
+- Node.js and npm/yarn
+- All Node.js build tools (webpack, babel, etc.)
 
 ### Add (Django Ecosystem)
 - Django 6.0
-- Django REST Framework
-- Django Channels
-- Daphne (ASGI server)
-- django-cors-headers
-- django-environ
-- drf-spectacular (API documentation)
+- Django Channels (for WebSocket support)
+- Daphne (ASGI server for Channels)
+- django-environ (environment variable management)
+- django-htmx (optional helper for HTMX integration)
 - Celery (task queue)
-- Redis (cache & channels)
-- psycopg2-binary (PostgreSQL)
-- channels-redis
-- django-htmx (if using Option A)
+- Redis (cache & channel layers)
+- psycopg2-binary (PostgreSQL driver)
+- channels-redis (Redis channel layer for Django Channels)
+- whitenoise (static file serving in production)
 
 ### Keep (Core Dependencies)
 - adalflow
@@ -433,7 +418,7 @@ Create Django services by migrating existing modules:
 - faiss-cpu
 - langchain-community
 - numpy
-- All existing LLM provider SDKs
+- All existing LLM provider SDKs (Bedrock, Azure, Dashscope, etc.)
 
 ## Folder Structure (After Migration)
 
@@ -453,14 +438,14 @@ deepwiki-dj/
 │   ├── celery.py               # Celery config
 │   └── routing.py              # WebSocket routing
 │
-├── autodocumenter/             # Main Django app (renamed to 'wiki' or 'core'?)
+├── autodocumenter/             # Main Django app
 │   ├── __init__.py
 │   ├── admin.py
 │   ├── apps.py
 │   ├── models.py               # Django models
-│   ├── serializers.py          # DRF serializers
-│   ├── urls.py
-│   ├── views.py                # DRF views
+│   ├── forms.py                # Django forms
+│   ├── urls.py                 # URL routing
+│   ├── views.py                # Django views (function-based and class-based)
 │   ├── consumers.py            # WebSocket consumers
 │   ├── tasks.py                # Celery tasks
 │   │
@@ -488,21 +473,34 @@ deepwiki-dj/
 │   │       └── cleanup_repos.py
 │   │
 │   ├── migrations/
-│   ├── templates/              # Django templates (if Option A)
-│   │   ├── base.html
-│   │   ├── home.html
-│   │   ├── wiki.html
-│   │   ├── chat.html
-│   │   └── components/
 │   │
-│   ├── static/                 # Static assets (if Option A)
-│   │   ├── css/
-│   │   ├── js/
-│   │   └── images/
+│   ├── templates/              # Django templates
+│   │   ├── autodocumenter/    # App-specific templates
+│   │   │   ├── base.html
+│   │   │   ├── home.html
+│   │   │   ├── wiki.html
+│   │   │   ├── chat.html
+│   │   │   ├── projects.html
+│   │   │   └── components/    # Reusable template fragments
+│   │   │       ├── modal.html
+│   │   │       ├── config_form.html
+│   │   │       └── project_card.html
+│   │
+│   ├── static/                 # Static assets
+│   │   └── autodocumenter/    # App-specific static files
+│   │       ├── css/
+│   │       │   ├── main.css
+│   │       │   └── tailwind.css
+│   │       ├── js/
+│   │       │   ├── websocket.js
+│   │       │   ├── theme-toggle.js
+│   │       │   └── htmx-extensions.js
+│   │       └── images/
 │   │
 │   └── tests/
 │       ├── test_models.py
 │       ├── test_views.py
+│       ├── test_forms.py
 │       ├── test_services.py
 │       └── test_consumers.py
 │
@@ -547,9 +545,10 @@ deepwiki-dj/
 3. **Deployment complexity**: New Docker setup requires testing
 
 ### Low Risk
-1. **API endpoint compatibility**: DRF is well-documented and stable
+1. **View-based architecture**: Django views are well-documented and stable
 2. **Django ecosystem maturity**: Django is battle-tested
 3. **Authentication/authorization**: Django has excellent built-in support
+4. **Template rendering**: Django templates are highly performant
 
 ## Success Criteria
 
@@ -567,7 +566,7 @@ deepwiki-dj/
 - [ ] Improved performance over current setup
 - [ ] Better error handling and logging
 - [ ] Comprehensive test coverage (>80%)
-- [ ] API documentation (DRF Spectacular)
+- [ ] View endpoint documentation
 - [ ] Admin interface for cache management
 - [ ] Background task monitoring
 
@@ -584,9 +583,9 @@ deepwiki-dj/
 | Phase | Duration | Key Deliverables |
 |-------|----------|------------------|
 | 1. Django Backend Setup | 2 weeks | Django configured, models created |
-| 2. API Migration | 3 weeks | All REST endpoints migrated |
+| 2. Views and Endpoints Migration | 3 weeks | All endpoints migrated to Django views |
 | 3. Background Tasks | 1 week | Celery configured, tasks migrated |
-| 4. Frontend Migration | 4 weeks | New UI functional |
+| 4. Frontend Migration (Templates + HTMX) | 4 weeks | UI functional with Django templates |
 | 5. Data Migration | 1 week | Existing data migrated |
 | 6. Testing & QA | 1 week | All tests passing |
 | 7. Deployment & DevOps | 1 week | Production deployment ready |
@@ -613,24 +612,30 @@ If critical issues arise during migration:
 
 ## Questions & Decisions Needed
 
-1. **Frontend Strategy**: Confirm Option A (Django Templates + HTMX) or Option B (Django + React)?
-2. **Task Queue**: Confirm Celery vs Django-Q?
-3. **Database**: Confirm PostgreSQL for production?
-4. **Cache Strategy**: Database vs continue with file-based?
-5. **Deployment Timeline**: Phased rollout or big bang?
-6. **User Communication**: How to communicate changes to existing users?
+1. **Task Queue**: Confirm Celery vs Django-Q for background tasks?
+2. **Database**: Confirm PostgreSQL for production or stay with SQLite?
+3. **Cache Strategy**: Database-backed vs continue with file-based cache?
+4. **Deployment Timeline**: Phased rollout or big bang migration?
+5. **User Communication**: How to communicate changes to existing users?
+6. **Static Files**: Use WhiteNoise or serve via Nginx in production?
 
 ## References
 
 - Django Documentation: https://docs.djangoproject.com/
-- Django REST Framework: https://www.django-rest-framework.org/
 - Django Channels: https://channels.readthedocs.io/
 - HTMX Documentation: https://htmx.org/docs/
+- HTMX Examples: https://htmx.org/examples/
 - Celery Documentation: https://docs.celeryproject.org/
+- Alpine.js (optional for client-side reactivity): https://alpinejs.dev/
+- Tailwind CSS: https://tailwindcss.com/docs
+- Django Templates: https://docs.djangoproject.com/en/6.0/topics/templates/
 
 ---
 
-**Document Version**: 1.0
+**Document Version**: 2.0
 **Last Updated**: 2026-01-06
 **Author**: Claude
 **Status**: Draft - Pending Approval
+**Changelog**:
+- v2.0: Updated to use Django views with templates + HTMX exclusively (removed Django REST Framework)
+- v1.0: Initial plan with multiple frontend strategy options
