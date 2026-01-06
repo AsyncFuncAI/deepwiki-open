@@ -4,6 +4,16 @@
 
 This document outlines a comprehensive plan to migrate DeepWiki from a FastAPI + Next.js architecture to a Django-exclusive architecture. The goal is to consolidate the backend API and frontend rendering into a single Django application, eliminating the need for separate FastAPI and Node.js processes.
 
+### Key Implementation Decisions ✅
+
+- **Framework**: Django 6.0 with views and templates (no Django REST Framework)
+- **Frontend**: Django Templates + HTMX (no React/Node.js)
+- **Background Tasks**: Django 6 native task framework with DummyBackend
+- **Database**: SQLite (configured for production with WAL mode)
+- **Deployment**: Big bang deployment (no existing users)
+- **WebSockets**: Django Channels with Redis backend
+- **Architecture**: Single monolithic Django application
+
 ## Current Architecture
 
 ### Backend (FastAPI)
@@ -86,9 +96,10 @@ We propose a **phased migration approach** using **Django Templates + HTMX**:
   - `ProcessedProject`: Store project metadata
   - `ChatSession`: Store chat history
   - `UserConfiguration`: Store user preferences and settings
+  - `TaskResult`: Store background task results and status
 
 - [ ] Create migrations for all models
-- [ ] Consider using PostgreSQL instead of SQLite for production
+- [ ] Use SQLite for production (low traffic application, simpler deployment)
 
 #### 1.3 Core App Structure
 - [ ] Reorganize `autodocumenter` app:
@@ -97,7 +108,7 @@ We propose a **phased migration approach** using **Django Templates + HTMX**:
   - `forms.py`: Django forms for user input
   - `urls.py`: URL routing
   - `consumers.py`: Django Channels WebSocket consumers
-  - `tasks.py`: Background tasks (Celery/Django-Q)
+  - `tasks.py`: Background tasks (Django native task framework)
   - `services/`: Business logic layer
   - `utils/`: Utility functions
   - `templates/`: Django templates
@@ -176,23 +187,26 @@ Create Django services by migrating existing modules:
 
 ### Phase 3: Background Tasks (Week 6)
 
-#### 3.1 Task Queue Setup
-- [ ] Choose task queue system:
-  - **Option A**: Celery + Redis (more powerful, standard choice)
-  - **Option B**: Django-Q (simpler, Django-native)
-  - **Recommendation**: Celery for production scalability
+#### 3.1 Django Native Task Framework Setup
+- [ ] Configure Django 6's native task framework:
+  - Set up `TASKS` configuration in settings.py
+  - Use `DummyBackend` for initial implementation (in-process execution)
+  - Plan for future migration to Redis/database backend if needed
 
 #### 3.2 Task Migration
-- [ ] Create async tasks for long-running operations:
-  - Repository cloning
-  - Wiki generation
-  - Embedding generation
-  - Large file processing
+- [ ] Create background tasks using Django's `@task` decorator:
+  - Repository cloning task
+  - Wiki generation task
+  - Embedding generation task
+  - Large file processing task
+- [ ] Implement task enqueueing in views (using `task.enqueue()`)
+- [ ] Add error handling and retry logic
 
 #### 3.3 Task Monitoring
-- [ ] Set up task monitoring (Flower for Celery)
-- [ ] Implement task status endpoints
-- [ ] Add progress tracking for frontend
+- [ ] Implement task status tracking using Django models
+- [ ] Create status check endpoints for frontend
+- [ ] Add progress tracking for long-running tasks
+- [ ] Implement basic task result storage
 
 ### Phase 4: Frontend Migration with Django Templates + HTMX (Weeks 7-10)
 
@@ -285,16 +299,14 @@ Create Django services by migrating existing modules:
 ### Phase 7: Deployment & DevOps (Week 13)
 
 #### 7.1 Docker Configuration
-- [ ] Update Dockerfile for Django-only stack
-- [ ] Remove Node.js from Docker image
-- [ ] Configure ASGI server (Daphne or Uvicorn with Django)
-- [ ] Set up Redis for Channels and Celery
+- [ ] Update Dockerfile for Django-only stack:
+  - Remove Node.js from Docker image
+  - Configure ASGI server (Daphne)
+  - Include SQLite in container
 - [ ] Update docker-compose.yml:
-  - Django/ASGI container
-  - PostgreSQL container
-  - Redis container
-  - Celery worker container
-  - Celery beat container (if needed)
+  - Django/ASGI container (single service)
+  - Redis container (for Django Channels only)
+  - Volume mounts for SQLite database and media files
 
 #### 7.2 Environment Configuration
 - [ ] Update environment variables for Django
@@ -310,10 +322,14 @@ Create Django services by migrating existing modules:
   - Load balancing (if needed)
 
 #### 7.4 Database Setup
-- [ ] Configure PostgreSQL for production
-- [ ] Set up database backups
-- [ ] Configure connection pooling
-- [ ] Plan for database migrations
+- [ ] Configure SQLite for production:
+  - Set appropriate file permissions
+  - Configure WAL mode for better concurrency
+  - Set up volume mounts for database persistence
+- [ ] Implement database backup strategy:
+  - Regular SQLite database file backups
+  - Backup rotation policy
+- [ ] Plan for database migrations (Django's migration system)
 
 ### Phase 8: Documentation & Cleanup (Week 14)
 
@@ -333,10 +349,10 @@ Create Django services by migrating existing modules:
 - [ ] Archive old code in separate branch
 
 #### 8.3 Migration Guide
-- [ ] Create migration guide for existing users
-- [ ] Document breaking changes
-- [ ] Provide data migration scripts
-- [ ] Update Docker instructions
+- [ ] Document breaking changes from FastAPI to Django
+- [ ] Provide data migration scripts for cache conversion
+- [ ] Update Docker instructions for new architecture
+- [ ] Create rollback procedures
 
 ## Technical Considerations
 
@@ -358,10 +374,10 @@ Create Django services by migrating existing modules:
 ### 3. Performance
 **Challenge**: Ensuring performance matches or exceeds current setup
 **Solution**:
-- Use Django caching framework (Redis)
+- Use Django caching framework (Redis for hot data)
 - Implement database query optimization
-- Use database connection pooling
-- Consider read replicas for scaling
+- Configure SQLite for optimal performance (WAL mode)
+- Use database indexes appropriately
 - Profile and optimize hot paths
 
 ### 4. WebSocket Scalability
@@ -388,6 +404,15 @@ Create Django services by migrating existing modules:
 - Use dependency injection for testing
 - Maintain provider configuration system
 
+### 7. Background Task Processing
+**Challenge**: Long-running operations like wiki generation and repository cloning
+**Solution**:
+- Use Django 6's native task framework with `@task` decorator
+- Start with DummyBackend for simplicity (in-process execution)
+- Implement task status tracking in database
+- Can migrate to Redis/database backend later if needed for scalability
+- Use task queue for async operations without external dependencies
+
 ## Dependencies
 
 ### Remove (No Longer Needed)
@@ -404,9 +429,7 @@ Create Django services by migrating existing modules:
 - Daphne (ASGI server for Channels)
 - django-environ (environment variable management)
 - django-htmx (optional helper for HTMX integration)
-- Celery (task queue)
-- Redis (cache & channel layers)
-- psycopg2-binary (PostgreSQL driver)
+- Redis (for Django Channels layer backend only)
 - channels-redis (Redis channel layer for Django Channels)
 - whitenoise (static file serving in production)
 
@@ -435,7 +458,6 @@ deepwiki-dj/
 │   ├── urls.py
 │   ├── asgi.py                 # ASGI config for Channels
 │   ├── wsgi.py
-│   ├── celery.py               # Celery config
 │   └── routing.py              # WebSocket routing
 │
 ├── autodocumenter/             # Main Django app
@@ -447,7 +469,7 @@ deepwiki-dj/
 │   ├── urls.py                 # URL routing
 │   ├── views.py                # Django views (function-based and class-based)
 │   ├── consumers.py            # WebSocket consumers
-│   ├── tasks.py                # Celery tasks
+│   ├── tasks.py                # Background tasks (Django native)
 │   │
 │   ├── services/               # Business logic layer
 │   │   ├── __init__.py
@@ -568,7 +590,7 @@ deepwiki-dj/
 - [ ] Comprehensive test coverage (>80%)
 - [ ] View endpoint documentation
 - [ ] Admin interface for cache management
-- [ ] Background task monitoring
+- [ ] Task status tracking and monitoring
 
 ### Nice to Have
 - [ ] Improved UI/UX
@@ -594,13 +616,13 @@ deepwiki-dj/
 
 ## Rollback Plan
 
-If critical issues arise during migration:
+Since this is a big bang deployment with no existing users:
 
 1. **Keep old code in separate branch**: `main-fastapi-nextjs`
-2. **Parallel deployment**: Run both stacks temporarily
-3. **Feature flags**: Enable gradual rollout of Django features
-4. **Data backup**: Regular backups of cache and database
-5. **Monitoring**: Set up alerts for errors and performance issues
+2. **Development testing**: Thorough testing in development environment before deployment
+3. **Data backup**: Backup any development cache data before migration
+4. **Quick rollback**: Ability to revert to previous Docker image if needed
+5. **Monitoring**: Set up alerts for errors and performance issues post-deployment
 
 ## Next Steps
 
@@ -610,32 +632,38 @@ If critical issues arise during migration:
 4. **Start Phase 1: Django Backend Setup**
 5. **Regular check-ins and progress reviews**
 
-## Questions & Decisions Needed
+## Questions & Decisions ✅
 
-1. **Task Queue**: Confirm Celery vs Django-Q for background tasks?
-2. **Database**: Confirm PostgreSQL for production or stay with SQLite?
-3. **Cache Strategy**: Database-backed vs continue with file-based cache?
-4. **Deployment Timeline**: Phased rollout or big bang migration?
-5. **User Communication**: How to communicate changes to existing users?
-6. **Static Files**: Use WhiteNoise or serve via Nginx in production?
+1. **Task Queue**: ✅ **Decided** - Use Django 6's native task framework with DummyBackend
+2. **Database**: ✅ **Decided** - Use SQLite for production (low traffic application)
+3. **Cache Strategy**: Database-backed vs continue with file-based cache? (TBD)
+4. **Deployment Timeline**: ✅ **Decided** - Big bang deployment (no existing users)
+5. **Static Files**: Use WhiteNoise or serve via Nginx in production? (TBD)
 
 ## References
 
 - Django Documentation: https://docs.djangoproject.com/
+- Django 6.0 Task Framework: https://docs.djangoproject.com/en/6.0/topics/tasks/
 - Django Channels: https://channels.readthedocs.io/
 - HTMX Documentation: https://htmx.org/docs/
 - HTMX Examples: https://htmx.org/examples/
-- Celery Documentation: https://docs.celeryproject.org/
 - Alpine.js (optional for client-side reactivity): https://alpinejs.dev/
 - Tailwind CSS: https://tailwindcss.com/docs
 - Django Templates: https://docs.djangoproject.com/en/6.0/topics/templates/
+- SQLite Performance Tuning: https://www.sqlite.org/pragma.html
 
 ---
 
-**Document Version**: 2.0
+**Document Version**: 3.0
 **Last Updated**: 2026-01-06
 **Author**: Claude
-**Status**: Draft - Pending Approval
+**Status**: Ready for Implementation
 **Changelog**:
+- v3.0: Updated with implementation decisions:
+  - Use Django 6's native task framework with DummyBackend
+  - Use SQLite for production (low traffic application)
+  - Big bang deployment strategy (no existing users)
+  - Simplified Docker setup (no Celery workers)
+  - Removed PostgreSQL and Celery dependencies
 - v2.0: Updated to use Django views with templates + HTMX exclusively (removed Django REST Framework)
 - v1.0: Initial plan with multiple frontend strategy options
