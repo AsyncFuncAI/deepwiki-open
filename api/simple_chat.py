@@ -340,12 +340,12 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                         model=request.model
                     ):
                         # Post-process for Ollama to remove thinking tags
-                if request.provider == "ollama":
+                        if request.provider == "ollama":
                             chunk = chunk.replace('<think>', '').replace('</think>', '')
                             if not chunk.startswith('model=') and not chunk.startswith('created_at='):
-                            yield chunk
-                        else:
-                            yield chunk
+                                yield chunk
+                            else:
+                                yield chunk
                             
                 except Exception as e_provider:
                     logger.error(f"Error with {request.provider} API: {str(e_provider)}")
@@ -386,22 +386,22 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                         if request.provider == "ollama":
                             simplified_prompt += " /no_think"
 
-                        # Use LLMService for fallback with simplified prompt
-                        try:
-                            async for chunk in llm_service.async_invoke_stream(
-                                prompt=simplified_prompt,
-                                provider=request.provider,
-                                model=request.model
-                            ):
-                                # Post-process for Ollama
-                                if request.provider == "ollama":
-                                    chunk = chunk.replace('<think>', '').replace('</think>', '')
-                                    if not chunk.startswith('model=') and not chunk.startswith('created_at='):
+                            # Use LLMService for fallback with simplified prompt
+                            try:
+                                async for chunk in llm_service.async_invoke_stream(
+                                    prompt=simplified_prompt,
+                                    provider=request.provider,
+                                    model=request.model
+                                ):
+                                    # Post-process for Ollama
+                                    if request.provider == "ollama":
+                                        chunk = chunk.replace('<think>', '').replace('</think>', '')
+                                        if not chunk.startswith('model=') and not chunk.startswith('created_at='):
+                                            yield chunk
+                                    else:
                                         yield chunk
-                                else:
-                                    yield chunk
                             except Exception as e_fallback:
-                            logger.error(f"Error in fallback with LLMService: {str(e_fallback)}")
+                                logger.error(f"Error in fallback with LLMService: {str(e_fallback)}")
                             yield f"\nError in fallback: {str(e_fallback)}"
                             
                     except Exception as e2:
