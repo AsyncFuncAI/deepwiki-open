@@ -41,7 +41,7 @@
       }
     },
     "openai": {
-      "default_model": "gpt-5-nano",
+      "default_model": "gpt-4.1",
       "supportsCustomModel": true,
       "models": {
         "gpt-5": {

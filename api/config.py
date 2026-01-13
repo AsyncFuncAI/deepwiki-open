@@ -284,6 +284,45 @@ def load_lang_config():
 
     return loaded_config
 
+# Load API keys configuration
+def load_api_keys_config():
+    """
+    Load API keys configuration, support configuration file and environment variable fallback
+    
+    Returns format:
+    {
+        "google": ["key1", "key2"],
+        "openai": ["key1"],
+        ...
+    }
+    """
+    api_keys_config = load_json_config("api_keys.json")
+    
+    result = {}
+    for provider_id, config in api_keys_config.items():
+        keys = config.get("keys", [])
+        
+        # If keys are not present in the configuration file, try reading from environment variables
+        if not keys:
+            env_var_name = f"{provider_id.upper()}_API_KEYS"
+            env_value = os.environ.get(env_var_name)
+            if env_value:
+                keys = [k.strip() for k in env_value.split(',')]
+        else:
+            # If keys array element contains comma, split it into multiple keys
+            expanded_keys = []
+            for key in keys:
+                if isinstance(key, str) and ',' in key:
+                    # This is a comma-separated string, split it
+                    expanded_keys.extend([k.strip() for k in key.split(',') if k.strip()])
+                elif key:  # Ignore empty strings
+                    expanded_keys.append(key)
+            keys = expanded_keys
+        
+        result[provider_id] = keys
+    
+    return result
+
 # Default excluded directories and files
 DEFAULT_EXCLUDED_DIRS: List[str] = [
     # Virtual environments and package managers
@@ -333,6 +372,7 @@ generator_config = load_generator_config()
 embedder_config = load_embedder_config()
 repo_config = load_repo_config()
 lang_config = load_lang_config()
+api_keys_config = load_api_keys_config()
 
 # Update configuration
 if generator_config:
@@ -354,6 +394,10 @@ if repo_config:
 # Update language configuration
 if lang_config:
     configs["lang_config"] = lang_config
+
+# Update API keys configuration
+if api_keys_config:
+    configs["api_keys"] = api_keys_config
 
 
 def get_model_config(provider="google", model=None):

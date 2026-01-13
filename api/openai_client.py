@@ -242,12 +242,19 @@ class OpenAIClient(ModelClient):
     ) -> CompletionUsage:
 
         try:
-            usage: CompletionUsage = CompletionUsage(
-                completion_tokens=completion.usage.completion_tokens,
-                prompt_tokens=completion.usage.prompt_tokens,
-                total_tokens=completion.usage.total_tokens,
-            )
-            return usage
+            # Check if usage information is available
+            if completion.usage is not None:
+                usage: CompletionUsage = CompletionUsage(
+                    completion_tokens=completion.usage.completion_tokens,
+                    prompt_tokens=completion.usage.prompt_tokens,
+                    total_tokens=completion.usage.total_tokens,
+                )
+                return usage
+            else:
+                # Usage info not available, return None values
+                return CompletionUsage(
+                    completion_tokens=None, prompt_tokens=None, total_tokens=None
+                )
         except Exception as e:
             log.error(f"Error tracking the completion usage: {e}")
             return CompletionUsage(
@@ -430,15 +437,22 @@ class OpenAIClient(ModelClient):
                 # Get streaming response
                 stream_response = self.sync_client.chat.completions.create(**streaming_kwargs)
 
-                # Accumulate all content from the stream
+                # Accumulate all content from the stream and collect usage info
                 accumulated_content = ""
                 id = ""
                 model = ""
                 created = 0
+                usage_info = None
+                
                 for chunk in stream_response:
                     id = getattr(chunk, "id", None) or id
                     model = getattr(chunk, "model", None) or model
                     created = getattr(chunk, "created", 0) or created
+                    
+                    # Collect usage information if available (usually in the last chunk)
+                    if hasattr(chunk, 'usage') and chunk.usage is not None:
+                        usage_info = chunk.usage
+                    
                     choices = getattr(chunk, "choices", [])
                     if len(choices) > 0:
                         delta = getattr(choices[0], "delta", None)
@@ -446,9 +460,25 @@ class OpenAIClient(ModelClient):
                             text = getattr(delta, "content", None)
                             if text is not None:
                                 accumulated_content += text or ""
+                
+                # Create usage object with fallback values
+                # If usage info was not provided in stream, use None for token counts
+                # This allows the system to continue working even without usage data
+                from openai.types.completion_usage import CompletionUsage
+                if usage_info is not None:
+                    final_usage = usage_info
+                else:
+                    # Fallback: Create a CompletionUsage with None values
+                    # Python allows None for optional numeric fields
+                    final_usage = CompletionUsage(
+                        completion_tokens=None,
+                        prompt_tokens=None,
+                        total_tokens=None
+                    )
+                
                 # Return the mock completion object that will be processed by the chat_completion_parser
                 return ChatCompletion(
-                    id = id,
+                    id=id,
                     model=model,
                     created=created,
                     object="chat.completion",
@@ -456,7 +486,8 @@ class OpenAIClient(ModelClient):
                         index=0,
                         finish_reason="stop",
                         message=ChatCompletionMessage(content=accumulated_content, role="assistant")
-                    )]
+                    )],
+                    usage=final_usage
                 )
         elif model_type == ModelType.IMAGE_GENERATION:
             # Determine which image API to call based on the presence of image/mask
@@ -599,7 +630,7 @@ if __name__ == "__main__":
 
     gen = Generator(
         model_client=OpenAIClient(),
-        model_kwargs={"model": "gpt-4o", "stream": False},
+        model_kwargs={"model": "gpt-4.1", "stream": False},
     )
     gen_response = gen(prompt_kwargs)
     print(f"gen_response: {gen_response}")
@@ -623,7 +654,7 @@ if __name__ == "__main__":
     setup_env()
 
     openai_llm = adal.Generator(
-        model_client=OpenAIClient(), model_kwargs={"model": "gpt-4o"}
+        model_client=OpenAIClient(), model_kwargs={"model": "gpt-4.1"}
     )
     resopnse = openai_llm(prompt_kwargs={"input_str": "What is LLM?"})
     print(resopnse)

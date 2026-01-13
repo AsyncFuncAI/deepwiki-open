@@ -1,0 +1,20 @@
+{
+  "google": {
+    "keys": ["${GOOGLE_API_KEYS}"]
+  },
+  "openai": {
+    "keys": ["${OPENAI_API_KEYS}"]
+  },
+  "openrouter": {
+    "keys": ["${OPENROUTER_API_KEYS}"]
+  },
+  "azure": {
+    "keys": ["${AZURE_OPENAI_API_KEYS}"]
+  },
+  "bedrock": {},
+  "dashscope": {
+    "keys": ["${DASHSCOPE_API_KEYS}"]
+  },
+  "ollama": {}
+}
+
