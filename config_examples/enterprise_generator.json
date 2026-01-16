@@ -1,0 +1,16 @@
+{
+  "default_provider": "enterprise_openai",
+  "providers": {
+    "enterprise_openai": {
+      "client_class": "EnterpriseOpenAIClient",
+      "default_model": "gpt-oss-130b",
+      "supportsCustomModel": false,
+      "models": {
+        "gpt-oss-130b": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "embedder": {
+    "client_class": "EnterpriseBGEEmbedderClient",
+    "batch_size": 100,
+    "model_kwargs": {
+      "model": "bge-m3"
+    }
+  },
+  "retriever": {
+    "top_k": 20
+  },
+  "text_splitter": {
+    "split_by": "word",
+    "chunk_size": 350,
+    "chunk_overlap": 100
+  }
+}

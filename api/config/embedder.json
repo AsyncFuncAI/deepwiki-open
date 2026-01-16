@@ -30,6 +30,13 @@
       "dimensions": 256
     }
   },
+  "embedder_enterprise_bge": {
+    "client_class": "EnterpriseBGEEmbedderClient",
+    "batch_size": 100,
+    "model_kwargs": {
+      "model": "bge-m3"
+    }
+  },
   "retriever": {
     "top_k": 20
   },
