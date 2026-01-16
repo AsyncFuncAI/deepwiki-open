@@ -1,0 +1,11 @@
+# DeepWiki Single Provider Requirements
+# Minimal dependencies for single-provider architecture
+
+# HTTP client for API calls
+httpx>=0.24.0
+
+# Vector operations for retrieval
+numpy>=1.24.0
+
+# Optional: Progress bars
+# tqdm>=4.65.0
