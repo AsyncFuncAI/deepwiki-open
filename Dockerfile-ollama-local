@@ -27,7 +27,8 @@ RUN python -m pip install poetry==2.0.1 --no-cache-dir && \
 FROM python:3.11-slim AS ollama_base
 RUN apt-get update && apt-get install -y \
     curl \
-    zstd
+    zstd && \
+    rm -rf /var/lib/apt/lists/*
 
 # Detect architecture and download appropriate Ollama version
 # ARG TARGETARCH can be set at build time with --build-arg TARGETARCH=arm64 or TARGETARCH=amd64
