@@ -384,9 +384,11 @@ async def chat_completions_stream(request: ChatCompletionRequest):
             model_kwargs = {
                 "model": request.model,
                 "stream": True,
-                "temperature": model_config["temperature"]
             }
-            # Only add top_p if it exists in the model config
+            # Only add temperature/top_p if they exist in the model config
+            # (reasoning models like gpt-5.2-pro do not support these parameters)
+            if "temperature" in model_config:
+                model_kwargs["temperature"] = model_config["temperature"]
             if "top_p" in model_config:
                 model_kwargs["top_p"] = model_config["top_p"]
 
