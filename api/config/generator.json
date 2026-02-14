@@ -56,7 +56,9 @@
         "gpt-5.2": {
           "temperature": 1.0
         },
-        "gpt-5.2-pro": {},
+        "gpt-5.2-pro": {
+          "use_responses_api": true
+        },
         "gpt-4o": {
           "temperature": 0.7,
           "top_p": 0.8
