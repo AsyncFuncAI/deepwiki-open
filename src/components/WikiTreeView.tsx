@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { FaChevronRight, FaChevronDown } from 'react-icons/fa';
 
-// Import interfaces from the page component
 interface WikiPage {
   id: string;
   title: string;
@@ -36,10 +35,6 @@ interface WikiTreeViewProps {
   wikiStructure: WikiStructure;
   currentPageId: string | undefined;
   onPageSelect: (pageId: string) => void;
-  messages?: {
-    pages?: string;
-    [key: string]: string | undefined;
-  };
 }
 
 const WikiTreeView: React.FC<WikiTreeViewProps> = ({
@@ -71,24 +66,21 @@ const WikiTreeView: React.FC<WikiTreeViewProps> = ({
     const isExpanded = expandedSections.has(sectionId);
 
     return (
-      <div key={sectionId} className="mb-2">
+      <div key={sectionId} className="mb-0.5">
         <button
-          className={`flex items-center w-full text-left px-2 py-1.5 rounded-md text-sm font-medium text-[var(--foreground)] hover:bg-[var(--background)]/70 transition-colors ${
-            level === 0 ? 'bg-[var(--background)]/50' : ''
-          }`}
+          className="flex items-center w-full text-left px-2 py-1.5 text-sm text-[var(--foreground)] hover:text-[var(--foreground)] transition-colors"
           onClick={(e) => toggleSection(sectionId, e)}
         >
           {isExpanded ? (
-            <FaChevronDown className="mr-2 text-xs" />
+            <FaChevronDown className="mr-1.5 text-[8px] text-[var(--muted)] flex-shrink-0" />
           ) : (
-            <FaChevronRight className="mr-2 text-xs" />
+            <FaChevronRight className="mr-1.5 text-[8px] text-[var(--muted)] flex-shrink-0" />
           )}
-          <span className="truncate">{section.title}</span>
+          <span className="truncate font-medium">{section.title}</span>
         </button>
 
         {isExpanded && (
-          <div className={`ml-4 mt-1 space-y-1 ${level > 0 ? 'pl-2 border-l border-[var(--border-color)]/30' : ''}`}>
-            {/* Render pages in this section */}
+          <div className={level > 0 ? 'ml-4' : 'ml-3'}>
             {section.pages.map(pageId => {
               const page = wikiStructure.pages.find(p => p.id === pageId);
               if (!page) return null;
@@ -96,30 +88,18 @@ const WikiTreeView: React.FC<WikiTreeViewProps> = ({
               return (
                 <button
                   key={pageId}
-                  className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${
+                  className={`w-full text-left px-3 py-1 text-sm transition-colors block ${
                     currentPageId === pageId
-                      ? 'bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30'
-                      : 'text-[var(--foreground)] hover:bg-[var(--background)] border border-transparent'
+                      ? 'text-[var(--foreground)] font-medium'
+                      : 'text-[var(--muted)] hover:text-[var(--foreground)]'
                   }`}
                   onClick={() => onPageSelect(pageId)}
                 >
-                  <div className="flex items-center">
-                    <div
-                      className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
-                        page.importance === 'high'
-                          ? 'bg-[#9b7cb9]'
-                          : page.importance === 'medium'
-                          ? 'bg-[#d7c4bb]'
-                          : 'bg-[#e8927c]'
-                      }`}
-                    ></div>
-                    <span className="truncate">{page.title}</span>
-                  </div>
+                  <span className="truncate block">{page.title}</span>
                 </button>
               );
             })}
 
-            {/* Render subsections recursively */}
             {section.subsections?.map(subsectionId =>
               renderSection(subsectionId, level + 1)
             )}
@@ -129,33 +109,20 @@ const WikiTreeView: React.FC<WikiTreeViewProps> = ({
     );
   };
 
-  // If there are no sections defined yet, or if sections/rootSections are empty arrays, fall back to the flat list view
   if (!wikiStructure.sections || wikiStructure.sections.length === 0 || !wikiStructure.rootSections || wikiStructure.rootSections.length === 0) {
-    console.log("WikiTreeView: Falling back to flat list view due to missing or empty sections/rootSections");
     return (
-      <ul className="space-y-2">
+      <ul className="space-y-0.5">
         {wikiStructure.pages.map(page => (
           <li key={page.id}>
             <button
-              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+              className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
                 currentPageId === page.id
-                  ? 'bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30'
-                  : 'text-[var(--foreground)] hover:bg-[var(--background)] border border-transparent'
+                  ? 'text-[var(--foreground)] font-medium'
+                  : 'text-[var(--muted)] hover:text-[var(--foreground)]'
               }`}
               onClick={() => onPageSelect(page.id)}
             >
-              <div className="flex items-center">
-                <div
-                  className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
-                    page.importance === 'high'
-                      ? 'bg-[#9b7cb9]'
-                      : page.importance === 'medium'
-                      ? 'bg-[#d7c4bb]'
-                      : 'bg-[#e8927c]'
-                  }`}
-                ></div>
-                <span className="truncate">{page.title}</span>
-              </div>
+              <span className="truncate block">{page.title}</span>
             </button>
           </li>
         ))}
@@ -163,20 +130,9 @@ const WikiTreeView: React.FC<WikiTreeViewProps> = ({
     );
   }
 
-  // Log information about the sections for debugging
-  console.log("WikiTreeView: Rendering tree view with sections:", wikiStructure.sections);
-  console.log("WikiTreeView: Root sections:", wikiStructure.rootSections);
-
   return (
-    <div className="space-y-1">
-      {wikiStructure.rootSections.map(sectionId => {
-        const section = wikiStructure.sections.find(s => s.id === sectionId);
-        if (!section) {
-          console.warn(`WikiTreeView: Could not find section with id ${sectionId}`);
-          return null;
-        }
-        return renderSection(sectionId);
-      })}
+    <div className="space-y-0.5">
+      {wikiStructure.rootSections.map(sectionId => renderSection(sectionId))}
     </div>
   );
 };

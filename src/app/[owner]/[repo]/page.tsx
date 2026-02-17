@@ -4,10 +4,14 @@
 import Ask from '@/components/Ask';
 import Markdown from '@/components/Markdown';
 import ModelSelectionModal from '@/components/ModelSelectionModal';
+import PageNavigation from '@/components/PageNavigation';
+import TableOfContents from '@/components/TableOfContents';
 import ThemeToggle from '@/components/theme-toggle';
 import WikiTreeView from '@/components/WikiTreeView';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { RepoInfo } from '@/types/repoinfo';
+import { extractHeadings } from '@/utils/extractHeadings';
+import { flattenPageOrder } from '@/utils/flattenPageOrder';
 import getRepoUrl from '@/utils/getRepoUrl';
 import { extractUrlDomain, extractUrlPath } from '@/utils/urlDecoder';
 import Link from 'next/link';
@@ -44,46 +48,77 @@ interface WikiStructure {
   rootSections: string[];
 }
 
-// Add CSS styles for wiki with Japanese aesthetic
+// Clean wiki styles
 const wikiStyles = `
   .prose code {
-    @apply bg-[var(--background)]/70 px-1.5 py-0.5 rounded font-mono text-xs border border-[var(--border-color)];
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 0.875rem;
+    background: var(--accent-secondary);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
   }
 
   .prose pre {
-    @apply bg-[var(--background)]/80 text-[var(--foreground)] rounded-md p-4 overflow-x-auto border border-[var(--border-color)] shadow-sm;
+    background: #18181b;
+    color: #fafafa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
   }
 
   .prose h1, .prose h2, .prose h3, .prose h4 {
-    @apply font-serif text-[var(--foreground)];
+    color: var(--foreground);
   }
 
   .prose p {
-    @apply text-[var(--foreground)] leading-relaxed;
+    color: var(--foreground);
+    line-height: 1.75;
   }
 
   .prose a {
-    @apply text-[var(--accent-primary)] hover:text-[var(--highlight)] transition-colors no-underline border-b border-[var(--border-color)] hover:border-[var(--accent-primary)];
+    color: var(--foreground);
+    text-decoration: underline;
+    text-decoration-color: var(--border-color);
+    text-underline-offset: 2px;
+    transition: text-decoration-color 0.15s;
+  }
+
+  .prose a:hover {
+    text-decoration-color: var(--foreground);
   }
 
   .prose blockquote {
-    @apply border-l-4 border-[var(--accent-primary)]/30 bg-[var(--background)]/30 pl-4 py-1 italic;
+    border-left: 2px solid var(--border-color);
+    padding-left: 1rem;
+    color: var(--muted);
   }
 
   .prose ul, .prose ol {
-    @apply text-[var(--foreground)];
+    color: var(--foreground);
   }
 
   .prose table {
-    @apply border-collapse border border-[var(--border-color)];
+    border-collapse: collapse;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    overflow: hidden;
   }
 
   .prose th {
-    @apply bg-[var(--background)]/70 text-[var(--foreground)] p-2 border border-[var(--border-color)];
+    background: var(--accent-secondary);
+    color: var(--muted);
+    padding: 0.625rem 1rem;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   .prose td {
-    @apply p-2 border border-[var(--border-color)];
+    padding: 0.625rem 1rem;
+    border-top: 1px solid var(--border-color);
   }
 `;
 
@@ -439,13 +474,20 @@ ${filePaths.map(path => `- [${path}](${generateFileUrl(path)})`).join('\n')}
 
 Immediately after the \`<details>\` block, the main title of the page should be a H1 Markdown heading: \`# ${page.title}\`.
 
+IMPORTANT NOTE ON SOURCE FILE WEIGHTING:
+Files such as \`CLAUDE.md\`, \`AGENTS.md\`, \`.github/copilot-instructions.md\`, and similar AI assistant configuration files are NOT primary sources of technical truth. They contain instructions written for AI coding assistants and often paraphrase or simplify the actual codebase. When these files are among the relevant source files:
+- Treat them as LOW-PRIORITY background context only.
+- ALWAYS prefer information derived directly from actual source code files (.py, .ts, .js, .go, .java, .rs, etc.), configuration files (package.json, Cargo.toml, etc.), and real documentation (README.md, docs/).
+- Do NOT quote or heavily reference these AI instruction files. If they contradict actual source code, the source code is correct.
+
 Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
 
-1.  **Introduction:** Start with a concise introduction (1-2 paragraphs) explaining the purpose, scope, and high-level overview of "${page.title}" within the context of the overall project. If relevant, and if information is available in the provided files, link to other potential wiki pages using the format \`[Link Text](#page-anchor-or-id)\`.
+1.  **Introduction:** Start with a concise introduction (1-2 paragraphs) explaining the purpose, scope, and high-level overview of "${page.title}" within the context of the overall project. Actively link to other wiki pages throughout the content using the format \`[Link Text](#page-id)\` — do this whenever another wiki page covers a related topic, not just when "relevant".
 
 2.  **Detailed Sections:** Break down "${page.title}" into logical sections using H2 (\`##\`) and H3 (\`###\`) Markdown headings. For each section:
     *   Explain the architecture, components, data flow, or logic relevant to the section's focus, as evidenced in the source files.
     *   Identify key functions, classes, data structures, API endpoints, or configuration elements pertinent to that section.
+    *   If this page covers setup, installation, or configuration topics, include a **Quick Start** subsection early on with: prerequisites, install commands, minimal configuration examples, and a verification step.
 
 3.  **Mermaid Diagrams:**
     *   EXTENSIVELY use Mermaid diagrams (e.g., \`flowchart TD\`, \`sequenceDiagram\`, \`classDiagram\`, \`erDiagram\`, \`graph TD\`) to visually represent architectures, flows, relationships, and schemas found in the source files.
@@ -490,6 +532,16 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
         *   Configuration options, their types, and default values.
         *   Data model fields, types, constraints, and descriptions.
 
+4a. **Troubleshooting Tables (when relevant):**
+    *   For pages covering setup, configuration, or integration topics, include a 3-column troubleshooting table:
+        | Problem | Root Cause | Solution |
+    *   Only include this when there are concrete error conditions or common pitfalls evident in the source code.
+
+4b. **Performance Characteristics (when relevant):**
+    *   If the source code contains concrete performance-related values (timeouts, batch sizes, cache TTLs, buffer sizes, rate limits, etc.), summarize them in a table:
+        | Parameter | Value | Description |
+    *   Only include this when real values exist in the code — do not speculate or invent values.
+
 5.  **Code Snippets (ENTIRELY OPTIONAL):**
     *   Include short, relevant code snippets (e.g., Python, Java, JavaScript, SQL, JSON, YAML) directly from the \`[RELEVANT_SOURCE_FILES]\` to illustrate key implementation details, data structures, or configurations.
     *   Ensure snippets are well-formatted within Markdown code blocks with appropriate language identifiers.
@@ -506,6 +558,8 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
 8.  **Clarity and Conciseness:** Use clear, professional, and concise technical language suitable for other developers working on or learning about the project. Avoid unnecessary jargon, but use correct technical terms where appropriate.
 
 9.  **Conclusion/Summary:** End with a brief summary paragraph if appropriate for "${page.title}", reiterating the key aspects covered and their significance within the project.
+
+10. **Cross-References Between Pages:** Throughout the content, link to 2-3 other related wiki pages using \`[Page Title](#page-id)\` format. At the end, before the conclusion, include a "See also" callout block (using a blockquote) pointing readers to the most relevant related pages for deeper exploration.
 
 IMPORTANT: Generate the content in ${language === 'en' ? 'English' :
             language === 'ja' ? 'Japanese (日本語)' :
@@ -746,6 +800,7 @@ When designing the wiki structure, include pages that would benefit from visual 
 ${isComprehensiveView ? `
 Create a structured wiki with the following main sections:
 - Overview (general information about the project)
+- Getting Started (installation, setup, prerequisites, and quickstart guide)
 - System Architecture (how the system is designed)
 - Core Features (key functionality)
 - Data Management/Flow: If applicable, how data is stored, processed, accessed, and managed (e.g., database schema, data pipelines, state management).
@@ -1654,7 +1709,9 @@ IMPORTANT:
 
     // Clear the localStorage cache (if any remnants or if it was used before this change)
     const localStorageCacheKey = getCacheKey(effectiveRepoInfo.owner, effectiveRepoInfo.repo, effectiveRepoInfo.type, language, isComprehensiveView);
-    localStorage.removeItem(localStorageCacheKey);
+    if (typeof window !== 'undefined' && typeof window.localStorage?.removeItem === 'function') {
+      window.localStorage.removeItem(localStorageCacheKey);
+    }
 
     // Reset cache loaded flag
     cacheLoadedSuccessfully.current = false;
@@ -1930,31 +1987,99 @@ IMPORTANT:
     saveCache();
   }, [isLoading, error, wikiStructure, generatedPages, effectiveRepoInfo.owner, effectiveRepoInfo.repo, effectiveRepoInfo.type, effectiveRepoInfo.repoUrl, repoUrl, language, isComprehensiveView]);
 
+  // SEO: dynamic document title and meta tags
+  useEffect(() => {
+    if (!wikiStructure) return;
+    const currentPage = currentPageId ? generatedPages[currentPageId] : undefined;
+    const pageTitle = currentPage
+      ? `${currentPage.title} - ${wikiStructure.title}`
+      : wikiStructure.title;
+    document.title = pageTitle;
+
+    const setMeta = (property: string, content: string) => {
+      let el = document.querySelector(`meta[property="${property}"]`);
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute('property', property);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+    const setMetaName = (name: string, content: string) => {
+      let el = document.querySelector(`meta[name="${name}"]`);
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute('name', name);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+
+    setMeta('og:title', pageTitle);
+    setMeta('og:description', wikiStructure.description);
+    setMeta('og:type', 'article');
+    setMetaName('twitter:card', 'summary');
+  }, [wikiStructure, currentPageId, generatedPages]);
+
   const handlePageSelect = (pageId: string) => {
     if (currentPageId != pageId) {
-      setCurrentPageId(pageId)
+      setCurrentPageId(pageId);
+    }
+    const wikiContent = document.getElementById('wiki-content');
+    if (wikiContent) {
+      wikiContent.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
+
+  // JSON-LD structured data
+  const jsonLd = useMemo(() => {
+    if (!wikiStructure) return null;
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'TechArticle',
+      headline: wikiStructure.title,
+      description: wikiStructure.description,
+      author: {
+        '@type': 'Organization',
+        name: effectiveRepoInfo.owner,
+      },
+      about: {
+        '@type': 'SoftwareSourceCode',
+        name: effectiveRepoInfo.repo,
+        codeRepository: getRepoUrl(effectiveRepoInfo),
+      },
+    };
+  }, [wikiStructure, effectiveRepoInfo]);
 
   const [isModelSelectionModalOpen, setIsModelSelectionModalOpen] = useState(false);
 
   return (
     <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
       <style>{wikiStyles}</style>
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
 
-      <header className="max-w-[90%] xl:max-w-[1400px] mx-auto mb-8 h-fit w-full">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-[var(--accent-primary)] hover:text-[var(--highlight)] flex items-center gap-1.5 transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)] pb-0.5">
-              <FaHome /> {messages.repoPage?.home || 'Home'}
+      <header className="max-w-[90%] xl:max-w-[1400px] mx-auto h-fit w-full py-4 border-b border-[var(--border-color)] mb-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Link href="/" className="text-[var(--foreground)] font-semibold text-sm hover:opacity-70 transition-opacity">
+              DeepWiki
             </Link>
+            <span className="text-[var(--muted)]">{effectiveRepoInfo.owner}/{effectiveRepoInfo.repo}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
           </div>
         </div>
       </header>
 
-      <main className="flex-1 max-w-[90%] xl:max-w-[1400px] mx-auto overflow-y-auto">
+      <main className="flex-1 max-w-[90%] xl:max-w-[1400px] mx-auto overflow-y-auto mt-0">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
+          <div className="flex flex-col items-center justify-center p-8 border border-[var(--border-color)] rounded-lg">
             <div className="relative mb-6">
               <div className="absolute -inset-4 bg-[var(--accent-primary)]/10 rounded-full blur-md animate-pulse"></div>
               <div className="relative flex items-center justify-center">
@@ -1963,7 +2088,7 @@ IMPORTANT:
                 <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-150"></div>
               </div>
             </div>
-            <p className="text-[var(--foreground)] text-center mb-3 font-serif">
+            <p className="text-[var(--foreground)] text-center mb-3">
               {loadingMessage || messages.common?.loading || 'Loading...'}
               {isExporting && (messages.loading?.preparingDownload || ' Please wait while we prepare your download...')}
             </p>
@@ -2019,7 +2144,7 @@ IMPORTANT:
           <div className="bg-[var(--highlight)]/5 border border-[var(--highlight)]/30 rounded-lg p-5 mb-4 shadow-sm">
             <div className="flex items-center text-[var(--highlight)] mb-3">
               <FaExclamationTriangle className="mr-2" />
-              <span className="font-bold font-serif">{messages.repoPage?.errorTitle || messages.common?.error || 'Error'}</span>
+              <span className="font-bold">{messages.repoPage?.errorTitle || messages.common?.error || 'Error'}</span>
             </div>
             <p className="text-[var(--foreground)] text-sm mb-3">{error}</p>
             <p className="text-[var(--muted)] text-xs">
@@ -2040,11 +2165,10 @@ IMPORTANT:
             </div>
           </div>
         ) : wikiStructure ? (
-          <div className="h-full overflow-y-auto flex flex-col lg:flex-row gap-4 w-full overflow-hidden bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
+          <div className="h-full overflow-y-auto flex flex-col lg:flex-row w-full overflow-hidden">
             {/* Wiki Navigation */}
-            <div className="h-full w-full lg:w-[280px] xl:w-[320px] flex-shrink-0 bg-[var(--background)]/50 rounded-lg rounded-r-none p-5 border-b lg:border-b-0 lg:border-r border-[var(--border-color)] overflow-y-auto">
-              <h3 className="text-lg font-bold text-[var(--foreground)] mb-3 font-serif">{wikiStructure.title}</h3>
-              <p className="text-[var(--muted)] text-sm mb-5 leading-relaxed">{wikiStructure.description}</p>
+            <div className="h-full w-full lg:w-[240px] xl:w-[260px] flex-shrink-0 p-4 border-b lg:border-b-0 lg:border-r border-[var(--border-color)] overflow-y-auto">
+              <p className="text-[var(--muted)] text-xs mb-4">{wikiStructure.description}</p>
 
               {/* Display repository info */}
               <div className="text-xs text-[var(--muted)] mb-5 flex items-center">
@@ -2101,7 +2225,7 @@ IMPORTANT:
               {/* Export buttons */}
               {Object.keys(generatedPages).length > 0 && (
                 <div className="mb-5">
-                  <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3 font-serif">
+                  <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3">
                     {messages.repoPage?.exportWiki || 'Export Wiki'}
                   </h4>
                   <div className="flex flex-col gap-2">
@@ -2130,62 +2254,88 @@ IMPORTANT:
                 </div>
               )}
 
-              <h4 className="text-md font-semibold text-[var(--foreground)] mb-3 font-serif">
-                {messages.repoPage?.pages || 'Pages'}
-              </h4>
               <WikiTreeView
                 wikiStructure={wikiStructure}
                 currentPageId={currentPageId}
                 onPageSelect={handlePageSelect}
-                messages={messages.repoPage}
               />
             </div>
 
             {/* Wiki Content */}
             <div id="wiki-content" className="w-full flex-grow p-6 lg:p-8 overflow-y-auto">
               {currentPageId && generatedPages[currentPageId] ? (
-                <div className="max-w-[900px] xl:max-w-[1000px] mx-auto">
-                  <h3 className="text-xl font-bold text-[var(--foreground)] mb-4 break-words font-serif">
-                    {generatedPages[currentPageId].title}
-                  </h3>
+                (() => {
+                  const currentContent = generatedPages[currentPageId].content;
+                  const currentHeadings = extractHeadings(currentContent);
+                  const pageOrder = flattenPageOrder(wikiStructure);
+                  const currentIndex = pageOrder.indexOf(currentPageId);
+                  const prevPageId = currentIndex > 0 ? pageOrder[currentIndex - 1] : undefined;
+                  const nextPageId = currentIndex < pageOrder.length - 1 ? pageOrder[currentIndex + 1] : undefined;
+                  const prevPage = prevPageId ? wikiStructure.pages.find(p => p.id === prevPageId) : undefined;
+                  const nextPage = nextPageId ? wikiStructure.pages.find(p => p.id === nextPageId) : undefined;
+                  const pageIdSet = new Set(wikiStructure.pages.map(p => p.id));
 
+                  return (
+                    <div className="flex flex-row gap-6">
+                      {/* Main content */}
+                      <div className="flex-grow min-w-0 max-w-[900px] xl:max-w-[1000px] mx-auto">
+                        <h1 className="text-2xl font-bold text-[var(--foreground)] mb-6 break-words">
+                          {generatedPages[currentPageId].title}
+                        </h1>
 
+                        <div className="max-w-none">
+                          <Markdown
+                            content={currentContent}
+                            onPageNavigate={handlePageSelect}
+                            pageIds={pageIdSet}
+                          />
+                        </div>
 
-                  <div className="prose prose-sm md:prose-base lg:prose-lg max-w-none">
-                    <Markdown
-                      content={generatedPages[currentPageId].content}
-                    />
-                  </div>
+                        {generatedPages[currentPageId].relatedPages.length > 0 && (
+                          <div className="mt-8 pt-4 border-t border-[var(--border-color)]">
+                            <h4 className="text-sm font-semibold text-[var(--muted)] mb-3">
+                              {messages.repoPage?.relatedPages || 'Related Pages:'}
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                              {generatedPages[currentPageId].relatedPages.map(relatedId => {
+                                const relatedPage = wikiStructure.pages.find(p => p.id === relatedId);
+                                return relatedPage ? (
+                                  <button
+                                    key={relatedId}
+                                    className="bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-xs text-[var(--accent-primary)] px-3 py-1.5 rounded-md transition-colors truncate max-w-full border border-[var(--accent-primary)]/20"
+                                    onClick={() => handlePageSelect(relatedId)}
+                                  >
+                                    {relatedPage.title}
+                                  </button>
+                                ) : null;
+                              })}
+                            </div>
+                          </div>
+                        )}
 
-                  {generatedPages[currentPageId].relatedPages.length > 0 && (
-                    <div className="mt-8 pt-4 border-t border-[var(--border-color)]">
-                      <h4 className="text-sm font-semibold text-[var(--muted)] mb-3">
-                        {messages.repoPage?.relatedPages || 'Related Pages:'}
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {generatedPages[currentPageId].relatedPages.map(relatedId => {
-                          const relatedPage = wikiStructure.pages.find(p => p.id === relatedId);
-                          return relatedPage ? (
-                            <button
-                              key={relatedId}
-                              className="bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-xs text-[var(--accent-primary)] px-3 py-1.5 rounded-md transition-colors truncate max-w-full border border-[var(--accent-primary)]/20"
-                              onClick={() => handlePageSelect(relatedId)}
-                            >
-                              {relatedPage.title}
-                            </button>
-                          ) : null;
-                        })}
+                        <PageNavigation
+                          prevPage={prevPage ? { id: prevPage.id, title: prevPage.title } : undefined}
+                          nextPage={nextPage ? { id: nextPage.id, title: nextPage.title } : undefined}
+                          onNavigate={handlePageSelect}
+                        />
                       </div>
+
+                      {/* Table of Contents sidebar */}
+                      {currentHeadings.length > 0 && (
+                        <div className="hidden xl:block w-56 flex-shrink-0 sticky top-0 self-start max-h-[calc(100vh-200px)] overflow-y-auto">
+                          <TableOfContents headings={currentHeadings} />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()
               ) : (
                 <div className="flex flex-col items-center justify-center p-8 text-[var(--muted)] h-full">
                   <div className="relative mb-4">
                     <div className="absolute -inset-2 bg-[var(--accent-primary)]/5 rounded-full blur-md"></div>
                     <FaBookOpen className="text-4xl relative z-10" />
                   </div>
-                  <p className="font-serif">
+                  <p>
                     {messages.repoPage?.selectPagePrompt || 'Select a page from the navigation to view its content'}
                   </p>
                 </div>
@@ -2195,12 +2345,11 @@ IMPORTANT:
         ) : null}
       </main>
 
-      <footer className="max-w-[90%] xl:max-w-[1400px] mx-auto mt-8 flex flex-col gap-4 w-full">
-        <div className="flex justify-between items-center gap-4 text-center text-[var(--muted)] text-sm h-fit w-full bg-[var(--card-bg)] rounded-lg p-3 shadow-sm border border-[var(--border-color)]">
-          <p className="flex-1 font-serif">
+      <footer className="max-w-[90%] xl:max-w-[1400px] mx-auto mt-4 flex flex-col gap-4 w-full">
+        <div className="flex justify-center items-center gap-4 text-center text-[var(--muted)] text-xs h-fit w-full py-3 border-t border-[var(--border-color)]">
+          <p>
             {messages.footer?.copyright || 'DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories'}
           </p>
-          <ThemeToggle />
         </div>
       </footer>
 
@@ -2208,7 +2357,7 @@ IMPORTANT:
       {!isLoading && wikiStructure && (
         <button
           onClick={() => setIsAskModalOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[var(--accent-primary)] text-white shadow-lg flex items-center justify-center hover:bg-[var(--accent-primary)]/90 transition-all z-50"
+          className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-[var(--foreground)] text-[var(--background)] shadow-md flex items-center justify-center hover:opacity-90 transition-opacity z-50"
           aria-label={messages.ask?.title || 'Ask about this repository'}
         >
           <FaComments className="text-xl" />
@@ -2217,14 +2366,14 @@ IMPORTANT:
 
       {/* Ask Modal - Always render but conditionally show/hide */}
       <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 transition-opacity duration-300 ${isAskModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <div className="bg-[var(--card-bg)] rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col">
+        <div className="bg-[var(--background)] rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col border border-[var(--border-color)]">
           <div className="flex items-center justify-end p-3 absolute top-0 right-0 z-10">
             <button
               onClick={() => {
                 // Just close the modal without clearing the conversation
                 setIsAskModalOpen(false);
               }}
-              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors bg-[var(--card-bg)]/80 rounded-full p-2"
+              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors bg-[var(--background)]/80 rounded-full p-2"
               aria-label="Close"
             >
               <FaTimes className="text-xl" />

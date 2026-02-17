@@ -18,16 +18,16 @@
     "client_class": "GoogleEmbedderClient",
     "batch_size": 100,
     "model_kwargs": {
-      "model": "text-embedding-004",
+      "model": "gemini-embedding-001",
       "task_type": "SEMANTIC_SIMILARITY"
     }
   },
-  "embedder_bedrock": {
-    "client_class": "BedrockClient",
+  "embedder_vertex": {
+    "client_class": "VertexEmbedderClient",
     "batch_size": 100,
     "model_kwargs": {
-      "model": "amazon.titan-embed-text-v2:0",
-      "dimensions": 256
+      "model": "gemini-embedding-001",
+      "task_type": "SEMANTIC_SIMILARITY"
     }
   },
   "retriever": {

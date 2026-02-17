@@ -3,7 +3,7 @@ import os
 from typing import List, Optional
 from urllib.parse import unquote
 
-import google.generativeai as genai
+from google.genai import types as genai_types
 from adalflow.components.model_client.ollama_client import OllamaClient
 from adalflow.core.types import ModelType
 from fastapi import FastAPI, HTTPException
@@ -11,13 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY
 from api.data_pipeline import count_tokens, get_file_content
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
-from api.bedrock_client import BedrockClient
-from api.azureai_client import AzureAIClient
-from api.dashscope_client import DashscopeClient
 from api.rag import RAG
 from api.prompts import (
     DEEP_RESEARCH_FIRST_ITERATION_PROMPT,
@@ -64,7 +61,7 @@ class ChatCompletionRequest(BaseModel):
     type: Optional[str] = Field("github", description="Type of repository (e.g., 'github', 'gitlab', 'bitbucket')")
 
     # model parameters
-    provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama, bedrock, azure, dashscope)")
+    provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama)")
     model: Optional[str] = Field(None, description="Model name for the specified provider")
 
     language: Optional[str] = Field("en", description="Language for content generation (e.g., 'en', 'ja', 'zh', 'es', 'kr', 'vi')")
@@ -395,70 +392,12 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM
             )
-        elif request.provider == "bedrock":
-            logger.info(f"Using AWS Bedrock with model: {request.model}")
-
-            # Check if AWS credentials are set
-            if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
-                logger.warning("AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY not configured, but continuing with request")
-                # We'll let the BedrockClient handle this and return an error message
-
-            # Initialize Bedrock client
-            model = BedrockClient()
-            model_kwargs = {
-                "model": request.model,
-                "temperature": model_config["temperature"],
-                "top_p": model_config["top_p"]
-            }
-
-            api_kwargs = model.convert_inputs_to_api_kwargs(
-                input=prompt,
-                model_kwargs=model_kwargs,
-                model_type=ModelType.LLM
-            )
-        elif request.provider == "azure":
-            logger.info(f"Using Azure AI with model: {request.model}")
-
-            # Initialize Azure AI client
-            model = AzureAIClient()
-            model_kwargs = {
-                "model": request.model,
-                "stream": True,
-                "temperature": model_config["temperature"],
-                "top_p": model_config["top_p"]
-            }
-
-            api_kwargs = model.convert_inputs_to_api_kwargs(
-                input=prompt,
-                model_kwargs=model_kwargs,
-                model_type=ModelType.LLM
-            )
-        elif request.provider == "dashscope":
-            logger.info(f"Using Dashscope with model: {request.model}")
-
-            model = DashscopeClient()
-            model_kwargs = {
-                "model": request.model,
-                "stream": True,
-                "temperature": model_config["temperature"],
-                "top_p": model_config["top_p"],
-            }
-
-            api_kwargs = model.convert_inputs_to_api_kwargs(
-                input=prompt,
-                model_kwargs=model_kwargs,
-                model_type=ModelType.LLM,
-            )
+        elif request.provider == "vertex":
+            # Vertex AI - handled inline below (same pattern as google)
+            pass
         else:
-            # Initialize Google Generative AI model (default provider)
-            model = genai.GenerativeModel(
-                model_name=model_config["model"],
-                generation_config={
-                    "temperature": model_config["temperature"],
-                    "top_p": model_config["top_p"],
-                    "top_k": model_config["top_k"],
-                },
-            )
+            # Google Generative AI (default provider) - handled inline below
+            pass
 
         # Create a streaming response
         async def response_stream():
@@ -500,60 +439,35 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                     except Exception as e_openai:
                         logger.error(f"Error with Openai API: {str(e_openai)}")
                         yield f"\nError with Openai API: {str(e_openai)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
-                elif request.provider == "bedrock":
-                    try:
-                        # Get the response and handle it properly using the previously created api_kwargs
-                        logger.info("Making AWS Bedrock API call")
-                        response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                        # Handle response from Bedrock (not streaming yet)
-                        if isinstance(response, str):
-                            yield response
-                        else:
-                            # Try to extract text from the response
-                            yield str(response)
-                    except Exception as e_bedrock:
-                        logger.error(f"Error with AWS Bedrock API: {str(e_bedrock)}")
-                        yield f"\nError with AWS Bedrock API: {str(e_bedrock)}\n\nPlease check that you have set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables with valid credentials."
-                elif request.provider == "azure":
-                    try:
-                        # Get the response and handle it properly using the previously created api_kwargs
-                        logger.info("Making Azure AI API call")
-                        response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                        # Handle streaming response from Azure AI
-                        async for chunk in response:
-                            choices = getattr(chunk, "choices", [])
-                            if len(choices) > 0:
-                                delta = getattr(choices[0], "delta", None)
-                                if delta is not None:
-                                    text = getattr(delta, "content", None)
-                                    if text is not None:
-                                        yield text
-                    except Exception as e_azure:
-                        logger.error(f"Error with Azure AI API: {str(e_azure)}")
-                        yield f"\nError with Azure AI API: {str(e_azure)}\n\nPlease check that you have set the AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_VERSION environment variables with valid values."
-                elif request.provider == "dashscope":
-                    try:
-                        logger.info("Making Dashscope API call")
-                        response = await model.acall(
-                            api_kwargs=api_kwargs, model_type=ModelType.LLM
-                        )
-                        # DashscopeClient.acall with stream=True returns an async
-                        # generator of text chunks
-                        async for text in response:
-                            if text:
-                                yield text
-                    except Exception as e_dashscope:
-                        logger.error(f"Error with Dashscope API: {str(e_dashscope)}")
-                        yield (
-                            f"\nError with Dashscope API: {str(e_dashscope)}\n\n"
-                            "Please check that you have set the DASHSCOPE_API_KEY (and optionally "
-                            "DASHSCOPE_WORKSPACE_ID) environment variables with valid values."
-                        )
+                elif request.provider == "vertex":
+                    # Vertex AI provider
+                    from api.main import vertex_client
+                    response = vertex_client.models.generate_content_stream(
+                        model=model_config["model"],
+                        contents=prompt,
+                        config=genai_types.GenerateContentConfig(
+                            temperature=model_config["temperature"],
+                            top_p=model_config["top_p"],
+                            top_k=model_config["top_k"],
+                        ),
+                    )
+                    for chunk in response:
+                        if chunk.text:
+                            yield chunk.text
                 else:
                     # Google Generative AI (default provider)
-                    response = model.generate_content(prompt, stream=True)
+                    from api.main import google_client
+                    response = google_client.models.generate_content_stream(
+                        model=model_config["model"],
+                        contents=prompt,
+                        config=genai_types.GenerateContentConfig(
+                            temperature=model_config["temperature"],
+                            top_p=model_config["top_p"],
+                            top_k=model_config["top_k"],
+                        ),
+                    )
                     for chunk in response:
-                        if hasattr(chunk, "text"):
+                        if chunk.text:
                             yield chunk.text
 
             except Exception as e_outer:
@@ -635,98 +549,37 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                             except Exception as e_fallback:
                                 logger.error(f"Error with Openai API fallback: {str(e_fallback)}")
                                 yield f"\nError with Openai API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
-                        elif request.provider == "bedrock":
-                            try:
-                                # Create new api_kwargs with the simplified prompt
-                                fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
-                                    input=simplified_prompt,
-                                    model_kwargs=model_kwargs,
-                                    model_type=ModelType.LLM
-                                )
-
-                                # Get the response using the simplified prompt
-                                logger.info("Making fallback AWS Bedrock API call")
-                                fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
-
-                                # Handle response from Bedrock
-                                if isinstance(fallback_response, str):
-                                    yield fallback_response
-                                else:
-                                    # Try to extract text from the response
-                                    yield str(fallback_response)
-                            except Exception as e_fallback:
-                                logger.error(f"Error with AWS Bedrock API fallback: {str(e_fallback)}")
-                                yield f"\nError with AWS Bedrock API fallback: {str(e_fallback)}\n\nPlease check that you have set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables with valid credentials."
-                        elif request.provider == "azure":
-                            try:
-                                # Create new api_kwargs with the simplified prompt
-                                fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
-                                    input=simplified_prompt,
-                                    model_kwargs=model_kwargs,
-                                    model_type=ModelType.LLM
-                                )
-
-                                # Get the response using the simplified prompt
-                                logger.info("Making fallback Azure AI API call")
-                                fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
-
-                                # Handle streaming fallback response from Azure AI
-                                async for chunk in fallback_response:
-                                    choices = getattr(chunk, "choices", [])
-                                    if len(choices) > 0:
-                                        delta = getattr(choices[0], "delta", None)
-                                        if delta is not None:
-                                            text = getattr(delta, "content", None)
-                                            if text is not None:
-                                                yield text
-                            except Exception as e_fallback:
-                                logger.error(f"Error with Azure AI API fallback: {str(e_fallback)}")
-                                yield f"\nError with Azure AI API fallback: {str(e_fallback)}\n\nPlease check that you have set the AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_VERSION environment variables with valid values."
-                        elif request.provider == "dashscope":
-                            try:
-                                # Create new api_kwargs with the simplified prompt
-                                fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
-                                    input=simplified_prompt,
-                                    model_kwargs=model_kwargs,
-                                    model_type=ModelType.LLM,
-                                )
-
-                                logger.info("Making fallback Dashscope API call")
-                                fallback_response = await model.acall(
-                                    api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM
-                                )
-
-                                # DashscopeClient.acall (stream=True) returns an async
-                                # generator of text chunks
-                                async for text in fallback_response:
-                                    if text:
-                                        yield text
-                            except Exception as e_fallback:
-                                logger.error(
-                                    f"Error with Dashscope API fallback: {str(e_fallback)}"
-                                )
-                                yield (
-                                    f"\nError with Dashscope API fallback: {str(e_fallback)}\n\n"
-                                    "Please check that you have set the DASHSCOPE_API_KEY (and optionally "
-                                    "DASHSCOPE_WORKSPACE_ID) environment variables with valid values."
-                                )
-                        else:
-                            # Google Generative AI fallback (default provider)
+                        elif request.provider == "vertex":
+                            # Vertex AI fallback
+                            from api.main import vertex_client
                             model_config = get_model_config(request.provider, request.model)
-                            fallback_model = genai.GenerativeModel(
-                                model_name=model_config["model_kwargs"]["model"],
-                                generation_config={
-                                    "temperature": model_config["model_kwargs"].get("temperature", 0.7),
-                                    "top_p": model_config["model_kwargs"].get("top_p", 0.8),
-                                    "top_k": model_config["model_kwargs"].get("top_k", 40),
-                                },
-                            )
-
-                            fallback_response = fallback_model.generate_content(
-                                simplified_prompt, stream=True
+                            fallback_response = vertex_client.models.generate_content_stream(
+                                model=model_config["model_kwargs"]["model"],
+                                contents=simplified_prompt,
+                                config=genai_types.GenerateContentConfig(
+                                    temperature=model_config["model_kwargs"].get("temperature", 0.7),
+                                    top_p=model_config["model_kwargs"].get("top_p", 0.8),
+                                    top_k=model_config["model_kwargs"].get("top_k", 40),
+                                ),
                             )
                             for chunk in fallback_response:
-                                if hasattr(chunk, "text"):
+                                if chunk.text:
+                                    yield chunk.text
+                        else:
+                            # Google Generative AI fallback (default provider)
+                            from api.main import google_client
+                            model_config = get_model_config(request.provider, request.model)
+                            fallback_response = google_client.models.generate_content_stream(
+                                model=model_config["model_kwargs"]["model"],
+                                contents=simplified_prompt,
+                                config=genai_types.GenerateContentConfig(
+                                    temperature=model_config["model_kwargs"].get("temperature", 0.7),
+                                    top_p=model_config["model_kwargs"].get("top_p", 0.8),
+                                    top_k=model_config["model_kwargs"].get("top_k", 40),
+                                ),
+                            )
+                            for chunk in fallback_response:
+                                if chunk.text:
                                     yield chunk.text
                     except Exception as e2:
                         logger.error(f"Error in fallback streaming response: {str(e2)}")

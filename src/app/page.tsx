@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { FaWikipediaW, FaGithub, FaCoffee, FaTwitter } from 'react-icons/fa';
+import { FaWikipediaW, FaGithub, FaCoffee, FaTwitter, FaFolder } from 'react-icons/fa';
+import FolderPicker from '@/components/FolderPicker';
 import ThemeToggle from '@/components/theme-toggle';
 import Mermaid from '../components/Mermaid';
 import ConfigurationModal from '@/components/ConfigurationModal';
@@ -76,13 +77,15 @@ export default function Home() {
   };
 
   const [repositoryInput, setRepositoryInput] = useState('https://github.com/AsyncFuncAI/deepwiki-open');
+  const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
 
   const REPO_CONFIG_CACHE_KEY = 'deepwikiRepoConfigCache';
 
   const loadConfigFromCache = (repoUrl: string) => {
     if (!repoUrl) return;
     try {
-      const cachedConfigs = localStorage.getItem(REPO_CONFIG_CACHE_KEY);
+      if (typeof window === 'undefined' || typeof window.localStorage?.getItem !== 'function') return;
+      const cachedConfigs = window.localStorage.getItem(REPO_CONFIG_CACHE_KEY);
       if (cachedConfigs) {
         const configs = JSON.parse(cachedConfigs);
         const config = configs[repoUrl.trim()];
@@ -309,7 +312,8 @@ export default function Home() {
     try {
       const currentRepoUrl = repositoryInput.trim();
       if (currentRepoUrl) {
-        const existingConfigs = JSON.parse(localStorage.getItem(REPO_CONFIG_CACHE_KEY) || '{}');
+        if (typeof window === 'undefined' || typeof window.localStorage?.getItem !== 'function') return;
+        const existingConfigs = JSON.parse(window.localStorage.getItem(REPO_CONFIG_CACHE_KEY) || '{}');
         const configToSave = {
           selectedLanguage,
           isComprehensiveView,
@@ -324,7 +328,7 @@ export default function Home() {
           includedFiles,
         };
         existingConfigs[currentRepoUrl] = configToSave;
-        localStorage.setItem(REPO_CONFIG_CACHE_KEY, JSON.stringify(existingConfigs));
+        window.localStorage.setItem(REPO_CONFIG_CACHE_KEY, JSON.stringify(existingConfigs));
       }
     } catch (error) {
       console.error('Error saving config to localStorage:', error);
@@ -394,7 +398,7 @@ export default function Home() {
     <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
       <header className="max-w-6xl mx-auto mb-6 h-fit w-full">
         <div
-          className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-[var(--card-bg)] rounded-lg shadow-custom border border-[var(--border-color)] p-4">
+          className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 border-b border-[var(--border-color)]">
           <div className="flex items-center">
             <div className="bg-[var(--accent-primary)] p-2 rounded-lg mr-3">
               <FaWikipediaW className="text-2xl text-white" />
@@ -416,7 +420,7 @@ export default function Home() {
           <form onSubmit={handleFormSubmit} className="flex flex-col gap-3 w-full max-w-3xl">
             {/* Repository URL input and submit button */}
             <div className="flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1">
+              <div className="relative flex-1 flex gap-2">
                 <input
                   type="text"
                   value={repositoryInput}
@@ -424,8 +428,16 @@ export default function Home() {
                   placeholder={t('form.repoPlaceholder') || "owner/repo, GitHub/GitLab/BitBucket URL, or local folder path"}
                   className="input-japanese block w-full pl-10 pr-3 py-2.5 border-[var(--border-color)] rounded-lg bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
                 />
+                <button
+                  type="button"
+                  onClick={() => setIsFolderPickerOpen(true)}
+                  className="px-3 py-2.5 rounded-lg border border-[var(--border-color)] hover:bg-[var(--accent-secondary)] text-[var(--muted)] hover:text-[var(--foreground)] transition-colors flex-shrink-0"
+                  title="Browse local folders"
+                >
+                  <FaFolder className="h-4 w-4" />
+                </button>
                 {error && (
-                  <div className="text-[var(--highlight)] text-xs mt-1">
+                  <div className="absolute -bottom-5 left-0 text-[var(--highlight)] text-xs">
                     {error}
                   </div>
                 )}
@@ -478,12 +490,22 @@ export default function Home() {
             isAuthLoading={isAuthLoading}
           />
 
+          <FolderPicker
+            isOpen={isFolderPickerOpen}
+            onClose={() => setIsFolderPickerOpen(false)}
+            onSelect={(path) => {
+              setRepositoryInput(path);
+              loadConfigFromCache(path);
+            }}
+            initialPath={repositoryInput.startsWith('/') || /^[a-zA-Z]:/.test(repositoryInput) ? repositoryInput : undefined}
+          />
+
         </div>
       </header>
 
       <main className="flex-1 max-w-6xl mx-auto w-full overflow-y-auto">
         <div
-          className="min-h-full flex flex-col items-center p-8 pt-10 bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
+          className="min-h-full flex flex-col items-center p-8 pt-10">
 
           {/* Conditionally show processed projects or welcome content */}
           {!projectsLoading && projects.length > 0 ? (
@@ -496,7 +518,7 @@ export default function Home() {
                     <FaWikipediaW className="text-5xl text-[var(--accent-primary)] relative z-10" />
                   </div>
                   <div className="text-center sm:text-left">
-                    <h2 className="text-2xl font-bold text-[var(--foreground)] font-serif mb-1">{t('projects.existingProjects')}</h2>
+                    <h2 className="text-2xl font-bold text-[var(--foreground)] mb-1">{t('projects.existingProjects')}</h2>
                     <p className="text-[var(--accent-primary)] text-sm max-w-md">{t('projects.browseExisting')}</p>
                   </div>
                 </div>
@@ -520,7 +542,7 @@ export default function Home() {
                     <FaWikipediaW className="text-5xl text-[var(--accent-primary)] relative z-10" />
                   </div>
                   <div className="text-center sm:text-left">
-                    <h2 className="text-2xl font-bold text-[var(--foreground)] font-serif mb-1">{t('home.welcome')}</h2>
+                    <h2 className="text-2xl font-bold text-[var(--foreground)] mb-1">{t('home.welcome')}</h2>
                     <p className="text-[var(--accent-primary)] text-sm max-w-md">{t('home.welcomeTagline')}</p>
                   </div>
                 </div>
@@ -572,7 +594,7 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
-              <h3 className="text-base font-semibold text-[var(--foreground)] font-serif">{t('home.advancedVisualization')}</h3>
+              <h3 className="text-base font-semibold text-[var(--foreground)]">{t('home.advancedVisualization')}</h3>
             </div>
             <p className="text-sm text-[var(--foreground)] mb-5 leading-relaxed">
               {t('home.diagramDescription')}
@@ -580,13 +602,13 @@ export default function Home() {
 
             {/* Diagrams with improved layout */}
             <div className="grid grid-cols-1 gap-6">
-              <div className="bg-[var(--card-bg)] p-4 rounded-lg border border-[var(--border-color)] shadow-custom">
-                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3 font-serif">{t('home.flowDiagram')}</h4>
+              <div className="p-4 rounded-lg border border-[var(--border-color)]">
+                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3">{t('home.flowDiagram')}</h4>
                 <Mermaid chart={DEMO_FLOW_CHART} />
               </div>
 
-              <div className="bg-[var(--card-bg)] p-4 rounded-lg border border-[var(--border-color)] shadow-custom">
-                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3 font-serif">{t('home.sequenceDiagram')}</h4>
+              <div className="p-4 rounded-lg border border-[var(--border-color)]">
+                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3">{t('home.sequenceDiagram')}</h4>
                 <Mermaid chart={DEMO_SEQUENCE_CHART} />
               </div>
             </div>
@@ -598,8 +620,8 @@ export default function Home() {
 
       <footer className="max-w-6xl mx-auto mt-8 flex flex-col gap-4 w-full">
         <div
-          className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-[var(--card-bg)] rounded-lg p-4 border border-[var(--border-color)] shadow-custom">
-          <p className="text-[var(--muted)] text-sm font-serif">{t('footer.copyright')}</p>
+          className="flex flex-col sm:flex-row justify-between items-center gap-4 py-4 border-t border-[var(--border-color)]">
+          <p className="text-[var(--muted)] text-sm">{t('footer.copyright')}</p>
 
           <div className="flex items-center gap-6">
             <div className="flex items-center space-x-5">

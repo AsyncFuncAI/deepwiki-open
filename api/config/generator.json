@@ -1,39 +1,21 @@
 {
   "default_provider": "google",
   "providers": {
-    "dashscope": {
-      "default_model": "qwen-plus",
-      "supportsCustomModel": true,
-      "models": {
-        "qwen-plus": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "qwen-turbo": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "deepseek-r1": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        }
-      }
-    },
     "google": {
-      "default_model": "gemini-2.5-flash",
+      "default_model": "gemini-2.5-flash-lite",
       "supportsCustomModel": true,
       "models": {
-        "gemini-2.5-flash": {
+        "gemini-3-pro-preview": {
+          "temperature": 1.0,
+          "top_p": 0.8,
+          "top_k": 20
+        },
+        "gemini-3-flash-preview": {
           "temperature": 1.0,
           "top_p": 0.8,
           "top_k": 20
         },
         "gemini-2.5-flash-lite": {
-          "temperature": 1.0,
-          "top_p": 0.8,
-          "top_k": 20
-        },
-        "gemini-2.5-pro": {
           "temperature": 1.0,
           "top_p": 0.8,
           "top_k": 20
@@ -113,6 +95,27 @@
         }
       }
     },
+    "vertex": {
+      "default_model": "gemini-2.5-flash-lite",
+      "supportsCustomModel": true,
+      "models": {
+        "gemini-3-pro-preview": {
+          "temperature": 1.0,
+          "top_p": 0.8,
+          "top_k": 20
+        },
+        "gemini-3-flash-preview": {
+          "temperature": 1.0,
+          "top_p": 0.8,
+          "top_k": 20
+        },
+        "gemini-2.5-flash-lite": {
+          "temperature": 1.0,
+          "top_p": 0.8,
+          "top_k": 20
+        }
+      }
+    },
     "ollama": {
       "default_model": "qwen3:1.7b",
       "supportsCustomModel": true,
@@ -137,60 +140,6 @@
             "top_p": 0.8,
             "num_ctx": 32000
           }
-        }
-      }
-    },
-    "bedrock": {
-      "client_class": "BedrockClient",
-      "default_model": "anthropic.claude-3-sonnet-20240229-v1:0",
-      "supportsCustomModel": true,
-      "models": {
-        "anthropic.claude-3-sonnet-20240229-v1:0": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "anthropic.claude-3-haiku-20240307-v1:0": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "anthropic.claude-3-opus-20240229-v1:0": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "amazon.titan-text-express-v1": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "cohere.command-r-v1:0": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "ai21.j2-ultra-v1": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        }
-      }
-    },
-    "azure": {
-      "client_class": "AzureAIClient",
-      "default_model": "gpt-4o",
-      "supportsCustomModel": true,
-      "models": {
-        "gpt-4o": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "gpt-4": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "gpt-35-turbo": {
-          "temperature": 0.7,
-          "top_p": 0.8
-        },
-        "gpt-4-turbo": {
-          "temperature": 0.7,
-          "top_p": 0.8
         }
       }
     }

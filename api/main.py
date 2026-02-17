@@ -51,13 +51,29 @@ if missing_vars:
     logger.warning("Some functionality may not work correctly without these variables.")
 
 # Configure Google Generative AI
-import google.generativeai as genai
+from google import genai
+from google.genai import types as genai_types
 from api.config import GOOGLE_API_KEY
 
 if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
+    google_client = genai.Client(api_key=GOOGLE_API_KEY)
 else:
+    google_client = None
     logger.warning("GOOGLE_API_KEY not configured")
+
+# Configure Vertex AI
+GOOGLE_CLOUD_PROJECT = os.environ.get('GOOGLE_CLOUD_PROJECT')
+GOOGLE_CLOUD_LOCATION = os.environ.get('GOOGLE_CLOUD_LOCATION')
+if GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION:
+    vertex_client = genai.Client(
+        vertexai=True,
+        project=GOOGLE_CLOUD_PROJECT,
+        location=GOOGLE_CLOUD_LOCATION,
+        http_options=genai_types.HttpOptions(api_version="v1"),
+    )
+else:
+    vertex_client = None
+    logger.warning("GOOGLE_CLOUD_PROJECT/GOOGLE_CLOUD_LOCATION not configured, Vertex AI disabled")
 
 if __name__ == "__main__":
     # Get port from environment variable or use default

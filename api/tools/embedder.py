@@ -8,8 +8,8 @@ def get_embedder(is_local_ollama: bool = False, use_google_embedder: bool = Fals
     
     Args:
         is_local_ollama: Legacy parameter for Ollama embedder
-        use_google_embedder: Legacy parameter for Google embedder  
-        embedder_type: Direct specification of embedder type ('ollama', 'google', 'bedrock', 'openai')
+        use_google_embedder: Legacy parameter for Google embedder
+        embedder_type: Direct specification of embedder type ('ollama', 'google', 'openai')
     
     Returns:
         adal.Embedder: Configured embedder instance
@@ -20,8 +20,8 @@ def get_embedder(is_local_ollama: bool = False, use_google_embedder: bool = Fals
             embedder_config = configs["embedder_ollama"]
         elif embedder_type == 'google':
             embedder_config = configs["embedder_google"]
-        elif embedder_type == 'bedrock':
-            embedder_config = configs["embedder_bedrock"]
+        elif embedder_type == 'vertex':
+            embedder_config = configs["embedder_vertex"]
         else:  # default to openai
             embedder_config = configs["embedder"]
     elif is_local_ollama:
@@ -31,12 +31,12 @@ def get_embedder(is_local_ollama: bool = False, use_google_embedder: bool = Fals
     else:
         # Auto-detect based on current configuration
         current_type = get_embedder_type()
-        if current_type == 'bedrock':
-            embedder_config = configs["embedder_bedrock"]
-        elif current_type == 'ollama':
+        if current_type == 'ollama':
             embedder_config = configs["embedder_ollama"]
         elif current_type == 'google':
             embedder_config = configs["embedder_google"]
+        elif current_type == 'vertex':
+            embedder_config = configs["embedder_vertex"]
         else:
             embedder_config = configs["embedder"]
 

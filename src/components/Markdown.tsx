@@ -2,66 +2,61 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
+import rehypeSlug from 'rehype-slug';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import Mermaid from './Mermaid';
 
 interface MarkdownProps {
   content: string;
+  onPageNavigate?: (pageId: string) => void;
+  pageIds?: Set<string>;
 }
 
-const Markdown: React.FC<MarkdownProps> = ({ content }) => {
-  // Define markdown components
+const Markdown: React.FC<MarkdownProps> = ({ content, onPageNavigate, pageIds }) => {
   const MarkdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
     p({ children, ...props }: { children?: React.ReactNode }) {
-      return <p className="mb-3 text-sm leading-relaxed dark:text-white" {...props}>{children}</p>;
+      return <p className="mb-4 text-base leading-7 text-[var(--foreground)]" {...props}>{children}</p>;
     },
     h1({ children, ...props }: { children?: React.ReactNode }) {
-      return <h1 className="text-xl font-bold mt-6 mb-3 dark:text-white" {...props}>{children}</h1>;
+      return <h1 className="text-2xl font-bold mt-8 mb-4 text-[var(--foreground)]" {...props}>{children}</h1>;
     },
     h2({ children, ...props }: { children?: React.ReactNode }) {
-      // Special styling for ReAct headings
-      if (children && typeof children === 'string') {
-        const text = children.toString();
-        if (text.includes('Thought') || text.includes('Action') || text.includes('Observation') || text.includes('Answer')) {
+      return <h2 className="text-xl font-semibold mt-8 mb-3 text-[var(--foreground)]" {...props}>{children}</h2>;
+    },
+    h3({ children, ...props }: { children?: React.ReactNode }) {
+      return <h3 className="text-lg font-semibold mt-6 mb-2 text-[var(--foreground)]" {...props}>{children}</h3>;
+    },
+    h4({ children, ...props }: { children?: React.ReactNode }) {
+      return <h4 className="text-base font-semibold mt-4 mb-2 text-[var(--foreground)]" {...props}>{children}</h4>;
+    },
+    ul({ children, ...props }: { children?: React.ReactNode }) {
+      return <ul className="list-disc pl-6 mb-4 text-base space-y-1.5" {...props}>{children}</ul>;
+    },
+    ol({ children, ...props }: { children?: React.ReactNode }) {
+      return <ol className="list-decimal pl-6 mb-4 text-base space-y-1.5" {...props}>{children}</ol>;
+    },
+    li({ children, ...props }: { children?: React.ReactNode }) {
+      return <li className="text-base leading-7 text-[var(--foreground)]" {...props}>{children}</li>;
+    },
+    a({ children, href, ...props }: { children?: React.ReactNode; href?: string }) {
+      if (href && href.startsWith('#') && onPageNavigate && pageIds) {
+        const targetId = href.slice(1);
+        if (pageIds.has(targetId)) {
           return (
-            <h2
-              className={`text-base font-bold mt-5 mb-3 p-2 rounded ${
-                text.includes('Thought') ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
-                text.includes('Action') ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
-                text.includes('Observation') ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' :
-                text.includes('Answer') ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' :
-                'dark:text-white'
-              }`}
-              {...props}
+            <button
+              onClick={() => onPageNavigate(targetId)}
+              className="text-[var(--foreground)] underline decoration-[var(--border-color)] underline-offset-2 hover:decoration-[var(--foreground)] font-medium cursor-pointer transition-colors"
             >
               {children}
-            </h2>
+            </button>
           );
         }
       }
-      return <h2 className="text-lg font-bold mt-5 mb-3 dark:text-white" {...props}>{children}</h2>;
-    },
-    h3({ children, ...props }: { children?: React.ReactNode }) {
-      return <h3 className="text-base font-semibold mt-4 mb-2 dark:text-white" {...props}>{children}</h3>;
-    },
-    h4({ children, ...props }: { children?: React.ReactNode }) {
-      return <h4 className="text-sm font-semibold mt-3 mb-2 dark:text-white" {...props}>{children}</h4>;
-    },
-    ul({ children, ...props }: { children?: React.ReactNode }) {
-      return <ul className="list-disc pl-6 mb-4 text-sm dark:text-white space-y-2" {...props}>{children}</ul>;
-    },
-    ol({ children, ...props }: { children?: React.ReactNode }) {
-      return <ol className="list-decimal pl-6 mb-4 text-sm dark:text-white space-y-2" {...props}>{children}</ol>;
-    },
-    li({ children, ...props }: { children?: React.ReactNode }) {
-      return <li className="mb-2 text-sm leading-relaxed dark:text-white" {...props}>{children}</li>;
-    },
-    a({ children, href, ...props }: { children?: React.ReactNode; href?: string }) {
       return (
         <a
           href={href}
-          className="text-purple-600 dark:text-purple-400 hover:underline font-medium"
+          className="text-[var(--foreground)] underline decoration-[var(--border-color)] underline-offset-2 hover:decoration-[var(--foreground)] font-medium transition-colors"
           target="_blank"
           rel="noopener noreferrer"
           {...props}
@@ -73,7 +68,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
     blockquote({ children, ...props }: { children?: React.ReactNode }) {
       return (
         <blockquote
-          className="border-l-4 border-gray-300 dark:border-gray-700 pl-4 py-1 text-gray-700 dark:text-gray-300 italic my-4 text-sm"
+          className="border-l-2 border-[var(--border-color)] pl-4 py-0.5 text-[var(--muted)] my-4"
           {...props}
         >
           {children}
@@ -82,26 +77,23 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
     },
     table({ children, ...props }: { children?: React.ReactNode }) {
       return (
-        <div className="overflow-x-auto my-6 rounded-md">
-          <table className="min-w-full text-sm border-collapse" {...props}>
+        <div className="overflow-x-auto my-6 border border-[var(--border-color)] rounded-lg">
+          <table className="min-w-full text-sm" {...props}>
             {children}
           </table>
         </div>
       );
     },
     thead({ children, ...props }: { children?: React.ReactNode }) {
-      return <thead className="bg-gray-100 dark:bg-gray-800" {...props}>{children}</thead>;
+      return <thead className="bg-[var(--accent-secondary)]" {...props}>{children}</thead>;
     },
     tbody({ children, ...props }: { children?: React.ReactNode }) {
-      return <tbody className="divide-y divide-gray-200 dark:divide-gray-700" {...props}>{children}</tbody>;
-    },
-    tr({ children, ...props }: { children?: React.ReactNode }) {
-      return <tr className="hover:bg-gray-50 dark:hover:bg-gray-900" {...props}>{children}</tr>;
+      return <tbody className="divide-y divide-[var(--border-color)]" {...props}>{children}</tbody>;
     },
     th({ children, ...props }: { children?: React.ReactNode }) {
       return (
         <th
-          className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300"
+          className="px-4 py-2.5 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider"
           {...props}
         >
           {children}
@@ -109,7 +101,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
       );
     },
     td({ children, ...props }: { children?: React.ReactNode }) {
-      return <td className="px-4 py-3 border-t border-gray-200 dark:border-gray-700" {...props}>{children}</td>;
+      return <td className="px-4 py-2.5 text-sm text-[var(--foreground)]" {...props}>{children}</td>;
     },
     code(props: {
       inline?: boolean;
@@ -122,35 +114,33 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
       const match = /language-(\w+)/.exec(className || '');
       const codeContent = children ? String(children).replace(/\n$/, '') : '';
 
-      // Handle Mermaid diagrams
       if (!inline && match && match[1] === 'mermaid') {
         return (
-          <div className="my-8 bg-gray-50 dark:bg-gray-800 rounded-md overflow-hidden shadow-sm">
+          <div className="my-6 border border-[var(--border-color)] rounded-lg overflow-hidden">
             <Mermaid
               chart={codeContent}
               className="w-full max-w-full"
-              zoomingEnabled={true}
+              zoomingEnabled={false}
             />
           </div>
         );
       }
 
-      // Handle code blocks
       if (!inline && match) {
         return (
-          <div className="my-6 rounded-md overflow-hidden text-sm shadow-sm">
-            <div className="bg-gray-800 text-gray-200 px-5 py-2 text-sm flex justify-between items-center">
-              <span>{match[1]}</span>
+          <div className="my-6 rounded-lg overflow-hidden border border-[var(--border-color)]">
+            <div className="bg-zinc-800 text-zinc-400 px-4 py-2 text-xs flex justify-between items-center border-b border-zinc-700">
+              <span className="font-mono">{match[1]}</span>
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(codeContent);
                 }}
-                className="text-gray-400 hover:text-white"
+                className="text-zinc-500 hover:text-zinc-300 transition-colors"
                 title="Copy code"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
+                  className="h-4 w-4"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -168,7 +158,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
               language={match[1]}
               style={tomorrow}
               className="!text-sm"
-              customStyle={{ margin: 0, borderRadius: '0 0 0.375rem 0.375rem', padding: '1rem' }}
+              customStyle={{ margin: 0, borderRadius: 0, padding: '1rem' }}
               showLineNumbers={true}
               wrapLines={true}
               wrapLongLines={true}
@@ -180,10 +170,9 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
         );
       }
 
-      // Handle inline code
       return (
         <code
-          className={`${className} font-mono bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-pink-500 dark:text-pink-400 text-sm`}
+          className={`${className || ''} font-mono text-sm bg-[var(--accent-secondary)] text-[var(--foreground)] px-1.5 py-0.5 rounded-md`}
           {...otherProps}
         >
           {children}
@@ -193,10 +182,10 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
   };
 
   return (
-    <div className="prose prose-base dark:prose-invert max-w-none px-2 py-4">
+    <div className="max-w-none py-2">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw]}
+        rehypePlugins={[rehypeRaw, rehypeSlug]}
         components={MarkdownComponents}
       >
         {content}

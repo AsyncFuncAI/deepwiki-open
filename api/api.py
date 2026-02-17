@@ -7,7 +7,6 @@ from typing import List, Optional, Dict, Any, Literal
 import json
 from datetime import datetime
 from pydantic import BaseModel, Field
-import google.generativeai as genai
 import asyncio
 
 # Configure logging
@@ -318,6 +317,45 @@ async def get_local_repo_structure(path: str = Query(None, description="Path to 
             status_code=500,
             content={"error": f"Error processing local repository: {str(e)}"}
         )
+
+@app.get("/local_repo/browse")
+async def browse_local_directory(path: str = Query(None, description="Directory path to browse")):
+    """Browse a local directory and return its subdirectories."""
+    from pathlib import Path
+
+    if not path:
+        path = str(Path.home())
+
+    try:
+        path = os.path.abspath(os.path.expanduser(path))
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": f"Invalid path: {str(e)}"})
+
+    if not os.path.exists(path):
+        return JSONResponse(status_code=404, content={"error": f"Directory not found: {path}"})
+
+    if not os.path.isdir(path):
+        return JSONResponse(status_code=400, content={"error": f"Not a directory: {path}"})
+
+    try:
+        parent = os.path.dirname(path)
+        if parent == path:
+            parent = None
+
+        directories = []
+        try:
+            for entry in os.scandir(path):
+                if entry.is_dir() and not entry.name.startswith('.'):
+                    directories.append(entry.name)
+        except PermissionError:
+            pass
+
+        directories.sort(key=str.lower)
+
+        return {"current": path, "parent": parent, "directories": directories}
+    except Exception as e:
+        logger.error(f"Error browsing directory {path}: {e}")
+        return JSONResponse(status_code=500, content={"error": f"Error browsing directory: {str(e)}"})
 
 def generate_markdown_export(repo_url: str, pages: List[WikiPage]) -> str:
     """

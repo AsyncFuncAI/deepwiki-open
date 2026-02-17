@@ -104,16 +104,16 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         try {
           // Only access localStorage in the browser
           let storedLanguage;
-          if (typeof window !== 'undefined') {
-            storedLanguage = localStorage.getItem('language');
-    
+          if (typeof window !== 'undefined' && typeof window.localStorage?.getItem === 'function') {
+            storedLanguage = window.localStorage.getItem('language');
+
             // If no language is stored, detect browser language
             if (!storedLanguage) {
               console.log('No language in localStorage, detecting browser language');
               storedLanguage = detectBrowserLanguage();
-    
+
               // Store the detected language
-              localStorage.setItem('language', storedLanguage);
+              window.localStorage.setItem('language', storedLanguage);
             }
           } else {
             console.log('Running on server-side, using default language');
@@ -162,8 +162,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       setMessages(langMessages);
 
       // Store in localStorage (only in browser)
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('language', validLanguage);
+      if (typeof window !== 'undefined' && typeof window.localStorage?.setItem === 'function') {
+        window.localStorage.setItem('language', validLanguage);
       }
 
       // Update HTML lang attribute (only in browser)

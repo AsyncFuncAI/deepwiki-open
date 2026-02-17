@@ -114,10 +114,10 @@ def check_environment():
         print("❌ adalflow not available - install with: pip install adalflow")
     
     try:
-        import google.generativeai
-        print("✅ google-generativeai available")
+        from google import genai
+        print("✅ google-genai available")
     except ImportError:
-        print("❌ google-generativeai not available - install with: pip install google-generativeai")
+        print("❌ google-genai not available - install with: pip install google-genai")
     
     try:
         import requests
