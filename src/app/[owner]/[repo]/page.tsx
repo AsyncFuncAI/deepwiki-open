@@ -561,6 +561,17 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
 
 10. **Cross-References Between Pages:** Throughout the content, link to 2-3 other related wiki pages using \`[Page Title](#page-id)\` format. At the end, before the conclusion, include a "See also" callout block (using a blockquote) pointing readers to the most relevant related pages for deeper exploration.
 
+11. **Use Cases (when this page covers use cases or practical scenarios):**
+    *   Write from the perspective of someone asking "What can I do with this?"
+    *   Describe 3-5 concrete, practical scenarios where a user would use this tool or feature.
+    *   For each use case:
+        - Give it a clear, action-oriented heading (e.g., "Automate Pull Request Reviews", "Generate API Documentation from Code")
+        - Explain the problem or goal the user has
+        - Walk through how they would accomplish it using this project, referencing specific features, commands, or APIs from the source code
+        - Include a short example (code snippet, command, or configuration) that demonstrates the use case in action
+    *   Focus on real capabilities backed by the source code — do not invent features that don't exist.
+    *   Write in a practical, second-person tone ("You can...", "To accomplish this, ...").
+
 IMPORTANT: Generate the content in ${language === 'en' ? 'English' :
             language === 'ja' ? 'Japanese (日本語)' :
             language === 'zh' ? 'Mandarin Chinese (中文)' :
@@ -801,6 +812,7 @@ ${isComprehensiveView ? `
 Create a structured wiki with the following main sections:
 - Overview (general information about the project)
 - Getting Started (installation, setup, prerequisites, and quickstart guide)
+- Use Cases (practical, user-facing scenarios answering "What can I do with this?", with concrete examples)
 - System Architecture (how the system is designed)
 - Core Features (key functionality)
 - Data Management/Flow: If applicable, how data is stored, processed, accessed, and managed (e.g., database schema, data pipelines, state management).
