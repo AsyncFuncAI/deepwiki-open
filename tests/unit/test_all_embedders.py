@@ -93,38 +93,44 @@ class TestEmbedderConfiguration:
         assert 'embedder_google' in configs, "Google embedder config missing"
         assert 'embedder_ollama' in configs, "Ollama embedder config missing"
         assert 'embedder_bedrock' in configs, "Bedrock embedder config missing"
+        assert 'embedder_voyage' in configs, "Voyage embedder config missing"
         
         # Check client classes are available
         assert 'OpenAIClient' in CLIENT_CLASSES, "OpenAIClient missing from CLIENT_CLASSES"
         assert 'GoogleEmbedderClient' in CLIENT_CLASSES, "GoogleEmbedderClient missing from CLIENT_CLASSES"
         assert 'OllamaClient' in CLIENT_CLASSES, "OllamaClient missing from CLIENT_CLASSES"
         assert 'BedrockClient' in CLIENT_CLASSES, "BedrockClient missing from CLIENT_CLASSES"
+        assert 'VoyageEmbedderClient' in CLIENT_CLASSES, "VoyageEmbedderClient missing from CLIENT_CLASSES"
     
     def test_embedder_type_detection(self):
         """Test embedder type detection functions."""
-        from api.config import get_embedder_type, is_ollama_embedder, is_google_embedder, is_bedrock_embedder
+        from api.config import get_embedder_type, is_ollama_embedder, is_google_embedder, is_bedrock_embedder, is_voyage_embedder
         
         # Default type should be detected
         current_type = get_embedder_type()
-        assert current_type in ['openai', 'google', 'ollama', 'bedrock'], f"Invalid embedder type: {current_type}"
+        assert current_type in ['openai', 'google', 'ollama', 'bedrock', 'voyage'], f"Invalid embedder type: {current_type}"
         
         # Boolean functions should work
         is_ollama = is_ollama_embedder()
         is_google = is_google_embedder()
         is_bedrock = is_bedrock_embedder()
+        is_voyage = is_voyage_embedder()
         assert isinstance(is_ollama, bool), "is_ollama_embedder should return boolean"
         assert isinstance(is_google, bool), "is_google_embedder should return boolean"
         assert isinstance(is_bedrock, bool), "is_bedrock_embedder should return boolean"
+        assert isinstance(is_voyage, bool), "is_voyage_embedder should return boolean"
         
         # Only one should be true at a time (unless using openai default)
         if current_type == 'bedrock':
-            assert is_bedrock and not is_ollama and not is_google
+            assert is_bedrock and not is_ollama and not is_google and not is_voyage
         elif current_type == 'ollama':
-            assert is_ollama and not is_google and not is_bedrock
+            assert is_ollama and not is_google and not is_bedrock and not is_voyage
         elif current_type == 'google':
-            assert is_google and not is_ollama and not is_bedrock
+            assert is_google and not is_ollama and not is_bedrock and not is_voyage
+        elif current_type == 'voyage':
+            assert is_voyage and not is_ollama and not is_google and not is_bedrock
         else:  # openai
-            assert not is_ollama and not is_google and not is_bedrock
+            assert not is_ollama and not is_google and not is_bedrock and not is_voyage
 
     def test_get_embedder_config(self, embedder_type=None):
         """Test getting embedder config for each type."""

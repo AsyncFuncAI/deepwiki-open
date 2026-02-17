@@ -67,3 +67,4 @@ next-env.d.ts
 
 # ignore adding self-signed certs
 certs/
+docker-compose.override.yml

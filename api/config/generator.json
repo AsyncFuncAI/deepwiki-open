@@ -28,6 +28,11 @@
           "top_p": 0.8,
           "top_k": 20
         },
+        "gemini-2.0-flash-exp": {
+          "temperature": 1.0,
+          "top_p": 0.8,
+          "top_k": 20
+        },
         "gemini-2.5-flash-lite": {
           "temperature": 1.0,
           "top_p": 0.8,
