@@ -1,5 +1,5 @@
 {
-  "default_provider": "google",
+  "default_provider": "vertex",
   "providers": {
     "google": {
       "default_model": "gemini-2.5-flash-lite",
