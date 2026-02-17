@@ -2067,7 +2067,7 @@ IMPORTANT:
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Link href="/" className="text-[var(--foreground)] font-semibold text-sm hover:opacity-70 transition-opacity">
-              DeepWiki
+              Deep Docs
             </Link>
             <span className="text-[var(--muted)]">{effectiveRepoInfo.owner}/{effectiveRepoInfo.repo}</span>
           </div>
@@ -2348,7 +2348,7 @@ IMPORTANT:
       <footer className="max-w-[90%] xl:max-w-[1400px] mx-auto mt-4 flex flex-col gap-4 w-full">
         <div className="flex justify-center items-center gap-4 text-center text-[var(--muted)] text-xs h-fit w-full py-3 border-t border-[var(--border-color)]">
           <p>
-            {messages.footer?.copyright || 'DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories'}
+            {messages.footer?.copyright || 'Deep Documentation'}
           </p>
         </div>
       </footer>

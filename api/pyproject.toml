@@ -1,8 +1,7 @@
 [project]
-name = "open-deepwiki-api"
+name = "deep-documentation-api"
 version = "1.0.0"
-description = "Backend API for DeepWiki, providing smart code analysis and AI-powered documentation generation."
-license = {text = "MIT License"}
+description = "Backend API for Deep Documentation."
 
 [tool.poetry]
 package-mode = false

@@ -131,8 +131,8 @@ class OpenRouterClient(ModelClient):
             headers = {
                 "Authorization": f"Bearer {self.async_client['api_key']}",
                 "Content-Type": "application/json",
-                "HTTP-Referer": "https://github.com/AsyncFuncAI/deepwiki-open",  # Optional
-                "X-Title": "DeepWiki"  # Optional
+                "HTTP-Referer": "https://ghe.spotify.net/jbx/deep-documentation",
+                "X-Title": "Deep Documentation"
             }
 
             # Always use non-streaming mode for OpenRouter

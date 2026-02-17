@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "DeepWiki-Open",
+    "appName": "Deep Documentation",
     "tagline": "AI-powered documentation",
     "generateWiki": "Generate Wiki",
     "processing": "Processing...",
@@ -18,13 +18,13 @@
     "preparingDownload": "Please wait while we prepare your download..."
   },
   "home": {
-    "welcome": "Welcome to DeepWiki-Open",
+    "welcome": "Welcome to Deep Documentation",
     "welcomeTagline": "AI-powered documentation for your code repositories",
     "description": "Generate comprehensive documentation from GitHub, GitLab, or Bitbucket repositories with just a few clicks.",
     "quickStart": "Quick Start",
     "enterRepoUrl": "Enter a repository URL in one of these formats:",
     "advancedVisualization": "Advanced Visualization with Mermaid Diagrams",
-    "diagramDescription": "DeepWiki automatically generates interactive diagrams to help you understand code structure and relationships:",
+    "diagramDescription": "Automatically generates interactive diagrams to help you understand code structure and relationships:",
     "flowDiagram": "Flow Diagram",
     "sequenceDiagram": "Sequence Diagram"
   },
@@ -93,7 +93,7 @@
     "authorizationRequired": "Authentication is required to generate the wiki."
   },
   "footer": {
-    "copyright": "DeepWiki - AI-powered documentation for code repositories"
+    "copyright": "Deep Documentation"
   },
   "ask": {
     "placeholder": "Ask a question about this repository...",
