@@ -44,7 +44,7 @@ if is_development:
 import uvicorn
 
 # Check for required environment variables
-required_env_vars = ['GOOGLE_API_KEY', 'OPENAI_API_KEY']
+required_env_vars = ['GOOGLE_API_KEY']
 missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
 if missing_vars:
     logger.warning(f"Missing environment variables: {', '.join(missing_vars)}")

@@ -30,6 +30,14 @@
       "dimensions": 256
     }
   },
+  "embedder_voyage": {
+    "client_class": "VoyageEmbedderClient",
+    "batch_size": 100,
+    "model_kwargs": {
+      "model": "voyage-code-3",
+      "input_type": "document"
+    }
+  },
   "retriever": {
     "top_k": 20
   },

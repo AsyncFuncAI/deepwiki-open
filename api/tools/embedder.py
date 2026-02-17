@@ -3,13 +3,14 @@ import adalflow as adal
 from api.config import configs, get_embedder_type
 
 
-def get_embedder(is_local_ollama: bool = False, use_google_embedder: bool = False, embedder_type: str = None) -> adal.Embedder:
+def get_embedder(is_local_ollama: bool = False, use_google_embedder: bool = False, embedder_type: str = None, input_type: str = None) -> adal.Embedder:
     """Get embedder based on configuration or parameters.
     
     Args:
         is_local_ollama: Legacy parameter for Ollama embedder
         use_google_embedder: Legacy parameter for Google embedder  
-        embedder_type: Direct specification of embedder type ('ollama', 'google', 'bedrock', 'openai')
+        embedder_type: Direct specification of embedder type ('ollama', 'google', 'bedrock', 'openai', 'voyage')
+        input_type: Optional input_type for Voyage/other embedders ('document' or 'query')
     
     Returns:
         adal.Embedder: Configured embedder instance
@@ -22,6 +23,8 @@ def get_embedder(is_local_ollama: bool = False, use_google_embedder: bool = Fals
             embedder_config = configs["embedder_google"]
         elif embedder_type == 'bedrock':
             embedder_config = configs["embedder_bedrock"]
+        elif embedder_type == 'voyage':
+            embedder_config = configs["embedder_voyage"]
         else:  # default to openai
             embedder_config = configs["embedder"]
     elif is_local_ollama:
@@ -37,6 +40,8 @@ def get_embedder(is_local_ollama: bool = False, use_google_embedder: bool = Fals
             embedder_config = configs["embedder_ollama"]
         elif current_type == 'google':
             embedder_config = configs["embedder_google"]
+        elif current_type == 'voyage':
+            embedder_config = configs["embedder_voyage"]
         else:
             embedder_config = configs["embedder"]
 
@@ -49,6 +54,12 @@ def get_embedder(is_local_ollama: bool = False, use_google_embedder: bool = Fals
     
     # Create embedder with basic parameters
     embedder_kwargs = {"model_client": model_client, "model_kwargs": embedder_config["model_kwargs"]}
+    
+    # Override input_type if provided (critical for Voyage AI retrieval vs indexing)
+    if input_type and "model_kwargs" in embedder_kwargs:
+        # Create a copy to avoid modifying the global config
+        embedder_kwargs["model_kwargs"] = embedder_kwargs["model_kwargs"].copy()
+        embedder_kwargs["model_kwargs"]["input_type"] = input_type
     
     embedder = adal.Embedder(**embedder_kwargs)
     

@@ -190,20 +190,24 @@ class RAG(adal.Component):
         self.memory = Memory()
         self.embedder = get_embedder(embedder_type=self.embedder_type)
 
-        self_weakref = weakref.ref(self)
-        # Patch: ensure query embedding is always single string for Ollama
-        def single_string_embedder(query):
-            # Accepts either a string or a list, always returns embedding for a single string
-            if isinstance(query, list):
-                if len(query) != 1:
-                    raise ValueError("Ollama embedder only supports a single string")
-                query = query[0]
-            instance = self_weakref()
-            assert instance is not None, "RAG instance is no longer available, but the query embedder was called."
-            return instance.embedder(input=query)
-
-        # Use single string embedder for Ollama, regular embedder for others
-        self.query_embedder = single_string_embedder if self.is_ollama_embedder else self.embedder
+        # Voyage requires input_type="query" for retrieval — initialize a dedicated query
+        # embedder once at startup rather than allocating a new client per call.
+        if self.embedder_type == 'voyage':
+            self.query_embedder = get_embedder(embedder_type='voyage', input_type='query')
+        elif self.is_ollama_embedder:
+            # Ollama needs single-string coercion (doesn't accept list inputs)
+            self_weakref = weakref.ref(self)
+            def single_string_embedder(query):
+                if isinstance(query, list):
+                    if len(query) != 1:
+                        raise ValueError("Ollama embedder only supports a single string")
+                    query = query[0]
+                instance = self_weakref()
+                assert instance is not None, "RAG instance is no longer available"
+                return instance.embedder(input=query)
+            self.query_embedder = single_string_embedder
+        else:
+            self.query_embedder = self.embedder
 
         self.initialize_db_manager()
 
@@ -381,7 +385,7 @@ IMPORTANT FORMATTING RULES:
 
         try:
             # Use the appropriate embedder for retrieval
-            retrieve_embedder = self.query_embedder if self.is_ollama_embedder else self.embedder
+            retrieve_embedder = self.query_embedder if self.embedder_type in ('ollama', 'voyage') else self.embedder
             self.retriever = FAISSRetriever(
                 **configs["retriever"],
                 embedder=retrieve_embedder,

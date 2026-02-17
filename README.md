@@ -342,6 +342,7 @@ docker-compose up
 | `openai` | OpenAI embeddings (default) | `OPENAI_API_KEY` | Uses `text-embedding-3-small` model |
 | `google` | Google AI embeddings | `GOOGLE_API_KEY` | Uses `text-embedding-004` model |
 | `ollama` | Local Ollama embeddings | None | Requires local Ollama installation |
+| `voyage` | Voyage AI embeddings | `VOYAGE_AI_API_KEY` | Uses `voyage-code-3` model; optimized for code retrieval |
 
 ### Why Use Google AI Embeddings?
 
@@ -363,6 +364,9 @@ export DEEPWIKI_EMBEDDER_TYPE=google
 
 # Use local Ollama embeddings
 export DEEPWIKI_EMBEDDER_TYPE=ollama
+
+# Use Voyage AI embeddings (optimized for code retrieval)
+export DEEPWIKI_EMBEDDER_TYPE=voyage
 ```
 
 **Note**: When switching embedders, you may need to regenerate your repository embeddings as different models produce different vector spaces.
@@ -421,7 +425,8 @@ docker-compose up
 | `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint                    | No | Required only if you want to use Azure OpenAI models                                                       |
 | `AZURE_OPENAI_VERSION` | Azure OpenAI version                     | No | Required only if you want to use Azure OpenAI models                                                       |
 | `OLLAMA_HOST`        | Ollama Host (default: http://localhost:11434)                | No | Required only if you want to use external Ollama server                                                  |
-| `DEEPWIKI_EMBEDDER_TYPE` | Embedder type: `openai`, `google`, `ollama`, or `bedrock` (default: `openai`) | No | Controls which embedding provider to use                                                              |
+| `VOYAGE_AI_API_KEY`  | Voyage AI API key                                              | No | Required only if `DEEPWIKI_EMBEDDER_TYPE=voyage`                                                        |
+| `DEEPWIKI_EMBEDDER_TYPE` | Embedder type: `openai`, `google`, `ollama`, `bedrock`, or `voyage` (default: `openai`) | No | Controls which embedding provider to use                                                              |
 | `PORT`               | Port for the API server (default: 8001)                      | No | If you host API and frontend on the same machine, make sure change port of `SERVER_BASE_URL` accordingly |
 | `SERVER_BASE_URL`    | Base URL for the API server (default: http://localhost:8001) | No |
 | `DEEPWIKI_AUTH_MODE` | Set to `true` or `1` to enable authorization mode. | No | Defaults to `false`. If enabled, `DEEPWIKI_AUTH_CODE` is required. |
@@ -432,6 +437,7 @@ docker-compose up
 - If using `DEEPWIKI_EMBEDDER_TYPE=google`: `GOOGLE_API_KEY` is required  
 - If using `DEEPWIKI_EMBEDDER_TYPE=ollama`: No API key required (local processing)
 - If using `DEEPWIKI_EMBEDDER_TYPE=bedrock`: AWS credentials (or role-based credentials) are required
+- If using `DEEPWIKI_EMBEDDER_TYPE=voyage`: `VOYAGE_AI_API_KEY` is required
 
 Other API keys are only required when configuring and using models from the corresponding providers.
 
