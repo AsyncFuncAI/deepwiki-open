@@ -1,17 +1,19 @@
-import React, { useEffect, useRef, useState } from 'react';
-import mermaid from 'mermaid';
+'use client';
 
-mermaid.initialize({
-  startOnLoad: true,
-  theme: 'neutral',
-  securityLevel: 'loose',
+import React, { useEffect, useRef, useState } from 'react';
+import type mermaidAPI from 'mermaid';
+
+const MERMAID_CONFIG = {
+  startOnLoad: false,
+  theme: 'neutral' as const,
+  securityLevel: 'loose' as const,
   suppressErrorRendering: true,
-  logLevel: 'error',
+  logLevel: 'error' as const,
   maxTextSize: 100000,
   htmlLabels: true,
   flowchart: {
     htmlLabels: true,
-    curve: 'basis',
+    curve: 'basis' as const,
     nodeSpacing: 50,
     rankSpacing: 50,
     padding: 16,
@@ -78,7 +80,18 @@ mermaid.initialize({
   `,
   fontFamily: 'var(--font-geist-sans), system-ui, sans-serif',
   fontSize: 13,
-});
+};
+
+let mermaidInstance: typeof mermaidAPI | null = null;
+
+async function getMermaid() {
+  if (!mermaidInstance) {
+    const m = await import('mermaid');
+    mermaidInstance = m.default;
+    mermaidInstance.initialize(MERMAID_CONFIG);
+  }
+  return mermaidInstance;
+}
 
 interface MermaidProps {
   chart: string;
@@ -251,6 +264,8 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled
 
     const renderChart = async () => {
       if (!isMounted) return;
+
+      const mermaid = await getMermaid();
 
       try {
         setError(null);

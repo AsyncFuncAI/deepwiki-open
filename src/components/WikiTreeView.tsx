@@ -35,12 +35,14 @@ interface WikiTreeViewProps {
   wikiStructure: WikiStructure;
   currentPageId: string | undefined;
   onPageSelect: (pageId: string) => void;
+  pagesInProgress?: Set<string>;
 }
 
 const WikiTreeView: React.FC<WikiTreeViewProps> = ({
   wikiStructure,
   currentPageId,
   onPageSelect,
+  pagesInProgress,
 }) => {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(wikiStructure.rootSections)
@@ -85,17 +87,21 @@ const WikiTreeView: React.FC<WikiTreeViewProps> = ({
               const page = wikiStructure.pages.find(p => p.id === pageId);
               if (!page) return null;
 
+              const generating = pagesInProgress?.has(pageId);
               return (
                 <button
                   key={pageId}
-                  className={`w-full text-left px-3 py-1 text-sm transition-colors block ${
+                  className={`w-full text-left px-3 py-1 text-sm transition-colors flex items-center gap-1.5 ${
                     currentPageId === pageId
                       ? 'text-[var(--foreground)] font-medium'
                       : 'text-[var(--muted)] hover:text-[var(--foreground)]'
                   }`}
                   onClick={() => onPageSelect(pageId)}
                 >
-                  <span className="truncate block">{page.title}</span>
+                  {generating && (
+                    <span className="w-1.5 h-1.5 bg-[var(--accent-primary)] rounded-full animate-pulse flex-shrink-0" />
+                  )}
+                  <span className="truncate">{page.title}</span>
                 </button>
               );
             })}
@@ -112,20 +118,26 @@ const WikiTreeView: React.FC<WikiTreeViewProps> = ({
   if (!wikiStructure.sections || wikiStructure.sections.length === 0 || !wikiStructure.rootSections || wikiStructure.rootSections.length === 0) {
     return (
       <ul className="space-y-0.5">
-        {wikiStructure.pages.map(page => (
-          <li key={page.id}>
-            <button
-              className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
-                currentPageId === page.id
-                  ? 'text-[var(--foreground)] font-medium'
-                  : 'text-[var(--muted)] hover:text-[var(--foreground)]'
-              }`}
-              onClick={() => onPageSelect(page.id)}
-            >
-              <span className="truncate block">{page.title}</span>
-            </button>
-          </li>
-        ))}
+        {wikiStructure.pages.map(page => {
+          const generating = pagesInProgress?.has(page.id);
+          return (
+            <li key={page.id}>
+              <button
+                className={`w-full text-left px-3 py-1.5 text-sm transition-colors flex items-center gap-1.5 ${
+                  currentPageId === page.id
+                    ? 'text-[var(--foreground)] font-medium'
+                    : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                }`}
+                onClick={() => onPageSelect(page.id)}
+              >
+                {generating && (
+                  <span className="w-1.5 h-1.5 bg-[var(--accent-primary)] rounded-full animate-pulse flex-shrink-0" />
+                )}
+                <span className="truncate">{page.title}</span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     );
   }

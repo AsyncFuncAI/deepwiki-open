@@ -693,14 +693,14 @@ This file contains...
                     elif request.provider == "vertex":
                         # Vertex AI fallback
                         from api.main import vertex_client
-                        model_config = get_model_config(request.provider, request.model)
+                        fallback_config = get_model_config(request.provider, request.model)
                         fallback_response = vertex_client.models.generate_content_stream(
-                            model=model_config["model_kwargs"]["model"],
+                            model=fallback_config["model_kwargs"]["model"],
                             contents=simplified_prompt,
                             config=genai_types.GenerateContentConfig(
-                                temperature=model_config["model_kwargs"].get("temperature", 0.7),
-                                top_p=model_config["model_kwargs"].get("top_p", 0.8),
-                                top_k=model_config["model_kwargs"].get("top_k", 40),
+                                temperature=fallback_config["model_kwargs"].get("temperature", 0.7),
+                                top_p=fallback_config["model_kwargs"].get("top_p", 0.8),
+                                top_k=fallback_config["model_kwargs"].get("top_k", 40),
                             ),
                         )
                         for chunk in fallback_response:
@@ -709,14 +709,14 @@ This file contains...
                     else:
                         # Google Generative AI fallback (default provider)
                         from api.main import google_client
-                        model_config = get_model_config(request.provider, request.model)
+                        fallback_config = get_model_config(request.provider, request.model)
                         fallback_response = google_client.models.generate_content_stream(
-                            model=model_config["model_kwargs"]["model"],
+                            model=fallback_config["model_kwargs"]["model"],
                             contents=simplified_prompt,
                             config=genai_types.GenerateContentConfig(
-                                temperature=model_config["model_kwargs"].get("temperature", 0.7),
-                                top_p=model_config["model_kwargs"].get("top_p", 0.8),
-                                top_k=model_config["model_kwargs"].get("top_k", 40),
+                                temperature=fallback_config["model_kwargs"].get("temperature", 0.7),
+                                top_p=fallback_config["model_kwargs"].get("top_p", 0.8),
+                                top_k=fallback_config["model_kwargs"].get("top_k", 40),
                             ),
                         )
                         for chunk in fallback_response:

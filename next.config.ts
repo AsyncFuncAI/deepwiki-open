@@ -1,5 +1,12 @@
 import type { NextConfig } from "next";
 
+// Node.js 25+ exposes a global `localStorage` but when --localstorage-file
+// is not configured (e.g. under Turbopack), getItem/setItem are undefined.
+// Remove it so SSR code that feature-detects localStorage won't crash.
+if (typeof globalThis.localStorage !== 'undefined' && typeof globalThis.localStorage.getItem !== 'function') {
+  delete (globalThis as Record<string, unknown>).localStorage;
+}
+
 const TARGET_SERVER_BASE_URL = process.env.SERVER_BASE_URL || 'http://localhost:8001';
 
 const nextConfig: NextConfig = {
@@ -66,6 +73,10 @@ const nextConfig: NextConfig = {
       {
         source: '/api/lang/config',
         destination: `${TARGET_SERVER_BASE_URL}/lang/config`,
+      },
+      {
+        source: '/api/chat/stream',
+        destination: `${TARGET_SERVER_BASE_URL}/chat/completions/stream`,
       },
     ];
   },

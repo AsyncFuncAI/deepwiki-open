@@ -7,6 +7,7 @@ from adalflow.core.types import Document
 from adalflow.core.component import DataComponent
 import requests
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Configure logging
 from api.logging_config import setup_logging
@@ -68,38 +69,57 @@ class OllamaDocumentProcessor(DataComponent):
         super().__init__()
         self.embedder = embedder
 
+    def _embed_single(self, doc: Document, index: int):
+        """Embed a single document. Returns (index, embedding) or (index, None) on failure."""
+        try:
+            result = self.embedder(input=doc.text)
+            if result.data and len(result.data) > 0:
+                return (index, result.data[0].embedding)
+            else:
+                file_path = getattr(doc, 'meta_data', {}).get('file_path', f'document_{index}')
+                logger.warning(f"Failed to get embedding for document '{file_path}', skipping")
+                return (index, None)
+        except Exception as e:
+            file_path = getattr(doc, 'meta_data', {}).get('file_path', f'document_{index}')
+            logger.error(f"Error processing document '{file_path}': {e}, skipping")
+            return (index, None)
+
     def __call__(self, documents: Sequence[Document]) -> Sequence[Document]:
         output = deepcopy(documents)
-        logger.info(f"Processing {len(output)} documents individually for Ollama embeddings")
+        logger.info(f"Processing {len(output)} documents for Ollama embeddings (parallel)")
 
+        # Use ThreadPoolExecutor for parallel embedding — Ollama calls are HTTP I/O bound
+        max_workers = min(8, len(output))
+        embeddings_map = {}
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(self._embed_single, doc, i): i
+                for i, doc in enumerate(output)
+            }
+            for future in tqdm(as_completed(futures), total=len(futures), desc="Embedding documents (Ollama)"):
+                idx, embedding = future.result()
+                if embedding is not None:
+                    embeddings_map[idx] = embedding
+
+        # Validate embedding size consistency and assign vectors
         successful_docs = []
-        expected_embedding_size = None
+        if embeddings_map:
+            # Find the most common embedding size
+            size_counts = {}
+            for emb in embeddings_map.values():
+                size = len(emb)
+                size_counts[size] = size_counts.get(size, 0) + 1
+            expected_size = max(size_counts, key=size_counts.get)
+            logger.info(f"Expected embedding size: {expected_size}")
 
-        for i, doc in enumerate(tqdm(output, desc="Processing documents for Ollama embeddings")):
-            try:
-                # Get embedding for a single document
-                result = self.embedder(input=doc.text)
-                if result.data and len(result.data) > 0:
-                    embedding = result.data[0].embedding
-
-                    # Validate embedding size consistency
-                    if expected_embedding_size is None:
-                        expected_embedding_size = len(embedding)
-                        logger.info(f"Expected embedding size set to: {expected_embedding_size}")
-                    elif len(embedding) != expected_embedding_size:
-                        file_path = getattr(doc, 'meta_data', {}).get('file_path', f'document_{i}')
-                        logger.warning(f"Document '{file_path}' has inconsistent embedding size {len(embedding)} != {expected_embedding_size}, skipping")
-                        continue
-
-                    # Assign the embedding to the document
-                    output[i].vector = embedding
-                    successful_docs.append(output[i])
+            for idx, embedding in embeddings_map.items():
+                if len(embedding) == expected_size:
+                    output[idx].vector = embedding
+                    successful_docs.append(output[idx])
                 else:
-                    file_path = getattr(doc, 'meta_data', {}).get('file_path', f'document_{i}')
-                    logger.warning(f"Failed to get embedding for document '{file_path}', skipping")
-            except Exception as e:
-                file_path = getattr(doc, 'meta_data', {}).get('file_path', f'document_{i}')
-                logger.error(f"Error processing document '{file_path}': {e}, skipping")
+                    file_path = getattr(output[idx], 'meta_data', {}).get('file_path', f'document_{idx}')
+                    logger.warning(f"Document '{file_path}' has inconsistent embedding size {len(embedding)} != {expected_size}, skipping")
 
         logger.info(f"Successfully processed {len(successful_docs)}/{len(output)} documents with consistent embeddings")
         return successful_docs

@@ -298,80 +298,68 @@ def read_all_documents(path: str, embedder_type: str = None, is_ollama_embedder:
 
             return not is_excluded
 
-    # Process code files first
-    for ext in code_extensions:
-        files = glob.glob(f"{path}/**/*{ext}", recursive=True)
-        for file_path in files:
-            # Check if file should be processed based on inclusion/exclusion rules
-            if not should_process_file(file_path, use_inclusion_mode, included_dirs, included_files, excluded_dirs, excluded_files):
+    # Collect all candidate files in a single os.walk pass instead of multiple glob calls
+    code_ext_set = set(code_extensions)
+    doc_ext_set = set(doc_extensions)
+    all_ext_set = code_ext_set | doc_ext_set
+
+    candidate_files = []  # (file_path, ext, is_code)
+    for root, dirs, files_in_dir in os.walk(path):
+        for fname in files_in_dir:
+            ext = os.path.splitext(fname)[1]
+            if ext not in all_ext_set:
                 continue
-
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-                    relative_path = os.path.relpath(file_path, path)
-
-                    # Determine if this is an implementation file
-                    is_implementation = (
-                        not relative_path.startswith("test_")
-                        and not relative_path.startswith("app_")
-                        and "test" not in relative_path.lower()
-                    )
-
-                    # Check token count
-                    token_count = count_tokens(content, embedder_type)
-                    if token_count > MAX_EMBEDDING_TOKENS * 10:
-                        logger.warning(f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit")
-                        continue
-
-                    doc = Document(
-                        text=content,
-                        meta_data={
-                            "file_path": relative_path,
-                            "type": ext[1:],
-                            "is_code": True,
-                            "is_implementation": is_implementation,
-                            "title": relative_path,
-                            "token_count": token_count,
-                        },
-                    )
-                    documents.append(doc)
-            except Exception as e:
-                logger.error(f"Error reading {file_path}: {e}")
-
-    # Then process documentation files
-    for ext in doc_extensions:
-        files = glob.glob(f"{path}/**/*{ext}", recursive=True)
-        for file_path in files:
-            # Check if file should be processed based on inclusion/exclusion rules
-            if not should_process_file(file_path, use_inclusion_mode, included_dirs, included_files, excluded_dirs, excluded_files):
+            full_path = os.path.join(root, fname)
+            if not should_process_file(full_path, use_inclusion_mode, included_dirs, included_files, excluded_dirs, excluded_files):
                 continue
+            is_code = ext in code_ext_set
+            candidate_files.append((full_path, ext, is_code))
 
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-                    relative_path = os.path.relpath(file_path, path)
+    logger.info(f"Found {len(candidate_files)} candidate files to process")
 
-                    # Check token count
-                    token_count = count_tokens(content, embedder_type)
-                    if token_count > MAX_EMBEDDING_TOKENS:
-                        logger.warning(f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit")
-                        continue
+    def _read_and_create_doc(args):
+        """Read a file and create a Document — runs in thread pool."""
+        file_path_abs, ext, is_code = args
+        try:
+            with open(file_path_abs, "r", encoding="utf-8") as f:
+                content = f.read()
+            relative_path = os.path.relpath(file_path_abs, path)
+            token_count = count_tokens(content, embedder_type)
 
-                    doc = Document(
-                        text=content,
-                        meta_data={
-                            "file_path": relative_path,
-                            "type": ext[1:],
-                            "is_code": False,
-                            "is_implementation": False,
-                            "title": relative_path,
-                            "token_count": token_count,
-                        },
-                    )
-                    documents.append(doc)
-            except Exception as e:
-                logger.error(f"Error reading {file_path}: {e}")
+            # Apply token limits
+            max_tokens = MAX_EMBEDDING_TOKENS * 10 if is_code else MAX_EMBEDDING_TOKENS
+            if token_count > max_tokens:
+                return None
+
+            is_implementation = is_code and (
+                not relative_path.startswith("test_")
+                and not relative_path.startswith("app_")
+                and "test" not in relative_path.lower()
+            )
+
+            return Document(
+                text=content,
+                meta_data={
+                    "file_path": relative_path,
+                    "type": ext[1:],
+                    "is_code": is_code,
+                    "is_implementation": is_implementation,
+                    "title": relative_path,
+                    "token_count": token_count,
+                },
+            )
+        except Exception as e:
+            logger.error(f"Error reading {file_path_abs}: {e}")
+            return None
+
+    # Process files in parallel using threads (I/O + tiktoken is the bottleneck)
+    from concurrent.futures import ThreadPoolExecutor
+    max_workers = min(16, max(1, len(candidate_files)))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        results = executor.map(_read_and_create_doc, candidate_files)
+        for doc in results:
+            if doc is not None:
+                documents.append(doc)
 
     logger.info(f"Found {len(documents)} documents")
     return documents

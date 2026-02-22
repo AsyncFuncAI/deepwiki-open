@@ -16,7 +16,7 @@
   },
   "embedder_google": {
     "client_class": "GoogleEmbedderClient",
-    "batch_size": 100,
+    "batch_size": 500,
     "model_kwargs": {
       "model": "gemini-embedding-001",
       "task_type": "SEMANTIC_SIMILARITY"
@@ -24,7 +24,7 @@
   },
   "embedder_vertex": {
     "client_class": "VertexEmbedderClient",
-    "batch_size": 100,
+    "batch_size": 500,
     "model_kwargs": {
       "model": "gemini-embedding-001",
       "task_type": "SEMANTIC_SIMILARITY"

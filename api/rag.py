@@ -150,6 +150,12 @@ class RAGAnswer(adal.DataClass):
 
     __output_fields__ = ["rationale", "answer"]
 
+# Module-level cache for prepared documents — avoids re-loading from disk
+# when multiple concurrent requests target the same repo
+import threading
+_docs_cache: Dict[str, List] = {}
+_docs_cache_lock = threading.Lock()
+
 class RAG(adal.Component):
     """RAG with one repo.
     If you want to load a new repos, call prepare_retriever(repo_url_or_path) first."""
@@ -248,97 +254,57 @@ IMPORTANT FORMATTING RULES:
         self.db_manager = DatabaseManager()
         self.transformed_docs = []
 
+    @staticmethod
+    def _get_embedding_size(doc, index: int):
+        """Extract embedding size from a document. Returns size or -1 on failure."""
+        if not hasattr(doc, 'vector') or doc.vector is None:
+            return -1
+        try:
+            if isinstance(doc.vector, list):
+                return len(doc.vector)
+            elif hasattr(doc.vector, 'shape'):
+                return doc.vector.shape[0] if len(doc.vector.shape) == 1 else doc.vector.shape[-1]
+            elif hasattr(doc.vector, '__len__'):
+                return len(doc.vector)
+        except Exception as e:
+            logger.warning(f"Error checking embedding size for document {index}: {str(e)}")
+        return -1
+
     def _validate_and_filter_embeddings(self, documents: List) -> List:
         """
         Validate embeddings and filter out documents with invalid or mismatched embedding sizes.
-
-        Args:
-            documents: List of documents with embeddings
-
-        Returns:
-            List of documents with valid embeddings of consistent size
+        Single-pass implementation: collects sizes and documents together.
         """
         if not documents:
             logger.warning("No documents provided for embedding validation")
             return []
 
-        valid_documents = []
-        embedding_sizes = {}
-
-        # First pass: collect all embedding sizes and count occurrences
+        # Single pass: collect sizes and group documents by size
+        docs_by_size = {}
+        skipped = 0
         for i, doc in enumerate(documents):
-            if not hasattr(doc, 'vector') or doc.vector is None:
-                logger.warning(f"Document {i} has no embedding vector, skipping")
+            size = self._get_embedding_size(doc, i)
+            if size <= 0:
+                skipped += 1
                 continue
+            docs_by_size.setdefault(size, []).append(doc)
 
-            try:
-                if isinstance(doc.vector, list):
-                    embedding_size = len(doc.vector)
-                elif hasattr(doc.vector, 'shape'):
-                    embedding_size = doc.vector.shape[0] if len(doc.vector.shape) == 1 else doc.vector.shape[-1]
-                elif hasattr(doc.vector, '__len__'):
-                    embedding_size = len(doc.vector)
-                else:
-                    logger.warning(f"Document {i} has invalid embedding vector type: {type(doc.vector)}, skipping")
-                    continue
-
-                if embedding_size == 0:
-                    logger.warning(f"Document {i} has empty embedding vector, skipping")
-                    continue
-
-                embedding_sizes[embedding_size] = embedding_sizes.get(embedding_size, 0) + 1
-
-            except Exception as e:
-                logger.warning(f"Error checking embedding size for document {i}: {str(e)}, skipping")
-                continue
-
-        if not embedding_sizes:
+        if not docs_by_size:
             logger.error("No valid embeddings found in any documents")
             return []
 
-        # Find the most common embedding size (this should be the correct one)
-        target_size = max(embedding_sizes.keys(), key=lambda k: embedding_sizes[k])
-        logger.info(f"Target embedding size: {target_size} (found in {embedding_sizes[target_size]} documents)")
+        # Find the most common embedding size
+        target_size = max(docs_by_size, key=lambda k: len(docs_by_size[k]))
+        valid_documents = docs_by_size[target_size]
 
-        # Log all embedding sizes found
-        for size, count in embedding_sizes.items():
+        logger.info(f"Target embedding size: {target_size} (found in {len(valid_documents)} documents)")
+        for size, docs in docs_by_size.items():
             if size != target_size:
-                logger.warning(f"Found {count} documents with incorrect embedding size {size}, will be filtered out")
-
-        # Second pass: filter documents with the target embedding size
-        for i, doc in enumerate(documents):
-            if not hasattr(doc, 'vector') or doc.vector is None:
-                continue
-
-            try:
-                if isinstance(doc.vector, list):
-                    embedding_size = len(doc.vector)
-                elif hasattr(doc.vector, 'shape'):
-                    embedding_size = doc.vector.shape[0] if len(doc.vector.shape) == 1 else doc.vector.shape[-1]
-                elif hasattr(doc.vector, '__len__'):
-                    embedding_size = len(doc.vector)
-                else:
-                    continue
-
-                if embedding_size == target_size:
-                    valid_documents.append(doc)
-                else:
-                    # Log which document is being filtered out
-                    file_path = getattr(doc, 'meta_data', {}).get('file_path', f'document_{i}')
-                    logger.warning(f"Filtering out document '{file_path}' due to embedding size mismatch: {embedding_size} != {target_size}")
-
-            except Exception as e:
-                file_path = getattr(doc, 'meta_data', {}).get('file_path', f'document_{i}')
-                logger.warning(f"Error validating embedding for document '{file_path}': {str(e)}, skipping")
-                continue
+                logger.warning(f"Filtered out {len(docs)} documents with embedding size {size}")
 
         logger.info(f"Embedding validation complete: {len(valid_documents)}/{len(documents)} documents have valid embeddings")
-
-        if len(valid_documents) == 0:
-            logger.error("No documents with valid embeddings remain after filtering")
-        elif len(valid_documents) < len(documents):
-            filtered_count = len(documents) - len(valid_documents)
-            logger.warning(f"Filtered out {filtered_count} documents due to embedding issues")
+        if skipped:
+            logger.warning(f"Skipped {skipped} documents with no/invalid embeddings")
 
         return valid_documents
 
@@ -357,22 +323,41 @@ IMPORTANT FORMATTING RULES:
             included_dirs: Optional list of directories to include exclusively
             included_files: Optional list of file patterns to include exclusively
         """
-        self.initialize_db_manager()
-        self.repo_url_or_path = repo_url_or_path
-        self.transformed_docs = self.db_manager.prepare_database(
-            repo_url_or_path,
-            type,
-            access_token,
-            embedder_type=self.embedder_type,
-            excluded_dirs=excluded_dirs,
-            excluded_files=excluded_files,
-            included_dirs=included_dirs,
-            included_files=included_files
-        )
-        logger.info(f"Loaded {len(self.transformed_docs)} documents for retrieval")
+        # Build a cache key from the repo URL and filter params
+        cache_key = f"{repo_url_or_path}|{type}|{self.embedder_type}"
+        if excluded_dirs:
+            cache_key += f"|ed={'|'.join(sorted(excluded_dirs))}"
+        if included_dirs:
+            cache_key += f"|id={'|'.join(sorted(included_dirs))}"
 
-        # Validate and filter embeddings to ensure consistent sizes
-        self.transformed_docs = self._validate_and_filter_embeddings(self.transformed_docs)
+        # Check module-level cache first (avoids re-loading pkl for concurrent requests)
+        with _docs_cache_lock:
+            cached = _docs_cache.get(cache_key)
+        if cached:
+            logger.info(f"Using cached documents for {repo_url_or_path} ({len(cached)} docs)")
+            self.transformed_docs = cached
+        else:
+            self.initialize_db_manager()
+            self.repo_url_or_path = repo_url_or_path
+            self.transformed_docs = self.db_manager.prepare_database(
+                repo_url_or_path,
+                type,
+                access_token,
+                embedder_type=self.embedder_type,
+                excluded_dirs=excluded_dirs,
+                excluded_files=excluded_files,
+                included_dirs=included_dirs,
+                included_files=included_files
+            )
+            logger.info(f"Loaded {len(self.transformed_docs)} documents for retrieval")
+
+            # Validate and filter embeddings to ensure consistent sizes
+            self.transformed_docs = self._validate_and_filter_embeddings(self.transformed_docs)
+
+            # Cache for subsequent concurrent requests
+            if self.transformed_docs:
+                with _docs_cache_lock:
+                    _docs_cache[cache_key] = self.transformed_docs
 
         if not self.transformed_docs:
             raise ValueError("No valid documents with embeddings found. Cannot create retriever.")

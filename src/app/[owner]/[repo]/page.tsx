@@ -274,6 +274,7 @@ export default function RepoWikiPage() {
   const [currentToken, setCurrentToken] = useState(token); // Track current effective token
   const [effectiveRepoInfo, setEffectiveRepoInfo] = useState(repoInfo); // Track effective repo info with cached data
   const [embeddingError, setEmbeddingError] = useState(false);
+  const wsFailedRef = useRef(false); // Skip WebSocket after first failure to avoid repeated timeouts
 
   // Model selection state variables
   const [selectedProviderState, setSelectedProviderState] = useState(providerParam);
@@ -455,6 +456,9 @@ export default function RepoWikiPage() {
 `You are an expert technical writer and software architect.
 Your task is to generate a comprehensive and accurate technical wiki page in Markdown format about a specific feature, system, or module within a given software project.
 
+[WIKI_PAGE_TOPIC]: ${page.title}
+[RELEVANT_SOURCE_FILES]: ${filePaths.join(', ')}
+
 You will be given:
 1. The "[WIKI_PAGE_TOPIC]" for the page you need to create.
 2. A list of "[RELEVANT_SOURCE_FILES]" from the project that you MUST use as the sole basis for the content. You have access to the full content of these files. You MUST use AT LEAST 5 relevant source files for comprehensive coverage - if fewer are provided, search for additional related files in the codebase.
@@ -557,9 +561,11 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
 
 8.  **Clarity and Conciseness:** Use clear, professional, and concise technical language suitable for other developers working on or learning about the project. Avoid unnecessary jargon, but use correct technical terms where appropriate.
 
-9.  **Conclusion/Summary:** End with a brief summary paragraph if appropriate for "${page.title}", reiterating the key aspects covered and their significance within the project.
+9.  **Conclusion/Summary:** End with a brief summary paragraph for "${page.title}" that: (a) reiterates the key architectural decisions or patterns, (b) highlights any important constraints or trade-offs, and (c) notes areas where the implementation could evolve.
 
-10. **Cross-References Between Pages:** Throughout the content, link to 2-3 other related wiki pages using \`[Page Title](#page-id)\` format. At the end, before the conclusion, include a "See also" callout block (using a blockquote) pointing readers to the most relevant related pages for deeper exploration.
+10. **Cross-References Between Pages:** Throughout the content, link to related wiki pages using \`[Page Title](#page-id)\` format. At the end, before the conclusion, include a "See also" callout block (using a blockquote) pointing readers to the most relevant related pages for deeper exploration.
+    Available wiki pages for cross-referencing:
+${page.relatedPages?.length > 0 ? page.relatedPages.map(id => `    - ${id}`).join('\n') : '    (no related pages specified)'}
 
 11. **Use Cases (when this page covers use cases or practical scenarios):**
     *   Write from the perspective of someone asking "What can I do with this?"
@@ -604,10 +610,14 @@ Remember:
         // Add tokens if available
         addTokensToRequestBody(requestBody, currentToken, effectiveRepoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles, modelIncludedDirs, modelIncludedFiles);
 
-        // Use WebSocket for communication
+        // Use WebSocket for communication (skip if previously failed)
         let content = '';
 
         try {
+          if (wsFailedRef.current) {
+            throw new Error('WebSocket previously failed, using HTTP directly');
+          }
+
           // Create WebSocket URL from the server base URL
           const serverBaseUrl = process.env.SERVER_BASE_URL || 'http://localhost:8001';
           const wsBaseUrl = serverBaseUrl.replace(/^http/, 'ws')? serverBaseUrl.replace(/^https/, 'wss'): serverBaseUrl.replace(/^http/, 'ws');
@@ -618,39 +628,37 @@ Remember:
 
           // Create a promise that resolves when the WebSocket connection is complete
           await new Promise<void>((resolve, reject) => {
-            // Set up event handlers
+            // If the connection doesn't open within 2 seconds, fall back to HTTP
+            const timeout = setTimeout(() => {
+              reject(new Error('WebSocket connection timeout'));
+            }, 2000);
+
             ws.onopen = () => {
+              clearTimeout(timeout);
               console.log(`WebSocket connection established for page: ${page.title}`);
-              // Send the request as JSON
               ws.send(JSON.stringify(requestBody));
               resolve();
             };
 
             ws.onerror = (error) => {
+              clearTimeout(timeout);
               console.error('WebSocket error:', error);
               reject(new Error('WebSocket connection failed'));
-            };
-
-            // If the connection doesn't open within 5 seconds, fall back to HTTP
-            const timeout = setTimeout(() => {
-              reject(new Error('WebSocket connection timeout'));
-            }, 5000);
-
-            // Clear the timeout if the connection opens successfully
-            ws.onopen = () => {
-              clearTimeout(timeout);
-              console.log(`WebSocket connection established for page: ${page.title}`);
-              // Send the request as JSON
-              ws.send(JSON.stringify(requestBody));
-              resolve();
             };
           });
 
           // Create a promise that resolves when the WebSocket response is complete
           await new Promise<void>((resolve, reject) => {
-            // Handle incoming messages
+            let chunkCount = 0;
+            // Handle incoming messages — stream content to UI incrementally
             ws.onmessage = (event) => {
               content += event.data;
+              chunkCount++;
+              // Update displayed content every 5 chunks for responsive streaming
+              if (chunkCount % 5 === 0) {
+                const streamContent = content.replace(/^```markdown\s*/i, '').replace(/```\s*$/i, '');
+                setGeneratedPages(prev => ({ ...prev, [page.id]: { ...page, content: streamContent } }));
+              }
             };
 
             // Handle WebSocket close
@@ -667,6 +675,7 @@ Remember:
           });
         } catch (wsError) {
           console.error('WebSocket error, falling back to HTTP:', wsError);
+          wsFailedRef.current = true; // Skip WS for remaining pages
 
           // Fall back to HTTP if WebSocket fails
           const response = await fetch(`/api/chat/stream`, {
@@ -693,10 +702,17 @@ Remember:
           }
 
           try {
+            let httpChunkCount = 0;
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
               content += decoder.decode(value, { stream: true });
+              httpChunkCount++;
+              // Stream content to UI incrementally
+              if (httpChunkCount % 5 === 0) {
+                const streamContent = content.replace(/^```markdown\s*/i, '').replace(/```\s*$/i, '');
+                setGeneratedPages(prev => ({ ...prev, [page.id]: { ...page, content: streamContent } }));
+              }
             }
             // Ensure final decoding
             content += decoder.decode();
@@ -743,7 +759,7 @@ Remember:
         setLoadingMessage(undefined); // Clear specific loading message
       }
     });
-  }, [generatedPages, currentToken, effectiveRepoInfo, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests, generateFileUrl]);
+  }, [generatedPages, currentToken, effectiveRepoInfo, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, modelIncludedDirs, modelIncludedFiles, language, activeContentRequests, generateFileUrl]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -895,18 +911,24 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 IMPORTANT:
 1. Create ${isComprehensiveView ? '8-12' : '4-6'} pages that would make a ${isComprehensiveView ? 'comprehensive' : 'concise'} wiki for this repository
 2. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
-3. The relevant_files should be actual files from the repository that would be used to generate that page
-4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
+3. The relevant_files should be actual files from the repository that would be used to generate that page — include AT LEAST 5 files per page for comprehensive coverage
+4. Order pages logically: overview/getting-started first, then core architecture, then features, then advanced/deployment topics
+5. Ensure related_pages cross-references form a connected graph — every page should link to at least 2 others
+6. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
         }]
       };
 
       // Add tokens if available
       addTokensToRequestBody(requestBody, currentToken, effectiveRepoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles, modelIncludedDirs, modelIncludedFiles);
 
-      // Use WebSocket for communication
+      // Use WebSocket for communication (skip if previously failed)
       let responseText = '';
 
       try {
+        if (wsFailedRef.current) {
+          throw new Error('WebSocket previously failed, using HTTP directly');
+        }
+
         // Create WebSocket URL from the server base URL
         const serverBaseUrl = process.env.SERVER_BASE_URL || 'http://localhost:8001';
         const wsBaseUrl = serverBaseUrl.replace(/^http/, 'ws')? serverBaseUrl.replace(/^https/, 'wss'): serverBaseUrl.replace(/^http/, 'ws');
@@ -917,31 +939,22 @@ IMPORTANT:
 
         // Create a promise that resolves when the WebSocket connection is complete
         await new Promise<void>((resolve, reject) => {
-          // Set up event handlers
+          // If the connection doesn't open within 2 seconds, fall back to HTTP
+          const timeout = setTimeout(() => {
+            reject(new Error('WebSocket connection timeout'));
+          }, 2000);
+
           ws.onopen = () => {
+            clearTimeout(timeout);
             console.log('WebSocket connection established for wiki structure');
-            // Send the request as JSON
             ws.send(JSON.stringify(requestBody));
             resolve();
           };
 
           ws.onerror = (error) => {
+            clearTimeout(timeout);
             console.error('WebSocket error:', error);
             reject(new Error('WebSocket connection failed'));
-          };
-
-          // If the connection doesn't open within 5 seconds, fall back to HTTP
-          const timeout = setTimeout(() => {
-            reject(new Error('WebSocket connection timeout'));
-          }, 5000);
-
-          // Clear the timeout if the connection opens successfully
-          ws.onopen = () => {
-            clearTimeout(timeout);
-            console.log('WebSocket connection established for wiki structure');
-            // Send the request as JSON
-            ws.send(JSON.stringify(requestBody));
-            resolve();
           };
         });
 
@@ -966,6 +979,7 @@ IMPORTANT:
         });
       } catch (wsError) {
         console.error('WebSocket error, falling back to HTTP:', wsError);
+        wsFailedRef.current = true; // Skip WS for page generation calls
 
         // Fall back to HTTP if WebSocket fails
         const response = await fetch(`/api/chat/stream`, {
@@ -1160,8 +1174,8 @@ IMPORTANT:
 
         console.log(`Starting generation for ${pages.length} pages with controlled concurrency`);
 
-        // Maximum concurrent requests
-        const MAX_CONCURRENT = 1;
+        // Maximum concurrent requests — generate multiple pages in parallel
+        const MAX_CONCURRENT = 3;
 
         // Create a queue of pages
         const queue = [...pages];
@@ -1228,7 +1242,7 @@ IMPORTANT:
     } finally {
       setStructureRequestInProgress(false);
     }
-  }, [generatePageContent, currentToken, effectiveRepoInfo, pagesInProgress.size, structureRequestInProgress, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, messages.loading, isComprehensiveView]);
+  }, [generatePageContent, currentToken, effectiveRepoInfo, pagesInProgress.size, structureRequestInProgress, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, modelIncludedDirs, modelIncludedFiles, language, messages.loading, isComprehensiveView]);
 
   // Fetch repository structure using GitHub or GitLab API
   const fetchRepositoryStructure = useCallback(async () => {
@@ -1258,22 +1272,18 @@ IMPORTANT:
       let readmeContent = '';
 
       if (effectiveRepoInfo.type === 'local' && effectiveRepoInfo.localPath) {
-        try {
-          const response = await fetch(`/local_repo/structure?path=${encodeURIComponent(effectiveRepoInfo.localPath)}`);
+        const response = await fetch(`/local_repo/structure?path=${encodeURIComponent(effectiveRepoInfo.localPath)}`);
 
-          if (!response.ok) {
-            const errorData = await response.text();
-            throw new Error(`Local repository API error (${response.status}): ${errorData}`);
-          }
-
-          const data = await response.json();
-          fileTreeData = data.file_tree;
-          readmeContent = data.readme;
-          // For local repos, we can't determine the actual branch, so use 'main' as default
-          setDefaultBranch('main');
-        } catch (err) {
-          throw err;
+        if (!response.ok) {
+          const errorData = await response.text();
+          throw new Error(`Local repository API error (${response.status}): ${errorData}`);
         }
+
+        const data = await response.json();
+        fileTreeData = data.file_tree;
+        readmeContent = data.readme;
+        // For local repos, we can't determine the actual branch, so use 'main' as default
+        setDefaultBranch('main');
       } else if (effectiveRepoInfo.type === 'github') {
         // GitHub API approach
         // Try to get the tree data for common branch names
@@ -1365,14 +1375,12 @@ IMPORTANT:
           .map((item: { type: string; path: string }) => item.path)
           .join('\n');
 
-        // Try to fetch README.md content
+        // Fetch README.md content (non-blocking, already have tree data)
         try {
           const headers = createGithubHeaders(currentToken);
-
           const readmeResponse = await fetch(`${githubApiBaseUrl}/repos/${owner}/${repo}/readme`, {
             headers
           });
-
           if (readmeResponse.ok) {
             const readmeData = await readmeResponse.json();
             readmeContent = atob(readmeData.content);
@@ -1689,7 +1697,7 @@ IMPORTANT:
         console.warn(`Failed to clear server-side wiki cache (status: ${response.status}): ${errorText}. Proceeding with refresh anyway.`);
         // Optionally, inform the user about the cache clear failure but that refresh will still attempt
         // setError(\`Cache clear failed: ${errorText}. Trying to refresh...\`);
-        if(response.status == 401) {
+        if (response.status === 401) {
           setIsLoading(false);
           setLoadingMessage(undefined);
           setError('Failed to validate the authorization code');
@@ -1942,7 +1950,7 @@ IMPORTANT:
 
     // Clean up function for this effect is not strictly necessary for loadData,
     // but keeping the main unmount cleanup in the other useEffect
-  }, [effectiveRepoInfo, effectiveRepoInfo.owner, effectiveRepoInfo.repo, effectiveRepoInfo.type, language, fetchRepositoryStructure, messages.loading?.fetchingCache, isComprehensiveView]);
+  }, [effectiveRepoInfo, language, fetchRepositoryStructure, messages.loading?.fetchingCache, isComprehensiveView]);
 
   // Save wiki to server-side cache when generation is complete
   useEffect(() => {
@@ -1997,7 +2005,7 @@ IMPORTANT:
     };
 
     saveCache();
-  }, [isLoading, error, wikiStructure, generatedPages, effectiveRepoInfo.owner, effectiveRepoInfo.repo, effectiveRepoInfo.type, effectiveRepoInfo.repoUrl, repoUrl, language, isComprehensiveView]);
+  }, [isLoading, error, wikiStructure, generatedPages, effectiveRepoInfo, selectedProviderState, selectedModelState, language, isComprehensiveView]);
 
   // SEO: dynamic document title and meta tags
   useEffect(() => {
@@ -2090,7 +2098,7 @@ IMPORTANT:
       </header>
 
       <main className="flex-1 max-w-[90%] xl:max-w-[1400px] mx-auto overflow-y-auto mt-0">
-        {isLoading ? (
+        {isLoading && !wikiStructure ? (
           <div className="flex flex-col items-center justify-center p-8 border border-[var(--border-color)] rounded-lg">
             <div className="relative mb-6">
               <div className="absolute -inset-4 bg-[var(--accent-primary)]/10 rounded-full blur-md animate-pulse"></div>
@@ -2104,53 +2112,6 @@ IMPORTANT:
               {loadingMessage || messages.common?.loading || 'Loading...'}
               {isExporting && (messages.loading?.preparingDownload || ' Please wait while we prepare your download...')}
             </p>
-
-            {/* Progress bar for page generation */}
-            {wikiStructure && (
-              <div className="w-full max-w-md mt-3">
-                <div className="bg-[var(--background)]/50 rounded-full h-2 mb-3 overflow-hidden border border-[var(--border-color)]">
-                  <div
-                    className="bg-[var(--accent-primary)] h-2 rounded-full transition-all duration-300 ease-in-out"
-                    style={{
-                      width: `${Math.max(5, 100 * (wikiStructure.pages.length - pagesInProgress.size) / wikiStructure.pages.length)}%`
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-[var(--muted)] text-center">
-                  {language === 'ja'
-                    ? `${wikiStructure.pages.length}ページ中${wikiStructure.pages.length - pagesInProgress.size}ページ完了`
-                    : messages.repoPage?.pagesCompleted
-                        ? messages.repoPage.pagesCompleted
-                            .replace('{completed}', (wikiStructure.pages.length - pagesInProgress.size).toString())
-                            .replace('{total}', wikiStructure.pages.length.toString())
-                        : `${wikiStructure.pages.length - pagesInProgress.size} of ${wikiStructure.pages.length} pages completed`}
-                </p>
-
-                {/* Show list of in-progress pages */}
-                {pagesInProgress.size > 0 && (
-                  <div className="mt-4 text-xs">
-                    <p className="text-[var(--muted)] mb-2">
-                      {messages.repoPage?.currentlyProcessing || 'Currently processing:'}
-                    </p>
-                    <ul className="text-[var(--foreground)] space-y-1">
-                      {Array.from(pagesInProgress).slice(0, 3).map(pageId => {
-                        const page = wikiStructure.pages.find(p => p.id === pageId);
-                        return page ? <li key={pageId} className="truncate border-l-2 border-[var(--accent-primary)]/30 pl-2">{page.title}</li> : null;
-                      })}
-                      {pagesInProgress.size > 3 && (
-                        <li className="text-[var(--muted)]">
-                          {language === 'ja'
-                            ? `...他に${pagesInProgress.size - 3}ページ`
-                            : messages.repoPage?.andMorePages
-                                ? messages.repoPage.andMorePages.replace('{count}', (pagesInProgress.size - 3).toString())
-                                : `...and ${pagesInProgress.size - 3} more`}
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         ) : error ? (
           <div className="bg-[var(--highlight)]/5 border border-[var(--highlight)]/30 rounded-lg p-5 mb-4 shadow-sm">
@@ -2177,7 +2138,35 @@ IMPORTANT:
             </div>
           </div>
         ) : wikiStructure ? (
-          <div className="h-full overflow-y-auto flex flex-col lg:flex-row w-full overflow-hidden">
+          <div className="h-full overflow-y-auto flex flex-col w-full overflow-hidden">
+            {/* Generation progress banner */}
+            {pagesInProgress.size > 0 && (
+              <div className="flex-shrink-0 border-b border-[var(--accent-primary)]/20 bg-[var(--accent-primary)]/5 px-4 py-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className="w-2 h-2 bg-[var(--accent-primary)] rounded-full animate-pulse"></div>
+                    <span className="text-xs font-medium text-[var(--accent-primary)]">
+                      Generating
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="bg-[var(--background)]/50 rounded-full h-1.5 overflow-hidden border border-[var(--border-color)]">
+                      <div
+                        className="bg-[var(--accent-primary)] h-1.5 rounded-full transition-all duration-500 ease-out"
+                        style={{
+                          width: `${Math.max(5, 100 * (wikiStructure.pages.length - pagesInProgress.size) / wikiStructure.pages.length)}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <span className="text-xs text-[var(--muted)] flex-shrink-0 tabular-nums">
+                    {wikiStructure.pages.length - pagesInProgress.size}/{wikiStructure.pages.length} pages
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex-1 flex flex-col lg:flex-row w-full overflow-hidden">
             {/* Wiki Navigation */}
             <div className="h-full w-full lg:w-[240px] xl:w-[260px] flex-shrink-0 p-4 border-b lg:border-b-0 lg:border-r border-[var(--border-color)] overflow-y-auto">
               <p className="text-[var(--muted)] text-xs mb-4">{wikiStructure.description}</p>
@@ -2270,6 +2259,7 @@ IMPORTANT:
                 wikiStructure={wikiStructure}
                 currentPageId={currentPageId}
                 onPageSelect={handlePageSelect}
+                pagesInProgress={pagesInProgress}
               />
             </div>
 
@@ -2287,6 +2277,8 @@ IMPORTANT:
                   const nextPage = nextPageId ? wikiStructure.pages.find(p => p.id === nextPageId) : undefined;
                   const pageIdSet = new Set(wikiStructure.pages.map(p => p.id));
 
+                  const isPageGenerating = pagesInProgress.has(currentPageId);
+
                   return (
                     <div className="flex flex-row gap-6">
                       {/* Main content */}
@@ -2295,12 +2287,28 @@ IMPORTANT:
                           {generatedPages[currentPageId].title}
                         </h1>
 
+                        {/* Per-page generating indicator */}
+                        {isPageGenerating && (
+                          <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-md bg-[var(--accent-primary)]/5 border border-[var(--accent-primary)]/20 text-xs text-[var(--accent-primary)]">
+                            <div className="w-1.5 h-1.5 bg-[var(--accent-primary)] rounded-full animate-pulse"></div>
+                            <span>Generating content{currentContent && currentContent !== 'Loading...' ? '...' : ''}</span>
+                          </div>
+                        )}
+
                         <div className="max-w-none">
-                          <Markdown
-                            content={currentContent}
-                            onPageNavigate={handlePageSelect}
-                            pageIds={pageIdSet}
-                          />
+                          {currentContent === 'Loading...' ? (
+                            <div className="flex items-center gap-2 text-[var(--muted)] py-8">
+                              <div className="w-2 h-2 bg-[var(--accent-primary)]/50 rounded-full animate-pulse"></div>
+                              <div className="w-2 h-2 bg-[var(--accent-primary)]/50 rounded-full animate-pulse delay-75"></div>
+                              <div className="w-2 h-2 bg-[var(--accent-primary)]/50 rounded-full animate-pulse delay-150"></div>
+                            </div>
+                          ) : (
+                            <Markdown
+                              content={currentContent}
+                              onPageNavigate={handlePageSelect}
+                              pageIds={pageIdSet}
+                            />
+                          )}
                         </div>
 
                         {generatedPages[currentPageId].relatedPages.length > 0 && (
@@ -2353,6 +2361,7 @@ IMPORTANT:
                 </div>
               )}
             </div>
+          </div>
           </div>
         ) : null}
       </main>
