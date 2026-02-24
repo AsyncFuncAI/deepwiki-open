@@ -408,7 +408,7 @@ IMPORTANT FORMATTING RULES:
                             else:
                                 size = "unknown"
                             sizes.append(f"doc_{i}: {size}")
-                        except:
+                        except Exception:
                             sizes.append(f"doc_{i}: error")
                 logger.error(f"Sample embedding sizes: {', '.join(sizes)}")
             raise

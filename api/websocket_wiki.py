@@ -911,5 +911,5 @@ This file contains...
         try:
             await websocket.send_text(f"Error: {str(e)}")
             await websocket.close()
-        except:
+        except Exception:
             pass
