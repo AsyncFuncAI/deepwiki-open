@@ -39,8 +39,11 @@ html[data-theme='dark'] {
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: 'Noto Sans JP', sans-serif;
+  --font-mono: 'Geist Mono', monospace;
+  --font-geist-sans: 'Noto Sans JP', sans-serif;
+  --font-geist-mono: 'Geist Mono', monospace;
+  --font-serif-jp: 'Noto Serif JP', serif;
 }
 
 body {

@@ -39,7 +39,7 @@ class GoogleEmbedderClient(ModelClient):
         embedder = adal.Embedder(
             model_client=client,
             model_kwargs={
-                "model": "text-embedding-004",
+                "model": "gemini-embedding-001",
                 "task_type": "SEMANTIC_SIMILARITY"
             }
         )
@@ -47,7 +47,7 @@ class GoogleEmbedderClient(ModelClient):
 
     References:
         - Google AI Embeddings: https://ai.google.dev/gemini-api/docs/embeddings
-        - Available models: text-embedding-004, embedding-001
+        - Available models: gemini-embedding-001
     """
 
     def __init__(
@@ -199,7 +199,7 @@ class GoogleEmbedderClient(ModelClient):
             
         # Set default model if not provided
         if "model" not in final_model_kwargs:
-            final_model_kwargs["model"] = "text-embedding-004"
+            final_model_kwargs["model"] = "gemini-embedding-001"
             
         return final_model_kwargs
 
@@ -239,8 +239,10 @@ class GoogleEmbedderClient(ModelClient):
                 response = genai.embed_content(**api_kwargs)
             elif "contents" in api_kwargs:
                 # Batch embedding - Google AI supports batch natively
-                contents = api_kwargs.pop("contents")
-                response = genai.embed_content(content=contents, **api_kwargs)
+                # Copy to avoid mutating the original dict (needed for retries)
+                kwargs = api_kwargs.copy()
+                contents = kwargs.pop("contents")
+                response = genai.embed_content(content=contents, **kwargs)
             else:
                 raise ValueError("Either 'content' or 'contents' must be provided")
                 
