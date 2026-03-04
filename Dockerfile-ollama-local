@@ -25,8 +25,9 @@ RUN python -m pip install poetry==2.0.1 --no-cache-dir && \
     poetry cache clear --all .
 
 FROM python:3.11-slim AS ollama_base
-RUN apt-get update && apt-get install -y \
-    curl zstd
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl zstd && rm -rf /var/lib/apt/lists/*
+
 # Detect architecture and download appropriate Ollama version
 # ARG TARGETARCH can be set at build time with --build-arg TARGETARCH=arm64 or TARGETARCH=amd64
 ARG TARGETARCH=arm64
@@ -41,8 +42,9 @@ RUN OLLAMA_ARCH="" && \
         echo "Error: Unsupported architecture '$TARGETARCH'. Supported architectures are 'arm64' and 'amd64'." >&2 && \
         exit 1; \
     fi && \
-    curl -L "https://ollama.com/download/ollama-linux-${OLLAMA_ARCH}.tar.zst" \
-     | zstd -d | tar -x -C /usr
+    (set -o pipefail; \
+     curl -fL "https://ollama.com/download/ollama-linux-${OLLAMA_ARCH}.tar.zst" \
+      | zstd -d | tar -x -C /usr)
 
 RUN ollama serve > /dev/null 2>&1 & \
     sleep 20 && \
