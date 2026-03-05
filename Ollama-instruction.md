@@ -80,8 +80,14 @@ npm run dev
 
 ## Alternative using Dockerfile
 
-1. Build the docker image `docker build -f Dockerfile-ollama-local -t deepwiki:ollama-local .`
-2. Run the container:
+1. Configure the Local Embedder for Ollama:
+```
+cp api/config/embedder.ollama.json.bak api/config/embedder.json
+# overwrite api/config/embedder.json? (y/n [n]) y
+```
+
+2. Build the docker image `docker build -f Dockerfile-ollama-local -t deepwiki:ollama-local .`
+3. Run the container:
    ```bash
    # For regular use
    docker run -p 3000:3000 -p 8001:8001 --name deepwiki \
@@ -97,9 +103,9 @@ npm run dev
      deepwiki:ollama-local
    ```
 
-3. When using local repositories in the interface: use `/app/local-repos/repo-name` as the local repository path.
+4. When using local repositories in the interface: use `/app/local-repos/repo-name` as the local repository path.
 
-4. Open http://localhost:3000 in your browser
+5. Open http://localhost:3000 in your browser
 
 Note: For Apple Silicon Macs, the Dockerfile automatically uses ARM64 binaries for better performance.
 

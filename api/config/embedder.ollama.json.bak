@@ -1,4 +1,10 @@
 {
+  "embedder_ollama": {
+    "client_class": "OllamaClient",
+    "model_kwargs": {
+      "model": "nomic-embed-text"
+    }
+  },
   "embedder": {
     "client_class": "OllamaClient",
     "model_kwargs": {
