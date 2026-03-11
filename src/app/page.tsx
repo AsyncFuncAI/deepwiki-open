@@ -212,13 +212,23 @@ export default function Home() {
         type = 'gitlab';
       } else if (domain?.includes('bitbucket.org') || domain?.includes('bitbucket.')) {
         type = 'bitbucket';
+      } else if (domain?.includes('dev.azure.com')) {
+        type = 'azure_devops';
       } else {
         type = 'web'; // fallback for other git hosting services
       }
 
       fullPath = extractUrlPath(input)?.replace(/\.git$/, '');
       const parts = fullPath?.split('/') ?? [];
-      if (parts.length >= 2) {
+
+      if (type === 'azure_devops') {
+        // ADO URL path: {org}/{project}/_git/{repo}
+        const gitIndex = parts.indexOf('_git');
+        if (gitIndex >= 1 && gitIndex + 1 < parts.length) {
+          owner = parts[gitIndex - 1]; // project name
+          repo = parts[gitIndex + 1];  // repo name
+        }
+      } else if (parts.length >= 2) {
         repo = parts[parts.length - 1] || '';
         owner = parts[parts.length - 2] || '';
       }

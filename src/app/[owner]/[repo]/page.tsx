@@ -205,9 +205,11 @@ export default function RepoWikiPage() {
     ? 'bitbucket'
     : repoHost?.includes('gitlab')
       ? 'gitlab'
-      : repoHost?.includes('github')
-        ? 'github'
-        : searchParams.get('type') || 'github';
+      : repoHost?.includes('dev.azure.com')
+        ? 'azure_devops'
+        : repoHost?.includes('github')
+          ? 'github'
+          : searchParams.get('type') || 'github';
 
   // Import language context for translations
   const { messages } = useLanguage();
