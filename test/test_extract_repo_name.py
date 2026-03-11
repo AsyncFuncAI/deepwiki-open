@@ -67,6 +67,25 @@ class TestExtractRepoNameFromUrl:
 
         print("✓ Bitbucket URL tests passed")
     
+    def test_extract_repo_name_azure_devops_urls(self):
+        """Test repository name extraction from Azure DevOps URLs"""
+        # Modern ADO URL
+        ado_url = "https://dev.azure.com/myorg/myproject/_git/myrepo"
+        result = self.db_manager._extract_repo_name_from_url(ado_url, "azure_devops")
+        assert result == "myproject_myrepo"
+
+        # ADO URL with .git suffix
+        ado_git = "https://dev.azure.com/myorg/myproject/_git/myrepo.git"
+        result = self.db_manager._extract_repo_name_from_url(ado_git, "azure_devops")
+        assert result == "myproject_myrepo"
+
+        # ADO URL with trailing slash
+        ado_slash = "https://dev.azure.com/myorg/myproject/_git/myrepo/"
+        result = self.db_manager._extract_repo_name_from_url(ado_slash, "azure_devops")
+        assert result == "myproject_myrepo"
+
+        print("✓ Azure DevOps URL tests passed")
+
     def test_extract_repo_name_local_paths(self):
         """Test repository name extraction from local paths"""
         result = self.db_manager._extract_repo_name_from_url("/home/user/projects/my-repo", "local")

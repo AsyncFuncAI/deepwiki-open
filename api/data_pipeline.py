@@ -118,6 +118,9 @@ def download_repo(repo_url: str, local_path: str, repo_type: str = None, access_
             elif repo_type == "bitbucket":
                 # Format: https://x-token-auth:{token}@bitbucket.org/owner/repo.git
                 clone_url = urlunparse((parsed.scheme, f"x-token-auth:{encoded_token}@{parsed.netloc}", parsed.path, '', '', ''))
+            elif repo_type == "azure_devops":
+                # Format: https://{token}@dev.azure.com/org/project/_git/repo
+                clone_url = urlunparse((parsed.scheme, f"{encoded_token}@{parsed.netloc}", parsed.path, '', '', ''))
 
             logger.info("Using access token for authentication")
 
@@ -763,7 +766,17 @@ class DatabaseManager:
         # Extract owner and repo name to create unique identifier
         url_parts = repo_url_or_path.rstrip('/').split('/')
 
-        if repo_type in ["github", "gitlab", "bitbucket"] and len(url_parts) >= 5:
+        if repo_type == "azure_devops":
+            # Azure DevOps URL: https://dev.azure.com/{org}/{project}/_git/{repo}
+            try:
+                git_index = url_parts.index('_git')
+                repo = url_parts[git_index + 1].replace(".git", "")
+                project = url_parts[git_index - 1]
+                repo_name = f"{project}_{repo}"
+            except (ValueError, IndexError):
+                repo_name = url_parts[-1].replace(".git", "")
+            return repo_name
+        elif repo_type in ["github", "gitlab", "bitbucket"] and len(url_parts) >= 5:
             # GitHub URL format: https://github.com/owner/repo
             # GitLab URL format: https://gitlab.com/owner/repo or https://gitlab.com/group/subgroup/repo
             # Bitbucket URL format: https://bitbucket.org/owner/repo
