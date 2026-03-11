@@ -32,8 +32,8 @@ interface ConfigurationModalProps {
   setCustomModel: (value: string) => void;
 
   // Platform selection
-  selectedPlatform: 'github' | 'gitlab' | 'bitbucket';
-  setSelectedPlatform: (value: 'github' | 'gitlab' | 'bitbucket') => void;
+  selectedPlatform: 'github' | 'gitlab' | 'bitbucket' | 'azure_devops';
+  setSelectedPlatform: (value: 'github' | 'gitlab' | 'bitbucket' | 'azure_devops') => void;
 
   // Access token
   accessToken: string;

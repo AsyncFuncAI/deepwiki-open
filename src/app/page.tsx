@@ -134,7 +134,7 @@ export default function Home() {
   const [excludedFiles, setExcludedFiles] = useState('');
   const [includedDirs, setIncludedDirs] = useState('');
   const [includedFiles, setIncludedFiles] = useState('');
-  const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>('github');
+  const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket' | 'azure_devops'>('github');
   const [accessToken, setAccessToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
