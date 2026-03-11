@@ -120,7 +120,9 @@ def download_repo(repo_url: str, local_path: str, repo_type: str = None, access_
                 clone_url = urlunparse((parsed.scheme, f"x-token-auth:{encoded_token}@{parsed.netloc}", parsed.path, '', '', ''))
             elif repo_type == "azure_devops":
                 # Format: https://{token}@dev.azure.com/org/project/_git/repo
-                clone_url = urlunparse((parsed.scheme, f"{encoded_token}@{parsed.netloc}", parsed.path, '', '', ''))
+                # Strip any existing username from netloc (ADO URLs often include user@)
+                hostname = parsed.hostname or parsed.netloc.split('@')[-1]
+                clone_url = urlunparse((parsed.scheme, f"{encoded_token}@{hostname}", parsed.path, '', '', ''))
 
             logger.info("Using access token for authentication")
 
@@ -716,8 +718,10 @@ def get_azure_devops_file_content(repo_url: str, file_path: str, access_token: s
             raise ValueError("Could not extract repository name from Azure DevOps URL")
 
         # Build API URL: https://dev.azure.com/{org}/{project}/_apis/git/repositories/{repo}/items
+        # Strip any existing username from netloc (ADO URLs often include user@)
+        hostname = parsed_url.hostname or parsed_url.netloc.split('@')[-1]
         project_path = '/'.join(path_parts[:git_index])
-        api_base = f"{parsed_url.scheme}://{parsed_url.netloc}/{project_path}"
+        api_base = f"{parsed_url.scheme}://{hostname}/{project_path}"
         api_url = f"{api_base}/_apis/git/repositories/{repo_name}/items?path={file_path}&api-version=7.0"
 
         headers = {}
