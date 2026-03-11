@@ -687,6 +687,57 @@ def get_bitbucket_file_content(repo_url: str, file_path: str, access_token: str 
         raise ValueError(f"Failed to get file content: {str(e)}")
 
 
+def get_azure_devops_file_content(repo_url: str, file_path: str, access_token: str = None) -> str:
+    """
+    Retrieves the content of a file from an Azure DevOps repository using the ADO REST API.
+
+    Args:
+        repo_url (str): The URL (e.g., "https://dev.azure.com/org/project/_git/repo")
+        file_path (str): Path to file (e.g., "src/main.py")
+        access_token (str, optional): Azure DevOps PAT
+
+    Returns:
+        str: The content of the file
+    """
+    try:
+        parsed_url = urlparse(repo_url)
+        if not parsed_url.scheme or not parsed_url.netloc:
+            raise ValueError("Not a valid Azure DevOps repository URL")
+
+        path_parts = parsed_url.path.strip('/').split('/')
+
+        if '_git' not in path_parts:
+            raise ValueError("Not a valid Azure DevOps repository URL - missing _git in path")
+
+        git_index = path_parts.index('_git')
+        repo_name = path_parts[git_index + 1].replace(".git", "") if git_index + 1 < len(path_parts) else None
+
+        if not repo_name:
+            raise ValueError("Could not extract repository name from Azure DevOps URL")
+
+        # Build API URL: https://dev.azure.com/{org}/{project}/_apis/git/repositories/{repo}/items
+        project_path = '/'.join(path_parts[:git_index])
+        api_base = f"{parsed_url.scheme}://{parsed_url.netloc}/{project_path}"
+        api_url = f"{api_base}/_apis/git/repositories/{repo_name}/items?path={file_path}&api-version=7.0"
+
+        headers = {}
+        if access_token:
+            encoded = base64.b64encode(f":{access_token}".encode()).decode()
+            headers["Authorization"] = f"Basic {encoded}"
+
+        logger.info(f"Fetching file content from Azure DevOps API: {api_url}")
+        try:
+            response = requests.get(api_url, headers=headers)
+            response.raise_for_status()
+        except RequestException as e:
+            raise ValueError(f"Error fetching file content: {e}")
+
+        return response.text
+
+    except Exception as e:
+        raise ValueError(f"Failed to get file content: {str(e)}")
+
+
 def get_file_content(repo_url: str, file_path: str, repo_type: str = None, access_token: str = None) -> str:
     """
     Retrieves the content of a file from a Git repository (GitHub or GitLab).
@@ -709,8 +760,10 @@ def get_file_content(repo_url: str, file_path: str, repo_type: str = None, acces
         return get_gitlab_file_content(repo_url, file_path, access_token)
     elif repo_type == "bitbucket":
         return get_bitbucket_file_content(repo_url, file_path, access_token)
+    elif repo_type == "azure_devops":
+        return get_azure_devops_file_content(repo_url, file_path, access_token)
     else:
-        raise ValueError("Unsupported repository type. Only GitHub, GitLab, and Bitbucket are supported.")
+        raise ValueError("Unsupported repository type. Only GitHub, GitLab, Bitbucket, and Azure DevOps are supported.")
 
 class DatabaseManager:
     """
