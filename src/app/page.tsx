@@ -569,6 +569,10 @@ export default function Home() {
                 className="bg-[var(--background)]/70 p-3 rounded border border-[var(--border-color)] font-mono overflow-x-hidden whitespace-nowrap"
               >https://bitbucket.org/atlassian/atlaskit
               </div>
+              <div
+                className="bg-[var(--background)]/70 p-3 rounded border border-[var(--border-color)] font-mono overflow-x-hidden whitespace-nowrap"
+              >https://dev.azure.com/org/project/_git/repo
+              </div>
             </div>
           </div>
 

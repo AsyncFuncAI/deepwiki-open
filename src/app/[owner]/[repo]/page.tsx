@@ -13,7 +13,7 @@ import { extractUrlDomain, extractUrlPath } from '@/utils/urlDecoder';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaBitbucket, FaBookOpen, FaComments, FaDownload, FaExclamationTriangle, FaFileExport, FaFolder, FaGithub, FaGitlab, FaHome, FaSync, FaTimes } from 'react-icons/fa';
+import { FaBitbucket, FaBookOpen, FaComments, FaDownload, FaExclamationTriangle, FaFileExport, FaFolder, FaGithub, FaGitlab, FaHome, FaMicrosoft, FaSync, FaTimes } from 'react-icons/fa';
 // Define the WikiSection and WikiStructure types directly in this file
 // since the imported types don't have the sections and rootSections properties
 interface WikiSection {
@@ -2135,6 +2135,8 @@ IMPORTANT:
                       <FaGithub className="mr-2" />
                     ) : effectiveRepoInfo.type === 'gitlab' ? (
                       <FaGitlab className="mr-2" />
+                    ) : effectiveRepoInfo.type === 'azure_devops' ? (
+                      <FaMicrosoft className="mr-2" />
                     ) : (
                       <FaBitbucket className="mr-2" />
                     )}
