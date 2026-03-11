@@ -173,6 +173,18 @@ const createBitbucketHeaders = (bitbucketToken: string): HeadersInit => {
   return headers;
 };
 
+const createAzureDevOpsHeaders = (adoToken: string): HeadersInit => {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (adoToken) {
+    headers['Authorization'] = `Basic ${btoa(':' + adoToken)}`;
+  }
+
+  return headers;
+};
+
 
 export default function RepoWikiPage() {
   // Get route parameters and search params
@@ -1479,6 +1491,68 @@ IMPORTANT:
           }
         } catch (err) {
           console.warn('Could not fetch Bitbucket README.md, continuing with empty README', err);
+        }
+      }
+      else if (effectiveRepoInfo.type === 'azure_devops') {
+        // Azure DevOps API approach
+        const adoUrl = effectiveRepoInfo.repoUrl ?? '';
+        const adoParsed = new URL(adoUrl);
+        const adoParts = adoParsed.pathname.replace(/^\/|\/$/g, '').split('/');
+        const gitIndex = adoParts.indexOf('_git');
+
+        if (gitIndex < 1 || gitIndex + 1 >= adoParts.length) {
+          throw new Error('Invalid Azure DevOps repository URL');
+        }
+
+        const adoRepo = adoParts[gitIndex + 1];
+        const adoBase = `${adoParsed.protocol}//${adoParsed.hostname}/${adoParts.slice(0, gitIndex).join('/')}`;
+        const headers = createAzureDevOpsHeaders(currentToken);
+
+        // Get default branch
+        let defaultBranchLocal = 'main';
+        try {
+          const repoInfoUrl = `${adoBase}/_apis/git/repositories/${adoRepo}?api-version=7.0`;
+          const repoInfoRes = await fetch(repoInfoUrl, { headers });
+          if (repoInfoRes.ok) {
+            const repoData = await repoInfoRes.json();
+            // ADO returns defaultBranch as "refs/heads/main"
+            defaultBranchLocal = (repoData.defaultBranch || 'refs/heads/main').replace('refs/heads/', '');
+            console.log(`Found Azure DevOps default branch: ${defaultBranchLocal}`);
+          }
+        } catch (err) {
+          console.warn('Could not fetch ADO repo info:', err);
+        }
+        setDefaultBranch(defaultBranchLocal);
+
+        // Get file tree using Items API with recursion
+        const treeUrl = `${adoBase}/_apis/git/repositories/${adoRepo}/items?recursionLevel=Full&versionDescriptor.version=${defaultBranchLocal}&api-version=7.0`;
+        const treeRes = await fetch(treeUrl, { headers });
+
+        if (!treeRes.ok) {
+          const errorData = await treeRes.text();
+          throw new Error(`Azure DevOps API error: ${treeRes.status} - ${errorData}`);
+        }
+
+        const treeData = await treeRes.json();
+
+        if (!treeData.value || treeData.value.length === 0) {
+          throw new Error('Could not fetch repository structure from Azure DevOps.');
+        }
+
+        fileTreeData = treeData.value
+          .filter((item: { gitObjectType: string; path: string }) => item.gitObjectType === 'blob')
+          .map((item: { path: string }) => item.path.replace(/^\//, ''))
+          .join('\n');
+
+        // Fetch README
+        try {
+          const readmeUrl = `${adoBase}/_apis/git/repositories/${adoRepo}/items?path=README.md&api-version=7.0`;
+          const readmeRes = await fetch(readmeUrl, { headers });
+          if (readmeRes.ok) {
+            readmeContent = await readmeRes.text();
+          }
+        } catch (err) {
+          console.warn('Could not fetch Azure DevOps README.md:', err);
         }
       }
 
