@@ -239,12 +239,29 @@ def is_bedrock_embedder():
 
 def is_openrouter_embedder():
     """
-    Check if the current embedder configuration uses OpenRouterClient or OpenAIClient pointed at OpenRouter.
+    Check if the current embedder configuration uses OpenRouter for embeddings.
+
+    Detects OpenRouter by inspecting the loaded configuration's initialize_kwargs
+    for a base_url pointing to openrouter.ai, consistent with how other is_*_embedder
+    helpers inspect the config rather than reading environment variables directly.
 
     Returns:
         bool: True if using OpenRouter for embeddings, False otherwise
     """
-    return EMBEDDER_TYPE == 'openrouter' and 'embedder_openrouter' in configs
+    embedder_config = get_embedder_config()
+    if not embedder_config:
+        return False
+
+    initialize_kwargs = embedder_config.get("initialize_kwargs", {})
+    base_url = initialize_kwargs.get("base_url", "")
+    if base_url and "openrouter.ai" in base_url:
+        return True
+
+    # Fallback: explicit OpenRouterClient class
+    model_client = embedder_config.get("model_client")
+    if model_client:
+        return model_client.__name__ == "OpenRouterClient"
+    return embedder_config.get("client_class", "") == "OpenRouterClient"
 
 def get_embedder_type():
     """
