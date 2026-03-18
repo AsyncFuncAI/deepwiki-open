@@ -206,7 +206,7 @@ DeepWiki now implements a flexible provider-based model selection system support
 - **OpenRouter**: Access to multiple models via a unified API, including Claude, Llama, Mistral, etc.
 - **Azure OpenAI**: Default `gpt-4o`, also supports `o4-mini`, etc.
 - **Ollama**: Support for locally running open-source models like `llama3`
-- **MiniMax**: Default `MiniMax-M2.5`, also supports `MiniMax-M2.5-highspeed` (204K context window)
+- **MiniMax**: Default `MiniMax-M2.7`, also supports `MiniMax-M2.5`, `MiniMax-M2.5-highspeed` (204K context window)
 
 ### Environment Variables
 

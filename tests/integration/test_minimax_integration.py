@@ -25,7 +25,28 @@ pytestmark = pytest.mark.skipif(not MINIMAX_API_KEY, reason="MINIMAX_API_KEY not
 class TestMiniMaxChatIntegration:
     """Integration tests for MiniMax chat completions."""
 
-    def test_basic_chat_completion(self):
+    def test_m27_chat_completion(self):
+        """Should complete a basic chat request with MiniMax-M2.7 (default model)."""
+        from api.minimax_client import MiniMaxClient
+        from adalflow.core.types import ModelType
+
+        client = MiniMaxClient(api_key=MINIMAX_API_KEY)
+        api_kwargs = client.convert_inputs_to_api_kwargs(
+            input="Say 'hello' and nothing else.",
+            model_kwargs={"model": "MiniMax-M2.7", "max_tokens": 20, "temperature": 1.0},
+            model_type=ModelType.LLM,
+        )
+        response = client.call(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+        assert response is not None
+
+        # Parse the response
+        output = client.parse_chat_completion(response)
+        assert output is not None
+        assert output.raw_response is not None
+        content = str(output.raw_response).lower()
+        assert "hello" in content
+
+    def test_m25_chat_completion(self):
         """Should complete a basic chat request with MiniMax-M2.5."""
         from api.minimax_client import MiniMaxClient
         from adalflow.core.types import ModelType
@@ -39,7 +60,6 @@ class TestMiniMaxChatIntegration:
         response = client.call(api_kwargs=api_kwargs, model_type=ModelType.LLM)
         assert response is not None
 
-        # Parse the response
         output = client.parse_chat_completion(response)
         assert output is not None
         assert output.raw_response is not None
@@ -74,7 +94,7 @@ class TestMiniMaxChatIntegration:
         client = MiniMaxClient(api_key=MINIMAX_API_KEY)
         api_kwargs = client.convert_inputs_to_api_kwargs(
             input="Say 'test passed'",
-            model_kwargs={"model": "MiniMax-M2.5", "max_tokens": 20, "temperature": 0},
+            model_kwargs={"model": "MiniMax-M2.7", "max_tokens": 20, "temperature": 0},
             model_type=ModelType.LLM,
         )
         # Temperature should be clamped to 0.01

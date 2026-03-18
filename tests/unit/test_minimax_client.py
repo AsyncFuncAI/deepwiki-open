@@ -196,7 +196,8 @@ class TestMiniMaxConfigIntegration:
 
         assert "minimax" in config["providers"]
         minimax_config = config["providers"]["minimax"]
-        assert minimax_config["default_model"] == "MiniMax-M2.5"
+        assert minimax_config["default_model"] == "MiniMax-M2.7"
+        assert "MiniMax-M2.7" in minimax_config["models"]
         assert "MiniMax-M2.5" in minimax_config["models"]
         assert "MiniMax-M2.5-highspeed" in minimax_config["models"]
         assert minimax_config["client_class"] == "MiniMaxClient"
@@ -211,12 +212,12 @@ class TestMiniMaxConfigIntegration:
         with open(config_path) as f:
             config = json.load(f)
 
-        for model_id in ["MiniMax-M2.5", "MiniMax-M2.5-highspeed"]:
+        for model_id in ["MiniMax-M2.7", "MiniMax-M2.5", "MiniMax-M2.5-highspeed"]:
             assert config["providers"]["minimax"]["models"][model_id]["temperature"] == 1.0
 
     def test_get_model_config_minimax(self):
         """Should be able to get model config for minimax provider."""
         from api.config import get_model_config
-        config = get_model_config(provider="minimax", model="MiniMax-M2.5")
+        config = get_model_config(provider="minimax", model="MiniMax-M2.7")
         assert config["model_client"] == MiniMaxClient
-        assert config["model_kwargs"]["model"] == "MiniMax-M2.5"
+        assert config["model_kwargs"]["model"] == "MiniMax-M2.7"
