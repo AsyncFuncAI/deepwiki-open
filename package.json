@@ -18,8 +18,10 @@
     "react-icons": "^5.5.0",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^15.6.1",
+    "rehype-katex": "^7.0.1",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "svg-pan-zoom": "^3.6.2"
   },
   "devDependencies": {
