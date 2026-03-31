@@ -23,6 +23,7 @@ from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.azureai_client import AzureAIClient
 from api.dashscope_client import DashscopeClient
+from api.anthropic_client import AnthropicClient
 from api.rag import RAG
 
 # Configure logging
@@ -560,14 +561,28 @@ This file contains...
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM
             )
+        elif request.provider == "anthropic":
+            logger.info(f"Using Anthropic with model: {request.model}")
+            model = AnthropicClient()
+            model_kwargs = {
+                "model": model_config["model"],
+                "stream": model_config.get("stream", True),
+                "max_tokens": model_config.get("max_tokens", 8096),
+                "temperature": model_config.get("temperature", 1.0),
+            }
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=prompt,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
         else:
             # Initialize Google Generative AI model
             model = genai.GenerativeModel(
                 model_name=model_config["model"],
                 generation_config={
                     "temperature": model_config["temperature"],
-                    "top_p": model_config["top_p"],
-                    "top_k": model_config["top_k"]
+                    "top_p": model_config.get("top_p", 0.8),
+                    "top_k": model_config.get("top_k", 40)
                 }
             )
 
@@ -703,6 +718,19 @@ This file contains...
                     )
                     await websocket.send_text(error_msg)
                     # Close the WebSocket connection after sending the error message
+                    await websocket.close()
+            elif request.provider == "anthropic":
+                try:
+                    logger.info("Making Anthropic API call")
+                    response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                    text = response.content[0].text if response.content else ""
+                    if text:
+                        await websocket.send_text(text)
+                    await websocket.close()
+                except Exception as e_anthropic:
+                    logger.error(f"Error with Anthropic API: {str(e_anthropic)}")
+                    error_msg = f"\nError with Anthropic API: {str(e_anthropic)}\n\nPlease check that you have set the ANTHROPIC_API_KEY environment variable."
+                    await websocket.send_text(error_msg)
                     await websocket.close()
             else:
                 # Google Generative AI (default provider)
