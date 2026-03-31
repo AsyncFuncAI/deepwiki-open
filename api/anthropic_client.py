@@ -20,6 +20,7 @@ class AnthropicClient(ModelClient):
         if not self._api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable must be set")
         self.sync_client = self._init_client()
+        self._async_client = None
 
     def _init_client(self):
         import anthropic
@@ -83,9 +84,9 @@ class AnthropicClient(ModelClient):
         return self.sync_client.messages.create(**api_kwargs)
 
     async def acall(self, api_kwargs: Dict = {}, model_type: ModelType = ModelType.UNDEFINED):
-        import anthropic
-        async_client = anthropic.AsyncAnthropic(api_key=self._api_key)
         if model_type != ModelType.LLM:
             raise ValueError(f"AnthropicClient only supports LLM, got {model_type}")
-        api_kwargs.pop("stream", None)
-        return await async_client.messages.create(**api_kwargs)
+        if self._async_client is None:
+            import anthropic
+            self._async_client = anthropic.AsyncAnthropic(api_key=self._api_key)
+        return await self._async_client.messages.create(**api_kwargs)

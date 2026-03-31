@@ -4,7 +4,7 @@ import os
 import sys
 import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
@@ -184,6 +184,70 @@ class TestCall:
         from adalflow.core.types import ModelType
         with pytest.raises(ValueError, match="only supports LLM"):
             self.client.call({}, model_type=ModelType.EMBEDDER)
+
+
+# ---------------------------------------------------------------------------
+# AnthropicClient – acall
+# ---------------------------------------------------------------------------
+
+class TestAcall:
+    @pytest.fixture(autouse=True)
+    def client_with_mock(self):
+        self.client = _make_client()
+        self.mock_async = MagicMock()
+        self.mock_async.messages.create = AsyncMock(return_value=MagicMock(
+            content=[MagicMock(text="async ok")],
+            usage=MagicMock(input_tokens=3, output_tokens=7),
+        ))
+        self.client._async_client = self.mock_async
+
+    @pytest.mark.asyncio
+    async def test_acall_reuses_existing_async_client(self):
+        from adalflow.core.types import ModelType
+        api_kwargs = {"model": "claude-sonnet-4-6", "messages": [{"role": "user", "content": "hi"}],
+                      "max_tokens": 100}
+        await self.client.acall(api_kwargs, model_type=ModelType.LLM)
+        await self.client.acall(api_kwargs, model_type=ModelType.LLM)
+        # Same instance used both times — AsyncAnthropic was not re-instantiated
+        assert self.client._async_client is self.mock_async
+        assert self.mock_async.messages.create.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_acall_lazy_init_when_none(self):
+        from adalflow.core.types import ModelType
+        self.client._async_client = None
+        mock_module = MagicMock()
+        mock_async_instance = MagicMock()
+        mock_async_instance.messages.create = AsyncMock(return_value=MagicMock(
+            content=[MagicMock(text="lazy ok")],
+            usage=MagicMock(input_tokens=1, output_tokens=2),
+        ))
+        mock_module.AsyncAnthropic.return_value = mock_async_instance
+
+        with patch.dict("sys.modules", {"anthropic": mock_module}):
+            await self.client.acall(
+                {"model": "claude-sonnet-4-6", "messages": [{"role": "user", "content": "hi"}],
+                 "max_tokens": 100},
+                model_type=ModelType.LLM,
+            )
+
+        assert self.client._async_client is mock_async_instance
+        mock_module.AsyncAnthropic.assert_called_once_with(api_key=self.client._api_key)
+
+    @pytest.mark.asyncio
+    async def test_acall_passes_stream_to_sdk(self):
+        from adalflow.core.types import ModelType
+        api_kwargs = {"model": "claude-sonnet-4-6", "messages": [{"role": "user", "content": "hi"}],
+                      "max_tokens": 100, "stream": True}
+        await self.client.acall(api_kwargs, model_type=ModelType.LLM)
+        call_kwargs = self.mock_async.messages.create.call_args[1]
+        assert call_kwargs.get("stream") is True
+
+    @pytest.mark.asyncio
+    async def test_acall_non_llm_raises(self):
+        from adalflow.core.types import ModelType
+        with pytest.raises(ValueError, match="only supports LLM"):
+            await self.client.acall({}, model_type=ModelType.EMBEDDER)
 
 
 # ---------------------------------------------------------------------------
