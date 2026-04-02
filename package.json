@@ -6,7 +6,11 @@
     "dev": "next dev --turbopack --port 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "promptfoo:smoke": "mkdir -p .promptfoo-home .tmp && HOME=$PWD/.promptfoo-home TMPDIR=$PWD/.tmp promptfoo eval -c promptfooconfig.yaml -j 1 --filter-metadata tier=smoke --no-progress-bar",
+    "promptfoo:eval": "mkdir -p .promptfoo-home .tmp && HOME=$PWD/.promptfoo-home TMPDIR=$PWD/.tmp promptfoo eval -c promptfooconfig.yaml -j 1",
+    "promptfoo:view": "mkdir -p .promptfoo-home .tmp && HOME=$PWD/.promptfoo-home TMPDIR=$PWD/.tmp promptfoo view",
+    "promptfoo:ci": "mkdir -p .promptfoo-home .tmp && HOME=$PWD/.promptfoo-home TMPDIR=$PWD/.tmp promptfoo eval -c promptfooconfig.yaml -j 1 --no-progress-bar"
   },
   "dependencies": {
     "mermaid": "^11.4.1",
@@ -31,6 +35,7 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
+    "promptfoo": "^0.121.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

@@ -73,6 +73,51 @@ class ChatCompletionRequest(BaseModel):
     included_dirs: Optional[str] = Field(None, description="Comma-separated list of directories to include exclusively")
     included_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to include exclusively")
 
+
+def extract_ollama_stream_text(chunk) -> str:
+    """
+    Extract streamed text from Ollama chat/generate chunks.
+
+    The Ollama SDK returns different chunk shapes depending on whether the
+    generate or chat API is used. DeepWiki uses chat mode, which streams
+    content under message.content.
+    """
+    if chunk is None:
+        return ""
+
+    if isinstance(chunk, dict):
+        message = chunk.get("message")
+        if isinstance(message, dict):
+            content = message.get("content")
+            if content:
+                return content
+        response = chunk.get("response")
+        if response:
+            return response
+        text = chunk.get("text")
+        if text:
+            return text
+
+    message = getattr(chunk, "message", None)
+    if message is not None:
+        content = getattr(message, "content", None)
+        if content:
+            return content
+        if isinstance(message, dict):
+            content = message.get("content")
+            if content:
+                return content
+
+    response = getattr(chunk, "response", None)
+    if response:
+        return response
+
+    text = getattr(chunk, "text", None)
+    if text:
+        return text
+
+    return ""
+
 @app.post("/chat/completions/stream")
 async def chat_completions_stream(request: ChatCompletionRequest):
     """Stream a chat completion response directly using Google Generative AI"""
@@ -468,8 +513,9 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                     response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
                     # Handle streaming response from Ollama
                     async for chunk in response:
-                        text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
-                        if text and not text.startswith('model=') and not text.startswith('created_at='):
+                        text = extract_ollama_stream_text(chunk).replace('<think>', '').replace('</think>', '')
+                        if text:
+                            logger.debug("Streaming Ollama chunk with %s chars", len(text))
                             text = text.replace('<think>', '').replace('</think>', '')
                             yield text
                 elif request.provider == "openrouter":
@@ -592,8 +638,8 @@ async def chat_completions_stream(request: ChatCompletionRequest):
 
                             # Handle streaming fallback_response from Ollama
                             async for chunk in fallback_response:
-                                text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
-                                if text and not text.startswith('model=') and not text.startswith('created_at='):
+                                text = extract_ollama_stream_text(chunk).replace('<think>', '').replace('</think>', '')
+                                if text:
                                     text = text.replace('<think>', '').replace('</think>', '')
                                     yield text
                         elif request.provider == "openrouter":

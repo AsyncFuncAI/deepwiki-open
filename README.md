@@ -122,6 +122,17 @@ yarn dev
 3. For private repositories, click "+ Add access tokens" and enter your GitHub or GitLab personal access token
 4. Click "Generate Wiki" and watch the magic happen!
 
+## Local Evals With Promptfoo
+
+DeepWiki now includes a local `promptfoo` setup for regression-style checks against your Ollama-backed API.
+
+1. Start the backend on `http://127.0.0.1:8001`
+2. Run `npm run promptfoo:smoke` for a fast local confidence check
+3. Run `npm run promptfoo:ci` for the full local regression suite
+4. Optional: inspect the latest run with `npm run promptfoo:view`
+
+The default eval config lives in `promptfooconfig.yaml` and targets the local repository path `/Users/samroku/dev/deepwiki-open`, so it stays inside your local-first workflow by default.
+
 ## 🔍 How It Works
 
 DeepWiki uses AI to:

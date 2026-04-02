@@ -48,8 +48,14 @@ raw_auth_mode = os.environ.get('DEEPWIKI_AUTH_MODE', 'False')
 WIKI_AUTH_MODE = raw_auth_mode.lower() in ['true', '1', 't']
 WIKI_AUTH_CODE = os.environ.get('DEEPWIKI_AUTH_CODE', '')
 
+# Privacy/local-first settings
+raw_local_only_mode = os.environ.get('DEEPWIKI_LOCAL_ONLY', 'False')
+LOCAL_ONLY_MODE = raw_local_only_mode.lower() in ['true', '1', 't']
+ALLOWED_PROVIDERS_ENV = os.environ.get('DEEPWIKI_PROVIDER_ALLOWLIST', '')
+DEFAULT_PROVIDER_OVERRIDE = os.environ.get('DEEPWIKI_DEFAULT_PROVIDER', '').strip().lower()
+
 # Embedder settings
-EMBEDDER_TYPE = os.environ.get('DEEPWIKI_EMBEDDER_TYPE', 'openai').lower()
+EMBEDDER_TYPE = os.environ.get('DEEPWIKI_EMBEDDER_TYPE', 'ollama').lower()
 
 # Get configuration directory from environment variable, or use default if not set
 CONFIG_DIR = os.environ.get('DEEPWIKI_CONFIG_DIR', None)
@@ -146,6 +152,24 @@ def load_generator_config():
                 logger.warning(f"Unknown provider or client class: {provider_id}")
 
     return generator_config
+
+
+def get_allowed_providers():
+    """
+    Resolve the provider allowlist from environment variables.
+
+    When DEEPWIKI_LOCAL_ONLY is enabled and no explicit allowlist is set,
+    only the local Ollama provider is exposed.
+    """
+    if ALLOWED_PROVIDERS_ENV.strip():
+        return [
+            provider.strip().lower()
+            for provider in ALLOWED_PROVIDERS_ENV.split(",")
+            if provider.strip()
+        ]
+    if LOCAL_ONLY_MODE:
+        return ["ollama"]
+    return []
 
 # Load embedder configuration
 def load_embedder_config():
@@ -336,8 +360,22 @@ lang_config = load_lang_config()
 
 # Update configuration
 if generator_config:
-    configs["default_provider"] = generator_config.get("default_provider", "google")
-    configs["providers"] = generator_config.get("providers", {})
+    configured_providers = generator_config.get("providers", {})
+    allowed_providers = get_allowed_providers()
+
+    if allowed_providers:
+        configured_providers = {
+            provider_id: provider_config
+            for provider_id, provider_config in configured_providers.items()
+            if provider_id in allowed_providers
+        }
+
+    default_provider = DEFAULT_PROVIDER_OVERRIDE or generator_config.get("default_provider", "ollama")
+    if default_provider not in configured_providers and configured_providers:
+        default_provider = next(iter(configured_providers.keys()))
+
+    configs["default_provider"] = default_provider
+    configs["providers"] = configured_providers
 
 # Update embedder configuration
 if embedder_config:
@@ -356,7 +394,7 @@ if lang_config:
     configs["lang_config"] = lang_config
 
 
-def get_model_config(provider="google", model=None):
+def get_model_config(provider="ollama", model=None):
     """
     Get configuration for the specified provider and model
 
