@@ -16,6 +16,8 @@ from api.config import (
     OPENAI_API_KEY,
     AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY,
+    MINIMAX_API_KEY,
+    MINIMAX_BASE_URL,
 )
 from api.data_pipeline import count_tokens, get_file_content
 from api.bedrock_client import BedrockClient
@@ -505,6 +507,30 @@ This file contains...
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM
             )
+        elif request.provider == "minimax":
+            # MiniMax uses OpenAI-compatible API
+            logger.info(f"Using MiniMax (OpenAI-compatible) with model: {request.model}")
+
+            # Initialize Openai client for MiniMax with correct API key and base URL
+            model = OpenAIClient(
+                api_key=MINIMAX_API_KEY,
+                base_url=MINIMAX_BASE_URL
+            )
+            model_kwargs = {
+                "model": request.model,
+                "stream": True,
+                "temperature": model_config["temperature"],
+                "extra_body": {"reasoning_split": True}
+            }
+            # Only add top_p if it exists in the model config
+            if "top_p" in model_config:
+                model_kwargs["top_p"] = model_config["top_p"]
+
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=prompt,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
         elif request.provider == "bedrock":
             logger.info(f"Using AWS Bedrock with model: {request.model}")
 
@@ -637,6 +663,28 @@ This file contains...
                 except Exception as e_openai:
                     logger.error(f"Error with Openai API: {str(e_openai)}")
                     error_msg = f"\nError with Openai API: {str(e_openai)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
+                    await websocket.send_text(error_msg)
+                    # Close the WebSocket connection after sending the error message
+                    await websocket.close()
+            elif request.provider == "minimax":
+                try:
+                    # MiniMax uses OpenAI-compatible API
+                    logger.info("Making MiniMax API call")
+                    response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                    # Handle streaming response from MiniMax (same as OpenAI)
+                    async for chunk in response:
+                        choices = getattr(chunk, "choices", [])
+                        if len(choices) > 0:
+                            delta = getattr(choices[0], "delta", None)
+                            if delta is not None:
+                                text = getattr(delta, "content", None)
+                                if text is not None:
+                                    await websocket.send_text(text)
+                    # Explicitly close the WebSocket connection after the response is complete
+                    await websocket.close()
+                except Exception as e_minimax:
+                    logger.error(f"Error with MiniMax API: {str(e_minimax)}")
+                    error_msg = f"\nError with MiniMax API: {str(e_minimax)}\n\nPlease check that you have set the MINIMAX_API_KEY environment variable with a valid API key."
                     await websocket.send_text(error_msg)
                     # Close the WebSocket connection after sending the error message
                     await websocket.close()
@@ -792,6 +840,28 @@ This file contains...
                         except Exception as e_fallback:
                             logger.error(f"Error with Openai API fallback: {str(e_fallback)}")
                             error_msg = f"\nError with Openai API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
+                            await websocket.send_text(error_msg)
+                    elif request.provider == "minimax":
+                        try:
+                            # MiniMax uses OpenAI-compatible API
+                            # Create new api_kwargs with the simplified prompt
+                            fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
+                                input=simplified_prompt,
+                                model_kwargs=model_kwargs,
+                                model_type=ModelType.LLM
+                            )
+
+                            # Get the response using the simplified prompt
+                            logger.info("Making fallback MiniMax API call")
+                            fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
+
+                            # Handle streaming fallback_response from MiniMax (same as OpenAI)
+                            async for chunk in fallback_response:
+                                text = chunk if isinstance(chunk, str) else getattr(chunk, 'text', str(chunk))
+                                await websocket.send_text(text)
+                        except Exception as e_fallback:
+                            logger.error(f"Error with MiniMax API fallback: {str(e_fallback)}")
+                            error_msg = f"\nError with MiniMax API fallback: {str(e_fallback)}\n\nPlease check that you have set the MINIMAX_API_KEY environment variable with a valid API key."
                             await websocket.send_text(error_msg)
                     elif request.provider == "bedrock":
                         try:

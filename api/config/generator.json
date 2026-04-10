@@ -193,6 +193,17 @@
           "top_p": 0.8
         }
       }
+    },
+    "minimax": {
+      "client_class": "OpenAIClient",
+      "default_model": "MiniMax-M2.7",
+      "supportsCustomModel": true,
+      "models": {
+        "MiniMax-M2.7": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        }
+      }
     }
   }
 }

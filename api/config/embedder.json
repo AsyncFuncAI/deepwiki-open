@@ -3,8 +3,8 @@
     "client_class": "OpenAIClient",
     "batch_size": 500,
     "model_kwargs": {
-      "model": "text-embedding-3-small",
-      "dimensions": 256,
+      "model": "${OPENAI_EMBEDDING_MODEL}",
+      "dimensions": 1024,
       "encoding_format": "float"
     }
   },
