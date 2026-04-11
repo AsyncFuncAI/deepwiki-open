@@ -6,7 +6,6 @@ export interface TocEntry {
   level: 2 | 3;
 }
 
-// Generate slug ID matching rehype-slug behavior
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -15,11 +14,9 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-// Parse headings from markdown content
 function parseToc(content: string): TocEntry[] {
   const lines = content.split('\n');
   const toc: TocEntry[] = [];
-
   const seenIds = new Map<string, number>();
 
   for (const line of lines) {
@@ -42,7 +39,6 @@ function parseToc(content: string): TocEntry[] {
       toc.push({ id, text, level: 3 });
     }
   }
-
   return toc;
 }
 
@@ -51,63 +47,76 @@ interface TableOfContentsProps {
 }
 
 const TableOfContents: React.FC<TableOfContentsProps> = ({ content }) => {
-  const [headings, setHeadings] = useState<TocEntry[]>([]);
+  const [headings, setHeadings] = useState<TocEntry[]>(() => parseToc(content));
   const [activeId, setActiveId] = useState<string>('');
-  const observerRef = useRef<IntersectionObserver | null>(null);
+  const isScrollingRef = useRef(false);
+  const activeIdRef = useRef('');
 
+  // Update headings and reset active when content changes
   useEffect(() => {
     const extracted = parseToc(content);
     setHeadings(extracted);
+    setActiveId('');
+    activeIdRef.current = '';
   }, [content]);
 
-  // Scroll spy using IntersectionObserver
+  // Scroll spy - stable deps, no activeId in dependency
   useEffect(() => {
-    if (headings.length === 0) return;
+    const updateActive = () => {
+      if (isScrollingRef.current) return;
 
-    const headingElements = headings
-      .map(h => document.getElementById(h.id))
-      .filter(Boolean) as HTMLElement[];
+      const scrollEl = document.getElementById('wiki-content');
+      if (!scrollEl) return;
 
-    if (headingElements.length === 0) return;
+      const scrollTop = scrollEl.scrollTop;
+      let currentId = '';
 
-    // Clean up previous observer
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-    }
-
-    const observer = new IntersectionObserver(
-      entries => {
-        // Find the topmost visible heading
-        const visibleEntries = entries.filter(e => e.isIntersecting);
-        if (visibleEntries.length > 0) {
-          // Sort by DOM position and pick the first one
-          const sorted = visibleEntries.sort((a, b) => {
-            const rectA = a.boundingClientRect;
-            const rectB = b.boundingClientRect;
-            return rectA.top - rectB.top;
-          });
-          setActiveId(sorted[0].target.id);
+      for (const heading of headings) {
+        const el = document.getElementById(heading.id);
+        if (!el) continue;
+        if (el.offsetTop - scrollTop <= 120) {
+          currentId = heading.id;
         }
-      },
-      {
-        rootMargin: '-80px 0px -60% 0px',
-        threshold: 0,
       }
-    );
 
-    headingElements.forEach(el => observer.observe(el));
-    observerRef.current = observer;
+      if (currentId && currentId !== activeIdRef.current) {
+        activeIdRef.current = currentId;
+        setActiveId(currentId);
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      const scrollEl = document.getElementById('wiki-content');
+      if (scrollEl) {
+        scrollEl.addEventListener('scroll', updateActive, { passive: true });
+        updateActive();
+      }
+    }, 100);
 
     return () => {
-      observer.disconnect();
+      clearTimeout(timeoutId);
+      const scrollEl = document.getElementById('wiki-content');
+      if (scrollEl) {
+        scrollEl.removeEventListener('scroll', updateActive);
+      }
     };
+    // headings is the only deps that matters here
+    // activeId is read via activeIdRef, setActiveId updates trigger re-render
+    // but the listener itself doesn't need to be rebuilt for activeId changes
   }, [headings]);
 
   const scrollToHeading = useCallback((id: string) => {
     const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const scrollEl = document.getElementById('wiki-content');
+    if (el && scrollEl) {
+      isScrollingRef.current = true;
+      activeIdRef.current = id;
       setActiveId(id);
+      const targetTop = el.offsetTop - 80;
+      scrollEl.scrollTo({ top: targetTop, behavior: 'smooth' });
+      setTimeout(() => {
+        isScrollingRef.current = false;
+      }, 600);
     }
   }, []);
 
@@ -156,6 +165,8 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ content }) => {
           max-height: calc(100vh - 48px);
           overflow-y: auto;
           padding: 12px 0;
+          margin-left: auto;
+          margin-right: 0;
         }
 
         .toc-sidebar::-webkit-scrollbar {
@@ -175,8 +186,8 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ content }) => {
           display: flex;
           align-items: center;
           gap: 6px;
-          font-family: var(--font-serif-jp), serif;
-          font-size: 11px;
+          font-family: var(--font-sans), sans-serif;
+          font-size: 12px;
           font-weight: 600;
           color: var(--muted);
           text-transform: uppercase;
@@ -197,12 +208,12 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ content }) => {
 
         .toc-level-2 .toc-link {
           padding-left: 8px;
-          font-size: 12px;
+          font-size: 13px;
         }
 
         .toc-level-3 .toc-link {
           padding-left: 20px;
-          font-size: 11px;
+          font-size: 13px;
         }
 
         .toc-link {
@@ -214,7 +225,7 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ content }) => {
           padding: 4px 8px;
           color: var(--muted);
           cursor: pointer;
-          font-family: var(--font-serif-jp), serif;
+          font-family: var(--font-sans), sans-serif;
           line-height: 1.4;
           border-radius: 4px;
           transition: all 0.2s ease;
@@ -226,14 +237,14 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ content }) => {
 
         .toc-link:hover {
           color: var(--foreground);
-          background: var(--accent-primary)/5;
+          background: rgba(155, 124, 185, 0.05);
         }
 
         .toc-active .toc-link {
           color: var(--accent-primary);
           border-left-color: var(--accent-primary);
           font-weight: 500;
-          background: var(--accent-primary)/8;
+          background: rgba(155, 124, 185, 0.08);
         }
 
         .toc-active .toc-link:hover {

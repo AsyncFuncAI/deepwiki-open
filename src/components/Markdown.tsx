@@ -169,10 +169,19 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
     }) {
       const { inline, className, children, ...otherProps } = props;
       const match = /language-(\w+)/.exec(className || '');
-      const codeContent = children ? String(children).replace(/\n$/, '') : '';
+      let codeContent = children ? String(children).replace(/\n$/, '') : '';
 
       // Handle Mermaid diagrams
       if (!inline && match && match[1] === 'mermaid') {
+        // Fix reserved keywords: 'end' is a keyword in Mermaid flowcharts
+        // Match: classDef end, class end, class NODE end, class:end, class NODE:end
+        codeContent = codeContent
+          .replace(/\bclassDef\s+end\b/g, 'classDef end_node')
+          .replace(/\bclass\s+end\b/g, 'class end_node')
+          .replace(/\bclass\s+\w+\s+end\b/g, (m) => m.replace(' end', ' end_node'))
+          .replace(/\bclass:end\b/g, 'class:end_node')
+          .replace(/\bclass\s+:\s*end\b/g, 'class: end_node')
+          .replace(/\bclass\s+\w+\s*:\s*end\b/g, (m) => m.replace(':end', ':end_node'));
         return (
           <div className="my-8 bg-gray-50 dark:bg-gray-800 rounded-md overflow-hidden shadow-sm">
             <Mermaid

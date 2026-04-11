@@ -2,14 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
 // We'll use dynamic import for svg-pan-zoom
 
-// Initialize mermaid with defaults - Japanese aesthetic
+// Initialize mermaid with defaults
 mermaid.initialize({
   startOnLoad: true,
   theme: 'neutral',
   securityLevel: 'loose',
   suppressErrorRendering: true,
   logLevel: 'error',
-  maxTextSize: 100000, // Increase text size limit
+  maxTextSize: 100000,
   htmlLabels: true,
   flowchart: {
     htmlLabels: true,
@@ -18,11 +18,22 @@ mermaid.initialize({
     rankSpacing: 60,
     padding: 20,
   },
+  sequence: {
+    diagramMarginX: 20,
+    diagramMarginY: 20,
+    actorMargin: 80,
+    width: 150,
+    height: 50,
+    boxMargin: 10,
+    boxTextMargin: 5,
+    noteMargin: 10,
+    messageMargin: 35,
+  },
   themeCSS: `
-    /* Japanese aesthetic styles for all diagrams */
+    /* Diagram styles */
     .node rect, .node circle, .node ellipse, .node polygon, .node path {
-      fill: #f8f4e6;
-      stroke: #d7c4bb;
+      fill: #ffffff;
+      stroke: #e0e0e0;
       stroke-width: 1px;
     }
     .edgePath .path {
@@ -40,16 +51,23 @@ mermaid.initialize({
       color: #333333;
     }
     .cluster rect {
-      fill: #f8f4e6;
-      stroke: #d7c4bb;
+      fill: #ffffff;
+      stroke: #e0e0e0;
       stroke-width: 1px;
     }
 
-    /* Sequence diagram specific styles */
+    /* Sequence diagram: narrower actor boxes */
     .actor {
-      fill: #f8f4e6;
-      stroke: #d7c4bb;
+      fill: #ffffff;
+      stroke: #e0e0e0;
       stroke-width: 1px;
+    }
+    .actor > rect {
+      fill: #ffffff;
+      stroke: #e0e0e0;
+      stroke-width: 1px;
+      min-width: unset !important;
+      rx: 4px;
     }
     text.actor {
       fill: #333333;
@@ -65,8 +83,15 @@ mermaid.initialize({
     .noteText {
       fill: #333333;
     }
-
-    /* Dark mode overrides - will be applied with data-theme="dark" */
+    /* Dark mode overrides */
+    [data-theme="dark"] .actor {
+      fill: #222222;
+      stroke: #5d4037;
+    }
+    [data-theme="dark"] .actor > rect {
+      fill: #222222;
+      stroke: #5d4037;
+    }
     [data-theme="dark"] .node rect,
     [data-theme="dark"] .node circle,
     [data-theme="dark"] .node ellipse,
@@ -94,7 +119,7 @@ mermaid.initialize({
     }
 
     /* Dark mode sequence diagram overrides */
-    [data-theme="dark"] .actor {
+    [data-theme="dark"] .actor > rect {
       fill: #222222;
       stroke: #5d4037;
     }

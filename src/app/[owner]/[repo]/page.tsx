@@ -45,22 +45,30 @@ interface WikiStructure {
   rootSections: string[];
 }
 
-// Add CSS styles for wiki with Japanese aesthetic
+// Add CSS styles for wiki
 const wikiStyles = `
   .prose code {
-    @apply bg-[var(--background)]/70 px-1.5 py-0.5 rounded font-mono text-xs border border-[var(--border-color)];
+    @apply bg-[var(--background)] px-1.5 py-0.5 rounded font-mono text-sm border border-[var(--border-color)];
   }
 
   .prose pre {
-    @apply bg-[var(--background)]/80 text-[var(--foreground)] rounded-md p-4 overflow-x-auto border border-[var(--border-color)] shadow-sm;
+    @apply bg-[var(--background)] text-[var(--foreground)] rounded-md p-4 overflow-x-auto border border-[var(--border-color)];
   }
 
   .prose h1, .prose h2, .prose h3, .prose h4 {
     @apply font-serif text-[var(--foreground)];
   }
 
+  .prose h1 { @apply text-2xl; }
+  .prose h2 { @apply text-xl; }
+  .prose h3 { @apply text-lg; }
+
   .prose p {
-    @apply text-[var(--foreground)] leading-relaxed;
+    @apply text-[var(--foreground)] text-base leading-relaxed;
+  }
+
+  .prose li {
+    @apply text-base;
   }
 
   .prose a {
@@ -68,7 +76,7 @@ const wikiStyles = `
   }
 
   .prose blockquote {
-    @apply border-l-4 border-[var(--accent-primary)]/30 bg-[var(--background)]/30 pl-4 py-1 italic;
+    @apply border-l-4 border-[var(--accent-primary)]/30 bg-[var(--background)] pl-4 py-1 italic;
   }
 
   .prose ul, .prose ol {
@@ -80,7 +88,7 @@ const wikiStyles = `
   }
 
   .prose th {
-    @apply bg-[var(--background)]/70 text-[var(--foreground)] p-2 border border-[var(--border-color)];
+    @apply bg-[var(--background)] text-[var(--foreground)] p-2 border border-[var(--border-color)];
   }
 
   .prose td {
@@ -1943,7 +1951,7 @@ IMPORTANT:
     <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
       <style>{wikiStyles}</style>
 
-      <header className="max-w-[90%] xl:max-w-[1400px] mx-auto mb-8 h-fit w-full">
+      <header className="w-full mb-6 h-fit">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-4">
             <Link href="/" className="text-[var(--accent-primary)] hover:text-[var(--highlight)] flex items-center gap-1.5 transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)] pb-0.5">
@@ -1953,7 +1961,7 @@ IMPORTANT:
         </div>
       </header>
 
-      <main className="flex-1 max-w-[90%] xl:max-w-[1400px] mx-auto overflow-y-auto">
+      <main className="flex-1 w-full overflow-y-auto">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
             <div className="relative mb-6">
@@ -2041,9 +2049,9 @@ IMPORTANT:
             </div>
           </div>
         ) : wikiStructure ? (
-          <div className="h-full overflow-y-auto flex flex-col lg:flex-row gap-4 w-full overflow-hidden bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
+          <div className="h-full overflow-y-auto flex flex-col lg:grid w-full overflow-hidden bg-[var(--card-bg)]" style={{ gridTemplateColumns: '280px 1fr' }}>
             {/* Wiki Navigation */}
-            <div className="h-full w-full lg:w-[280px] xl:w-[320px] flex-shrink-0 bg-[var(--background)]/50 rounded-lg rounded-r-none p-5 border-b lg:border-b-0 lg:border-r border-[var(--border-color)] overflow-y-auto">
+            <div className="h-full lg:h-auto w-full flex-shrink-0 bg-[var(--background)] lg:border-r border-[var(--border-color)] overflow-y-auto p-5">
               <h3 className="text-lg font-bold text-[var(--foreground)] mb-3 font-serif">{wikiStructure.title}</h3>
               <p className="text-[var(--muted)] text-sm mb-5 leading-relaxed">{wikiStructure.description}</p>
 
@@ -2143,43 +2151,46 @@ IMPORTANT:
             </div>
 
             {/* Wiki Content */}
-            <div id="wiki-content" className="w-full flex-grow p-6 lg:p-8 overflow-y-auto">
+            <div id="wiki-content" className="w-full p-6 lg:px-10 lg:py-8 overflow-y-auto" style={{ position: 'relative' }}>
               {currentPageId && generatedPages[currentPageId] ? (
-                <div className="flex w-full gap-8 items-start">
-                  <div className="flex-grow max-w-[900px] xl:max-w-[1000px]">
-                    <h3 className="text-xl font-bold text-[var(--foreground)] mb-4 break-words font-serif">
-                      {generatedPages[currentPageId].title}
-                    </h3>
+                <div className="flex items-start" style={{ width: '100%' }}>
+                  <div className="flex justify-center" style={{ flex: '1 1 0', minWidth: 0 }}>
+                    <div className="w-full" style={{ maxWidth: '900px' }}>
+                      <h3 className="text-2xl font-bold text-[var(--foreground)] mb-4 break-words font-serif">
+                        {generatedPages[currentPageId].title}
+                      </h3>
 
-                    <div className="prose prose-sm md:prose-base lg:prose-lg max-w-none">
-                      <Markdown
-                        content={generatedPages[currentPageId].content}
-                      />
-                    </div>
-
-                    {generatedPages[currentPageId].relatedPages.length > 0 && (
-                      <div className="mt-8 pt-4 border-t border-[var(--border-color)]">
-                        <h4 className="text-sm font-semibold text-[var(--muted)] mb-3">
-                          {messages.repoPage?.relatedPages || 'Related Pages:'}
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                          {generatedPages[currentPageId].relatedPages.map(relatedId => {
-                            const relatedPage = wikiStructure.pages.find(p => p.id === relatedId);
-                            return relatedPage ? (
-                              <button
-                                key={relatedId}
-                                className="bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-xs text-[var(--accent-primary)] px-3 py-1.5 rounded-md transition-colors truncate max-w-full border border-[var(--accent-primary)]/20"
-                                onClick={() => handlePageSelect(relatedId)}
-                              >
-                                {relatedPage.title}
-                              </button>
-                            ) : null;
-                          })}
-                        </div>
+                      <div className="prose prose-base max-w-none">
+                        <Markdown
+                          content={generatedPages[currentPageId].content}
+                          key={currentPageId}
+                        />
                       </div>
-                    )}
+
+                      {generatedPages[currentPageId].relatedPages.length > 0 && (
+                        <div className="mt-8 pt-4 border-t border-[var(--border-color)]">
+                          <h4 className="text-sm font-semibold text-[var(--muted)] mb-3">
+                            {messages.repoPage?.relatedPages || 'Related Pages:'}
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {generatedPages[currentPageId].relatedPages.map(relatedId => {
+                              const relatedPage = wikiStructure.pages.find(p => p.id === relatedId);
+                              return relatedPage ? (
+                                <button
+                                  key={relatedId}
+                                  className="bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-xs text-[var(--accent-primary)] px-3 py-1.5 rounded-md transition-colors truncate max-w-full border border-[var(--accent-primary)]/20"
+                                  onClick={() => handlePageSelect(relatedId)}
+                                >
+                                  {relatedPage.title}
+                                </button>
+                              ) : null;
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <TableOfContents content={generatedPages[currentPageId].content} />
+                  <TableOfContents content={generatedPages[currentPageId].content} key={currentPageId} />
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center p-8 text-[var(--muted)] h-full">
@@ -2197,7 +2208,7 @@ IMPORTANT:
         ) : null}
       </main>
 
-      <footer className="max-w-[90%] xl:max-w-[1400px] mx-auto mt-8 flex flex-col gap-4 w-full">
+      <footer className="mt-8 flex flex-col gap-4 w-full">
         <div className="flex justify-between items-center gap-4 text-center text-[var(--muted)] text-sm h-fit w-full bg-[var(--card-bg)] rounded-lg p-3 shadow-sm border border-[var(--border-color)]">
           <p className="flex-1 font-serif">
             {messages.footer?.copyright || 'DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories'}
