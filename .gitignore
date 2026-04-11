@@ -67,3 +67,8 @@ next-env.d.ts
 
 # ignore adding self-signed certs
 certs/
+
+# local environments
+conda_envs/
+environment.yml
+wiki_cache/
