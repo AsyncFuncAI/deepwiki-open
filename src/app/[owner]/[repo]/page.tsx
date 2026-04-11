@@ -4,6 +4,7 @@
 import Ask from '@/components/Ask';
 import Markdown from '@/components/Markdown';
 import ModelSelectionModal from '@/components/ModelSelectionModal';
+import TableOfContents from '@/components/TableOfContents';
 import ThemeToggle from '@/components/theme-toggle';
 import WikiTreeView from '@/components/WikiTreeView';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -2144,40 +2145,41 @@ IMPORTANT:
             {/* Wiki Content */}
             <div id="wiki-content" className="w-full flex-grow p-6 lg:p-8 overflow-y-auto">
               {currentPageId && generatedPages[currentPageId] ? (
-                <div className="max-w-[900px] xl:max-w-[1000px] mx-auto">
-                  <h3 className="text-xl font-bold text-[var(--foreground)] mb-4 break-words font-serif">
-                    {generatedPages[currentPageId].title}
-                  </h3>
+                <div className="flex w-full gap-8 items-start">
+                  <div className="flex-grow max-w-[900px] xl:max-w-[1000px]">
+                    <h3 className="text-xl font-bold text-[var(--foreground)] mb-4 break-words font-serif">
+                      {generatedPages[currentPageId].title}
+                    </h3>
 
-
-
-                  <div className="prose prose-sm md:prose-base lg:prose-lg max-w-none">
-                    <Markdown
-                      content={generatedPages[currentPageId].content}
-                    />
-                  </div>
-
-                  {generatedPages[currentPageId].relatedPages.length > 0 && (
-                    <div className="mt-8 pt-4 border-t border-[var(--border-color)]">
-                      <h4 className="text-sm font-semibold text-[var(--muted)] mb-3">
-                        {messages.repoPage?.relatedPages || 'Related Pages:'}
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {generatedPages[currentPageId].relatedPages.map(relatedId => {
-                          const relatedPage = wikiStructure.pages.find(p => p.id === relatedId);
-                          return relatedPage ? (
-                            <button
-                              key={relatedId}
-                              className="bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-xs text-[var(--accent-primary)] px-3 py-1.5 rounded-md transition-colors truncate max-w-full border border-[var(--accent-primary)]/20"
-                              onClick={() => handlePageSelect(relatedId)}
-                            >
-                              {relatedPage.title}
-                            </button>
-                          ) : null;
-                        })}
-                      </div>
+                    <div className="prose prose-sm md:prose-base lg:prose-lg max-w-none">
+                      <Markdown
+                        content={generatedPages[currentPageId].content}
+                      />
                     </div>
-                  )}
+
+                    {generatedPages[currentPageId].relatedPages.length > 0 && (
+                      <div className="mt-8 pt-4 border-t border-[var(--border-color)]">
+                        <h4 className="text-sm font-semibold text-[var(--muted)] mb-3">
+                          {messages.repoPage?.relatedPages || 'Related Pages:'}
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {generatedPages[currentPageId].relatedPages.map(relatedId => {
+                            const relatedPage = wikiStructure.pages.find(p => p.id === relatedId);
+                            return relatedPage ? (
+                              <button
+                                key={relatedId}
+                                className="bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-xs text-[var(--accent-primary)] px-3 py-1.5 rounded-md transition-colors truncate max-w-full border border-[var(--accent-primary)]/20"
+                                onClick={() => handlePageSelect(relatedId)}
+                              >
+                                {relatedPage.title}
+                              </button>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <TableOfContents content={generatedPages[currentPageId].content} />
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center p-8 text-[var(--muted)] h-full">

@@ -72,3 +72,9 @@ certs/
 conda_envs/
 environment.yml
 wiki_cache/
+
+# skills
+.agents/
+.claude/
+.trae/
+skills-lock.json

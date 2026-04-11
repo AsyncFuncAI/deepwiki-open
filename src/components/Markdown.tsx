@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -6,47 +6,96 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import Mermaid from './Mermaid';
 
+// Extract text content from React children for slug generation
+function getTextContent(children: React.ReactNode): string {
+  if (!children) return '';
+  if (typeof children === 'string') return children;
+  if (typeof children === 'number') return String(children);
+
+  if (Array.isArray(children)) {
+    return children.map(getTextContent).join('');
+  }
+
+  // ReactElement
+  if (
+    typeof children === 'object' &&
+    children !== null &&
+    'props' in children
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const props = (children as any).props;
+    return getTextContent(props?.children);
+  }
+
+  return '';
+}
+
+// Generate slug ID matching rehype-slug / TOC behavior
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 interface MarkdownProps {
   content: string;
 }
 
 const Markdown: React.FC<MarkdownProps> = ({ content }) => {
+  // Track seen heading IDs for deduplication (must match TOC logic)
+  const usedIdsRef = useRef(new Map<string, number>());
+
+  const makeId = (text: string) => {
+    const base = slugify(text);
+    const count = usedIdsRef.current.get(base) ?? 0;
+    const id = count === 0 ? base : `${base}-${count}`;
+    usedIdsRef.current.set(base, count + 1);
+    return id;
+  };
+
   // Define markdown components
   const MarkdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
     p({ children, ...props }: { children?: React.ReactNode }) {
       return <p className="mb-3 text-sm leading-relaxed dark:text-white" {...props}>{children}</p>;
     },
     h1({ children, ...props }: { children?: React.ReactNode }) {
-      return <h1 className="text-xl font-bold mt-6 mb-3 dark:text-white" {...props}>{children}</h1>;
+      const id = makeId(getTextContent(children));
+      return <h1 id={id} className="text-xl font-bold mt-6 mb-3 dark:text-white scroll-mt-6" {...props}>{children}</h1>;
     },
     h2({ children, ...props }: { children?: React.ReactNode }) {
+      const text = getTextContent(children);
+      const id = makeId(text);
       // Special styling for ReAct headings
-      if (children && typeof children === 'string') {
-        const text = children.toString();
-        if (text.includes('Thought') || text.includes('Action') || text.includes('Observation') || text.includes('Answer')) {
-          return (
-            <h2
-              className={`text-base font-bold mt-5 mb-3 p-2 rounded ${
-                text.includes('Thought') ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
-                text.includes('Action') ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
-                text.includes('Observation') ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' :
-                text.includes('Answer') ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' :
-                'dark:text-white'
-              }`}
-              {...props}
-            >
-              {children}
-            </h2>
-          );
-        }
+      if (typeof children === 'string' && (
+        text.includes('Thought') || text.includes('Action') ||
+        text.includes('Observation') || text.includes('Answer')
+      )) {
+        return (
+          <h2
+            id={id}
+            className={`text-base font-bold mt-5 mb-3 p-2 rounded scroll-mt-6 ${
+              text.includes('Thought') ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
+              text.includes('Action') ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
+              text.includes('Observation') ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' :
+              'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
+            }`}
+            {...props}
+          >
+            {children}
+          </h2>
+        );
       }
-      return <h2 className="text-lg font-bold mt-5 mb-3 dark:text-white" {...props}>{children}</h2>;
+      return <h2 id={id} className="text-lg font-bold mt-5 mb-3 dark:text-white scroll-mt-6" {...props}>{children}</h2>;
     },
     h3({ children, ...props }: { children?: React.ReactNode }) {
-      return <h3 className="text-base font-semibold mt-4 mb-2 dark:text-white" {...props}>{children}</h3>;
+      const id = makeId(getTextContent(children));
+      return <h3 id={id} className="text-base font-semibold mt-4 mb-2 dark:text-white scroll-mt-6" {...props}>{children}</h3>;
     },
     h4({ children, ...props }: { children?: React.ReactNode }) {
-      return <h4 className="text-sm font-semibold mt-3 mb-2 dark:text-white" {...props}>{children}</h4>;
+      const id = makeId(getTextContent(children));
+      return <h4 id={id} className="text-sm font-semibold mt-3 mb-2 dark:text-white scroll-mt-6" {...props}>{children}</h4>;
     },
     ul({ children, ...props }: { children?: React.ReactNode }) {
       return <ul className="list-disc pl-6 mb-4 text-sm dark:text-white space-y-2" {...props}>{children}</ul>;
