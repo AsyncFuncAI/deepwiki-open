@@ -742,6 +742,26 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                                     "Please check that you have set the DASHSCOPE_API_KEY (and optionally "
                                     "DASHSCOPE_WORKSPACE_ID) environment variables with valid values."
                                 )
+                        elif request.provider == "minimax":
+                            try:
+                                fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
+                                    input=simplified_prompt,
+                                    model_kwargs=model_kwargs,
+                                    model_type=ModelType.LLM
+                                )
+                                logger.info("Making fallback Minimax API call")
+                                fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
+                                async for chunk in fallback_response:
+                                    choices = getattr(chunk, "choices", [])
+                                    if len(choices) > 0:
+                                        delta = getattr(choices[0], "delta", None)
+                                        if delta is not None:
+                                            text = getattr(delta, "content", None)
+                                            if text is not None:
+                                                yield text
+                            except Exception as e_fallback:
+                                logger.error(f"Error with Minimax API fallback: {str(e_fallback)}")
+                                yield f"\nError with Minimax API fallback: {str(e_fallback)}\n"
                         else:
                             # Google Generative AI fallback (default provider)
                             model_config = get_model_config(request.provider, request.model)
