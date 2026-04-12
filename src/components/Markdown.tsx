@@ -77,9 +77,9 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
             id={id}
             className={`text-base font-bold mt-5 mb-3 p-2 rounded scroll-mt-6 ${
               text.includes('Thought') ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
-              text.includes('Action') ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
-              text.includes('Observation') ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' :
-              'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
+              text.includes('Action') ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' :
+              text.includes('Observation') ? 'bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300' :
+              'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
             }`}
             {...props}
           >
@@ -154,7 +154,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
     blockquote({ children, ...props }: { children?: React.ReactNode }) {
       return (
         <blockquote
-          className="border-l-4 border-gray-300 dark:border-gray-700 pl-4 py-1 text-gray-700 dark:text-gray-300 italic my-4 text-sm"
+          className="border-l-4 border-blue-400 dark:border-blue-500 pl-4 py-1 text-slate-600 dark:text-slate-300 italic my-4 text-sm bg-blue-50/50 dark:bg-blue-950/20 rounded-r-lg"
           {...props}
         >
           {children}
@@ -171,18 +171,18 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
       );
     },
     thead({ children, ...props }: { children?: React.ReactNode }) {
-      return <thead className="bg-gray-100 dark:bg-gray-800" {...props}>{children}</thead>;
+      return <thead className="bg-blue-50/70 dark:bg-blue-900/20" {...props}>{children}</thead>;
     },
     tbody({ children, ...props }: { children?: React.ReactNode }) {
       return <tbody className="divide-y divide-gray-200 dark:divide-gray-700" {...props}>{children}</tbody>;
     },
     tr({ children, ...props }: { children?: React.ReactNode }) {
-      return <tr className="hover:bg-gray-50 dark:hover:bg-gray-900" {...props}>{children}</tr>;
+      return <tr className="hover:bg-blue-50/50 dark:hover:bg-blue-900/10" {...props}>{children}</tr>;
     },
     th({ children, ...props }: { children?: React.ReactNode }) {
       return (
         <th
-          className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300"
+          className="px-4 py-3 text-left font-medium text-slate-700 dark:text-slate-200"
           {...props}
         >
           {children}
@@ -190,7 +190,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
       );
     },
     td({ children, ...props }: { children?: React.ReactNode }) {
-      return <td className="px-4 py-3 border-t border-gray-200 dark:border-gray-700" {...props}>{children}</td>;
+      return <td className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300" {...props}>{children}</td>;
     },
     code(props: {
       inline?: boolean;
@@ -228,8 +228,8 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
       // Handle code blocks
       if (!inline && match) {
         return (
-          <div className="my-6 rounded-md overflow-hidden text-sm shadow-sm">
-            <div className="bg-gray-800 text-gray-200 px-5 py-2 text-sm flex justify-between items-center">
+          <div className="my-6 rounded-xl overflow-hidden text-sm shadow-sm">
+            <div className="bg-slate-900 text-slate-300 px-5 py-2 text-sm flex justify-between items-center">
               <span>{match[1]}</span>
               <button
                 onClick={() => {
@@ -273,7 +273,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
       // Handle inline code
       return (
         <code
-          className={`${className} font-mono bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-pink-500 dark:text-pink-400 text-sm`}
+          className={`${className} font-mono bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded text-blue-600 dark:text-blue-300 text-sm`}
           {...otherProps}
         >
           {children}

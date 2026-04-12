@@ -132,8 +132,8 @@ export default function ProcessedProjects({
       {showHeader && (
         <header className="mb-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-[var(--accent-primary)]">{t('title')}</h1>
-            <Link href="/" className="text-[var(--accent-primary)] hover:underline">
+            <h1 className="text-2xl font-bold text-[var(--foreground)]">Processed Projects</h1>
+            <Link href="/" className="text-blue-500 hover:text-blue-600 font-medium transition-colors">
               {t('backToHome')}
             </Link>
           </div>
@@ -149,7 +149,7 @@ export default function ProcessedProjects({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('searchPlaceholder')}
-            className="input-japanese block w-full pl-4 pr-12 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--background)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)]"
+            className="w-full px-4 py-3 border-0 border-b-2 border-[var(--border-color)] bg-transparent text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-blue-500 transition-all"
           />
           {searchQuery && (
             <button
@@ -162,12 +162,12 @@ export default function ProcessedProjects({
         </div>
 
         {/* View Toggle */}
-        <div className="flex items-center bg-[var(--background)] border border-[var(--border-color)] rounded-lg p-1">
+        <div className="flex items-center bg-[var(--background)] border border-[var(--border-color)] rounded-xl p-1">
           <button
             onClick={() => setViewMode('card')}
-            className={`p-2 rounded transition-colors ${
+            className={`p-2.5 rounded-lg transition-all ${
               viewMode === 'card'
-                ? 'bg-[var(--accent-primary)] text-white'
+                ? 'bg-blue-500 text-white shadow-sm'
                 : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-bg)]'
             }`}
             title="Card View"
@@ -176,9 +176,9 @@ export default function ProcessedProjects({
           </button>
           <button
             onClick={() => setViewMode('list')}
-            className={`p-2 rounded transition-colors ${
+            className={`p-2.5 rounded-lg transition-all ${
               viewMode === 'list'
-                ? 'bg-[var(--accent-primary)] text-white'
+                ? 'bg-blue-500 text-white shadow-sm'
                 : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-bg)]'
             }`}
             title="List View"
@@ -189,17 +189,17 @@ export default function ProcessedProjects({
       </div>
 
       {isLoading && <p className="text-[var(--muted)]">{t('loadingProjects')}</p>}
-      {error && <p className="text-[var(--highlight)]">{t('errorLoading')} {error}</p>}
+      {error && <p className="text-red-500">{t('errorLoading')} {error}</p>}
 
       {!isLoading && !error && filteredProjects.length > 0 && (
         <div className={viewMode === 'card' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-2'}>
             {filteredProjects.map((project) => (
             viewMode === 'card' ? (
-              <div key={project.id} className="relative p-4 border border-[var(--border-color)] rounded-lg bg-[var(--card-bg)] shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02]">
+              <div key={project.id} className="group relative p-5 border border-[var(--border-color)] rounded-2xl bg-[var(--card-bg)] hover:shadow-lg hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-200">
                 <button
                   type="button"
                   onClick={() => handleDelete(project)}
-                  className="absolute top-2 right-2 text-[var(--muted)] hover:text-[var(--foreground)]"
+                  className="absolute top-3 right-3 text-[var(--muted)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
                   title="Delete project"
                 >
                   <FaTimes className="h-4 w-4" />
@@ -208,14 +208,14 @@ export default function ProcessedProjects({
                   href={`/${project.owner}/${project.repo}?type=${project.repo_type}&language=${project.language}`}
                   className="block"
                 >
-                  <h3 className="text-lg font-semibold text-[var(--link-color)] hover:underline mb-2 line-clamp-2">
+                  <h3 className="text-base font-semibold text-blue-500 hover:text-blue-600 mb-3 line-clamp-2 pr-6">
                     {project.name}
                   </h3>
                   <div className="flex flex-wrap gap-2 mb-3">
-                    <span className="px-2 py-1 text-xs bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] rounded-full border border-[var(--accent-primary)]/20">
+                    <span className="px-3 py-1 text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-full">
                       {project.repo_type}
                     </span>
-                    <span className="px-2 py-1 text-xs bg-[var(--background)] text-[var(--muted)] rounded-full border border-[var(--border-color)]">
+                    <span className="px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full">
                       {project.language}
                     </span>
                   </div>
@@ -225,11 +225,11 @@ export default function ProcessedProjects({
                 </Link>
               </div>
             ) : (
-              <div key={project.id} className="relative p-3 border border-[var(--border-color)] rounded-lg bg-[var(--card-bg)] hover:bg-[var(--background)] transition-colors">
+              <div key={project.id} className="group relative p-4 border border-[var(--border-color)] rounded-xl bg-[var(--card-bg)] hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors">
                 <button
                   type="button"
                   onClick={() => handleDelete(project)}
-                  className="absolute top-2 right-2 text-[var(--muted)] hover:text-[var(--foreground)]"
+                  className="absolute top-3 right-3 text-[var(--muted)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
                   title="Delete project"
                 >
                   <FaTimes className="h-4 w-4" />
@@ -239,7 +239,7 @@ export default function ProcessedProjects({
                   className="flex items-center justify-between"
                 >
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-medium text-[var(--link-color)] hover:underline truncate">
+                    <h3 className="text-base font-medium text-blue-500 hover:text-blue-600 truncate">
                       {project.name}
                     </h3>
                     <p className="text-xs text-[var(--muted)] mt-1">
@@ -247,7 +247,7 @@ export default function ProcessedProjects({
                     </p>
                   </div>
                   <div className="flex gap-2 ml-4">
-                    <span className="px-2 py-1 text-xs bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] rounded border border-[var(--accent-primary)]/20">
+                    <span className="px-3 py-1 text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-full">
                       {project.repo_type}
                     </span>
                   </div>

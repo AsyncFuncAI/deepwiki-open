@@ -4,31 +4,35 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
-  /* Clean white color palette */
+  /* Clean blue color palette */
   --background: #ffffff;
-  --foreground: #1a1a1a;
-  --shadow-color: rgba(0, 0, 0, 0.06);
-  --accent-primary: #9b7cb9;
-  --accent-secondary: #d7c4bb;
-  --border-color: #e5e5e5;
+  --foreground: #0f172a;
+  --shadow-color: rgba(59, 130, 246, 0.06);
+  --accent-primary: #3b82f6;
+  --accent-secondary: #60a5fa;
+  --accent-muted: rgba(59, 130, 246, 0.08);
+  --border-color: rgba(15, 23, 42, 0.08);
   --card-bg: #ffffff;
-  --highlight: #e8927c;
-  --muted: #6b6b6b;
-  --link-color: #7c5aa0;
+  --highlight: #2563eb;
+  --muted: #64748b;
+  --link-color: #3b82f6;
+  --hover-bg: rgba(59, 130, 246, 0.05);
 }
 
 html[data-theme='dark'] {
-  /* Clean dark mode palette */
-  --background: #111111;
-  --foreground: #f0f0f0;
-  --shadow-color: rgba(0, 0, 0, 0.3);
-  --accent-primary: #9370db;
-  --accent-secondary: #5d4037;
-  --border-color: #2a2a2a;
-  --card-bg: #1a1a1a;
-  --highlight: #e57373;
-  --muted: #8c8c8c;
-  --link-color: #b19cd9;
+  /* Clean dark mode palette with blue accents */
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --shadow-color: rgba(0, 0, 0, 0.35);
+  --accent-primary: #60a5fa;
+  --accent-secondary: #93c5fd;
+  --accent-muted: rgba(96, 165, 250, 0.12);
+  --border-color: rgba(241, 245, 249, 0.07);
+  --card-bg: #1e293b;
+  --highlight: #3b82f6;
+  --muted: #94a3b8;
+  --link-color: #60a5fa;
+  --hover-bg: rgba(96, 165, 250, 0.08);
 }
 
 /* Fix for unreadable <select> options in Chrome's dark mode */
@@ -52,9 +56,14 @@ body {
   font-family: var(--font-sans), sans-serif;
 }
 
-/* Custom shadow styles - more subtle */
+/* Custom shadow styles - subtle and modern */
 .shadow-custom {
-  box-shadow: 0 2px 8px var(--shadow-color);
+  box-shadow: 0 1px 3px var(--shadow-color), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Global transitions */
+a, button {
+  transition: all 0.15s ease;
 }
 
 /* Dark mode paper texture - removed for cleaner look */
@@ -67,45 +76,37 @@ html[data-theme='dark'] .paper-texture {
   background-color: var(--accent-primary);
   color: white;
   border: none;
-  border-radius: 0.25rem;
+  border-radius: 0.75rem;
   padding: 0.5rem 1.5rem;
   font-weight: 500;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
 }
 
 .btn-japanese:hover {
   background-color: var(--highlight);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
 }
 
-.btn-japanese:before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 0;
-  height: 100%;
-  background-color: rgba(255, 255, 255, 0.2);
-  transition: width 0.3s ease;
-}
-
-.btn-japanese:hover:before {
-  width: 100%;
+.btn-japanese:active {
+  transform: translateY(0);
 }
 
 /* Japanese-style inputs */
 .input-japanese {
   background-color: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 0.25rem;
-  padding: 0.5rem 1rem;
-  transition: all 0.3s ease;
+  border: none;
+  border-bottom: 2px solid var(--border-color);
+  border-radius: 0;
+  padding: 0.5rem 0;
+  transition: all 0.2s ease;
 }
 
 .input-japanese:focus {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px rgba(155, 124, 185, 0.2);
+  border-bottom-color: var(--accent-primary);
+  box-shadow: none;
   outline: none;
 }
 
@@ -113,13 +114,14 @@ html[data-theme='dark'] .paper-texture {
 .card-japanese {
   background-color: var(--card-bg);
   border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
+  border-radius: 1rem;
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .card-japanese:hover {
-  box-shadow: 0 4px 12px var(--shadow-color);
+  box-shadow: 0 4px 16px var(--shadow-color);
+  border-color: rgba(59, 130, 246, 0.15);
 }
 
 /* Line clamp utilities */

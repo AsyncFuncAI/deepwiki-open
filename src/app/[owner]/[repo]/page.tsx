@@ -48,11 +48,11 @@ interface WikiStructure {
 // Add CSS styles for wiki
 const wikiStyles = `
   .prose code {
-    @apply bg-[var(--background)] px-1.5 py-0.5 rounded font-mono text-sm border border-[var(--border-color)];
+    @apply bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded font-mono text-sm text-blue-600 dark:text-blue-300;
   }
 
   .prose pre {
-    @apply bg-[var(--background)] text-[var(--foreground)] rounded-md p-4 overflow-x-auto border border-[var(--border-color)];
+    @apply bg-[var(--background)] text-[var(--foreground)] rounded-xl p-4 overflow-x-auto;
   }
 
   .prose h1, .prose h2, .prose h3, .prose h4 {
@@ -72,11 +72,11 @@ const wikiStyles = `
   }
 
   .prose a {
-    @apply text-[var(--accent-primary)] hover:text-[var(--highlight)] transition-colors no-underline border-b border-[var(--border-color)] hover:border-[var(--accent-primary)];
+    @apply text-blue-500 hover:text-blue-600 transition-colors no-underline border-b border-blue-200 dark:border-blue-700 hover:border-blue-500;
   }
 
   .prose blockquote {
-    @apply border-l-4 border-[var(--accent-primary)]/30 bg-[var(--background)] pl-4 py-1 italic;
+    @apply border-l-4 border-blue-400 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-950/20 pl-4 py-1 italic text-slate-600 dark:text-slate-300 rounded-r-lg;
   }
 
   .prose ul, .prose ol {
@@ -84,15 +84,15 @@ const wikiStyles = `
   }
 
   .prose table {
-    @apply border-collapse border border-[var(--border-color)];
+    @apply border-collapse border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden;
   }
 
   .prose th {
-    @apply bg-[var(--background)] text-[var(--foreground)] p-2 border border-[var(--border-color)];
+    @apply bg-blue-50/70 dark:bg-blue-900/20 text-slate-700 dark:text-slate-200 p-3 border border-slate-200 dark:border-slate-700;
   }
 
   .prose td {
-    @apply p-2 border border-[var(--border-color)];
+    @apply p-3 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300;
   }
 `;
 
@@ -1949,47 +1949,43 @@ IMPORTANT:
   const [isModelSelectionModalOpen, setIsModelSelectionModalOpen] = useState(false);
 
   return (
-    <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
+    <div className="h-screen bg-[var(--background)] flex flex-col">
       <style>{wikiStyles}</style>
 
-      <header className="w-full mb-6 h-fit">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-[var(--accent-primary)] hover:text-[var(--highlight)] flex items-center gap-1.5 transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)] pb-0.5">
-              <FaHome /> {messages.repoPage?.home || 'Home'}
-            </Link>
-          </div>
+      <header className="w-full px-6 py-4 border-b border-[var(--border-color)] bg-[var(--card-bg)]">
+        <div className="flex items-center gap-4">
+          <Link href="/" className="text-blue-500 hover:text-blue-600 flex items-center gap-2 font-medium transition-colors">
+            <FaHome className="text-lg" /> {messages.repoPage?.home || 'Home'}
+          </Link>
         </div>
       </header>
 
       <main className="flex-1 w-full overflow-y-auto">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
-            <div className="relative mb-6">
-              <div className="absolute -inset-4 bg-[var(--accent-primary)]/10 rounded-full blur-md animate-pulse"></div>
-              <div className="relative flex items-center justify-center">
-                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse"></div>
-                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-75 mx-2"></div>
-                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-150"></div>
-              </div>
+          <div className="flex flex-col items-center justify-center p-12 bg-[var(--card-bg)] rounded-2xl shadow-sm mx-6 my-6">
+            {/* Modern loading animation */}
+            <div className="relative mb-8">
+              <div className="w-16 h-16 border-4 border-blue-100 rounded-full animate-spin border-t-blue-500"></div>
             </div>
-            <p className="text-[var(--foreground)] text-center mb-3 font-serif">
+            <p className="text-[var(--foreground)] text-center mb-4 font-medium text-lg">
               {loadingMessage || messages.common?.loading || 'Loading...'}
-              {isExporting && (messages.loading?.preparingDownload || ' Please wait while we prepare your download...')}
+            </p>
+            <p className="text-[var(--muted)] text-sm">
+              {isExporting && (messages.loading?.preparingDownload || 'Preparing download...')}
             </p>
 
             {/* Progress bar for page generation */}
             {wikiStructure && (
-              <div className="w-full max-w-md mt-3">
-                <div className="bg-[var(--background)]/50 rounded-full h-2 mb-3 overflow-hidden border border-[var(--border-color)]">
+              <div className="w-full max-w-md mt-6">
+                <div className="bg-blue-50 dark:bg-blue-950/30 rounded-full h-1.5 overflow-hidden">
                   <div
-                    className="bg-[var(--accent-primary)] h-2 rounded-full transition-all duration-300 ease-in-out"
+                    className="bg-blue-500 h-1.5 rounded-full transition-all duration-500 ease-out"
                     style={{
                       width: `${Math.max(5, 100 * (wikiStructure.pages.length - pagesInProgress.size) / wikiStructure.pages.length)}%`
                     }}
                   />
                 </div>
-                <p className="text-xs text-[var(--muted)] text-center">
+                <p className="text-xs text-[var(--muted)] text-center mt-3">
                   {language === 'ja'
                     ? `${wikiStructure.pages.length}ページ中${wikiStructure.pages.length - pagesInProgress.size}ページ完了`
                     : messages.repoPage?.pagesCompleted
@@ -2001,38 +1997,38 @@ IMPORTANT:
 
                 {/* Show list of in-progress pages */}
                 {pagesInProgress.size > 0 && (
-                  <div className="mt-4 text-xs">
+                  <div className="mt-4 text-xs text-center">
                     <p className="text-[var(--muted)] mb-2">
                       {messages.repoPage?.currentlyProcessing || 'Currently processing:'}
                     </p>
-                    <ul className="text-[var(--foreground)] space-y-1">
+                    <div className="flex flex-wrap justify-center gap-2">
                       {Array.from(pagesInProgress).slice(0, 3).map(pageId => {
                         const page = wikiStructure.pages.find(p => p.id === pageId);
-                        return page ? <li key={pageId} className="truncate border-l-2 border-[var(--accent-primary)]/30 pl-2">{page.title}</li> : null;
+                        return page ? (
+                          <span key={pageId} className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-full text-xs">
+                            {page.title}
+                          </span>
+                        ) : null;
                       })}
                       {pagesInProgress.size > 3 && (
-                        <li className="text-[var(--muted)]">
-                          {language === 'ja'
-                            ? `...他に${pagesInProgress.size - 3}ページ`
-                            : messages.repoPage?.andMorePages
-                                ? messages.repoPage.andMorePages.replace('{count}', (pagesInProgress.size - 3).toString())
-                                : `...and ${pagesInProgress.size - 3} more`}
-                        </li>
+                        <span className="px-3 py-1 bg-[var(--background)] text-[var(--muted)] rounded-full text-xs">
+                          +{pagesInProgress.size - 3} more
+                        </span>
                       )}
-                    </ul>
+                    </div>
                   </div>
                 )}
               </div>
             )}
           </div>
         ) : error ? (
-          <div className="bg-[var(--highlight)]/5 border border-[var(--highlight)]/30 rounded-lg p-5 mb-4 shadow-sm">
-            <div className="flex items-center text-[var(--highlight)] mb-3">
+          <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-2xl p-6 mx-6 my-6">
+            <div className="flex items-center text-red-600 dark:text-red-400 mb-3">
               <FaExclamationTriangle className="mr-2" />
               <span className="font-bold font-serif">{messages.repoPage?.errorTitle || messages.common?.error || 'Error'}</span>
             </div>
             <p className="text-[var(--foreground)] text-sm mb-3">{error}</p>
-            <p className="text-[var(--muted)] text-xs">
+            <p className="text-[var(--muted)] text-sm">
               {embeddingError ? (
                 messages.repoPage?.embeddingErrorDefault || 'This error is related to the document embedding system used for analyzing your repository. Please verify your embedding model configuration, API keys, and try again. If the issue persists, consider switching to a different embedding provider in the model settings.'
               ) : (
@@ -2042,7 +2038,7 @@ IMPORTANT:
             <div className="mt-5">
               <Link
                 href="/"
-                className="btn-japanese px-5 py-2 inline-flex items-center gap-1.5"
+                className="btn-japanese px-5 py-2.5 inline-flex items-center gap-2"
               >
                 <FaHome className="text-sm" />
                 {messages.repoPage?.backToHome || 'Back to Home'}
@@ -2050,14 +2046,14 @@ IMPORTANT:
             </div>
           </div>
         ) : wikiStructure ? (
-          <div className="h-full overflow-y-auto flex flex-col lg:grid w-full overflow-hidden bg-[var(--card-bg)]" style={{ gridTemplateColumns: '280px 1fr' }}>
+          <div className="h-full overflow-y-auto flex w-full overflow-hidden bg-[var(--background)]" style={{ display: 'grid', gridTemplateColumns: '260px 1fr' }}>
             {/* Wiki Navigation */}
-            <div className="h-full lg:h-auto w-full flex-shrink-0 bg-[var(--background)] lg:border-r border-[var(--border-color)] overflow-y-auto p-5">
-              <h3 className="text-lg font-bold text-[var(--foreground)] mb-3 font-serif">{wikiStructure.title}</h3>
-              <p className="text-[var(--muted)] text-sm mb-5 leading-relaxed">{wikiStructure.description}</p>
+            <div className="h-full w-full flex-shrink-0 bg-[var(--card-bg)] border-r border-[var(--border-color)] overflow-y-auto p-6">
+              <h3 className="text-lg font-bold text-[var(--foreground)] mb-2 font-serif">{wikiStructure.title}</h3>
+              <p className="text-[var(--muted)] text-sm mb-6 leading-relaxed line-clamp-2">{wikiStructure.description}</p>
 
               {/* Display repository info */}
-              <div className="text-xs text-[var(--muted)] mb-5 flex items-center">
+              <div className="text-xs text-[var(--muted)] mb-5 flex items-center gap-2">
                 {effectiveRepoInfo.type === 'local' ? (
                   <div className="flex items-center">
                     <FaFolder className="mr-2" />
@@ -2085,11 +2081,10 @@ IMPORTANT:
               </div>
 
               {/* Wiki Type Indicator */}
-              <div className="mb-3 flex items-center text-xs text-[var(--muted)]">
-                <span className="mr-2">Wiki Type:</span>
-                <span className={`px-2 py-0.5 rounded-full ${isComprehensiveView
-                  ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30'
-                  : 'bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)]'}`}>
+              <div className="mb-4 flex items-center gap-2">
+                <span className={`px-3 py-1 text-xs rounded-full ${isComprehensiveView
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
                   {isComprehensiveView
                     ? (messages.form?.comprehensive || 'Comprehensive')
                     : (messages.form?.concise || 'Concise')}
@@ -2101,7 +2096,7 @@ IMPORTANT:
                 <button
                   onClick={() => setIsModelSelectionModalOpen(true)}
                   disabled={isLoading}
-                  className="flex items-center w-full text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors hover:cursor-pointer"
+                  className="flex items-center w-full text-sm px-4 py-2.5 bg-[var(--background)] text-[var(--foreground)] rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors hover:cursor-pointer hover:border-blue-200 dark:hover:border-blue-700"
                 >
                   <FaSync className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                   {messages.repoPage?.refreshWiki || 'Refresh Wiki'}
@@ -2111,14 +2106,14 @@ IMPORTANT:
               {/* Export buttons */}
               {Object.keys(generatedPages).length > 0 && (
                 <div className="mb-5">
-                  <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3 font-serif">
+                  <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3">
                     {messages.repoPage?.exportWiki || 'Export Wiki'}
                   </h4>
                   <div className="flex flex-col gap-2">
                     <button
                       onClick={() => exportWiki('markdown')}
                       disabled={isExporting}
-                      className="btn-japanese flex items-center text-xs px-3 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn-japanese flex items-center text-sm px-4 py-2.5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <FaDownload className="mr-2" />
                       {messages.repoPage?.exportAsMarkdown || 'Export as Markdown'}
@@ -2126,21 +2121,21 @@ IMPORTANT:
                     <button
                       onClick={() => exportWiki('json')}
                       disabled={isExporting}
-                      className="flex items-center text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors"
+                      className="flex items-center text-sm px-4 py-2.5 bg-[var(--background)] text-[var(--foreground)] rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors"
                     >
                       <FaFileExport className="mr-2" />
                       {messages.repoPage?.exportAsJson || 'Export as JSON'}
                     </button>
                   </div>
                   {exportError && (
-                    <div className="mt-2 text-xs text-[var(--highlight)]">
+                    <div className="mt-2 text-xs text-red-500">
                       {exportError}
                     </div>
                   )}
                 </div>
               )}
 
-              <h4 className="text-md font-semibold text-[var(--foreground)] mb-3 font-serif">
+              <h4 className="text-sm font-semibold text-[var(--muted)] mb-3 uppercase tracking-wide">
                 {messages.repoPage?.pages || 'Pages'}
               </h4>
               <WikiTreeView
@@ -2152,12 +2147,12 @@ IMPORTANT:
             </div>
 
             {/* Wiki Content */}
-            <div id="wiki-content" className="w-full p-6 lg:px-10 lg:py-8 overflow-y-auto" style={{ position: 'relative' }}>
+            <div id="wiki-content" className="w-full p-8 lg:px-12 overflow-y-auto bg-[var(--background)]" style={{ position: 'relative' }}>
               {currentPageId && generatedPages[currentPageId] ? (
-                <div className="flex items-start" style={{ width: '100%' }}>
-                  <div className="flex justify-center" style={{ flex: '1 1 0', minWidth: 0 }}>
-                    <div className="w-full" style={{ maxWidth: '900px' }}>
-                      <h3 className="text-2xl font-bold text-[var(--foreground)] mb-4 break-words font-serif">
+                <div className="flex items-start gap-8" style={{ width: '100%' }}>
+                  <div className="flex justify-center flex-1 min-w-0">
+                    <div className="w-full">
+                      <h3 className="text-2xl font-bold text-[var(--foreground)] mb-6 break-words font-serif">
                         {generatedPages[currentPageId].title}
                       </h3>
 
@@ -2169,9 +2164,9 @@ IMPORTANT:
                       </div>
 
                       {generatedPages[currentPageId].relatedPages.length > 0 && (
-                        <div className="mt-8 pt-4 border-t border-[var(--border-color)]">
-                          <h4 className="text-sm font-semibold text-[var(--muted)] mb-3">
-                            {messages.repoPage?.relatedPages || 'Related Pages:'}
+                        <div className="mt-10 pt-6 border-t border-[var(--border-color)]">
+                          <h4 className="text-sm font-semibold text-[var(--muted)] mb-4">
+                            {messages.repoPage?.relatedPages || 'Related Pages'}
                           </h4>
                           <div className="flex flex-wrap gap-2">
                             {generatedPages[currentPageId].relatedPages.map(relatedId => {
@@ -2179,7 +2174,7 @@ IMPORTANT:
                               return relatedPage ? (
                                 <button
                                   key={relatedId}
-                                  className="bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-xs text-[var(--accent-primary)] px-3 py-1.5 rounded-md transition-colors truncate max-w-full border border-[var(--accent-primary)]/20"
+                                  className="bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-300 text-sm px-4 py-2 rounded-xl transition-colors truncate max-w-full border border-blue-100 dark:border-blue-800"
                                   onClick={() => handlePageSelect(relatedId)}
                                 >
                                   {relatedPage.title}
@@ -2194,12 +2189,11 @@ IMPORTANT:
                   <TableOfContents content={generatedPages[currentPageId].content} key={currentPageId} />
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center p-8 text-[var(--muted)] h-full">
-                  <div className="relative mb-4">
-                    <div className="absolute -inset-2 bg-[var(--accent-primary)]/5 rounded-full blur-md"></div>
-                    <FaBookOpen className="text-4xl relative z-10" />
+                <div className="flex flex-col items-center justify-center p-12 text-[var(--muted)] h-full">
+                  <div className="w-20 h-20 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-6">
+                    <FaBookOpen className="text-3xl text-blue-400" />
                   </div>
-                  <p className="font-serif">
+                  <p className="text-lg font-medium">
                     {messages.repoPage?.selectPagePrompt || 'Select a page from the navigation to view its content'}
                   </p>
                 </div>
@@ -2213,7 +2207,7 @@ IMPORTANT:
       {!isLoading && wikiStructure && (
         <button
           onClick={() => setIsAskModalOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[var(--accent-primary)] text-white shadow-lg flex items-center justify-center hover:bg-[var(--accent-primary)]/90 transition-all z-50"
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-2xl bg-blue-500 text-white shadow-lg shadow-blue-500/25 flex items-center justify-center hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-200 z-50 hover:scale-105"
           aria-label={messages.ask?.title || 'Ask about this repository'}
         >
           <FaComments className="text-xl" />
@@ -2222,19 +2216,19 @@ IMPORTANT:
 
       {/* Ask Panel - Right Side Drawer */}
       <div
-        className={`fixed top-0 right-0 h-full bg-[var(--card-bg)] shadow-2xl z-50 transition-transform duration-300 flex flex-col ${isAskModalOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed top-0 right-0 h-full bg-[var(--card-bg)] shadow-2xl z-50 transition-transform duration-300 ease-out flex flex-col ${isAskModalOpen ? 'translate-x-0' : 'translate-x-full'}`}
         style={{ width: panelWidth, maxWidth: '90vw' }}
       >
         {/* Resize Handle */}
         <div
-          className="absolute left-0 top-0 h-full w-2 cursor-ew-resize hover:bg-[var(--accent-primary)]/20 transition-colors flex items-center justify-center"
+          className="absolute left-0 top-0 h-full w-1 cursor-ew-resize hover:bg-blue-500/20 transition-colors flex items-center justify-center group"
           onMouseDown={(e) => {
             e.preventDefault();
             const startX = e.clientX;
             const startWidth = panelWidth;
             const onMouseMove = (e: MouseEvent) => {
               const diff = startX - e.clientX;
-              const newWidth = Math.max(300, Math.min(window.innerWidth * 0.9, startWidth + diff));
+              const newWidth = Math.max(320, Math.min(window.innerWidth * 0.9, startWidth + diff));
               setPanelWidth(newWidth);
             };
             const onMouseUp = () => {
@@ -2245,19 +2239,19 @@ IMPORTANT:
             document.addEventListener('mouseup', onMouseUp);
           }}
         >
-          <div className="w-1 h-16 bg-[var(--muted)]/30 rounded-full" />
+          <div className="w-1 h-12 bg-slate-200 dark:bg-slate-700 rounded-full group-hover:bg-blue-400 transition-colors" />
         </div>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)] pl-6">
-          <h3 className="text-lg font-semibold text-[var(--foreground)]">
+          <h3 className="text-base font-semibold text-[var(--foreground)]">
             {messages.ask?.title || 'Ask about this repository'}
           </h3>
           <button
             onClick={() => setIsAskModalOpen(false)}
-            className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors rounded-full p-2 hover:bg-[var(--hover-bg)]"
+            className="text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors rounded-xl p-2"
             aria-label="Close"
           >
-            <FaTimes className="text-xl" />
+            <FaTimes className="text-lg" />
           </button>
         </div>
         {/* Content */}

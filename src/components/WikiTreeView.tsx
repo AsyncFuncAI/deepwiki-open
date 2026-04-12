@@ -107,10 +107,10 @@ const WikiTreeView: React.FC<WikiTreeViewProps> = ({
                     <div
                       className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
                         page.importance === 'high'
-                          ? 'bg-[#9b7cb9]'
+                          ? 'bg-blue-500'
                           : page.importance === 'medium'
-                          ? 'bg-[#d7c4bb]'
-                          : 'bg-[#e8927c]'
+                          ? 'bg-blue-400'
+                          : 'bg-blue-300'
                       }`}
                     ></div>
                     <span className="truncate">{page.title}</span>

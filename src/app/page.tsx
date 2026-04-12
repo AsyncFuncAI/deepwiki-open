@@ -391,21 +391,21 @@ export default function Home() {
   };
 
   return (
-    <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
-      <header className="max-w-6xl mx-auto mb-6 h-fit w-full">
+    <div className="h-screen bg-[var(--background)] flex flex-col">
+      <header className="max-w-6xl mx-auto w-full px-6 pt-6 pb-4">
         <div
-          className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-[var(--card-bg)] rounded-lg shadow-custom border border-[var(--border-color)] p-4">
-          <div className="flex items-center">
-            <div className="bg-[var(--accent-primary)] p-2 rounded-lg mr-3">
+          className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 bg-[var(--card-bg)] rounded-2xl shadow-sm border border-[var(--border-color)] p-5">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-2.5 rounded-xl shadow-lg shadow-blue-500/20">
               <FaWikipediaW className="text-2xl text-white" />
             </div>
-            <div className="mr-6">
-              <h1 className="text-xl md:text-2xl font-bold text-[var(--accent-primary)]">{t('common.appName')}</h1>
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-[var(--foreground)]">{t('common.appName')}</h1>
               <div className="flex flex-wrap items-baseline gap-x-2 md:gap-x-3 mt-0.5">
                 <p className="text-xs text-[var(--muted)] whitespace-nowrap">{t('common.tagline')}</p>
                 <div className="hidden md:inline-block">
                   <Link href="/wiki/projects"
-                    className="text-xs font-medium text-[var(--accent-primary)] hover:text-[var(--highlight)] hover:underline whitespace-nowrap">
+                    className="text-xs font-medium text-blue-500 hover:text-blue-600 whitespace-nowrap transition-colors">
                     {t('nav.wikiProjects')}
                   </Link>
                 </div>
@@ -415,24 +415,24 @@ export default function Home() {
 
           <form onSubmit={handleFormSubmit} className="flex flex-col gap-3 w-full max-w-3xl">
             {/* Repository URL input and submit button */}
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <input
                   type="text"
                   value={repositoryInput}
                   onChange={handleRepositoryInputChange}
                   placeholder={t('form.repoPlaceholder') || "owner/repo, GitHub/GitLab/BitBucket URL, or local folder path"}
-                  className="input-japanese block w-full pl-10 pr-3 py-2.5 border-[var(--border-color)] rounded-lg bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+                  className="w-full px-4 py-3 border-0 border-b-2 border-[var(--border-color)] bg-transparent text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-blue-500 transition-all rounded-none"
                 />
                 {error && (
-                  <div className="text-[var(--highlight)] text-xs mt-1">
+                  <div className="text-red-500 text-xs mt-1">
                     {error}
                   </div>
                 )}
               </div>
               <button
                 type="submit"
-                className="btn-japanese px-6 py-2.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-japanese px-8 py-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? t('common.processing') : t('common.generateWiki')}
@@ -481,9 +481,9 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-6xl mx-auto w-full overflow-y-auto">
+      <main className="flex-1 max-w-6xl mx-auto w-full overflow-y-auto px-6 pb-6">
         <div
-          className="min-h-full flex flex-col items-center p-8 pt-10 bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
+          className="min-h-full flex flex-col items-center p-8 pt-6 bg-[var(--card-bg)] rounded-2xl">
 
           {/* Conditionally show processed projects or welcome content */}
           {!projectsLoading && projects.length > 0 ? (
@@ -491,13 +491,12 @@ export default function Home() {
               {/* Header section for existing projects */}
               <div className="flex flex-col items-center w-full max-w-2xl mb-8 mx-auto">
                 <div className="flex flex-col sm:flex-row items-center mb-6 gap-4">
-                  <div className="relative">
-                    <div className="absolute -inset-1 bg-[var(--accent-primary)]/20 rounded-full blur-md"></div>
-                    <FaWikipediaW className="text-5xl text-[var(--accent-primary)] relative z-10" />
+                  <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+                    <FaWikipediaW className="text-4xl text-blue-500" />
                   </div>
                   <div className="text-center sm:text-left">
-                    <h2 className="text-2xl font-bold text-[var(--foreground)] font-serif mb-1">{t('projects.existingProjects')}</h2>
-                    <p className="text-[var(--accent-primary)] text-sm max-w-md">{t('projects.browseExisting')}</p>
+                    <h2 className="text-2xl font-bold text-[var(--foreground)] mb-1">{t('projects.existingProjects')}</h2>
+                    <p className="text-blue-500 text-sm max-w-md">{t('projects.browseExisting')}</p>
                   </div>
                 </div>
               </div>
@@ -514,26 +513,25 @@ export default function Home() {
             <>
               {/* Header section */}
               <div className="flex flex-col items-center w-full max-w-2xl mb-8">
-                <div className="flex flex-col sm:flex-row items-center mb-6 gap-4">
-                  <div className="relative">
-                    <div className="absolute -inset-1 bg-[var(--accent-primary)]/20 rounded-full blur-md"></div>
-                    <FaWikipediaW className="text-5xl text-[var(--accent-primary)] relative z-10" />
+                <div className="flex flex-col sm:flex-row items-center mb-6 gap-5">
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30 flex items-center justify-center">
+                    <FaWikipediaW className="text-4xl text-white" />
                   </div>
                   <div className="text-center sm:text-left">
-                    <h2 className="text-2xl font-bold text-[var(--foreground)] font-serif mb-1">{t('home.welcome')}</h2>
-                    <p className="text-[var(--accent-primary)] text-sm max-w-md">{t('home.welcomeTagline')}</p>
+                    <h2 className="text-2xl font-bold text-[var(--foreground)] mb-2">{t('home.welcome')}</h2>
+                    <p className="text-blue-500 text-sm max-w-md">{t('home.welcomeTagline')}</p>
                   </div>
                 </div>
 
-                <p className="text-[var(--foreground)] text-center mb-8 text-lg leading-relaxed">
+                <p className="text-[var(--foreground)] text-center mb-8 text-base leading-relaxed">
                   {t('home.description')}
                 </p>
               </div>
 
           {/* Quick Start section - redesigned for better spacing */}
           <div
-            className="w-full max-w-2xl mb-10 bg-[var(--accent-primary)]/5 border border-[var(--accent-primary)]/20 rounded-lg p-5">
-            <h3 className="text-sm font-semibold text-[var(--accent-primary)] mb-3 flex items-center">
+            className="w-full max-w-2xl mb-10 bg-blue-50/50 dark:bg-blue-950/20 rounded-2xl p-6">
+            <h3 className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-3 flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
                 stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -541,22 +539,22 @@ export default function Home() {
               </svg>
               {t('home.quickStart')}
             </h3>
-            <p className="text-sm text-[var(--foreground)] mb-3">{t('home.enterRepoUrl')}</p>
+            <p className="text-sm text-[var(--foreground)] mb-4">{t('home.enterRepoUrl')}</p>
             <div className="grid grid-cols-1 gap-3 text-xs text-[var(--muted)]">
               <div
-                className="bg-[var(--background)]/70 p-3 rounded border border-[var(--border-color)] font-mono overflow-x-hidden whitespace-nowrap"
+                className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 font-mono overflow-x-hidden whitespace-nowrap text-blue-600 dark:text-blue-300"
               >https://github.com/AsyncFuncAI/deepwiki-open
               </div>
               <div
-                className="bg-[var(--background)]/70 p-3 rounded border border-[var(--border-color)] font-mono overflow-x-hidden whitespace-nowrap"
+                className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 font-mono overflow-x-hidden whitespace-nowrap"
               >https://gitlab.com/gitlab-org/gitlab
               </div>
               <div
-                className="bg-[var(--background)]/70 p-3 rounded border border-[var(--border-color)] font-mono overflow-x-hidden whitespace-nowrap"
+                className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 font-mono overflow-x-hidden whitespace-nowrap"
               >AsyncFuncAI/deepwiki-open
               </div>
               <div
-                className="bg-[var(--background)]/70 p-3 rounded border border-[var(--border-color)] font-mono overflow-x-hidden whitespace-nowrap"
+                className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 font-mono overflow-x-hidden whitespace-nowrap"
               >https://bitbucket.org/atlassian/atlaskit
               </div>
             </div>
@@ -564,15 +562,15 @@ export default function Home() {
 
           {/* Visualization section - improved for better visibility */}
           <div
-            className="w-full max-w-2xl mb-8 bg-[var(--background)]/70 rounded-lg p-6 border border-[var(--border-color)]">
+            className="w-full max-w-2xl mb-8 bg-gradient-to-br from-blue-50/50 to-white dark:from-blue-950/20 dark:to-transparent rounded-2xl p-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-4">
               <svg xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-[var(--accent-primary)] flex-shrink-0 mt-0.5 sm:mt-0" fill="none"
+                className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5 sm:mt-0" fill="none"
                 viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
-              <h3 className="text-base font-semibold text-[var(--foreground)] font-serif">{t('home.advancedVisualization')}</h3>
+              <h3 className="text-base font-semibold text-[var(--foreground)]">{t('home.advancedVisualization')}</h3>
             </div>
             <p className="text-sm text-[var(--foreground)] mb-5 leading-relaxed">
               {t('home.diagramDescription')}
@@ -580,13 +578,13 @@ export default function Home() {
 
             {/* Diagrams with improved layout */}
             <div className="grid grid-cols-1 gap-6">
-              <div className="bg-[var(--card-bg)] p-4 rounded-lg border border-[var(--border-color)] shadow-custom">
-                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3 font-serif">{t('home.flowDiagram')}</h4>
+              <div className="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--border-color)]">
+                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3">{t('home.flowDiagram')}</h4>
                 <Mermaid chart={DEMO_FLOW_CHART} />
               </div>
 
-              <div className="bg-[var(--card-bg)] p-4 rounded-lg border border-[var(--border-color)] shadow-custom">
-                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3 font-serif">{t('home.sequenceDiagram')}</h4>
+              <div className="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--border-color)]">
+                <h4 className="text-sm font-medium text-[var(--foreground)] mb-3">{t('home.sequenceDiagram')}</h4>
                 <Mermaid chart={DEMO_SEQUENCE_CHART} />
               </div>
             </div>
@@ -596,23 +594,23 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="max-w-6xl mx-auto mt-8 flex flex-col gap-4 w-full">
+      <footer className="max-w-6xl mx-auto mt-4 flex flex-col gap-4 w-full px-6 pb-6">
         <div
-          className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-[var(--card-bg)] rounded-lg p-4 border border-[var(--border-color)] shadow-custom">
-          <p className="text-[var(--muted)] text-sm font-serif">{t('footer.copyright')}</p>
+          className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-[var(--card-bg)] rounded-xl p-4 border-t border-[var(--border-color)]">
+          <p className="text-[var(--muted)] text-sm">{t('footer.copyright')}</p>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-5">
             <div className="flex items-center space-x-5">
               <a href="https://github.com/AsyncFuncAI/deepwiki-open" target="_blank" rel="noopener noreferrer"
-                className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
+                className="text-[var(--muted)] hover:text-blue-500 transition-colors">
                 <FaGithub className="text-xl" />
               </a>
               <a href="https://buymeacoffee.com/sheing" target="_blank" rel="noopener noreferrer"
-                className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
+                className="text-[var(--muted)] hover:text-blue-500 transition-colors">
                 <FaCoffee className="text-xl" />
               </a>
               <a href="https://x.com/sashimikun_void" target="_blank" rel="noopener noreferrer"
-                className="text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors">
+                className="text-[var(--muted)] hover:text-blue-500 transition-colors">
                 <FaTwitter className="text-xl" />
               </a>
             </div>

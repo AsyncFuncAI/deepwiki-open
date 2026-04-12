@@ -663,7 +663,7 @@ const Ask: React.FC<AskProps> = ({
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder={messages.ask?.placeholder || 'What would you like to know about this codebase?'}
-              className="block w-full rounded-md border border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-5 py-3.5 text-base shadow-sm focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-primary)]/30 focus:outline-none transition-all"
+              className="block w-full rounded-xl border-0 border-b-2 border-[var(--border-color)] bg-transparent text-[var(--foreground)] px-4 py-3.5 text-base focus:border-blue-500 focus:outline-none focus:ring-0 transition-all"
               style={{ paddingRight: `${buttonWidth + 24}px` }}
               disabled={isLoading}
             />
@@ -671,11 +671,11 @@ const Ask: React.FC<AskProps> = ({
               ref={buttonRef}
               type="submit"
               disabled={isLoading || !question.trim()}
-              className={`absolute right-3 top-1/2 transform -translate-y-1/2 px-4 py-2 rounded-md font-medium text-sm ${
+              className={`absolute right-2 top-1/2 transform -translate-y-1/2 px-4 py-2 rounded-xl font-medium text-sm ${
                 isLoading || !question.trim()
-                  ? 'bg-[var(--button-disabled-bg)] text-[var(--button-disabled-text)] cursor-not-allowed'
-                  : 'bg-[var(--accent-primary)] text-white hover:bg-[var(--accent-primary)]/90 shadow-sm'
-              } transition-all duration-200 flex items-center gap-1.5`}
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-300 dark:text-blue-600 cursor-not-allowed'
+                  : 'bg-blue-500 text-white hover:bg-blue-600 shadow-lg shadow-blue-500/20'
+              } transition-all duration-200 flex items-center gap-2`}
             >
               {isLoading ? (
                 <div className="w-4 h-4 rounded-full border-2 border-t-transparent border-white animate-spin" />
@@ -691,10 +691,10 @@ const Ask: React.FC<AskProps> = ({
           </div>
 
           {/* Deep Research toggle */}
-          <div className="flex items-center mt-2 justify-between">
+          <div className="flex items-center mt-3 justify-between">
             <div className="group relative">
               <label className="flex items-center cursor-pointer">
-                <span className="text-xs text-gray-600 dark:text-gray-400 mr-2">Deep Research</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 mr-3">Deep Research</span>
                 <div className="relative">
                   <input
                     type="checkbox"
@@ -702,30 +702,29 @@ const Ask: React.FC<AskProps> = ({
                     onChange={() => setDeepResearch(!deepResearch)}
                     className="sr-only"
                   />
-                  <div className={`w-10 h-5 rounded-full transition-colors ${deepResearch ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
-                  <div className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform transform ${deepResearch ? 'translate-x-5' : ''}`}></div>
+                  <div className={`w-10 h-5 rounded-full transition-colors ${deepResearch ? 'bg-blue-500' : 'bg-slate-200 dark:bg-slate-600'}`}></div>
+                  <div className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform transform ${deepResearch ? 'translate-x-5' : ''}`}></div>
                 </div>
               </label>
-              <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 w-72 z-10">
+              <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-slate-800 text-white text-xs rounded-xl p-3 w-72 z-10 shadow-xl">
                 <div className="relative">
-                  <div className="absolute -bottom-2 left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                  <p className="mb-1">Deep Research conducts a multi-turn investigation process:</p>
-                  <ul className="list-disc pl-4 text-xs">
-                    <li><strong>Initial Research:</strong> Creates a research plan and initial findings</li>
-                    <li><strong>Iteration 1:</strong> Explores specific aspects in depth</li>
-                    <li><strong>Iteration 2:</strong> Investigates remaining questions</li>
-                    <li><strong>Iterations 3-4:</strong> Dives deeper into complex areas</li>
-                    <li><strong>Final Conclusion:</strong> Comprehensive answer based on all iterations</li>
+                  <div className="absolute -bottom-2 left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+                  <p className="mb-2 font-medium">Deep Research Process:</p>
+                  <ul className="list-disc pl-4 text-xs space-y-1">
+                    <li><strong>Initial:</strong> Creates a research plan</li>
+                    <li><strong>Iterations 1-2:</strong> Explores in depth</li>
+                    <li><strong>Iterations 3-4:</strong> Dives deeper</li>
+                    <li><strong>Final:</strong> Comprehensive answer</li>
                   </ul>
-                  <p className="mt-1 text-xs italic">The AI automatically continues research until complete (up to 5 iterations)</p>
+                  <p className="mt-2 text-xs opacity-70 italic">AI auto-continues up to 5 iterations</p>
                 </div>
               </div>
             </div>
             {deepResearch && (
-              <div className="text-xs text-purple-600 dark:text-purple-400">
-                Multi-turn research process enabled
-                {researchIteration > 0 && !researchComplete && ` (iteration ${researchIteration})`}
-                {researchComplete && ` (complete)`}
+              <div className="text-xs text-blue-500 dark:text-blue-400">
+                Multi-turn research enabled
+                {researchIteration > 0 && !researchComplete && ` (${researchIteration})`}
+                {researchComplete && ` (done)`}
               </div>
             )}
           </div>
@@ -733,7 +732,7 @@ const Ask: React.FC<AskProps> = ({
 
         {/* Response area */}
         {response && (
-          <div className="border-t border-gray-200 dark:border-gray-700 mt-4">
+          <div className="border-t border-[var(--border-color)] mt-4">
             <div
               ref={responseRef}
               className="p-4 max-h-[500px] overflow-y-auto"
@@ -742,7 +741,7 @@ const Ask: React.FC<AskProps> = ({
             </div>
 
             {/* Research navigation and clear button */}
-            <div className="p-2 flex justify-between items-center border-t border-gray-200 dark:border-gray-700">
+            <div className="p-3 flex justify-between items-center border-t border-[var(--border-color)] bg-slate-50/50 dark:bg-slate-900/20">
               {/* Research navigation */}
               {deepResearch && researchStages.length > 1 && (
                 <div className="flex items-center space-x-2">

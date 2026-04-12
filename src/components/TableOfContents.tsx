@@ -237,14 +237,14 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ content }) => {
 
         .toc-link:hover {
           color: var(--foreground);
-          background: rgba(155, 124, 185, 0.05);
+          background: rgba(59, 130, 246, 0.06);
         }
 
         .toc-active .toc-link {
           color: var(--accent-primary);
           border-left-color: var(--accent-primary);
           font-weight: 500;
-          background: rgba(155, 124, 185, 0.08);
+          background: rgba(59, 130, 246, 0.08);
         }
 
         .toc-active .toc-link:hover {
