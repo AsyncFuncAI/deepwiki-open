@@ -160,13 +160,11 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ content }) => {
         .toc-sidebar {
           position: sticky;
           top: 24px;
-          width: 220px;
+          width: 100%;
           flex-shrink: 0;
           max-height: calc(100vh - 48px);
           overflow-y: auto;
           padding: 12px 0;
-          margin-left: auto;
-          margin-right: 0;
         }
 
         .toc-sidebar::-webkit-scrollbar {
@@ -186,12 +184,9 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ content }) => {
           display: flex;
           align-items: center;
           gap: 6px;
-          font-family: var(--font-sans), sans-serif;
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--muted);
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--foreground);
           margin-bottom: 10px;
           padding: 0 8px;
         }
@@ -208,12 +203,10 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ content }) => {
 
         .toc-level-2 .toc-link {
           padding-left: 8px;
-          font-size: 13px;
         }
 
         .toc-level-3 .toc-link {
           padding-left: 20px;
-          font-size: 13px;
         }
 
         .toc-link {
@@ -225,8 +218,8 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ content }) => {
           padding: 4px 8px;
           color: var(--muted);
           cursor: pointer;
-          font-family: var(--font-sans), sans-serif;
-          line-height: 1.4;
+          font-size: 14px;
+          line-height: 1.5;
           border-radius: 4px;
           transition: all 0.2s ease;
           border-left: 2px solid transparent;

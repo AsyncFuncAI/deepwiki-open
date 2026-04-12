@@ -2046,9 +2046,11 @@ IMPORTANT:
             </div>
           </div>
         ) : wikiStructure ? (
-          <div className="h-full overflow-y-auto flex w-full overflow-hidden bg-[var(--background)]" style={{ display: 'grid', gridTemplateColumns: '260px 1fr' }}>
-            {/* Wiki Navigation */}
-            <div className="h-full w-full flex-shrink-0 bg-[var(--card-bg)] border-r border-[var(--border-color)] overflow-y-auto p-6">
+          <>
+            {/* Main layout: left sidebar + content + right TOC */}
+            <div className="h-full bg-[var(--background)]" style={{ display: 'grid', gridTemplateColumns: '260px 1fr 220px' }}>
+              {/* Wiki Navigation - Left Sidebar */}
+              <div className="h-full overflow-y-auto bg-[var(--card-bg)] border-r border-[var(--border-color)] p-6">
               <h3 className="text-lg font-bold text-[var(--foreground)] mb-2 font-serif">{wikiStructure.title}</h3>
               <p className="text-[var(--muted)] text-sm mb-6 leading-relaxed line-clamp-2">{wikiStructure.description}</p>
 
@@ -2146,47 +2148,44 @@ IMPORTANT:
               />
             </div>
 
-            {/* Wiki Content */}
-            <div id="wiki-content" className="w-full p-8 lg:px-12 overflow-y-auto bg-[var(--background)]" style={{ position: 'relative' }}>
+            {/* Wiki Content - Center column */}
+            <div id="wiki-content" className="h-full overflow-y-auto bg-[var(--background)]">
               {currentPageId && generatedPages[currentPageId] ? (
-                <div className="flex items-start gap-8" style={{ width: '100%' }}>
-                  <div className="flex justify-center flex-1 min-w-0">
-                    <div className="w-full">
-                      <h3 className="text-2xl font-bold text-[var(--foreground)] mb-6 break-words font-serif">
-                        {generatedPages[currentPageId].title}
-                      </h3>
+                <div className="h-full" style={{ display: 'flex', justifyContent: 'center' }}>
+                  <div className="w-full px-8 lg:px-12 py-6" style={{ maxWidth: '1500px' }}>
+                    <h3 className="text-2xl font-bold text-[var(--foreground)] mb-6 break-words font-serif">
+                      {generatedPages[currentPageId].title}
+                    </h3>
 
-                      <div className="prose prose-base max-w-none">
-                        <Markdown
-                          content={generatedPages[currentPageId].content}
-                          key={currentPageId}
-                        />
-                      </div>
-
-                      {generatedPages[currentPageId].relatedPages.length > 0 && (
-                        <div className="mt-10 pt-6 border-t border-[var(--border-color)]">
-                          <h4 className="text-sm font-semibold text-[var(--muted)] mb-4">
-                            {messages.repoPage?.relatedPages || 'Related Pages'}
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {generatedPages[currentPageId].relatedPages.map(relatedId => {
-                              const relatedPage = wikiStructure.pages.find(p => p.id === relatedId);
-                              return relatedPage ? (
-                                <button
-                                  key={relatedId}
-                                  className="bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-300 text-sm px-4 py-2 rounded-xl transition-colors truncate max-w-full border border-blue-100 dark:border-blue-800"
-                                  onClick={() => handlePageSelect(relatedId)}
-                                >
-                                  {relatedPage.title}
-                                </button>
-                              ) : null;
-                            })}
-                          </div>
-                        </div>
-                      )}
+                    <div className="prose prose-base max-w-none">
+                      <Markdown
+                        content={generatedPages[currentPageId].content}
+                        key={currentPageId}
+                      />
                     </div>
+
+                    {generatedPages[currentPageId].relatedPages.length > 0 && (
+                      <div className="mt-10 pt-6 border-t border-[var(--border-color)]">
+                        <h4 className="text-sm font-semibold text-[var(--muted)] mb-4">
+                          {messages.repoPage?.relatedPages || 'Related Pages'}
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {generatedPages[currentPageId].relatedPages.map(relatedId => {
+                            const relatedPage = wikiStructure.pages.find(p => p.id === relatedId);
+                            return relatedPage ? (
+                              <button
+                                key={relatedId}
+                                className="bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-300 text-sm px-4 py-2 rounded-xl transition-colors truncate max-w-full border border-blue-100 dark:border-blue-800"
+                                onClick={() => handlePageSelect(relatedId)}
+                              >
+                                {relatedPage.title}
+                              </button>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <TableOfContents content={generatedPages[currentPageId].content} key={currentPageId} />
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center p-12 text-[var(--muted)] h-full">
@@ -2199,7 +2198,15 @@ IMPORTANT:
                 </div>
               )}
             </div>
+
+            {/* Table of Contents - Right column */}
+            <div className="h-full overflow-y-auto border-l border-[var(--border-color)] p-4">
+              {currentPageId && generatedPages[currentPageId] && (
+                <TableOfContents content={generatedPages[currentPageId].content} key={currentPageId} />
+              )}
+            </div>
           </div>
+        </>
         ) : null}
       </main>
 

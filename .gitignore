@@ -79,3 +79,4 @@ wiki_cache/
 .trae/
 skills-lock.json
 yarn.lock
+.playwright-cli/
