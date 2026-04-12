@@ -593,7 +593,7 @@ This file contains...
                 generation_config={
                     "temperature": model_config["temperature"],
                     "top_p": model_config["top_p"],
-                    "top_k": model_config["top_k"]
+                    "top_k": model_config.get("top_k", 40)
                 }
             )
 

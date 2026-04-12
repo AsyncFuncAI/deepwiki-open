@@ -83,3 +83,4 @@ wiki_cache/
 skills-lock.json
 yarn.lock
 .playwright-cli/
+DEPLOYMENT.md

@@ -449,6 +449,23 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM,
             )
+        elif request.provider == "minimax":
+            logger.info(f"Using MiniMax with model: {request.model}")
+
+            model = OpenAIClient()
+            model_kwargs = {
+                "model": request.model,
+                "stream": True,
+                "temperature": model_config["temperature"]
+            }
+            if "top_p" in model_config:
+                model_kwargs["top_p"] = model_config["top_p"]
+
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=prompt,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
         else:
             # Initialize Google Generative AI model (default provider)
             model = genai.GenerativeModel(
@@ -456,7 +473,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 generation_config={
                     "temperature": model_config["temperature"],
                     "top_p": model_config["top_p"],
-                    "top_k": model_config["top_k"],
+                    "top_k": model_config.get("top_k", 40),
                 },
             )
 
@@ -549,6 +566,21 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                             "Please check that you have set the DASHSCOPE_API_KEY (and optionally "
                             "DASHSCOPE_WORKSPACE_ID) environment variables with valid values."
                         )
+                elif request.provider == "minimax":
+                    try:
+                        logger.info("Making MiniMax API call")
+                        response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                        async for chunk in response:
+                            choices = getattr(chunk, "choices", [])
+                            if len(choices) > 0:
+                                delta = getattr(choices[0], "delta", None)
+                                if delta is not None:
+                                    text = getattr(delta, "content", None)
+                                    if text is not None:
+                                        yield text
+                    except Exception as e_minimax:
+                        logger.error(f"Error with MiniMax API: {str(e_minimax)}")
+                        yield f"\nError with MiniMax API: {str(e_minimax)}\n\nPlease check that you have set the MINIMAX_API_KEY environment variable with a valid API key."
                 else:
                     # Google Generative AI (default provider)
                     response = model.generate_content(prompt, stream=True)

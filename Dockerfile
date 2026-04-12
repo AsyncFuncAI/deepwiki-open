@@ -1,9 +1,9 @@
-# syntax=docker/dockerfile:1-labs
+# DeepWiki Dockerfile
 
 # Build argument for custom certificates directory
 ARG CUSTOM_CERT_DIR="certs"
 
-FROM node:20-alpine3.22 AS node_base
+FROM node:20-alpine AS node_base
 
 FROM node_base AS node_deps
 WORKDIR /app
