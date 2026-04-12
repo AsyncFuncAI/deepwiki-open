@@ -5,7 +5,6 @@ import Ask from '@/components/Ask';
 import Markdown from '@/components/Markdown';
 import ModelSelectionModal from '@/components/ModelSelectionModal';
 import TableOfContents from '@/components/TableOfContents';
-import ThemeToggle from '@/components/theme-toggle';
 import WikiTreeView from '@/components/WikiTreeView';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { RepoInfo } from '@/types/repoinfo';
@@ -282,6 +281,7 @@ export default function RepoWikiPage() {
 
   // State for Ask modal
   const [isAskModalOpen, setIsAskModalOpen] = useState(false);
+  const [panelWidth, setPanelWidth] = useState(420);
   const askComponentRef = useRef<{ clearConversation: () => void } | null>(null);
 
   // Authentication state
@@ -2208,15 +2208,6 @@ IMPORTANT:
         ) : null}
       </main>
 
-      <footer className="mt-8 flex flex-col gap-4 w-full">
-        <div className="flex justify-between items-center gap-4 text-center text-[var(--muted)] text-sm h-fit w-full bg-[var(--card-bg)] rounded-lg p-3 shadow-sm border border-[var(--border-color)]">
-          <p className="flex-1 font-serif">
-            {messages.footer?.copyright || 'DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories'}
-          </p>
-          <ThemeToggle />
-        </div>
-      </footer>
-
       {/* Floating Chat Button */}
       {!isLoading && wikiStructure && (
         <button
@@ -2228,32 +2219,57 @@ IMPORTANT:
         </button>
       )}
 
-      {/* Ask Modal - Always render but conditionally show/hide */}
-      <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 transition-opacity duration-300 ${isAskModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <div className="bg-[var(--card-bg)] rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col">
-          <div className="flex items-center justify-end p-3 absolute top-0 right-0 z-10">
-            <button
-              onClick={() => {
-                // Just close the modal without clearing the conversation
-                setIsAskModalOpen(false);
-              }}
-              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors bg-[var(--card-bg)]/80 rounded-full p-2"
-              aria-label="Close"
-            >
-              <FaTimes className="text-xl" />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4">
-            <Ask
-              repoInfo={effectiveRepoInfo}
-              provider={selectedProviderState}
-              model={selectedModelState}
-              isCustomModel={isCustomSelectedModelState}
-              customModel={customSelectedModelState}
-              language={language}
-              onRef={(ref) => (askComponentRef.current = ref)}
-            />
-          </div>
+      {/* Ask Panel - Right Side Drawer */}
+      <div
+        className={`fixed top-0 right-0 h-full bg-[var(--card-bg)] shadow-2xl z-50 transition-transform duration-300 flex flex-col ${isAskModalOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        style={{ width: panelWidth, maxWidth: '90vw' }}
+      >
+        {/* Resize Handle */}
+        <div
+          className="absolute left-0 top-0 h-full w-2 cursor-ew-resize hover:bg-[var(--accent-primary)]/20 transition-colors flex items-center justify-center"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            const startX = e.clientX;
+            const startWidth = panelWidth;
+            const onMouseMove = (e: MouseEvent) => {
+              const diff = startX - e.clientX;
+              const newWidth = Math.max(300, Math.min(window.innerWidth * 0.9, startWidth + diff));
+              setPanelWidth(newWidth);
+            };
+            const onMouseUp = () => {
+              document.removeEventListener('mousemove', onMouseMove);
+              document.removeEventListener('mouseup', onMouseUp);
+            };
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+          }}
+        >
+          <div className="w-1 h-16 bg-[var(--muted)]/30 rounded-full" />
+        </div>
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)] pl-6">
+          <h3 className="text-lg font-semibold text-[var(--foreground)]">
+            {messages.ask?.title || 'Ask about this repository'}
+          </h3>
+          <button
+            onClick={() => setIsAskModalOpen(false)}
+            className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors rounded-full p-2 hover:bg-[var(--hover-bg)]"
+            aria-label="Close"
+          >
+            <FaTimes className="text-xl" />
+          </button>
+        </div>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto pl-6">
+          <Ask
+            repoInfo={effectiveRepoInfo}
+            provider={selectedProviderState}
+            model={selectedModelState}
+            isCustomModel={isCustomSelectedModelState}
+            customModel={customSelectedModelState}
+            language={language}
+            onRef={(ref) => (askComponentRef.current = ref)}
+          />
         </div>
       </div>
 
