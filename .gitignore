@@ -69,8 +69,6 @@ next-env.d.ts
 certs/
 
 # Docker deployment
-nginx/.htpasswd
-ssl/
 deploy-package/
 
 # local environments
