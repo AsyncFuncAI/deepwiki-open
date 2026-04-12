@@ -62,7 +62,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
     },
     h1({ children, ...props }: { children?: React.ReactNode }) {
       const id = makeId(getTextContent(children));
-      return <h1 id={id} className="text-xl font-bold mt-6 mb-3 dark:text-white scroll-mt-6" {...props}>{children}</h1>;
+      return <h1 id={id} className="text-xl font-bold mt-6 mb-3 dark:text-white scroll-mt-20" {...props}>{children}</h1>;
     },
     h2({ children, ...props }: { children?: React.ReactNode }) {
       const text = getTextContent(children);
@@ -75,7 +75,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
         return (
           <h2
             id={id}
-            className={`text-base font-bold mt-5 mb-3 p-2 rounded scroll-mt-6 ${
+            className={`text-base font-bold mt-5 mb-3 p-2 rounded scroll-mt-20 ${
               text.includes('Thought') ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
               text.includes('Action') ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' :
               text.includes('Observation') ? 'bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300' :
@@ -91,11 +91,11 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
     },
     h3({ children, ...props }: { children?: React.ReactNode }) {
       const id = makeId(getTextContent(children));
-      return <h3 id={id} className="text-base font-semibold mt-4 mb-2 dark:text-white scroll-mt-6" {...props}>{children}</h3>;
+      return <h3 id={id} className="text-base font-semibold mt-4 mb-2 dark:text-white scroll-mt-20" {...props}>{children}</h3>;
     },
     h4({ children, ...props }: { children?: React.ReactNode }) {
       const id = makeId(getTextContent(children));
-      return <h4 id={id} className="text-sm font-semibold mt-3 mb-2 dark:text-white scroll-mt-6" {...props}>{children}</h4>;
+      return <h4 id={id} className="text-sm font-semibold mt-3 mb-2 dark:text-white scroll-mt-20" {...props}>{children}</h4>;
     },
     ul({ children, ...props }: { children?: React.ReactNode }) {
       return <ul className="list-disc pl-6 mb-4 text-sm dark:text-white space-y-2" {...props}>{children}</ul>;

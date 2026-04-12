@@ -112,7 +112,7 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ content }) => {
       isScrollingRef.current = true;
       activeIdRef.current = id;
       setActiveId(id);
-      const targetTop = el.offsetTop - 80;
+      const targetTop = el.offsetTop - 90;
       scrollEl.scrollTo({ top: targetTop, behavior: 'smooth' });
       setTimeout(() => {
         isScrollingRef.current = false;
@@ -135,7 +135,7 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ content }) => {
           <line x1="3" y1="12" x2="3.01" y2="12"></line>
           <line x1="3" y1="18" x2="3.01" y2="18"></line>
         </svg>
-        <span>目次</span>
+        <span>目录</span>
       </div>
       <nav>
         <ul className="toc-list">
