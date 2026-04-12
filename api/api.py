@@ -546,6 +546,80 @@ async def health_check():
         "service": "deepwiki-api"
     }
 
+@app.get("/api/source")
+async def get_source_file(
+    owner: str = Query(..., description="Repository owner"),
+    repo: str = Query(..., description="Repository name"),
+    file_path: str = Query(..., description="Path to source file"),
+    start_line: Optional[int] = Query(None, description="Start line number"),
+    end_line: Optional[int] = Query(None, description="End line number"),
+    repo_type: str = Query("github", description="Repository type"),
+    branch: Optional[str] = Query(None, description="Branch name"),
+):
+    """
+    Fetch source file content from GitHub with optional line range.
+    Returns the content of the specified file with line numbers.
+    """
+    import base64
+    import httpx
+
+    try:
+        # Determine the branch
+        if not branch:
+            # Try to get default branch from local cache or use 'main'
+            branch = "main"
+
+        # Fetch from GitHub API
+        api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{file_path}?ref={branch}"
+
+        headers = {
+            "Accept": "application/vnd.github.v3.raw",
+            "User-Agent": "DeepWiki-Open"
+        }
+
+        # Try to use token if available for higher rate limits
+        from api.config import configs
+        if configs.get("GOOGLE_API_KEY"):  # Just check if config exists
+            pass  # GitHub API doesn't need Google key
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(api_url, headers=headers)
+
+            if response.status_code == 404:
+                raise HTTPException(status_code=404, detail=f"File not found on GitHub: {file_path}")
+            elif response.status_code == 403:
+                raise HTTPException(status_code=403, detail="GitHub API rate limit exceeded. Please try again later.")
+            elif response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=f"GitHub API error: {response.text}")
+
+            content = response.text
+            lines = content.split('\n')
+
+            # Extract line range if specified
+            if start_line is not None:
+                start_idx = max(0, start_line - 1)  # Convert to 0-indexed
+                end_idx = len(lines) if end_line is None else min(len(lines), end_line)
+                lines = lines[start_idx:end_idx]
+                content = '\n'.join(lines)
+            else:
+                start_line = 1
+                end_line = len(lines.split('\n')) if start_line else len(lines)
+
+        return {
+            "file_path": file_path,
+            "content": content,
+            "source": "github",
+            "url": f"https://github.com/{owner}/{repo}/blob/{branch}/{file_path}",
+            "total_lines": len(content.split('\n')) if content else 0,
+            "start_line": start_line,
+            "end_line": end_line,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching source file from GitHub: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/")
 async def root():
     """Root endpoint to check if the API is running and list available endpoints dynamically."""

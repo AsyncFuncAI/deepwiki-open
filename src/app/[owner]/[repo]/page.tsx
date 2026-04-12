@@ -3,6 +3,7 @@
 
 import Ask from '@/components/Ask';
 import Markdown from '@/components/Markdown';
+import SourceLinkHandler from '@/components/SourceLinkHandler';
 import ModelSelectionModal from '@/components/ModelSelectionModal';
 import TableOfContents from '@/components/TableOfContents';
 import WikiTreeView from '@/components/WikiTreeView';
@@ -2272,6 +2273,9 @@ IMPORTANT:
           />
         </div>
       </div>
+
+      {/* Handle source link clicks - open GitHub */}
+      <SourceLinkHandler owner={params.owner} repo={params.repo} defaultBranch={defaultBranch} />
 
       <ModelSelectionModal
         isOpen={isModelSelectionModalOpen}
