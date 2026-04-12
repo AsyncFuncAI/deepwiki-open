@@ -68,6 +68,11 @@ next-env.d.ts
 # ignore adding self-signed certs
 certs/
 
+# Docker deployment
+nginx/.htpasswd
+ssl/
+deploy-package/
+
 # local environments
 conda_envs/
 environment.yml

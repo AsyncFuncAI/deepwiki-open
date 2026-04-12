@@ -4,8 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${PORT:-8001}:${PORT:-8001}"  # API port
-      - "3000:3000"  # Next.js port
+      - "127.0.0.1:8001:8001"  # API port (internal only)
+      - "127.0.0.1:3000:3000"  # Next.js port (internal only)
     env_file:
       - .env
     environment:
@@ -15,15 +15,35 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - LOG_FILE_PATH=${LOG_FILE_PATH:-api/logs/application.log}
     volumes:
-      - ~/.adalflow:/root/.adalflow      # Persist repository and embedding data
-      - ./api/logs:/app/api/logs          # Persist log files across container restarts
-    # Resource limits for docker-compose up (not Swarm mode)
+      - ~/.adalflow:/root/.adalflow
+      - ./api/logs:/app/api/logs
     mem_limit: 6g
     mem_reservation: 2g
-    # Health check configuration
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${PORT:-8001}/health"]
       interval: 60s
       timeout: 10s
       retries: 3
       start_period: 30s
+    restart: unless-stopped
+    networks:
+      - deepwiki-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/.htpasswd:/etc/nginx/.htpasswd:ro
+      - ./ssl:/etc/nginx/ssl:ro  # Optional: SSL certificates
+    depends_on:
+      - deepwiki
+    restart: unless-stopped
+    networks:
+      - deepwiki-network
+
+networks:
+  deepwiki-network:
+    driver: bridge

@@ -8,6 +8,7 @@ node_modules
 npm-debug.log
 yarn-debug.log
 yarn-error.log
+.pnpm-debug.log
 
 # Next.js
 .next
@@ -39,7 +40,6 @@ api/__pycache__/
 api/*.pyc
 
 # Environment variables
-# .env is now allowed to be included in the build
 .env.local
 .env.development.local
 .env.test.local
@@ -48,13 +48,30 @@ api/*.pyc
 # Docker
 Dockerfile
 docker-compose.yml
+docker-compose.*.yml
 .dockerignore
+
+# Deployment files
+nginx/
+ssl/
+certs/
+generate-htpasswd.sh
 
 # Misc
 .DS_Store
 *.pem
-README.md
 LICENSE
 screenshots/
 *.md
 !api/README.md
+
+# Agents
+.agents/
+.claude/
+.trae/
+skills-lock.json
+
+# Local data
+wiki_cache/
+conda_envs/
+environment.yml

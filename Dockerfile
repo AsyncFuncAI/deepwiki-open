@@ -8,13 +8,13 @@ FROM node:20-alpine3.22 AS node_base
 FROM node_base AS node_deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps
+RUN npm install --legacy-peer-deps
 
 FROM node_base AS node_builder
 WORKDIR /app
 COPY --from=node_deps /app/node_modules ./node_modules
 # Copy only necessary files for Next.js build
-COPY package.json package-lock.json next.config.ts tsconfig.json tailwind.config.js postcss.config.mjs ./
+COPY package.json package-lock.json next.config.ts tsconfig.json postcss.config.mjs ./
 COPY src/ ./src/
 COPY public/ ./public/
 # Increase Node.js memory limit for build and disable telemetry
