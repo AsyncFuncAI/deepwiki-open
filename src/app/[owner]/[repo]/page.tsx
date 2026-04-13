@@ -1961,7 +1961,7 @@ IMPORTANT:
       </header>
 
       <main className="flex-1 w-full overflow-y-auto">
-        {isLoading ? (
+        {isLoading && !wikiStructure ? (
           <div className="flex flex-col items-center justify-center p-12 bg-[var(--card-bg)] rounded-2xl shadow-sm mx-6 my-6">
             {/* Modern loading animation */}
             <div className="relative mb-8">
@@ -1973,53 +1973,6 @@ IMPORTANT:
             <p className="text-[var(--muted)] text-sm">
               {isExporting && (messages.loading?.preparingDownload || 'Preparing download...')}
             </p>
-
-            {/* Progress bar for page generation */}
-            {wikiStructure && (
-              <div className="w-full max-w-md mt-6">
-                <div className="bg-blue-50 dark:bg-blue-950/30 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="bg-blue-500 h-1.5 rounded-full transition-all duration-500 ease-out"
-                    style={{
-                      width: `${Math.max(5, 100 * (wikiStructure.pages.length - pagesInProgress.size) / wikiStructure.pages.length)}%`
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-[var(--muted)] text-center mt-3">
-                  {language === 'ja'
-                    ? `${wikiStructure.pages.length}ページ中${wikiStructure.pages.length - pagesInProgress.size}ページ完了`
-                    : messages.repoPage?.pagesCompleted
-                        ? messages.repoPage.pagesCompleted
-                            .replace('{completed}', (wikiStructure.pages.length - pagesInProgress.size).toString())
-                            .replace('{total}', wikiStructure.pages.length.toString())
-                        : `${wikiStructure.pages.length - pagesInProgress.size} of ${wikiStructure.pages.length} pages completed`}
-                </p>
-
-                {/* Show list of in-progress pages */}
-                {pagesInProgress.size > 0 && (
-                  <div className="mt-4 text-xs text-center">
-                    <p className="text-[var(--muted)] mb-2">
-                      {messages.repoPage?.currentlyProcessing || 'Currently processing:'}
-                    </p>
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {Array.from(pagesInProgress).slice(0, 3).map(pageId => {
-                        const page = wikiStructure.pages.find(p => p.id === pageId);
-                        return page ? (
-                          <span key={pageId} className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-full text-xs">
-                            {page.title}
-                          </span>
-                        ) : null;
-                      })}
-                      {pagesInProgress.size > 3 && (
-                        <span className="px-3 py-1 bg-[var(--background)] text-[var(--muted)] rounded-full text-xs">
-                          +{pagesInProgress.size - 3} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         ) : error ? (
           <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-2xl p-6 mx-6 my-6">
@@ -2093,6 +2046,36 @@ IMPORTANT:
                 </span>
               </div>
 
+              {/* Generation Progress Indicator - shown while pages are still generating */}
+              {isLoading && pagesInProgress.size > 0 && (
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-blue-600 dark:text-blue-300">
+                      {wikiStructure.pages.length - pagesInProgress.size} / {wikiStructure.pages.length}
+                    </span>
+                    <span className="text-xs text-blue-500 dark:text-blue-400">
+                      {Math.round(100 * (wikiStructure.pages.length - pagesInProgress.size) / wikiStructure.pages.length)}%
+                    </span>
+                  </div>
+                  <div className="bg-blue-100 dark:bg-blue-800/40 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-blue-500 h-1.5 rounded-full transition-all duration-500 ease-out"
+                      style={{
+                        width: `${Math.max(5, 100 * (wikiStructure.pages.length - pagesInProgress.size) / wikiStructure.pages.length)}%`
+                      }}
+                    />
+                  </div>
+                  {Array.from(pagesInProgress).slice(0, 2).map(pageId => {
+                    const page = wikiStructure.pages.find(p => p.id === pageId);
+                    return page ? (
+                      <p key={pageId} className="text-xs text-blue-500 dark:text-blue-400 mt-2 truncate">
+                        {page.title}
+                      </p>
+                    ) : null;
+                  })}
+                </div>
+              )}
+
               {/* Refresh Wiki button */}
               <div className="mb-5">
                 <button
@@ -2145,6 +2128,7 @@ IMPORTANT:
                 currentPageId={currentPageId}
                 onPageSelect={handlePageSelect}
                 messages={messages.repoPage}
+                pagesInProgress={pagesInProgress}
               />
             </div>
 
