@@ -3,15 +3,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - BACKEND_PORT=${BACKEND_PORT:-8001}
+        - SERVER_BASE_URL=${SERVER_BASE_URL:-http://localhost:${BACKEND_PORT:-8001}}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
       - "${BACKEND_PORT:-8001}:${BACKEND_PORT:-8001}"
     env_file:
       - .env
     environment:
-      - PORT=${BACKEND_PORT:-8001}
-      - NODE_ENV=production
+      - BACKEND_PORT=${BACKEND_PORT:-8001}
+      - FRONTEND_PORT=${FRONTEND_PORT:-3000}
       - SERVER_BASE_URL=${SERVER_BASE_URL:-http://localhost:${BACKEND_PORT:-8001}}
+      - NODE_ENV=production
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - LOG_FILE_PATH=${LOG_FILE_PATH:-api/logs/application.log}
     volumes:

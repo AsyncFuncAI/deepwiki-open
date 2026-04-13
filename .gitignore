@@ -53,8 +53,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files
+.env
+!.env.example
 
 # vercel
 .vercel
@@ -75,7 +76,8 @@ deploy-package/
 conda_envs/
 environment.yml
 wiki_cache/
-
+graphify-out/
+.npm_cache/
 # skills
 .agents/
 .claude/
@@ -84,3 +86,4 @@ skills-lock.json
 yarn.lock
 .playwright-cli/
 DEPLOYMENT.md
+

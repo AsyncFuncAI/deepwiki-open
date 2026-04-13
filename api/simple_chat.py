@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, MINIMAX_API_KEY, MINIMAX_BASE_URL
 from api.data_pipeline import count_tokens, get_file_content
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
@@ -452,11 +452,15 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         elif request.provider == "minimax":
             logger.info(f"Using MiniMax with model: {request.model}")
 
-            model = OpenAIClient()
+            model = OpenAIClient(
+                api_key=MINIMAX_API_KEY,
+                base_url=MINIMAX_BASE_URL
+            )
             model_kwargs = {
                 "model": request.model,
                 "stream": True,
-                "temperature": model_config["temperature"]
+                "temperature": model_config["temperature"],
+                "extra_body": {"reasoning_split": True}
             }
             if "top_p" in model_config:
                 model_kwargs["top_p"] = model_config["top_p"]

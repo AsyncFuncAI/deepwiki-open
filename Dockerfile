@@ -1,7 +1,9 @@
 # DeepWiki Dockerfile
 
-# Build argument for custom certificates directory
+# Build arguments
 ARG CUSTOM_CERT_DIR="certs"
+ARG BACKEND_PORT=8001
+ARG SERVER_BASE_URL=http://localhost:8001
 
 FROM node:20-alpine AS node_base
 
@@ -20,6 +22,7 @@ COPY public/ ./public/
 # Increase Node.js memory limit for build and disable telemetry
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV SERVER_BASE_URL=${SERVER_BASE_URL}
 RUN NODE_ENV=production npm run build
 
 FROM python:3.11-slim AS py_deps
@@ -86,23 +89,30 @@ if [ -f .env ]; then\n\
   export $(grep -v "^#" .env | xargs -r)\n\
 fi\n\
 \n\
-# Check for required environment variables\n\
-if [ -z "$OPENAI_API_KEY" ] || [ -z "$GOOGLE_API_KEY" ]; then\n\
-  echo "Warning: OPENAI_API_KEY and/or GOOGLE_API_KEY environment variables are not set."\n\
-  echo "These are required for DeepWiki to function properly."\n\
+# Check for required environment variables (at least one API key must be set)\n\
+if [ -z "$MINIMAX_API_KEY" ] && [ -z "$OPENAI_API_KEY" ] && [ -z "$GOOGLE_API_KEY" ]; then\n\
+  echo "Warning: No API key environment variables are set."\n\
+  echo "At least one of MINIMAX_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY is required."\n\
   echo "You can provide them via a mounted .env file or as environment variables when running the container."\n\
 fi\n\
 \n\
+# Set default provider to minimax if not explicitly set and MINIMAX_API_KEY is available\n\
+if [ -n "$MINIMAX_API_KEY" ] && [ -f /app/api/config/generator.json ]; then\n\
+  sed -i '"'"'s/"default_provider": "[^"]*"/"default_provider": "minimax"/'"'"' /app/api/config/generator.json\n\
+  echo "Set default_provider to minimax"\n\
+fi\n\
+\n\
 # Start the API server in the background with the configured port\n\
-python -m api.main --port ${PORT:-8001} &\n\
-PORT=3000 HOSTNAME=0.0.0.0 node server.js &\n\
+python -m api.main --port ${BACKEND_PORT:-8001} &\n\
+FRONTEND_PORT=${FRONTEND_PORT:-3000}\n\
+PORT=$FRONTEND_PORT HOSTNAME=0.0.0.0 node server.js &\n\
 wait -n\n\
 exit $?' > /app/start.sh && chmod +x /app/start.sh
 
 # Set environment variables
-ENV PORT=8001
+ENV BACKEND_PORT=8001
 ENV NODE_ENV=production
-ENV SERVER_BASE_URL=http://localhost:${PORT:-8001}
+ENV SERVER_BASE_URL=http://localhost:${BACKEND_PORT:-8001}
 
 # Create empty .env file (will be overridden if one exists at runtime)
 RUN touch .env
