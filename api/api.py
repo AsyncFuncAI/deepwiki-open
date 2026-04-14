@@ -60,7 +60,7 @@ class ProcessedProjectEntry(BaseModel):
 class RepoInfo(BaseModel):
     owner: str
     repo: str
-    type: str
+    type: str  # Repository type: github, gitlab, bitbucket, azure_devops
     token: Optional[str] = None
     localPath: Optional[str] = None
     repoUrl: Optional[str] = None

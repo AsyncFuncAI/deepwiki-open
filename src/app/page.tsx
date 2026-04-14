@@ -134,7 +134,7 @@ export default function Home() {
   const [excludedFiles, setExcludedFiles] = useState('');
   const [includedDirs, setIncludedDirs] = useState('');
   const [includedFiles, setIncludedFiles] = useState('');
-  const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>('github');
+  const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket' | 'azure_devops'>('github');
   const [accessToken, setAccessToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -212,13 +212,23 @@ export default function Home() {
         type = 'gitlab';
       } else if (domain?.includes('bitbucket.org') || domain?.includes('bitbucket.')) {
         type = 'bitbucket';
+      } else if (domain?.includes('dev.azure.com')) {
+        type = 'azure_devops';
       } else {
         type = 'web'; // fallback for other git hosting services
       }
 
       fullPath = extractUrlPath(input)?.replace(/\.git$/, '');
       const parts = fullPath?.split('/') ?? [];
-      if (parts.length >= 2) {
+
+      if (type === 'azure_devops') {
+        // ADO URL path: {org}/{project}/_git/{repo}
+        const gitIndex = parts.indexOf('_git');
+        if (gitIndex >= 1 && gitIndex + 1 < parts.length) {
+          owner = parts[gitIndex - 1]; // project name
+          repo = parts[gitIndex + 1];  // repo name
+        }
+      } else if (parts.length >= 2) {
         repo = parts[parts.length - 1] || '';
         owner = parts[parts.length - 2] || '';
       }
@@ -558,6 +568,10 @@ export default function Home() {
               <div
                 className="bg-[var(--background)]/70 p-3 rounded border border-[var(--border-color)] font-mono overflow-x-hidden whitespace-nowrap"
               >https://bitbucket.org/atlassian/atlaskit
+              </div>
+              <div
+                className="bg-[var(--background)]/70 p-3 rounded border border-[var(--border-color)] font-mono overflow-x-hidden whitespace-nowrap"
+              >https://dev.azure.com/org/project/_git/repo
               </div>
             </div>
           </div>

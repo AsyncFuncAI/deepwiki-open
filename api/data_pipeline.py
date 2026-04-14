@@ -118,6 +118,11 @@ def download_repo(repo_url: str, local_path: str, repo_type: str = None, access_
             elif repo_type == "bitbucket":
                 # Format: https://x-token-auth:{token}@bitbucket.org/owner/repo.git
                 clone_url = urlunparse((parsed.scheme, f"x-token-auth:{encoded_token}@{parsed.netloc}", parsed.path, '', '', ''))
+            elif repo_type == "azure_devops":
+                # Format: https://{token}@dev.azure.com/org/project/_git/repo
+                # Strip any existing username from netloc (ADO URLs often include user@)
+                hostname = parsed.hostname or parsed.netloc.split('@')[-1]
+                clone_url = urlunparse((parsed.scheme, f"{encoded_token}@{hostname}", parsed.path, '', '', ''))
 
             logger.info("Using access token for authentication")
 
@@ -684,6 +689,59 @@ def get_bitbucket_file_content(repo_url: str, file_path: str, access_token: str 
         raise ValueError(f"Failed to get file content: {str(e)}")
 
 
+def get_azure_devops_file_content(repo_url: str, file_path: str, access_token: str = None) -> str:
+    """
+    Retrieves the content of a file from an Azure DevOps repository using the ADO REST API.
+
+    Args:
+        repo_url (str): The URL (e.g., "https://dev.azure.com/org/project/_git/repo")
+        file_path (str): Path to file (e.g., "src/main.py")
+        access_token (str, optional): Azure DevOps PAT
+
+    Returns:
+        str: The content of the file
+    """
+    try:
+        parsed_url = urlparse(repo_url)
+        if not parsed_url.scheme or not parsed_url.netloc:
+            raise ValueError("Not a valid Azure DevOps repository URL")
+
+        path_parts = parsed_url.path.strip('/').split('/')
+
+        if '_git' not in path_parts:
+            raise ValueError("Not a valid Azure DevOps repository URL - missing _git in path")
+
+        git_index = path_parts.index('_git')
+        repo_name = path_parts[git_index + 1].replace(".git", "") if git_index + 1 < len(path_parts) else None
+
+        if not repo_name:
+            raise ValueError("Could not extract repository name from Azure DevOps URL")
+
+        # Build API URL: https://dev.azure.com/{org}/{project}/_apis/git/repositories/{repo}/items
+        # Strip any existing username from netloc (ADO URLs often include user@)
+        hostname = parsed_url.hostname or parsed_url.netloc.split('@')[-1]
+        project_path = '/'.join(path_parts[:git_index])
+        api_base = f"{parsed_url.scheme}://{hostname}/{project_path}"
+        api_url = f"{api_base}/_apis/git/repositories/{repo_name}/items?path={file_path}&api-version=7.0"
+
+        headers = {}
+        if access_token:
+            encoded = base64.b64encode(f":{access_token}".encode()).decode()
+            headers["Authorization"] = f"Basic {encoded}"
+
+        logger.info(f"Fetching file content from Azure DevOps API: {api_url}")
+        try:
+            response = requests.get(api_url, headers=headers)
+            response.raise_for_status()
+        except RequestException as e:
+            raise ValueError(f"Error fetching file content: {e}")
+
+        return response.text
+
+    except Exception as e:
+        raise ValueError(f"Failed to get file content: {str(e)}")
+
+
 def get_file_content(repo_url: str, file_path: str, repo_type: str = None, access_token: str = None) -> str:
     """
     Retrieves the content of a file from a Git repository (GitHub or GitLab).
@@ -706,8 +764,10 @@ def get_file_content(repo_url: str, file_path: str, repo_type: str = None, acces
         return get_gitlab_file_content(repo_url, file_path, access_token)
     elif repo_type == "bitbucket":
         return get_bitbucket_file_content(repo_url, file_path, access_token)
+    elif repo_type == "azure_devops":
+        return get_azure_devops_file_content(repo_url, file_path, access_token)
     else:
-        raise ValueError("Unsupported repository type. Only GitHub, GitLab, and Bitbucket are supported.")
+        raise ValueError("Unsupported repository type. Only GitHub, GitLab, Bitbucket, and Azure DevOps are supported.")
 
 class DatabaseManager:
     """
@@ -763,7 +823,17 @@ class DatabaseManager:
         # Extract owner and repo name to create unique identifier
         url_parts = repo_url_or_path.rstrip('/').split('/')
 
-        if repo_type in ["github", "gitlab", "bitbucket"] and len(url_parts) >= 5:
+        if repo_type == "azure_devops":
+            # Azure DevOps URL: https://dev.azure.com/{org}/{project}/_git/{repo}
+            try:
+                git_index = url_parts.index('_git')
+                repo = url_parts[git_index + 1].replace(".git", "")
+                project = url_parts[git_index - 1]
+                repo_name = f"{project}_{repo}"
+            except (ValueError, IndexError):
+                repo_name = url_parts[-1].replace(".git", "")
+            return repo_name
+        elif repo_type in ["github", "gitlab", "bitbucket"] and len(url_parts) >= 5:
             # GitHub URL format: https://github.com/owner/repo
             # GitLab URL format: https://gitlab.com/owner/repo or https://gitlab.com/group/subgroup/repo
             # Bitbucket URL format: https://bitbucket.org/owner/repo

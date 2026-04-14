@@ -32,8 +32,8 @@ interface ConfigurationModalProps {
   setCustomModel: (value: string) => void;
 
   // Platform selection
-  selectedPlatform: 'github' | 'gitlab' | 'bitbucket';
-  setSelectedPlatform: (value: 'github' | 'gitlab' | 'bitbucket') => void;
+  selectedPlatform: 'github' | 'gitlab' | 'bitbucket' | 'azure_devops';
+  setSelectedPlatform: (value: 'github' | 'gitlab' | 'bitbucket' | 'azure_devops') => void;
 
   // Access token
   accessToken: string;
@@ -98,8 +98,8 @@ export default function ConfigurationModal({
 }: ConfigurationModalProps) {
   const { messages: t } = useLanguage();
 
-  // Show token section state
-  const [showTokenSection, setShowTokenSection] = useState(false);
+  // Show token section state - auto-expand for Azure DevOps since PAT is required
+  const [showTokenSection, setShowTokenSection] = useState(selectedPlatform === 'azure_devops');
 
   if (!isOpen) return null;
 
@@ -231,7 +231,34 @@ export default function ConfigurationModal({
               />
             </div>
 
-            {/* Access token section using TokenInput component */}
+            {/* Platform selection - always visible */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                {t.form?.selectPlatform || 'Select Platform'}
+              </label>
+              <div className="flex gap-2">
+                {(['github', 'gitlab', 'bitbucket', 'azure_devops'] as const).map((platform) => (
+                  <button
+                    key={platform}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPlatform(platform);
+                      if (platform === 'azure_devops') setShowTokenSection(true);
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${selectedPlatform === platform
+                      ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
+                      : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
+                      }`}
+                  >
+                    <span className="text-sm">
+                      {platform === 'azure_devops' ? 'Azure DevOps' : platform.charAt(0).toUpperCase() + platform.slice(1)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Access token input */}
             <TokenInput
               selectedPlatform={selectedPlatform}
               setSelectedPlatform={setSelectedPlatform}
@@ -239,7 +266,7 @@ export default function ConfigurationModal({
               setAccessToken={setAccessToken}
               showTokenSection={showTokenSection}
               onToggleTokenSection={() => setShowTokenSection(!showTokenSection)}
-              allowPlatformChange={true}
+              allowPlatformChange={false}
             />
 
             {/* Authorization Code Input */}

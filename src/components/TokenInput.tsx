@@ -4,8 +4,8 @@ import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface TokenInputProps {
-  selectedPlatform: 'github' | 'gitlab' | 'bitbucket';
-  setSelectedPlatform: (value: 'github' | 'gitlab' | 'bitbucket') => void;
+  selectedPlatform: 'github' | 'gitlab' | 'bitbucket' | 'azure_devops';
+  setSelectedPlatform: (value: 'github' | 'gitlab' | 'bitbucket' | 'azure_devops') => void;
   accessToken: string;
   setAccessToken: (value: string) => void;
   showTokenSection?: boolean;
@@ -24,7 +24,7 @@ export default function TokenInput({
 }: TokenInputProps) {
   const { messages: t } = useLanguage();
 
-  const platformName = selectedPlatform.charAt(0).toUpperCase() + selectedPlatform.slice(1);
+  const platformName = selectedPlatform === 'azure_devops' ? 'Azure DevOps' : selectedPlatform.charAt(0).toUpperCase() + selectedPlatform.slice(1);
 
   return (
     <div className="mb-4">
@@ -75,6 +75,16 @@ export default function TokenInput({
                     }`}
                 >
                   <span className="text-sm">Bitbucket</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPlatform('azure_devops')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all ${selectedPlatform === 'azure_devops'
+                    ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)] shadow-sm'
+                    : 'border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
+                    }`}
+                >
+                  <span className="text-sm">Azure DevOps</span>
                 </button>
               </div>
             </div>
