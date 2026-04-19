@@ -1,0 +1,94 @@
+name: Build Docker Save Release Asset
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, commit, or tag to build"
+        default: main
+        required: true
+        type: string
+
+env:
+  IMAGE_NAME: deepwiki-open
+  TAR_NAME: deepwiki-open.tar
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Resolve release version
+        id: version
+        run: |
+          commit_sha="$(git rev-parse HEAD)"
+          commit_date="$(TZ=UTC git show -s --date=format-local:%Y%m%d --format=%cd "$commit_sha")"
+          short_sha="$(git rev-parse --short=7 "$commit_sha")"
+          version="${commit_date}-${short_sha}"
+          release_tag="deepwiki-open-${version}"
+
+          {
+            echo "commit_sha=${commit_sha}"
+            echo "version=${version}"
+            echo "release_tag=${release_tag}"
+            echo "image=${IMAGE_NAME}:${version}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Create empty .env file for build
+        run: touch .env
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: ${{ steps.version.outputs.image }}
+          cache-from: type=gha,scope=${{ github.repository }}-release-tar-${{ steps.version.outputs.version }}
+          cache-to: type=gha,mode=max,scope=${{ github.repository }}-release-tar-${{ steps.version.outputs.version }}
+
+      - name: Save Docker image
+        run: docker save "${{ steps.version.outputs.image }}" --output "${TAR_NAME}"
+
+      - name: Ensure GitHub Release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+          COMMIT_SHA: ${{ steps.version.outputs.commit_sha }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --target "$COMMIT_SHA" \
+              --title "$RELEASE_TAG" \
+              --generate-notes
+          fi
+
+      - name: Upload tarball to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ steps.version.outputs.release_tag }}" "${TAR_NAME}" --clobber
+
+      - name: Write release summary
+        run: |
+          {
+            echo "### GitHub Release asset"
+            echo ""
+            echo "- Release: \`${{ steps.version.outputs.release_tag }}\`"
+            echo "- Asset: \`${TAR_NAME}\`"
+            echo "- Image: \`${{ steps.version.outputs.image }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

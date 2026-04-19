@@ -1,0 +1,89 @@
+name: Build and Push Docker Hub Image
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, commit, or tag to build"
+        default: main
+        required: true
+        type: string
+
+env:
+  DOCKERHUB_IMAGE: docker.io/k5mot/deepwiki-open
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dockerhub:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Resolve image tags
+        id: version
+        run: |
+          commit_sha="$(git rev-parse HEAD)"
+          commit_date="$(TZ=UTC git show -s --date=format-local:%Y%m%d --format=%cd "$commit_sha")"
+          short_sha="$(git rev-parse --short=7 "$commit_sha")"
+          version="${commit_date}-${short_sha}"
+
+          {
+            echo "commit_sha=${commit_sha}"
+            echo "version=${version}"
+            echo "date_tag=${commit_date}"
+            echo "tags<<EOF"
+            echo "${DOCKERHUB_IMAGE}:${version}"
+            echo "${DOCKERHUB_IMAGE}:${commit_date}"
+            echo "${DOCKERHUB_IMAGE}:main"
+            echo "${DOCKERHUB_IMAGE}:latest"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME || 'k5mot' }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Create empty .env file for build
+        run: touch .env
+
+      - name: Build and push Docker Hub image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.version.outputs.tags }}
+          cache-from: type=gha,scope=${{ github.repository }}-dockerhub-${{ steps.version.outputs.version }}
+          cache-to: type=gha,mode=max,scope=${{ github.repository }}-dockerhub-${{ steps.version.outputs.version }}
+
+      - name: Write image summary
+        run: |
+          {
+            echo "### Docker Hub image"
+            echo ""
+            echo "- \`${DOCKERHUB_IMAGE}:${{ steps.version.outputs.version }}\`"
+            echo "- \`${DOCKERHUB_IMAGE}:${{ steps.version.outputs.date_tag }}\`"
+            echo "- \`${DOCKERHUB_IMAGE}:main\`"
+            echo "- \`${DOCKERHUB_IMAGE}:latest\`"
+          } >> "$GITHUB_STEP_SUMMARY"
