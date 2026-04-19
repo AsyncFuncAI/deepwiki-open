@@ -60,7 +60,7 @@ echo "AZURE_OPENAI_API_KEY=your_azure_openai_api_key" >> .env
 echo "AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint" >> .env
 echo "AZURE_OPENAI_VERSION=your_azure_openai_version" >> .env
 # Run with Docker Compose
-docker-compose up
+docker compose up
 ```
 
 For detailed instructions on using DeepWiki with Ollama and Docker, see [Ollama Instructions](Ollama-instruction.md).
@@ -332,7 +332,7 @@ DEEPWIKI_EMBEDDER_TYPE=google
 Then run:
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 ### Available Embedder Types
@@ -384,7 +384,7 @@ python -m api.main
 ```
 Or with Docker Compose:
 ```bash
-LOG_LEVEL=DEBUG LOG_FILE_PATH=./debug.log docker-compose up
+LOG_LEVEL=DEBUG LOG_FILE_PATH=./debug.log docker compose up
 ```
 
 When running with Docker Compose, the container's `api/logs` directory is bind-mounted to `./api/logs` on your host (see the `volumes` section in `docker-compose.yml`), ensuring log files persist across restarts.
@@ -398,7 +398,7 @@ LOG_FILE_PATH=./debug.log
 Then simply run:
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 **Logging Path Security Considerations:** In production environments, ensure the `api/logs` directory and any custom log file path are secured with appropriate filesystem permissions and access controls. The application enforces that `LOG_FILE_PATH` resides within the project's `api/logs` directory to prevent path traversal or unauthorized writes.
@@ -482,7 +482,7 @@ Or use the provided `docker-compose.yml` file:
 
 ```bash
 # Edit the .env file with your API keys first
-docker-compose up
+docker compose up
 ```
 
 (The `docker-compose.yml` file is pre-configured to mount `~/.adalflow` for data persistence, similar to the `docker run` command above.)

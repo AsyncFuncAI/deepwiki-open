@@ -43,7 +43,7 @@ echo "OPENAI_API_KEY=your_openai_api_key" >> .env
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 
 # Docker Compose로 실행
-docker-compose up
+docker compose up
 ```
 
 > 💡 **API 키는 어디서 얻나요:**
@@ -224,7 +224,7 @@ docker run -p 8001:8001 -p 3000:3000 \
 
 ```bash
 # API 키가 포함된 .env 파일을 먼저 편집
-docker-compose up
+docker compose up
 ```
 
 (`docker-compose.yml` 파일은 위의 `docker run` 명령어와 유사하게 데이터 지속성을 위해 `~/.adalflow`를 마운트하도록 미리 구성되어 있습니다.)

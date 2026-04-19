@@ -43,7 +43,7 @@ echo "OPENAI_API_KEY=your_openai_api_key" >> .env
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 
 # Docker Composeで実行
-docker-compose up
+docker compose up
 ```
 
 (上記の Docker コマンドおよび`docker-compose.yml`の設定では、ホスト上の`~/.adalflow`ディレクトリをコンテナ内の`/root/.adalflow`にマウントします。このパスは以下のものを保存するために使用されます：
@@ -233,7 +233,7 @@ docker run -p 8001:8001 -p 3000:3000 \
 
 ```bash
 # まず.envファイルをAPIキーで編集
-docker-compose up
+docker compose up
 ```
 
 （⁠docker-compose.yml ファイルは、上記の ⁠docker run コマンドと同様に、データ永続化のために ⁠~/.adalflow をマウントするように事前設定されています。）

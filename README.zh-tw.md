@@ -45,7 +45,7 @@ echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 echo "OLLAMA_HOST=your_ollama_host" >> .env
 
 # 使用 Docker Compose 執行
-docker-compose up
+docker compose up
 ```
 
 有關使用 DeepWiki 搭配 Ollama 和 Docker 的詳細說明，請參閱 [Ollama 操作說明](Ollama-instruction.md)。
@@ -279,7 +279,7 @@ python -m api.main
 ```
 或使用 Docker Compose：
 ```bash
-LOG_LEVEL=DEBUG LOG_FILE_PATH=./debug.log docker-compose up
+LOG_LEVEL=DEBUG LOG_FILE_PATH=./debug.log docker compose up
 ```
 
 使用 Docker Compose 執行時，容器的 `api/logs` 目錄會掛載到主機上的 `./api/logs`（請參閱 `docker-compose.yml` 中的 `volumes` 區段），確保日誌檔案在重新啟動後仍然存在。
@@ -293,7 +293,7 @@ LOG_FILE_PATH=./debug.log
 然後簡單執行：
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 **日誌路徑安全性考量：** 在生產環境中，請確保 `api/logs` 目錄和任何自訂日誌檔案路徑都受到適當的檔案系統權限和存取控制保護。應用程式會強制要求 `LOG_FILE_PATH` 位於專案的 `api/logs` 目錄內，以防止路徑遍歷或未授權的寫入。
@@ -356,7 +356,7 @@ docker run -p 8001:8001 -p 3000:3000 \
 
 ```bash
 # 首先使用您的 API 金鑰編輯 .env 檔案
-docker-compose up
+docker compose up
 ```
 
 （`docker-compose.yml` 檔案預先設定為掛載 `~/.adalflow` 以保持資料持續性，類似於上面的 `docker run` 命令。）
