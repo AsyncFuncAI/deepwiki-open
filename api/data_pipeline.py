@@ -116,8 +116,11 @@ def download_repo(repo_url: str, local_path: str, repo_type: str = None, access_
                 # Format: https://oauth2:{token}@gitlab.com/owner/repo.git
                 clone_url = urlunparse((parsed.scheme, f"oauth2:{encoded_token}@{parsed.netloc}", parsed.path, '', '', ''))
             elif repo_type == "bitbucket":
-                # Format: https://x-token-auth:{token}@bitbucket.org/owner/repo.git
-                clone_url = urlunparse((parsed.scheme, f"x-token-auth:{encoded_token}@{parsed.netloc}", parsed.path, '', '', ''))
+                # Format: https://x-bitbucket-api-token-auth:{token}@bitbucket.org/owner/repo.git
+                # Bitbucket HTTP access tokens require the x-bitbucket-api-token-auth scheme.
+                # The older x-token-auth scheme was used for app passwords, which are being
+                # deprecated by Atlassian (EOL June 2026).
+                clone_url = urlunparse((parsed.scheme, f"x-bitbucket-api-token-auth:{encoded_token}@{parsed.netloc}", parsed.path, '', '', ''))
 
             logger.info("Using access token for authentication")
 
