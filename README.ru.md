@@ -275,7 +275,7 @@ python -m api.main
 
 Или через Docker Compose:
 ```bash
-LOG_LEVEL=DEBUG LOG_FILE_PATH=./debug.log docker compose up
+LOG_LEVEL=DEBUG LOG_FILE_PATH=api/logs/debug.log docker compose up
 ```
 
 Для постоянства логов при перезапуске контейнера `api/logs` монтируется в `./api/logs`.

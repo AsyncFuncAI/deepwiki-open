@@ -287,7 +287,7 @@ python -m api.main
 ```
 Ou avec Docker Compose:
 ```bash
-LOG_LEVEL=DEBUG LOG_FILE_PATH=./debug.log docker compose up
+LOG_LEVEL=DEBUG LOG_FILE_PATH=api/logs/debug.log docker compose up
 ```
 
 Lors de l'exécution avec Docker Compose, le répertoire `api/logs` du conteneur est lié à `./api/logs` sur votre hôte (voir la section `volumes` dans `docker-compose.yml`), ce qui garantit que les fichiers journaux persistent lors des redémarrages.

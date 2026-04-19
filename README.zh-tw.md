@@ -279,7 +279,7 @@ python -m api.main
 ```
 或使用 Docker Compose：
 ```bash
-LOG_LEVEL=DEBUG LOG_FILE_PATH=./debug.log docker compose up
+LOG_LEVEL=DEBUG LOG_FILE_PATH=api/logs/debug.log docker compose up
 ```
 
 使用 Docker Compose 執行時，容器的 `api/logs` 目錄會掛載到主機上的 `./api/logs`（請參閱 `docker-compose.yml` 中的 `volumes` 區段），確保日誌檔案在重新啟動後仍然存在。
