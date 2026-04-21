@@ -25,6 +25,9 @@ from api.azureai_client import AzureAIClient
 from api.dashscope_client import DashscopeClient
 from api.rag import RAG
 
+# Import wiki generation functionality from tools
+from api.tools.rag_layers import handle_wiki_page_generation
+
 # Configure logging
 from api.logging_config import setup_logging
 
@@ -70,6 +73,13 @@ async def handle_websocket_chat(websocket: WebSocket):
     try:
         # Receive and parse the request data
         request_data = await websocket.receive_json()
+        
+        # Check if this is a wiki page generation request
+        if request_data.get("request_type") == "wiki_page_generation":
+            # Delegate to wiki generation handler
+            await handle_wiki_page_generation(websocket, request_data)
+            return
+        
         request = ChatCompletionRequest(**request_data)
 
         # Check if request contains very large input
