@@ -873,34 +873,41 @@ class DatabaseManager:
         # Handle backward compatibility
         if embedder_type is None and is_ollama_embedder is not None:
             embedder_type = 'ollama' if is_ollama_embedder else None
+        # Check if custom file filters are provided
+        has_custom_filters = any([excluded_dirs, excluded_files, included_dirs, included_files])
+
         # check the database
         if self.repo_paths and os.path.exists(self.repo_paths["save_db_file"]):
-            logger.info("Loading existing database...")
-            try:
-                self.db = LocalDB.load_state(self.repo_paths["save_db_file"])
-                documents = self.db.get_transformed_data(key="split_and_embed")
-                if documents:
-                    lengths = [_embedding_vector_length(doc) for doc in documents]
-                    non_empty = sum(1 for n in lengths if n > 0)
-                    empty = len(lengths) - non_empty
-                    sample_sizes = sorted({n for n in lengths if n > 0})[:3]
-                    logger.info(
-                        "Loaded %s documents from existing database (embeddings: %s non-empty, %s empty; sample_dims=%s)",
-                        len(documents),
-                        non_empty,
-                        empty,
-                        sample_sizes,
-                    )
-
-                    if non_empty == 0:
-                        logger.warning(
-                            "Existing database contains no usable embeddings. Rebuilding embeddings..."
+            if has_custom_filters:
+                logger.info("Custom file filters provided. Rebuilding database to apply filters...")
+                os.remove(self.repo_paths["save_db_file"])
+            else:
+                logger.info("Loading existing database...")
+                try:
+                    self.db = LocalDB.load_state(self.repo_paths["save_db_file"])
+                    documents = self.db.get_transformed_data(key="split_and_embed")
+                    if documents:
+                        lengths = [_embedding_vector_length(doc) for doc in documents]
+                        non_empty = sum(1 for n in lengths if n > 0)
+                        empty = len(lengths) - non_empty
+                        sample_sizes = sorted({n for n in lengths if n > 0})[:3]
+                        logger.info(
+                            "Loaded %s documents from existing database (embeddings: %s non-empty, %s empty; sample_dims=%s)",
+                            len(documents),
+                            non_empty,
+                            empty,
+                            sample_sizes,
                         )
-                    else:
-                        return documents
-            except Exception as e:
-                logger.error(f"Error loading existing database: {e}")
-                # Continue to create a new database
+
+                        if non_empty == 0:
+                            logger.warning(
+                                "Existing database contains no usable embeddings. Rebuilding embeddings..."
+                            )
+                        else:
+                            return documents
+                except Exception as e:
+                    logger.error(f"Error loading existing database: {e}")
+                    # Continue to create a new database
 
         # prepare the database
         logger.info("Creating new database...")
