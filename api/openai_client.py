@@ -260,10 +260,37 @@ class OpenAIClient(ModelClient):
         r"""Parse the embedding response to a structure Adalflow components can understand.
 
         Should be called in ``Embedder``.
+        Handles cases where the API returns usage=null (e.g. some gateway proxies like NVDC).
         """
         try:
             return parse_embedding_response(response)
         except Exception as e:
+            # If the standard parser fails (e.g. usage=None from some gateways),
+            # fall back to manual parsing that only requires the embeddings data.
+            if response is not None and hasattr(response, 'data') and response.data:
+                try:
+                    from adalflow.core.types import Embedding, Usage
+                    embeddings = [
+                        Embedding(embedding=item.embedding, index=item.index)
+                        for item in response.data
+                        if item.embedding
+                    ]
+                    # Build usage only if available, otherwise use zeros
+                    if response.usage is not None:
+                        usage = Usage(
+                            prompt_tokens=response.usage.prompt_tokens,
+                            total_tokens=response.usage.total_tokens,
+                        )
+                    else:
+                        usage = Usage(prompt_tokens=0, total_tokens=0)
+                    model = getattr(response, 'model', None)
+                    log.warning(
+                        f"Standard embedding parse failed ({e}), "
+                        f"recovered {len(embeddings)} embeddings manually."
+                    )
+                    return EmbedderOutput(data=embeddings, model=model, usage=usage)
+                except Exception as e2:
+                    log.error(f"Fallback embedding parsing also failed: {e2}")
             log.error(f"Error parsing the embedding response: {e}")
             return EmbedderOutput(data=[], error=str(e), raw_response=response)
 
