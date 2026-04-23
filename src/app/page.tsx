@@ -135,6 +135,7 @@ export default function Home() {
   const [includedDirs, setIncludedDirs] = useState('');
   const [includedFiles, setIncludedFiles] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>('github');
+  const [forceRefetch, setForceRefetch] = useState(false);
   const [accessToken, setAccessToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -476,6 +477,8 @@ export default function Home() {
             authCode={authCode}
             setAuthCode={setAuthCode}
             isAuthLoading={isAuthLoading}
+            forceRefetch={forceRefetch}
+            setForceRefetch={setForceRefetch}
           />
 
         </div>

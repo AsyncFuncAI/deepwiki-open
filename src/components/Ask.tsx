@@ -920,6 +920,8 @@ const Ask: React.FC<AskProps> = ({
         showWikiType={false}
         authRequired={false}
         isAuthLoading={false}
+        forceRefetch={false}
+        setForceRefetch={() => {}}
       />
     </div>
   );
