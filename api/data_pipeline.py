@@ -8,6 +8,7 @@ import tiktoken
 import logging
 import base64
 import glob
+import fnmatch
 from adalflow.utils import get_adalflow_default_root_path
 from adalflow.core.db import LocalDB
 from api.config import configs, DEFAULT_EXCLUDED_DIRS, DEFAULT_EXCLUDED_FILES
@@ -256,8 +257,24 @@ def read_all_documents(path: str, embedder_type: str = None, is_ollama_embedder:
         Returns:
             bool: True if the file should be processed, False otherwise
         """
-        file_path_parts = os.path.normpath(file_path).split(os.sep)
-        file_name = os.path.basename(file_path)
+        norm_file_path = os.path.normpath(file_path)
+        file_path_parts = norm_file_path.split(os.sep)
+        file_name = os.path.basename(norm_file_path)
+        rel_path = os.path.relpath(norm_file_path, path)
+        rel_path_norm = os.path.normpath(rel_path)
+
+        def matches_any_glob(patterns: List[str]) -> bool:
+            for pattern in patterns:
+                p = pattern.strip() if pattern else ""
+                if not p:
+                    continue
+
+                p_norm = os.path.normpath(p)
+
+                if (fnmatch.fnmatchcase(file_name, p_norm) or
+                        fnmatch.fnmatchcase(rel_path_norm, p_norm)):
+                    return True
+            return False
 
         if use_inclusion:
             # Inclusion mode: file must be in included directories or match included files
@@ -273,10 +290,7 @@ def read_all_documents(path: str, embedder_type: str = None, is_ollama_embedder:
 
             # Check if file matches included file patterns
             if not is_included and included_files:
-                for included_file in included_files:
-                    if file_name == included_file or file_name.endswith(included_file):
-                        is_included = True
-                        break
+                is_included = matches_any_glob(included_files)
 
             # If no inclusion rules are specified for a category, allow all files from that category
             if not included_dirs and not included_files:
@@ -302,10 +316,7 @@ def read_all_documents(path: str, embedder_type: str = None, is_ollama_embedder:
 
             # Check if file matches excluded file patterns
             if not is_excluded:
-                for excluded_file in excluded_files:
-                    if file_name == excluded_file:
-                        is_excluded = True
-                        break
+                is_excluded = matches_any_glob(excluded_files)
 
             return not is_excluded
 
@@ -410,7 +421,6 @@ def prepare_data_pipeline(embedder_type: str = None, is_ollama_embedder: bool = 
     if embedder_type is None:
         embedder_type = get_embedder_type()
 
-    splitter = TextSplitter(**configs["text_splitter"])
     embedder_config = get_embedder_config()
 
     embedder = get_embedder(embedder_type=embedder_type)
