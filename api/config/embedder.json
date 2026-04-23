@@ -1,10 +1,13 @@
 {
   "embedder": {
     "client_class": "OpenAIClient",
+    "initialize_kwargs": {
+      "api_key": "${OPENAI_API_KEY}",
+      "base_url": "${OPENAI_BASE_URL}"
+    },
     "batch_size": 500,
     "model_kwargs": {
       "model": "text-embedding-3-small",
-      "dimensions": 256,
       "encoding_format": "float"
     }
   },
@@ -16,6 +19,9 @@
   },
   "embedder_google": {
     "client_class": "GoogleEmbedderClient",
+    "initialize_kwargs": {
+      "api_key": "${GOOGLE_API_KEY}"
+    },
     "batch_size": 100,
     "model_kwargs": {
       "model": "gemini-embedding-001",
