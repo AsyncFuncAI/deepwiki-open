@@ -20,7 +20,7 @@
   "home": {
     "welcome": "歡迎使用 DeepWiki",
     "welcomeTagline": "為程式碼儲存庫提供 AI 驅動的文件",
-    "description": "只需一次點擊，即可從 GitHub、GitLab 或 Bitbucket 儲存庫產生全面的文件。",
+    "description": "只需一次點擊，即可從 GitHub、GitLab、Bitbucket 或 Codeberg 儲存庫產生全面的文件。",
     "quickStart": "快速開始",
     "enterRepoUrl": "請以下列格式之一輸入儲存庫 URL：",
     "advancedVisualization": "使用 Mermaid 圖表進行進階視覺化",
@@ -31,7 +31,7 @@
   "form": {
     "repository": "儲存庫",
     "configureWiki": "設定 Wiki",
-    "repoPlaceholder": "擁有者/儲存庫或 GitHub/GitLab/Bitbucket URL",
+    "repoPlaceholder": "擁有者/儲存庫或 GitHub/GitLab/Bitbucket/Codeberg URL",
     "wikiLanguage": "Wiki 語言",
     "modelOptions": "模型選項",
     "modelProvider": "模型提供商",
@@ -100,7 +100,7 @@
     "cancel": "取消",
     "home": "首頁",
     "errorTitle": "錯誤",
-    "errorMessageDefault": "請檢查您的儲存庫是否存在且為公開儲存庫。有效格式為 \"owner/repo\"、\"https://github.com/owner/repo\"、\"https://gitlab.com/owner/repo\"、\"https://bitbucket.org/owner/repo\"，或本機資料夾路徑，如 \"C:\\\\path\\\\to\\\\folder\" 或 \"/path/to/folder\"。",
+    "errorMessageDefault": "請檢查您的儲存庫是否存在且為公開儲存庫。有效格式為 \"owner/repo\"、\"https://github.com/owner/repo\"、\"https://gitlab.com/owner/repo\"、\"https://bitbucket.org/owner/repo\"、\"https://codeberg.org/owner/repo\"，或本機資料夾路徑，如 \"C:\\\\path\\\\to\\\\folder\" 或 \"/path/to/folder\"。",
     "embeddingErrorDefault": "這個錯誤與用於分析您的儲存庫的文件嵌入系統有關。請檢查您的嵌入模型配置、API 密鑰，並重試。如果問題持續存在，請考慮在模型設置中切換到不同的嵌入提供者。",
     "backToHome": "返回首頁",
     "exportWiki": "匯出 Wiki",
