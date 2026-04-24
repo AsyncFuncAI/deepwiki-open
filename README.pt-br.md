@@ -45,7 +45,7 @@ echo "OPENROUTER_API_KEY=sua_chave_api_openrouter" >> .env
 echo "OLLAMA_HOST=seu_host_ollama" >> .env
 
 # Execute com Docker Compose
-docker-compose up
+docker compose up
 ```
 
 Para instruções detalhadas sobre como usar o DeepWiki com Ollama e Docker, veja [Instruções do Ollama (em inglês)](Ollama-instruction.md).
@@ -272,7 +272,7 @@ python -m api.main
 ```
 Ou com Docker Compose:
 ```bash
-LOG_LEVEL=DEBUG LOG_FILE_PATH=./debug.log docker-compose up
+LOG_LEVEL=DEBUG LOG_FILE_PATH=api/logs/debug.log docker compose up
 ```
 
 Ao executar com Docker Compose, o diretório `api/logs` do container é montado em `./api/logs` no seu host (veja a seção `volumes` em `docker-compose.yml`), garantindo que os arquivos de log persistam entre reinicializações.
@@ -286,7 +286,7 @@ LOG_FILE_PATH=./debug.log
 Então simplesmente execute:
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 **Considerações de Segurança do Caminho de Logging:** Em ambientes de produção, garanta que o diretório `api/logs` e qualquer caminho de arquivo de log personalizado estejam protegidos com permissões de sistema de arquivos e controles de acesso apropriados. O aplicativo impõe que `LOG_FILE_PATH` resida dentro do diretório `api/logs` do projeto para evitar travessia de caminho ou escritas não autorizadas.
@@ -349,7 +349,7 @@ Ou use o arquivo `docker-compose.yml` fornecido:
 
 ```bash
 # Edite o arquivo .env com suas chaves API primeiro
-docker-compose up
+docker compose up
 ```
 
 (O arquivo `docker-compose.yml` é pré-configurado para montar `~/.adalflow` para persistência de dados, similar ao comando `docker run` acima.)

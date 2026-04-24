@@ -50,7 +50,7 @@ echo "AZURE_OPENAI_ENDPOINT=votre_endpoint" >> .env
 echo "AZURE_OPENAI_VERSION=version_api" >> .env
 
 # Lancer avec Docker Compose
-docker-compose up
+docker compose up
 ```
 
 Pour des instructions détaillées sur l’utilisation de DeepWiki avec Ollama et Docker, consultez [Ollama Instructions](Ollama-instruction.md).
@@ -287,7 +287,7 @@ python -m api.main
 ```
 Ou avec Docker Compose:
 ```bash
-LOG_LEVEL=DEBUG LOG_FILE_PATH=./debug.log docker-compose up
+LOG_LEVEL=DEBUG LOG_FILE_PATH=api/logs/debug.log docker compose up
 ```
 
 Lors de l'exécution avec Docker Compose, le répertoire `api/logs` du conteneur est lié à `./api/logs` sur votre hôte (voir la section `volumes` dans `docker-compose.yml`), ce qui garantit que les fichiers journaux persistent lors des redémarrages.
@@ -301,7 +301,7 @@ LOG_FILE_PATH=./debug.log
 Puis exécutez simplement :
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 **Considérations de sécurité concernant le chemin des journaux :** Dans les environnements de production, assurez-vous que le répertoire `api/logs` et tout chemin de fichier journal personnalisé sont sécurisés avec des permissions de système de fichiers et des contrôles d'accès appropriés. L'application s'assure que `LOG_FILE_PATH` se trouve dans le répertoire `api/logs` du projet afin d'empêcher le parcours de chemin ou les écritures non autorisées.
@@ -373,7 +373,7 @@ Vous pouvez également utiliser le fichier `docker-compose.yml` fourni :
 
 ```bash
 # Modifiez d'abord le fichier .env avec vos clés API
-docker-compose up
+docker compose up
 ```
 
 (Le fichier `docker-compose.yml` est préconfiguré pour monter `~/.adalflow` pour la persistance des données, de manière similaire à la commande `docker run` ci-dessus.)

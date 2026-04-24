@@ -43,7 +43,7 @@ echo "OPENAI_API_KEY=your_openai_api_key" >> .env
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 
 # Run với Docker Compose
-docker-compose up
+docker compose up
 ```
 
 > 💡 **Hướng dẫn lấy Keys**
@@ -197,7 +197,7 @@ Hoặc đơn giản hơn, sử dụng `docker-compose.yml` :
 
 ```bash
 # Edit the .env file with your API keys first
-docker-compose up
+docker compose up
 ```
 
 #### Sử dụng  .env file với Docker

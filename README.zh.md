@@ -43,7 +43,7 @@ echo "OPENAI_API_KEY=your_openai_api_key" >> .env
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 
 # 使用Docker Compose运行
-docker-compose up
+docker compose up
 ```
 
 (上述 Docker 命令以及 `docker-compose.yml` 配置会挂载您主机上的 `~/.adalflow` 目录到容器内的 `/root/.adalflow`。此路径用于存储：
