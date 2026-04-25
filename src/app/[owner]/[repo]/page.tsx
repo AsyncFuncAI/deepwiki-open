@@ -945,6 +945,15 @@ IMPORTANT:
       // Extract wiki structure from response
       const xmlMatch = responseText.match(/<wiki_structure>[\s\S]*?<\/wiki_structure>/m);
       if (!xmlMatch) {
+        // Surface the actual API error instead of a generic message
+        const apiErrorMatch = responseText.match(/Error with [\w][\w ]*API:\s*[^\n]+/);
+        if (apiErrorMatch) {
+          throw new Error(apiErrorMatch[0].trim());
+        }
+        const generalErrorMatch = responseText.match(/\nError:\s*[^\n]+/);
+        if (generalErrorMatch) {
+          throw new Error(generalErrorMatch[0].trim());
+        }
         throw new Error('No valid XML found in response');
       }
 
