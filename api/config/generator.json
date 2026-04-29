@@ -193,6 +193,22 @@
           "top_p": 0.8
         }
       }
+    },
+    "minimax": {
+      "client_class": "MiniMaxClient",
+      "default_model": "MiniMax-M2.7",
+      "supportsCustomModel": true,
+      "models": {
+        "MiniMax-M2.7": {
+          "temperature": 1.0
+        },
+        "MiniMax-M2.5": {
+          "temperature": 1.0
+        },
+        "MiniMax-M2.5-highspeed": {
+          "temperature": 1.0
+        }
+      }
     }
   }
 }

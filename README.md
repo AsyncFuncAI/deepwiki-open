@@ -197,6 +197,7 @@ DeepWiki now implements a flexible provider-based model selection system support
 - **OpenRouter**: Access to multiple models via a unified API, including Claude, Llama, Mistral, etc.
 - **Azure OpenAI**: Default `gpt-4o`, also supports `o4-mini`, etc.
 - **Ollama**: Support for locally running open-source models like `llama3`
+- **MiniMax**: Default `MiniMax-M2.7`, also supports `MiniMax-M2.5`, `MiniMax-M2.5-highspeed` (204K context window)
 
 ### Environment Variables
 
@@ -207,6 +208,7 @@ Each provider requires its corresponding API key environment variables:
 GOOGLE_API_KEY=your_google_api_key        # Required for Google Gemini models
 OPENAI_API_KEY=your_openai_api_key        # Required for OpenAI models
 OPENROUTER_API_KEY=your_openrouter_api_key # Required for OpenRouter models
+MINIMAX_API_KEY=your_minimax_api_key      # Required for MiniMax models
 AZURE_OPENAI_API_KEY=your_azure_openai_api_key  #Required for Azure OpenAI models
 AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint  #Required for Azure OpenAI models
 AZURE_OPENAI_VERSION=your_azure_openai_version  #Required for Azure OpenAI models
@@ -226,7 +228,7 @@ DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # Optional, for custom config fi
 DeepWiki uses JSON configuration files to manage various aspects of the system:
 
 1. **`generator.json`**: Configuration for text generation models
-   - Defines available model providers (Google, OpenAI, OpenRouter, Azure, Ollama)
+   - Defines available model providers (Google, OpenAI, OpenRouter, Azure, Ollama, MiniMax)
    - Specifies default and available models for each provider
    - Contains model-specific parameters like temperature and top_p
 
@@ -403,6 +405,7 @@ docker-compose up
 | `GOOGLE_API_KEY`     | Google Gemini API key for AI generation and embeddings      | No | Required for Google Gemini models and Google AI embeddings                                               
 | `OPENAI_API_KEY`     | OpenAI API key for embeddings and models                     | Conditional | Required if using OpenAI embeddings or models                                                            |
 | `OPENROUTER_API_KEY` | OpenRouter API key for alternative models                    | No | Required only if you want to use OpenRouter models                                                       |
+| `MINIMAX_API_KEY`    | MiniMax API key for MiniMax models                            | No | Required only if you want to use MiniMax models                                                          |
 | `AWS_ACCESS_KEY_ID`  | AWS access key ID for Bedrock                                 | No | Required for Bedrock if not using instance/role-based credentials                                        |
 | `AWS_SECRET_ACCESS_KEY` | AWS secret access key for Bedrock                          | No | Required for Bedrock if not using instance/role-based credentials                                        |
 | `AWS_SESSION_TOKEN`  | AWS session token for Bedrock (STS)                            | No | Required when using temporary credentials                                                                |
@@ -453,6 +456,7 @@ docker run -p 8001:8001 -p 3000:3000 \
   -e GOOGLE_API_KEY=your_google_api_key \
   -e OPENAI_API_KEY=your_openai_api_key \
   -e OPENROUTER_API_KEY=your_openrouter_api_key \
+  -e MINIMAX_API_KEY=your_minimax_api_key \
   -e OLLAMA_HOST=your_ollama_host \
   -e AZURE_OPENAI_API_KEY=your_azure_openai_api_key \
   -e AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint \
