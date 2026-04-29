@@ -167,20 +167,19 @@ class LiteLLMClient(ModelClient):
         return final_model_kwargs
 
     def parse_chat_completion(self, completion) -> GeneratorOutput:
-        try:
-            data = self.chat_completion_parser(completion)
-        except Exception as e:
-            log.error(f"Error parsing the completion: {e}")
-            return GeneratorOutput(data=None, error=str(e), raw_response=completion)
+        import types
 
         try:
-            usage = self.track_completion_usage(completion)
+            is_stream = isinstance(completion, types.GeneratorType) or type(completion).__name__ == "CustomStreamWrapper"
+            parser = handle_streaming_response if is_stream else self.chat_completion_parser
+            parsed_data = parser(completion)
+            usage = None if is_stream else self.track_completion_usage(completion)
             return GeneratorOutput(
-                data=None, error=None, raw_response=data, usage=usage
+                data=parsed_data, error=None, raw_response=completion, usage=usage
             )
         except Exception as e:
-            log.error(f"Error tracking the completion usage: {e}")
-            return GeneratorOutput(data=None, error=str(e), raw_response=data)
+            log.error(f"Error in parse_chat_completion: {e}")
+            return GeneratorOutput(data=None, error=str(e), raw_response=completion)
 
     def track_completion_usage(self, completion) -> CompletionUsage:
         try:
@@ -207,7 +206,7 @@ class LiteLLMClient(ModelClient):
         import litellm
 
         api_kwargs = api_kwargs or {}
-        log.info(f"api_kwargs: {api_kwargs}")
+        log.debug(f"api_kwargs: {api_kwargs}")
 
         extra: Dict[str, Any] = {}
         if self._api_key:
@@ -218,8 +217,6 @@ class LiteLLMClient(ModelClient):
         if model_type == ModelType.EMBEDDER:
             return litellm.embedding(drop_params=True, **api_kwargs, **extra)
         elif model_type == ModelType.LLM:
-            if api_kwargs.get("stream", False):
-                self.chat_completion_parser = handle_streaming_response
             return litellm.completion(drop_params=True, **api_kwargs, **extra)
         else:
             raise ValueError(f"model_type {model_type} is not supported")

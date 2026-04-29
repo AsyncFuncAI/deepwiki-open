@@ -127,23 +127,23 @@ def load_generator_config():
     generator_config = load_json_config("generator.json")
 
     # Add client classes to each provider
+    default_map = {
+        "google": GoogleGenAIClient,
+        "openai": OpenAIClient,
+        "openrouter": OpenRouterClient,
+        "ollama": OllamaClient,
+        "bedrock": BedrockClient,
+        "azure": AzureAIClient,
+        "dashscope": DashscopeClient,
+        "litellm": LiteLLMClient,
+    }
     if "providers" in generator_config:
         for provider_id, provider_config in generator_config["providers"].items():
             # Try to set client class from client_class
             if provider_config.get("client_class") in CLIENT_CLASSES:
                 provider_config["model_client"] = CLIENT_CLASSES[provider_config["client_class"]]
             # Fall back to default mapping based on provider_id
-            elif provider_id in ["google", "openai", "openrouter", "ollama", "bedrock", "azure", "dashscope", "litellm"]:
-                default_map = {
-                    "google": GoogleGenAIClient,
-                    "openai": OpenAIClient,
-                    "openrouter": OpenRouterClient,
-                    "ollama": OllamaClient,
-                    "bedrock": BedrockClient,
-                    "azure": AzureAIClient,
-                    "dashscope": DashscopeClient,
-                    "litellm": LiteLLMClient,
-                }
+            elif provider_id in default_map:
                 provider_config["model_client"] = default_map[provider_id]
             else:
                 logger.warning(f"Unknown provider or client class: {provider_id}")

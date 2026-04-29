@@ -355,7 +355,8 @@ class TestParseCompletion:
         client = LiteLLMClient()
         mock_resp = _make_mock_response("Hello world", 10, 5)
         output = client.parse_chat_completion(mock_resp)
-        assert output.raw_response == "Hello world"
+        assert output.data == "Hello world"
+        assert output.raw_response == mock_resp
         assert output.usage.completion_tokens == 5
         assert output.usage.prompt_tokens == 10
 
