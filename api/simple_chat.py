@@ -379,22 +379,27 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 logger.warning("OPENAI_API_KEY not configured, but continuing with request")
                 # We'll let the OpenAIClient handle this and return an error message
 
-            # Initialize Openai client
-            model = OpenAIClient()
-            model_kwargs = {
-                "model": request.model,
-                "stream": True,
-                "temperature": model_config["temperature"]
-            }
-            # Only add top_p if it exists in the model config
-            if "top_p" in model_config:
-                model_kwargs["top_p"] = model_config["top_p"]
+            use_responses_api = model_config.get("use_responses_api", False)
 
-            api_kwargs = model.convert_inputs_to_api_kwargs(
-                input=prompt,
-                model_kwargs=model_kwargs,
-                model_type=ModelType.LLM
-            )
+            if not use_responses_api:
+                # Initialize Openai client (Chat Completions API)
+                model = OpenAIClient()
+                model_kwargs = {
+                    "model": request.model,
+                    "stream": True,
+                }
+                # Only add temperature/top_p if they exist in the model config
+                # (reasoning models like gpt-5.2-pro do not support these parameters)
+                if "temperature" in model_config:
+                    model_kwargs["temperature"] = model_config["temperature"]
+                if "top_p" in model_config:
+                    model_kwargs["top_p"] = model_config["top_p"]
+
+                api_kwargs = model.convert_inputs_to_api_kwargs(
+                    input=prompt,
+                    model_kwargs=model_kwargs,
+                    model_type=ModelType.LLM
+                )
         elif request.provider == "bedrock":
             logger.info(f"Using AWS Bedrock with model: {request.model}")
 
@@ -485,18 +490,31 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                         yield f"\nError with OpenRouter API: {str(e_openrouter)}\n\nPlease check that you have set the OPENROUTER_API_KEY environment variable with a valid API key."
                 elif request.provider == "openai":
                     try:
-                        # Get the response and handle it properly using the previously created api_kwargs
-                        logger.info("Making Openai API call")
-                        response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                        # Handle streaming response from Openai
-                        async for chunk in response:
-                           choices = getattr(chunk, "choices", [])
-                           if len(choices) > 0:
-                               delta = getattr(choices[0], "delta", None)
-                               if delta is not None:
-                                    text = getattr(delta, "content", None)
-                                    if text is not None:
-                                        yield text
+                        if use_responses_api:
+                            logger.info("Making OpenAI Responses API call")
+                            from openai import OpenAI as OpenAISyncClient
+                            responses_client = OpenAISyncClient()
+                            stream = responses_client.responses.create(
+                                model=request.model,
+                                input=prompt,
+                                stream=True,
+                            )
+                            for event in stream:
+                                if event.type == "response.output_text.delta":
+                                    yield event.delta
+                        else:
+                            # Get the response and handle it properly using the previously created api_kwargs
+                            logger.info("Making Openai API call")
+                            response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                            # Handle streaming response from Openai
+                            async for chunk in response:
+                               choices = getattr(chunk, "choices", [])
+                               if len(choices) > 0:
+                                   delta = getattr(choices[0], "delta", None)
+                                   if delta is not None:
+                                        text = getattr(delta, "content", None)
+                                        if text is not None:
+                                            yield text
                     except Exception as e_openai:
                         logger.error(f"Error with Openai API: {str(e_openai)}")
                         yield f"\nError with Openai API: {str(e_openai)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
@@ -617,21 +635,34 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                                 yield f"\nError with OpenRouter API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENROUTER_API_KEY environment variable with a valid API key."
                         elif request.provider == "openai":
                             try:
-                                # Create new api_kwargs with the simplified prompt
-                                fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
-                                    input=simplified_prompt,
-                                    model_kwargs=model_kwargs,
-                                    model_type=ModelType.LLM
-                                )
+                                if use_responses_api:
+                                    logger.info("Making fallback OpenAI Responses API call")
+                                    from openai import OpenAI as OpenAISyncClient
+                                    responses_client = OpenAISyncClient()
+                                    stream = responses_client.responses.create(
+                                        model=request.model,
+                                        input=simplified_prompt,
+                                        stream=True,
+                                    )
+                                    for event in stream:
+                                        if event.type == "response.output_text.delta":
+                                            yield event.delta
+                                else:
+                                    # Create new api_kwargs with the simplified prompt
+                                    fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
+                                        input=simplified_prompt,
+                                        model_kwargs=model_kwargs,
+                                        model_type=ModelType.LLM
+                                    )
 
-                                # Get the response using the simplified prompt
-                                logger.info("Making fallback Openai API call")
-                                fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
+                                    # Get the response using the simplified prompt
+                                    logger.info("Making fallback Openai API call")
+                                    fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
 
-                                # Handle streaming fallback_response from Openai
-                                async for chunk in fallback_response:
-                                    text = chunk if isinstance(chunk, str) else getattr(chunk, 'text', str(chunk))
-                                    yield text
+                                    # Handle streaming fallback_response from Openai
+                                    async for chunk in fallback_response:
+                                        text = chunk if isinstance(chunk, str) else getattr(chunk, 'text', str(chunk))
+                                        yield text
                             except Exception as e_fallback:
                                 logger.error(f"Error with Openai API fallback: {str(e_fallback)}")
                                 yield f"\nError with Openai API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
