@@ -2,6 +2,104 @@ import React, { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
 // We'll use dynamic import for svg-pan-zoom
 
+function preprocessMermaidLabels(input: string): string {
+  const normalizeInner = (rawInner: string): string => {
+    const trimmedInner = rawInner.trim();
+    const isAlreadyQuoted =
+      trimmedInner.length >= 2 &&
+      trimmedInner.startsWith('"') &&
+      trimmedInner.endsWith('"');
+
+    const quotedInnerMatch = rawInner.match(/^\s*"(.*)"\s*$/);
+    const unquotedInner = isAlreadyQuoted && quotedInnerMatch ? quotedInnerMatch[1] : rawInner;
+    return unquotedInner.replace(/"/g, '&quot;');
+  };
+
+  const processLine = (line: string): string => {
+    let out = '';
+    let i = 0;
+    let inQuotes = false;
+
+    const findMatchingClose = (openChar: '(' | '[' | '{', closeChar: ')' | ']' | '}'): number => {
+      let depth = 0;
+      let j = i;
+      let innerInQuotes = false;
+
+      while (j < line.length) {
+        const ch = line[j];
+
+        if (ch === '"') {
+          innerInQuotes = !innerInQuotes;
+          j += 1;
+          continue;
+        }
+
+        if (innerInQuotes) {
+          j += 1;
+          continue;
+        }
+
+        if (ch === openChar) {
+          depth += 1;
+        } else if (ch === closeChar) {
+          depth -= 1;
+          if (depth === 0) return j;
+        }
+
+        j += 1;
+      }
+
+      return -1;
+    };
+
+    while (i < line.length) {
+      const ch = line[i];
+
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+        out += ch;
+        i += 1;
+        continue;
+      }
+
+      if (!inQuotes && ch === '|') {
+        const end = line.indexOf('|', i + 1);
+        if (end !== -1) {
+          const inner = line.slice(i + 1, end);
+          const escapedInner = normalizeInner(inner);
+          out += `|"${escapedInner}"|`;
+          i = end + 1;
+          continue;
+        }
+      }
+
+      if (!inQuotes && (ch === '(' || ch === '[' || ch === '{')) {
+        const openChar = ch as '(' | '[' | '{';
+        const closeChar: ')' | ']' | '}' = openChar === '(' ? ')' : openChar === '[' ? ']' : '}';
+        const end = findMatchingClose(openChar, closeChar);
+
+        if (end !== -1) {
+          const inner = line.slice(i + 1, end);
+          const escapedInner = normalizeInner(inner);
+          out += `${openChar}"${escapedInner}"${closeChar}`;
+          i = end + 1;
+          continue;
+        }
+      }
+
+      out += ch;
+      i += 1;
+    }
+
+    return out;
+  };
+
+  return input
+    .split('\n')
+    .map((line) => processLine(line))
+    .join('\n');
+}
+
 // Initialize mermaid with defaults - Japanese aesthetic
 mermaid.initialize({
   startOnLoad: true,
@@ -365,8 +463,10 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled
         setError(null);
         setSvg('');
 
+        const preprocessedChart = preprocessMermaidLabels(chart);
+
         // Render the chart directly without preprocessing
-        const { svg: renderedSvg } = await mermaid.render(idRef.current, chart);
+        const { svg: renderedSvg } = await mermaid.render(idRef.current, preprocessedChart);
 
         if (!isMounted) return;
 
@@ -392,7 +492,7 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled
           if (mermaidRef.current) {
             mermaidRef.current.innerHTML = `
               <div class="text-red-500 dark:text-red-400 text-xs mb-1">Syntax error in diagram</div>
-              <pre class="text-xs overflow-auto p-2 bg-gray-100 dark:bg-gray-800 rounded">${chart}</pre>
+              <pre class="text-xs overflow-auto p-2 bg-gray-100 dark:bg-gray-800 rounded">${preprocessMermaidLabels(chart)}</pre>
             `;
           }
         }
