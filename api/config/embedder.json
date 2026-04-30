@@ -33,6 +33,12 @@
   "retriever": {
     "top_k": 20
   },
+  "code_splitter": {
+    "enabled": true,
+    "chunk_size_lines": 200,
+    "chunk_overlap_lines": 20,
+    "min_chunk_lines": 5
+  },
   "text_splitter": {
     "split_by": "word",
     "chunk_size": 350,

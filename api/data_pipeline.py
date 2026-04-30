@@ -17,6 +17,7 @@ import requests
 from requests.exceptions import RequestException
 
 from api.tools.embedder import get_embedder
+from api.code_splitter import CodeAwareSplitter, TreeSitterCodeSplitter
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -410,7 +411,9 @@ def prepare_data_pipeline(embedder_type: str = None, is_ollama_embedder: bool = 
     if embedder_type is None:
         embedder_type = get_embedder_type()
 
-    splitter = TextSplitter(**configs["text_splitter"])
+    text_splitter = TextSplitter(**configs["text_splitter"])
+    code_splitter = TreeSitterCodeSplitter(**configs.get("code_splitter", {}))
+    splitter = CodeAwareSplitter(text_splitter=text_splitter, code_splitter=code_splitter)
     embedder_config = get_embedder_config()
 
     embedder = get_embedder(embedder_type=embedder_type)
@@ -898,8 +901,13 @@ class DatabaseManager:
                         )
                     else:
                         return documents
+            except (AttributeError, KeyError, TypeError) as e:
+                logger.warning(
+                    "Existing database could not be loaded due to incompatible schema or missing components. Rebuilding embeddings... (%s)",
+                    e,
+                )
             except Exception as e:
-                logger.error(f"Error loading existing database: {e}")
+                logger.warning("Error loading existing database. Rebuilding embeddings... (%s)", e)
                 # Continue to create a new database
 
         # prepare the database
