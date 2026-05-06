@@ -23,6 +23,7 @@ from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.azureai_client import AzureAIClient
 from api.dashscope_client import DashscopeClient
+from api.litellm_client import LiteLLMClient
 from api.rag import RAG
 
 # Configure logging
@@ -560,6 +561,23 @@ This file contains...
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM
             )
+        elif request.provider == "litellm":
+            logger.info(f"Using LiteLLM with model: {request.model}")
+
+            model = LiteLLMClient()
+            model_kwargs = {
+                "model": request.model,
+                "stream": True,
+                "temperature": model_config.get("temperature", 0.7),
+            }
+            if "top_p" in model_config:
+                model_kwargs["top_p"] = model_config["top_p"]
+
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=prompt,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM,
+            )
         else:
             # Initialize Google Generative AI model
             model = genai.GenerativeModel(
@@ -702,7 +720,28 @@ This file contains...
                         "DASHSCOPE_WORKSPACE_ID) environment variables with valid values."
                     )
                     await websocket.send_text(error_msg)
-                    # Close the WebSocket connection after sending the error message
+                    await websocket.close()
+            elif request.provider == "litellm":
+                try:
+                    logger.info("Making LiteLLM API call")
+                    response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                    async for chunk in response:
+                        choices = getattr(chunk, "choices", [])
+                        if len(choices) > 0:
+                            delta = getattr(choices[0], "delta", None)
+                            if delta is not None:
+                                text = getattr(delta, "content", None)
+                                if text is not None:
+                                    await websocket.send_text(text)
+                    await websocket.close()
+                except Exception as e_litellm:
+                    logger.error(f"Error with LiteLLM API: {str(e_litellm)}")
+                    error_msg = (
+                        f"\nError with LiteLLM API: {str(e_litellm)}\n\n"
+                        "Please check that your provider API keys are set as environment variables "
+                        "and that the model name uses LiteLLM format (provider/model-name)."
+                    )
+                    await websocket.send_text(error_msg)
                     await websocket.close()
             else:
                 # Google Generative AI (default provider)
@@ -875,6 +914,26 @@ This file contains...
                                 "DASHSCOPE_WORKSPACE_ID) environment variables with valid values."
                             )
                             await websocket.send_text(error_msg)
+                    elif request.provider == "litellm":
+                        try:
+                            fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
+                                input=simplified_prompt,
+                                model_kwargs=model_kwargs,
+                                model_type=ModelType.LLM,
+                            )
+                            logger.info("Making fallback LiteLLM API call")
+                            fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
+                            async for chunk in fallback_response:
+                                choices = getattr(chunk, "choices", [])
+                                if len(choices) > 0:
+                                    delta = getattr(choices[0], "delta", None)
+                                    if delta is not None:
+                                        text = getattr(delta, "content", None)
+                                        if text is not None:
+                                            await websocket.send_text(text)
+                        except Exception as e_fallback:
+                            logger.error(f"Error with LiteLLM API fallback: {str(e_fallback)}")
+                            await websocket.send_text(f"\nError with LiteLLM API fallback: {str(e_fallback)}")
                     else:
                         # Google Generative AI fallback (default provider)
                         model_config = get_model_config(request.provider, request.model)

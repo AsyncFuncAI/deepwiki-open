@@ -18,6 +18,7 @@ from api.openrouter_client import OpenRouterClient
 from api.bedrock_client import BedrockClient
 from api.azureai_client import AzureAIClient
 from api.dashscope_client import DashscopeClient
+from api.litellm_client import LiteLLMClient
 from api.rag import RAG
 from api.prompts import (
     DEEP_RESEARCH_FIRST_ITERATION_PROMPT,
@@ -449,6 +450,23 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM,
             )
+        elif request.provider == "litellm":
+            logger.info(f"Using LiteLLM with model: {request.model}")
+
+            model = LiteLLMClient()
+            model_kwargs = {
+                "model": request.model,
+                "stream": True,
+                "temperature": model_config.get("temperature", 0.7),
+            }
+            if "top_p" in model_config:
+                model_kwargs["top_p"] = model_config["top_p"]
+
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=prompt,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM,
+            )
         else:
             # Initialize Google Generative AI model (default provider)
             model = genai.GenerativeModel(
@@ -548,6 +566,25 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                             f"\nError with Dashscope API: {str(e_dashscope)}\n\n"
                             "Please check that you have set the DASHSCOPE_API_KEY (and optionally "
                             "DASHSCOPE_WORKSPACE_ID) environment variables with valid values."
+                        )
+                elif request.provider == "litellm":
+                    try:
+                        logger.info("Making LiteLLM API call")
+                        response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                        async for chunk in response:
+                            choices = getattr(chunk, "choices", [])
+                            if len(choices) > 0:
+                                delta = getattr(choices[0], "delta", None)
+                                if delta is not None:
+                                    text = getattr(delta, "content", None)
+                                    if text is not None:
+                                        yield text
+                    except Exception as e_litellm:
+                        logger.error(f"Error with LiteLLM API: {str(e_litellm)}")
+                        yield (
+                            f"\nError with LiteLLM API: {str(e_litellm)}\n\n"
+                            "Please check that your provider API keys are set as environment variables "
+                            "and that the model name uses LiteLLM format (provider/model-name)."
                         )
                 else:
                     # Google Generative AI (default provider)
@@ -710,6 +747,26 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                                     "Please check that you have set the DASHSCOPE_API_KEY (and optionally "
                                     "DASHSCOPE_WORKSPACE_ID) environment variables with valid values."
                                 )
+                        elif request.provider == "litellm":
+                            try:
+                                fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
+                                    input=simplified_prompt,
+                                    model_kwargs=model_kwargs,
+                                    model_type=ModelType.LLM,
+                                )
+                                logger.info("Making fallback LiteLLM API call")
+                                fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
+                                async for chunk in fallback_response:
+                                    choices = getattr(chunk, "choices", [])
+                                    if len(choices) > 0:
+                                        delta = getattr(choices[0], "delta", None)
+                                        if delta is not None:
+                                            text = getattr(delta, "content", None)
+                                            if text is not None:
+                                                yield text
+                            except Exception as e_fallback:
+                                logger.error(f"Error with LiteLLM API fallback: {str(e_fallback)}")
+                                yield f"\nError with LiteLLM API fallback: {str(e_fallback)}"
                         else:
                             # Google Generative AI fallback (default provider)
                             model_config = get_model_config(request.provider, request.model)
