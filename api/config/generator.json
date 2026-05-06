@@ -196,7 +196,7 @@
     },
     "litellm": {
       "client_class": "LiteLLMClient",
-      "default_model": "openai/gpt-4o",
+      "default_model": "openai/gpt-4o-mini",
       "supportsCustomModel": true,
       "models": {
         "openai/gpt-4o": {

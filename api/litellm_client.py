@@ -13,6 +13,7 @@ See https://docs.litellm.ai/docs/providers for the full list.
 
 import logging
 import re
+import types
 from typing import (
     Any,
     Callable,
@@ -20,11 +21,13 @@ from typing import (
     List,
     Optional,
     Sequence,
-    TypeVar,
-    Union,
 )
 
-import backoff
+try:
+    import backoff
+    _BACKOFF_AVAILABLE = True
+except ImportError:
+    _BACKOFF_AVAILABLE = False
 
 from adalflow.core.model_client import ModelClient
 from adalflow.core.types import (
@@ -36,18 +39,42 @@ from adalflow.core.types import (
 from adalflow.components.model_client.utils import parse_embedding_response
 
 log = logging.getLogger(__name__)
-T = TypeVar("T")
 
 
-def _is_retryable(exc: BaseException) -> bool:
-    qualname = f"{type(exc).__module__}.{type(exc).__name__}"
-    return qualname in {
-        "litellm.exceptions.RateLimitError",
-        "litellm.exceptions.ServiceUnavailableError",
-        "litellm.exceptions.Timeout",
-        "litellm.exceptions.APIConnectionError",
-        "litellm.exceptions.InternalServerError",
-    }
+try:
+    import litellm as _litellm_mod
+    _RETRYABLE = (
+        _litellm_mod.exceptions.RateLimitError,
+        _litellm_mod.exceptions.ServiceUnavailableError,
+        _litellm_mod.exceptions.Timeout,
+        _litellm_mod.exceptions.APIConnectionError,
+        _litellm_mod.exceptions.InternalServerError,
+    )
+
+    def _is_retryable(exc: BaseException) -> bool:
+        return isinstance(exc, _RETRYABLE)
+except (ImportError, AttributeError):
+    _RETRYABLE = (Exception,)
+
+    def _is_retryable(exc: BaseException) -> bool:
+        return False
+
+
+def _with_retry(fn):
+    """Apply exponential backoff retry for transient LiteLLM errors.
+
+    Note: retry only fires for non-streaming calls. When stream=True,
+    litellm returns a generator immediately (no exception at the call site),
+    so mid-stream failures are not retried by this decorator.
+    """
+    if _BACKOFF_AVAILABLE:
+        return backoff.on_exception(
+            backoff.expo,
+            _RETRYABLE,
+            max_time=60,
+            giveup=lambda e: not _is_retryable(e),
+        )(fn)
+    return fn
 
 
 def get_first_message_content(completion) -> str:
@@ -111,14 +138,6 @@ class LiteLLMClient(ModelClient):
         self.chat_completion_parser = (
             chat_completion_parser or get_first_message_content
         )
-        self.sync_client = self.init_sync_client()
-        self.async_client = None
-
-    def init_sync_client(self):
-        return {"api_key": self._api_key, "base_url": self._base_url}
-
-    def init_async_client(self):
-        return {"api_key": self._api_key, "base_url": self._base_url}
 
     def convert_inputs_to_api_kwargs(
         self,
@@ -167,10 +186,10 @@ class LiteLLMClient(ModelClient):
         return final_model_kwargs
 
     def parse_chat_completion(self, completion) -> GeneratorOutput:
-        import types
-
         try:
-            is_stream = isinstance(completion, types.GeneratorType) or type(completion).__name__ == "CustomStreamWrapper"
+            is_stream = isinstance(
+                completion, (types.GeneratorType, types.AsyncGeneratorType)
+            ) or type(completion).__name__ == "CustomStreamWrapper"
             parser = handle_streaming_response if is_stream else self.chat_completion_parser
             parsed_data = parser(completion)
             usage = None if is_stream else self.track_completion_usage(completion)
@@ -201,7 +220,7 @@ class LiteLLMClient(ModelClient):
             log.error(f"Error parsing the embedding response: {e}")
             return EmbedderOutput(data=[], error=str(e), raw_response=response)
 
-    @backoff.on_exception(backoff.expo, Exception, max_time=5, giveup=lambda e: not _is_retryable(e))
+    @_with_retry
     def call(self, api_kwargs: Optional[Dict] = None, model_type: ModelType = ModelType.UNDEFINED):
         import litellm
 
@@ -214,14 +233,16 @@ class LiteLLMClient(ModelClient):
         if self._base_url:
             extra["api_base"] = self._base_url
 
+        final_kwargs = {"drop_params": True, **api_kwargs, **extra}
+
         if model_type == ModelType.EMBEDDER:
-            return litellm.embedding(drop_params=True, **api_kwargs, **extra)
+            return litellm.embedding(**final_kwargs)
         elif model_type == ModelType.LLM:
-            return litellm.completion(drop_params=True, **api_kwargs, **extra)
+            return litellm.completion(**final_kwargs)
         else:
             raise ValueError(f"model_type {model_type} is not supported")
 
-    @backoff.on_exception(backoff.expo, Exception, max_time=5, giveup=lambda e: not _is_retryable(e))
+    @_with_retry
     async def acall(self, api_kwargs: Optional[Dict] = None, model_type: ModelType = ModelType.UNDEFINED):
         import litellm
 
@@ -233,15 +254,19 @@ class LiteLLMClient(ModelClient):
         if self._base_url:
             extra["api_base"] = self._base_url
 
+        final_kwargs = {"drop_params": True, **api_kwargs, **extra}
+
         if model_type == ModelType.EMBEDDER:
-            return await litellm.aembedding(drop_params=True, **api_kwargs, **extra)
+            return await litellm.aembedding(**final_kwargs)
         elif model_type == ModelType.LLM:
-            return await litellm.acompletion(drop_params=True, **api_kwargs, **extra)
+            return await litellm.acompletion(**final_kwargs)
         else:
             raise ValueError(f"model_type {model_type} is not supported")
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
+        """Deserialize from dict. Note: chat_completion_parser is not restored
+        since callables cannot be JSON-serialized."""
         return cls(**data)
 
     def to_dict(self) -> Dict[str, Any]:
