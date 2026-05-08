@@ -555,6 +555,24 @@ The API server provides:
 
 For more details, see the [API README](./api/README.md).
 
+### Publishing to understand-quickly (opt-in)
+
+DeepWiki can emit its generated wiki as a [`generic@1`](https://github.com/looptech-ai/understand-quickly/blob/main/schemas/generic@1.json) knowledge graph and (optionally) register it with [`looptech-ai/understand-quickly`](https://github.com/looptech-ai/understand-quickly), a public registry of code-knowledge graphs that ships an MCP server and a stable `registry.json` API.
+
+```bash
+# Existing markdown / json export — unchanged.
+curl -X POST http://localhost:8001/export/wiki \
+  -H "content-type: application/json" \
+  -d '{"repo_url":"https://github.com/owner/repo","format":"json","pages":[...]}' > wiki.json
+
+# New: emit the knowledge graph and (optionally) ping the registry.
+curl -X POST http://localhost:8001/export/wiki \
+  -H "content-type: application/json" \
+  -d '{"repo_url":"https://github.com/owner/repo","format":"graph","publish":true,"pages":[...]}' > graph.json
+```
+
+Set `UNDERSTAND_QUICKLY_TOKEN` in the API server env (a fine-grained PAT with `Repository dispatches: write` on `looptech-ai/understand-quickly` only) to enable the dispatch step. With the token unset, `format=graph` still emits the file — the dispatch is simply skipped. See the [integration protocol](https://github.com/looptech-ai/understand-quickly/blob/main/docs/integrations/protocol.md) for the full contract.
+
 ## 🔌 OpenRouter Integration
 
 DeepWiki now supports [OpenRouter](https://openrouter.ai/) as a model provider, giving you access to hundreds of AI models through a single API:

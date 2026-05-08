@@ -115,7 +115,31 @@ class WikiExportRequest(BaseModel):
     """
     repo_url: str = Field(..., description="URL of the repository")
     pages: List[WikiPage] = Field(..., description="List of wiki pages to export")
-    format: Literal["markdown", "json"] = Field(..., description="Export format (markdown or json)")
+    format: Literal["markdown", "json", "graph"] = Field(
+        ...,
+        description=(
+            "Export format. 'markdown' / 'json' are the existing wiki dumps; "
+            "'graph' emits a generic@1 knowledge graph for the "
+            "looptech-ai/understand-quickly registry."
+        ),
+    )
+    publish: bool = Field(
+        False,
+        description=(
+            "If true, after producing the export also fire a "
+            "repository_dispatch event at looptech-ai/understand-quickly "
+            "so the registry resyncs the entry. Opt-in; requires "
+            "UNDERSTAND_QUICKLY_TOKEN in the server env. No-ops cleanly "
+            "if the token is missing."
+        ),
+    )
+    repo: Optional[str] = Field(
+        None,
+        description=(
+            "Optional 'owner/repo' override for the registry id. If "
+            "omitted, derived from `repo_url`."
+        ),
+    )
 
 # --- Model Configuration Models ---
 class Model(BaseModel):
@@ -227,7 +251,7 @@ async def get_model_config():
 @app.post("/export/wiki")
 async def export_wiki(request: WikiExportRequest):
     """
-    Export wiki content as Markdown or JSON.
+    Export wiki content as Markdown, JSON, or a knowledge graph.
 
     Args:
         request: The export request containing wiki pages and format
@@ -245,11 +269,40 @@ async def export_wiki(request: WikiExportRequest):
         # Get current timestamp for the filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+        publish_status: Optional[Dict[str, Any]] = None
+        headers: Dict[str, str] = {}
+
         if request.format == "markdown":
             # Generate Markdown content
             content = generate_markdown_export(request.repo_url, request.pages)
             filename = f"{repo_name}_wiki_{timestamp}.md"
             media_type = "text/markdown"
+        elif request.format == "graph":
+            # generic@1 knowledge graph for looptech-ai/understand-quickly.
+            from api.publish import (
+                build_graph_payload,
+                derive_owner_repo,
+                publish as publish_to_registry,
+            )
+
+            payload = build_graph_payload(
+                [page.model_dump() for page in request.pages],
+                repo_url=request.repo_url,
+            )
+            content = json.dumps(payload, indent=2)
+            filename = f"{repo_name}_graph_{timestamp}.json"
+            media_type = "application/json"
+
+            if request.publish:
+                owner_repo = request.repo or derive_owner_repo(request.repo_url)
+                publish_status = publish_to_registry(payload, owner_repo=owner_repo)
+                headers["X-Understand-Quickly-Dispatched"] = (
+                    "true" if publish_status.get("dispatched") else "false"
+                )
+                if publish_status.get("reason"):
+                    headers["X-Understand-Quickly-Reason"] = str(
+                        publish_status["reason"]
+                    )
         else:  # JSON format
             # Generate JSON content
             content = generate_json_export(request.repo_url, request.pages)
@@ -257,12 +310,11 @@ async def export_wiki(request: WikiExportRequest):
             media_type = "application/json"
 
         # Create response with appropriate headers for file download
+        headers["Content-Disposition"] = f"attachment; filename={filename}"
         response = Response(
             content=content,
             media_type=media_type,
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}"
-            }
+            headers=headers,
         )
 
         return response
