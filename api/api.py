@@ -137,7 +137,18 @@ class WikiExportRequest(BaseModel):
         None,
         description=(
             "Optional 'owner/repo' override for the registry id. If "
-            "omitted, derived from `repo_url`."
+            "omitted, derived from `repo_url`. Must match the owner/repo "
+            "implied by `repo_url` when set — mismatches are rejected to "
+            "prevent dispatching syncs for unrelated entries."
+        ),
+    )
+    commit: Optional[str] = Field(
+        None,
+        description=(
+            "Optional 40-hex git commit SHA to embed in the graph "
+            "metadata. If omitted, the server attempts to resolve HEAD "
+            "from its local checkout (best-effort) and otherwise leaves "
+            "`metadata.commit` unset."
         ),
     )
 
@@ -282,20 +293,41 @@ async def export_wiki(request: WikiExportRequest):
             from api.publish import (
                 build_graph_payload,
                 derive_owner_repo,
+                git_head_sha,
                 publish as publish_to_registry,
             )
+
+            derived_owner_repo = derive_owner_repo(request.repo_url)
+            commit = request.commit or git_head_sha()
 
             payload = build_graph_payload(
                 [page.model_dump() for page in request.pages],
                 repo_url=request.repo_url,
+                commit=commit,
             )
             content = json.dumps(payload, indent=2)
             filename = f"{repo_name}_graph_{timestamp}.json"
             media_type = "application/json"
 
             if request.publish:
-                owner_repo = request.repo or derive_owner_repo(request.repo_url)
-                publish_status = publish_to_registry(payload, owner_repo=owner_repo)
+                # Reject explicit `repo` overrides that don't match the
+                # derived owner/repo from `repo_url`. Without this an
+                # unauthenticated client could trigger a sync-entry
+                # dispatch for any registry id once the server is
+                # configured with a token.
+                if request.repo and derived_owner_repo and request.repo != derived_owner_repo:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"`repo` override ({request.repo!r}) does not "
+                            f"match owner/repo derived from `repo_url` "
+                            f"({derived_owner_repo!r})."
+                        ),
+                    )
+                owner_repo = request.repo or derived_owner_repo
+                publish_status = await asyncio.to_thread(
+                    publish_to_registry, payload, owner_repo=owner_repo
+                )
                 headers["X-Understand-Quickly-Dispatched"] = (
                     "true" if publish_status.get("dispatched") else "false"
                 )
