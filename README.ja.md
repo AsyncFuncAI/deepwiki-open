@@ -160,7 +160,8 @@ deepwiki/
 │   ├── api.py            # FastAPI実装
 │   ├── rag.py            # 検索拡張生成
 │   ├── data_pipeline.py  # データ処理ユーティリティ
-│   └── requirements.txt  # Python依存関係
+│   ├── pyproject.toml     # Python依存関係 (Poetry)
+│   └── poetry.lock        # 固定されたPython依存関係バージョン
 │
 ├── src/                  # フロントエンドNext.jsアプリ
 │   ├── app/              # Next.jsアプリディレクトリ

@@ -151,7 +151,8 @@ deepwiki/
 │   ├── api.py            # FastAPI 구현
 │   ├── rag.py            # Retrieval Augmented Generation
 │   ├── data_pipeline.py  # 데이터 처리 유틸리티
-│   └── requirements.txt  # Python 의존성
+│   ├── pyproject.toml     # Python 의존성 (Poetry)
+│   └── poetry.lock        # 잠긴 Python 의존성 버전
 │
 ├── src/                  # 프론트엔드 Next.js 앱
 │   ├── app/              # Next.js 앱 디렉토리
