@@ -769,17 +769,31 @@ class DatabaseManager:
 
     def _extract_repo_name_from_url(self, repo_url_or_path: str, repo_type: str) -> str:
         # Extract owner and repo name to create unique identifier
-        url_parts = repo_url_or_path.rstrip('/').split('/')
+        repo_url_or_path = repo_url_or_path.strip().rstrip('/')
 
-        if repo_type in ["github", "gitlab", "bitbucket"] and len(url_parts) >= 5:
-            # GitHub URL format: https://github.com/owner/repo
-            # GitLab URL format: https://gitlab.com/owner/repo or https://gitlab.com/group/subgroup/repo
-            # Bitbucket URL format: https://bitbucket.org/owner/repo
-            owner = url_parts[-2]
-            repo = url_parts[-1].replace(".git", "")
-            repo_name = f"{owner}_{repo}"
+        def strip_git_suffix(name: str) -> str:
+            return name[:-4] if name.endswith(".git") else name
+
+        if repo_type in ["github", "gitlab", "bitbucket"]:
+            parsed_url = urlparse(repo_url_or_path)
+            if parsed_url.scheme and parsed_url.netloc:
+                path_parts = [part for part in parsed_url.path.strip('/').split('/') if part]
+            else:
+                path = repo_url_or_path.split('?', 1)[0].split('#', 1)[0].strip('/')
+                path_parts = [part for part in path.split('/') if part]
+                if len(path_parts) >= 3:
+                    host = path_parts[0].lower()
+                    if "." in host or host == "localhost":
+                        path_parts = path_parts[1:]
+
+            if len(path_parts) >= 2:
+                path_parts[-1] = strip_git_suffix(path_parts[-1])
+                repo_name = "_".join(path_parts)
+            else:
+                repo_name = strip_git_suffix(path_parts[-1]) if path_parts else ""
         else:
-            repo_name = url_parts[-1].replace(".git", "")
+            url_parts = repo_url_or_path.split('/')
+            repo_name = strip_git_suffix(url_parts[-1])
         return repo_name
 
     def _create_repo(self, repo_url_or_path: str, repo_type: str = None, access_token: str = None) -> None:
