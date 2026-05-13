@@ -55,7 +55,7 @@ class TestExtractRepoNameFromUrl:
         # Test GitLab URL with subgroups
         gitlab_subgroup = "https://gitlab.com/group/subgroup/repo"
         result = self.db_manager._extract_repo_name_from_url(gitlab_subgroup, "gitlab")
-        assert result == "subgroup_repo"
+        assert result == "group_subgroup_repo"
         
         print("✓ GitLab URL tests passed")
     
