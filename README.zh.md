@@ -158,7 +158,8 @@ deepwiki/
 │   ├── api.py            # FastAPI实现
 │   ├── rag.py            # 检索增强生成
 │   ├── data_pipeline.py  # 数据处理工具
-│   └── requirements.txt  # Python依赖
+│   ├── pyproject.toml     # Python依赖 (Poetry)
+│   └── poetry.lock        # 已锁定的 Python 依赖版本
 │
 ├── src/                  # 前端Next.js应用
 │   ├── app/              # Next.js应用目录

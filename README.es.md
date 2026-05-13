@@ -158,7 +158,8 @@ deepwiki/
 │   ├── api.py            # Implementación FastAPI
 │   ├── rag.py            # Generación Aumentada por Recuperación
 │   ├── data_pipeline.py  # Utilidades de procesamiento de datos
-│   └── requirements.txt  # Dependencias Python
+│   ├── pyproject.toml     # Dependencias Python (Poetry)
+│   └── poetry.lock        # Versiones bloqueadas de dependencias Python
 │
 ├── src/                  # App frontend Next.js
 │   ├── app/              # Directorio app de Next.js

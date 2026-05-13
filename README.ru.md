@@ -167,7 +167,8 @@ deepwiki/
 │   ├── api.py            # Реализация через FastAPI
 │   ├── rag.py            # RAG: генерация с дополнением
 │   ├── data_pipeline.py  # Утилиты обработки данных
-│   └── requirements.txt  # Зависимости Python
+│   ├── pyproject.toml     # Зависимости Python (Poetry)
+│   └── poetry.lock        # Зафиксированные версии зависимостей Python
 │
 ├── src/                  # Клиентское приложение на Next.js
 │   ├── app/              # Каталог приложения Next.js

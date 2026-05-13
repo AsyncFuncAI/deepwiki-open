@@ -164,7 +164,8 @@ deepwiki/
 │   ├── api.py            # FastAPI 實作
 │   ├── rag.py            # 檢索增強產生
 │   ├── data_pipeline.py  # 資料處理工具
-│   └── requirements.txt  # Python 相依性
+│   ├── pyproject.toml     # Python 相依性 (Poetry)
+│   └── poetry.lock        # 已鎖定的 Python 相依性版本
 │
 ├── src/                  # 前端 Next.js 應用
 │   ├── app/              # Next.js 應用目錄
