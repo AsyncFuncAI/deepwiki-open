@@ -217,6 +217,7 @@ async def get_model_config():
                     name="Google",
                     supportsCustomModel=True,
                     models=[
+                        Model(id="gemini-3-pro", name="Gemini 3 Pro"),
                         Model(id="gemini-2.5-flash", name="Gemini 2.5 Flash")
                     ]
                 )
