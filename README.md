@@ -36,7 +36,7 @@ https://github.com/user-attachments/assets/48d1e60a-eb91-4c05-a5a8-3624ffb79fb1
 - **Ask Feature**: Chat with your repository using RAG-powered AI to get accurate answers
 - **DeepResearch**: Multi-turn research process that thoroughly investigates complex topics
 - **Multiple Model Providers**: Support for Google Gemini, OpenAI, OpenRouter, and local Ollama models
-- **Flexible Embeddings**: Choose between OpenAI, Google AI, or local Ollama embeddings for optimal performance
+- **Flexible Embeddings**: Choose between OpenAI, Google AI, OpenRouter, or local Ollama embeddings for optimal performance
 
 ## 🚀 Quick Start (Super Easy!)
 
@@ -342,6 +342,7 @@ docker-compose up
 |------|-------------|------------------|-------|
 | `openai` | OpenAI embeddings (default) | `OPENAI_API_KEY` | Uses `text-embedding-3-small` model |
 | `google` | Google AI embeddings | `GOOGLE_API_KEY` | Uses `text-embedding-004` model |
+| `openrouter` | OpenRouter embeddings | `OPENROUTER_API_KEY` | Uses `openai/text-embedding-3-small` via OpenRouter |
 | `ollama` | Local Ollama embeddings | None | Requires local Ollama installation |
 
 ### Why Use Google AI Embeddings?
@@ -362,11 +363,51 @@ export DEEPWIKI_EMBEDDER_TYPE=openai
 # Use Google AI embeddings
 export DEEPWIKI_EMBEDDER_TYPE=google
 
+# Use OpenRouter embeddings
+export DEEPWIKI_EMBEDDER_TYPE=openrouter
+
 # Use local Ollama embeddings
 export DEEPWIKI_EMBEDDER_TYPE=ollama
 ```
 
 **Note**: When switching embedders, you may need to regenerate your repository embeddings as different models produce different vector spaces.
+
+## 🔀 Using OpenRouter Embeddings
+
+DeepWiki supports OpenRouter as an embedding provider. OpenRouter exposes an OpenAI-compatible embeddings endpoint, so any embedding model available on OpenRouter can be used.
+
+### How to Enable OpenRouter Embeddings
+
+Set the embedder type and your OpenRouter API key in your `.env` file:
+
+```bash
+OPENROUTER_API_KEY=your_openrouter_api_key
+DEEPWIKI_EMBEDDER_TYPE=openrouter
+```
+
+**Docker:**
+
+```bash
+docker run -p 8001:8001 -p 3000:3000 \
+  -e OPENROUTER_API_KEY=your_openrouter_api_key \
+  -e DEEPWIKI_EMBEDDER_TYPE=openrouter \
+  -v ~/.adalflow:/root/.adalflow \
+  ghcr.io/asyncfuncai/deepwiki-open:latest
+```
+
+### Changing the Embedding Model
+
+The default model is `openai/text-embedding-3-small`. To use a different model, edit `api/config/embedder.json` and change the `model` field under `embedder_openrouter`:
+
+```json
+"embedder_openrouter": {
+  "model_kwargs": {
+    "model": "openai/text-embedding-3-large"
+  }
+}
+```
+
+Any embedding model listed on [OpenRouter](https://openrouter.ai/models) that exposes an OpenAI-compatible embeddings endpoint can be used here.
 
 ### Logging
 
@@ -412,7 +453,7 @@ docker-compose up
 |----------------------|--------------------------------------------------------------|----------|----------------------------------------------------------------------------------------------------------|
 | `GOOGLE_API_KEY`     | Google Gemini API key for AI generation and embeddings      | No | Required for Google Gemini models and Google AI embeddings                                               
 | `OPENAI_API_KEY`     | OpenAI API key for embeddings and models                     | Conditional | Required if using OpenAI embeddings or models                                                            |
-| `OPENROUTER_API_KEY` | OpenRouter API key for alternative models                    | No | Required only if you want to use OpenRouter models                                                       |
+| `OPENROUTER_API_KEY` | OpenRouter API key for alternative models and embeddings     | No | Required if using OpenRouter models or `DEEPWIKI_EMBEDDER_TYPE=openrouter`                               |
 | `AWS_ACCESS_KEY_ID`  | AWS access key ID for Bedrock                                 | No | Required for Bedrock if not using instance/role-based credentials                                        |
 | `AWS_SECRET_ACCESS_KEY` | AWS secret access key for Bedrock                          | No | Required for Bedrock if not using instance/role-based credentials                                        |
 | `AWS_SESSION_TOKEN`  | AWS session token for Bedrock (STS)                            | No | Required when using temporary credentials                                                                |
@@ -422,7 +463,7 @@ docker-compose up
 | `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint                    | No | Required only if you want to use Azure OpenAI models                                                       |
 | `AZURE_OPENAI_VERSION` | Azure OpenAI version                     | No | Required only if you want to use Azure OpenAI models                                                       |
 | `OLLAMA_HOST`        | Ollama Host (default: http://localhost:11434)                | No | Required only if you want to use external Ollama server                                                  |
-| `DEEPWIKI_EMBEDDER_TYPE` | Embedder type: `openai`, `google`, `ollama`, or `bedrock` (default: `openai`) | No | Controls which embedding provider to use                                                              |
+| `DEEPWIKI_EMBEDDER_TYPE` | Embedder type: `openai`, `google`, `ollama`, `bedrock`, or `openrouter` (default: `openai`) | No | Controls which embedding provider to use                                                              |
 | `PORT`               | Port for the API server (default: 8001)                      | No | If you host API and frontend on the same machine, make sure change port of `SERVER_BASE_URL` accordingly |
 | `SERVER_BASE_URL`    | Base URL for the API server (default: http://localhost:8001) | No |
 | `DEEPWIKI_AUTH_MODE` | Set to `true` or `1` to enable authorization mode. | No | Defaults to `false`. If enabled, `DEEPWIKI_AUTH_CODE` is required. |
@@ -430,7 +471,8 @@ docker-compose up
 
 **API Key Requirements:**
 - If using `DEEPWIKI_EMBEDDER_TYPE=openai` (default): `OPENAI_API_KEY` is required
-- If using `DEEPWIKI_EMBEDDER_TYPE=google`: `GOOGLE_API_KEY` is required  
+- If using `DEEPWIKI_EMBEDDER_TYPE=google`: `GOOGLE_API_KEY` is required
+- If using `DEEPWIKI_EMBEDDER_TYPE=openrouter`: `OPENROUTER_API_KEY` is required
 - If using `DEEPWIKI_EMBEDDER_TYPE=ollama`: No API key required (local processing)
 - If using `DEEPWIKI_EMBEDDER_TYPE=bedrock`: AWS credentials (or role-based credentials) are required
 
