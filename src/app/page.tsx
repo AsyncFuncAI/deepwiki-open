@@ -77,49 +77,10 @@ export default function Home() {
 
   const [repositoryInput, setRepositoryInput] = useState('https://github.com/AsyncFuncAI/deepwiki-open');
 
-  const REPO_CONFIG_CACHE_KEY = 'deepwikiRepoConfigCache';
-
-  const loadConfigFromCache = (repoUrl: string) => {
-    if (!repoUrl) return;
-    try {
-      const cachedConfigs = localStorage.getItem(REPO_CONFIG_CACHE_KEY);
-      if (cachedConfigs) {
-        const configs = JSON.parse(cachedConfigs);
-        const config = configs[repoUrl.trim()];
-        if (config) {
-          setSelectedLanguage(config.selectedLanguage || language);
-          setIsComprehensiveView(config.isComprehensiveView === undefined ? true : config.isComprehensiveView);
-          setProvider(config.provider || '');
-          setModel(config.model || '');
-          setIsCustomModel(config.isCustomModel || false);
-          setCustomModel(config.customModel || '');
-          setSelectedPlatform(config.selectedPlatform || 'github');
-          setExcludedDirs(config.excludedDirs || '');
-          setExcludedFiles(config.excludedFiles || '');
-          setIncludedDirs(config.includedDirs || '');
-          setIncludedFiles(config.includedFiles || '');
-        }
-      }
-    } catch (error) {
-      console.error('Error loading config from localStorage:', error);
-    }
-  };
-
   const handleRepositoryInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newRepoUrl = e.target.value;
     setRepositoryInput(newRepoUrl);
-    if (newRepoUrl.trim() === "") {
-      // Optionally reset fields if input is cleared
-    } else {
-        loadConfigFromCache(newRepoUrl);
-    }
   };
-
-  useEffect(() => {
-    if (repositoryInput) {
-      loadConfigFromCache(repositoryInput);
-    }
-  }, []);
 
   // Provider-based model selection state
   const [provider, setProvider] = useState<string>('');
@@ -304,30 +265,6 @@ export default function Home() {
     if (isSubmitting) {
       console.log('Form submission already in progress, ignoring duplicate click');
       return;
-    }
-
-    try {
-      const currentRepoUrl = repositoryInput.trim();
-      if (currentRepoUrl) {
-        const existingConfigs = JSON.parse(localStorage.getItem(REPO_CONFIG_CACHE_KEY) || '{}');
-        const configToSave = {
-          selectedLanguage,
-          isComprehensiveView,
-          provider,
-          model,
-          isCustomModel,
-          customModel,
-          selectedPlatform,
-          excludedDirs,
-          excludedFiles,
-          includedDirs,
-          includedFiles,
-        };
-        existingConfigs[currentRepoUrl] = configToSave;
-        localStorage.setItem(REPO_CONFIG_CACHE_KEY, JSON.stringify(existingConfigs));
-      }
-    } catch (error) {
-      console.error('Error saving config to localStorage:', error);
     }
 
     setIsSubmitting(true);

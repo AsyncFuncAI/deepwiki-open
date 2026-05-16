@@ -708,6 +708,27 @@ def get_file_content(repo_url: str, file_path: str, repo_type: str = None, acces
     Raises:
         ValueError: If the file cannot be fetched or if the URL is not valid
     """
+    if repo_type == "local" or (
+        repo_url
+        and not repo_url.startswith("http://")
+        and not repo_url.startswith("https://")
+    ):
+        repo_root = os.path.abspath(repo_url)
+        candidate_path = os.path.abspath(os.path.join(repo_root, file_path))
+
+        # Prevent path traversal outside the repository root.
+        if os.path.commonpath([repo_root, candidate_path]) != repo_root:
+            raise ValueError("Requested file path escapes the local repository root.")
+
+        if not os.path.isfile(candidate_path):
+            raise ValueError(f"Local file not found: {file_path}")
+
+        try:
+            with open(candidate_path, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            raise ValueError(f"Failed to read local file content: {str(e)}")
+
     if repo_type == "github":
         return get_github_file_content(repo_url, file_path, access_token)
     elif repo_type == "gitlab":
@@ -715,7 +736,7 @@ def get_file_content(repo_url: str, file_path: str, repo_type: str = None, acces
     elif repo_type == "bitbucket":
         return get_bitbucket_file_content(repo_url, file_path, access_token)
     else:
-        raise ValueError("Unsupported repository type. Only GitHub, GitLab, and Bitbucket are supported.")
+        raise ValueError("Unsupported repository type. Only local, GitHub, GitLab, and Bitbucket are supported.")
 
 class DatabaseManager:
     """

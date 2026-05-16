@@ -46,6 +46,12 @@ wheels/
 # misc
 .DS_Store
 *.pem
+*.save
+.promptfoo/
+.promptfoo-home/
+.tmp/
+promptfoo.db
+data-gym-cache/
 
 # debug
 npm-debug.log*

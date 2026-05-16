@@ -1,33 +1,14 @@
 {
-  "embedder": {
-    "client_class": "OpenAIClient",
-    "batch_size": 500,
-    "model_kwargs": {
-      "model": "text-embedding-3-small",
-      "dimensions": 256,
-      "encoding_format": "float"
-    }
-  },
   "embedder_ollama": {
     "client_class": "OllamaClient",
     "model_kwargs": {
       "model": "nomic-embed-text"
     }
   },
-  "embedder_google": {
-    "client_class": "GoogleEmbedderClient",
-    "batch_size": 100,
+  "embedder": {
+    "client_class": "OllamaClient",
     "model_kwargs": {
-      "model": "gemini-embedding-001",
-      "task_type": "SEMANTIC_SIMILARITY"
-    }
-  },
-  "embedder_bedrock": {
-    "client_class": "BedrockClient",
-    "batch_size": 100,
-    "model_kwargs": {
-      "model": "amazon.titan-embed-text-v2:0",
-      "dimensions": 256
+      "model": "nomic-embed-text"
     }
   },
   "retriever": {
