@@ -77,7 +77,7 @@ class TestLiteLLMClientInit:
         assert client._api_key is None
         assert client._base_url is None
         assert client._input_type == "text"
-        assert client.sync_client is not None
+        assert client.sync_client is None
 
     def test_init_with_params(self):
         client = LiteLLMClient(api_key="test-key", base_url="https://proxy.example.com")
@@ -384,15 +384,17 @@ class TestParseCompletion:
 
 class TestRetryPredicate:
     def test_rate_limit_is_retryable(self):
-        exc = type("RateLimitError", (Exception,), {})()
-        exc.__class__.__module__ = "litellm.exceptions"
-        exc.__class__.__qualname__ = "RateLimitError"
+        import litellm
+        exc = litellm.exceptions.RateLimitError(
+            message="rate limited", llm_provider="openai", model="gpt-4o"
+        )
         assert _is_retryable(exc)
 
     def test_auth_error_is_not_retryable(self):
-        exc = type("AuthenticationError", (Exception,), {})()
-        exc.__class__.__module__ = "litellm.exceptions"
-        exc.__class__.__qualname__ = "AuthenticationError"
+        import litellm
+        exc = litellm.exceptions.AuthenticationError(
+            message="bad key", llm_provider="openai", model="gpt-4o"
+        )
         assert not _is_retryable(exc)
 
     def test_value_error_is_not_retryable(self):
