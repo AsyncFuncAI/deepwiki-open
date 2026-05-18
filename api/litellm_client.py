@@ -191,14 +191,21 @@ class LiteLLMClient(ModelClient):
                 completion, (types.GeneratorType, types.AsyncGeneratorType)
             ) or type(completion).__name__ == "CustomStreamWrapper"
             parser = handle_streaming_response if is_stream else self.chat_completion_parser
-            parsed_data = parser(completion)
-            usage = None if is_stream else self.track_completion_usage(completion)
-            return GeneratorOutput(
-                data=parsed_data, error=None, raw_response=completion, usage=usage
-            )
+            data = parser(completion)
         except Exception as e:
             log.error(f"Error in parse_chat_completion: {e}")
             return GeneratorOutput(data=None, error=str(e), raw_response=completion)
+
+        try:
+            usage = None if is_stream else self.track_completion_usage(completion)
+            return GeneratorOutput(
+                data=None, error=None, raw_response=data, usage=usage
+            )
+        except Exception as e:
+            log.error(f"Error tracking usage: {e}")
+            return GeneratorOutput(
+                data=None, error=None, raw_response=data, usage=None
+            )
 
     def track_completion_usage(self, completion) -> CompletionUsage:
         try:
@@ -267,9 +274,13 @@ class LiteLLMClient(ModelClient):
     def from_dict(cls, data: Dict[str, Any]):
         """Deserialize from dict. Note: chat_completion_parser is not restored
         since callables cannot be JSON-serialized."""
-        return cls(**data)
+        allowed = {"api_key", "base_url", "input_type"}
+        return cls(**{k: v for k, v in data.items() if k in allowed})
 
     def to_dict(self) -> Dict[str, Any]:
-        exclude = ["sync_client", "async_client"]
-        output = super().to_dict(exclude=exclude)
-        return output
+        """Serialize to dict. API key is redacted to prevent secret leakage."""
+        return {
+            "api_key": None,
+            "base_url": self._base_url,
+            "input_type": self._input_type,
+        }

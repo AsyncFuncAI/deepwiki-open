@@ -277,7 +277,7 @@ class TestAcallMocked:
         fake_litellm.aembedding = mock.AsyncMock()
 
         with mock.patch.dict(sys.modules, {"litellm": fake_litellm}):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 client.acall(
                     api_kwargs={"model": "x", "messages": [{"role": "user", "content": "hi"}]},
                     model_type=ModelType.LLM,
@@ -294,7 +294,7 @@ class TestAcallMocked:
         fake_litellm.aembedding = mock.AsyncMock(return_value=mock_resp)
 
         with mock.patch.dict(sys.modules, {"litellm": fake_litellm}):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 client.acall(
                     api_kwargs={"model": "text-embedding-3-small", "input": ["hello"]},
                     model_type=ModelType.EMBEDDER,
@@ -309,7 +309,7 @@ class TestAcallMocked:
         fake_litellm.acompletion = mock.AsyncMock(return_value=mock_resp)
 
         with mock.patch.dict(sys.modules, {"litellm": fake_litellm}):
-            asyncio.get_event_loop().run_until_complete(
+            asyncio.run(
                 client.acall(
                     api_kwargs={"model": "x", "messages": [{"role": "user", "content": "hi"}]},
                     model_type=ModelType.LLM,
@@ -322,7 +322,7 @@ class TestAcallMocked:
         fake_litellm = types.ModuleType("litellm")
         with mock.patch.dict(sys.modules, {"litellm": fake_litellm}):
             with pytest.raises(ValueError, match="not supported"):
-                asyncio.get_event_loop().run_until_complete(
+                asyncio.run(
                     client.acall(api_kwargs={}, model_type=ModelType.IMAGE_GENERATION)
                 )
 
@@ -355,8 +355,8 @@ class TestParseCompletion:
         client = LiteLLMClient()
         mock_resp = _make_mock_response("Hello world", 10, 5)
         output = client.parse_chat_completion(mock_resp)
-        assert output.data == "Hello world"
-        assert output.raw_response == mock_resp
+        assert output.data is None
+        assert output.raw_response == "Hello world"
         assert output.usage.completion_tokens == 5
         assert output.usage.prompt_tokens == 10
 
@@ -407,10 +407,19 @@ class TestSerialization:
         assert client._api_key == "test"
         assert client._base_url == "http://x"
 
-    def test_to_dict_excludes_clients(self):
-        client = LiteLLMClient()
+    def test_to_dict_redacts_api_key(self):
+        client = LiteLLMClient(api_key="secret-key", base_url="http://proxy")
         d = client.to_dict()
-        assert "sync_client" not in str(d)
+        assert d["api_key"] is None
+        assert d["base_url"] == "http://proxy"
+        assert "secret" not in str(d)
+
+    def test_from_dict_to_dict_round_trip(self):
+        client = LiteLLMClient(base_url="http://proxy")
+        d = client.to_dict()
+        restored = LiteLLMClient.from_dict(d)
+        assert restored._base_url == "http://proxy"
+        assert restored._api_key is None
 
 
 class TestConfigRegistration:

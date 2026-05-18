@@ -18,7 +18,7 @@ from api.openrouter_client import OpenRouterClient
 from api.bedrock_client import BedrockClient
 from api.azureai_client import AzureAIClient
 from api.dashscope_client import DashscopeClient
-from api.litellm_client import LiteLLMClient
+from api.litellm_client import LiteLLMClient, handle_streaming_response
 from api.rag import RAG
 from api.prompts import (
     DEEP_RESEARCH_FIRST_ITERATION_PROMPT,
@@ -571,14 +571,8 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                     try:
                         logger.info("Making LiteLLM API call")
                         response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                        async for chunk in response:
-                            choices = getattr(chunk, "choices", [])
-                            if len(choices) > 0:
-                                delta = getattr(choices[0], "delta", None)
-                                if delta is not None:
-                                    text = getattr(delta, "content", None)
-                                    if text is not None:
-                                        yield text
+                        for text in handle_streaming_response(response):
+                            yield text
                     except Exception as e_litellm:
                         logger.error(f"Error with LiteLLM API: {str(e_litellm)}")
                         yield (
@@ -756,14 +750,8 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                                 )
                                 logger.info("Making fallback LiteLLM API call")
                                 fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
-                                async for chunk in fallback_response:
-                                    choices = getattr(chunk, "choices", [])
-                                    if len(choices) > 0:
-                                        delta = getattr(choices[0], "delta", None)
-                                        if delta is not None:
-                                            text = getattr(delta, "content", None)
-                                            if text is not None:
-                                                yield text
+                                for text in handle_streaming_response(fallback_response):
+                                    yield text
                             except Exception as e_fallback:
                                 logger.error(f"Error with LiteLLM API fallback: {str(e_fallback)}")
                                 yield f"\nError with LiteLLM API fallback: {str(e_fallback)}"

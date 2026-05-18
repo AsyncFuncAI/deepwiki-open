@@ -23,7 +23,7 @@ from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.azureai_client import AzureAIClient
 from api.dashscope_client import DashscopeClient
-from api.litellm_client import LiteLLMClient
+from api.litellm_client import LiteLLMClient, handle_streaming_response
 from api.rag import RAG
 
 # Configure logging
@@ -725,14 +725,8 @@ This file contains...
                 try:
                     logger.info("Making LiteLLM API call")
                     response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                    async for chunk in response:
-                        choices = getattr(chunk, "choices", [])
-                        if len(choices) > 0:
-                            delta = getattr(choices[0], "delta", None)
-                            if delta is not None:
-                                text = getattr(delta, "content", None)
-                                if text is not None:
-                                    await websocket.send_text(text)
+                    for text in handle_streaming_response(response):
+                        await websocket.send_text(text)
                     await websocket.close()
                 except Exception as e_litellm:
                     logger.error(f"Error with LiteLLM API: {str(e_litellm)}")
@@ -923,14 +917,8 @@ This file contains...
                             )
                             logger.info("Making fallback LiteLLM API call")
                             fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
-                            async for chunk in fallback_response:
-                                choices = getattr(chunk, "choices", [])
-                                if len(choices) > 0:
-                                    delta = getattr(choices[0], "delta", None)
-                                    if delta is not None:
-                                        text = getattr(delta, "content", None)
-                                        if text is not None:
-                                            await websocket.send_text(text)
+                            for text in handle_streaming_response(fallback_response):
+                                await websocket.send_text(text)
                         except Exception as e_fallback:
                             logger.error(f"Error with LiteLLM API fallback: {str(e_fallback)}")
                             await websocket.send_text(f"\nError with LiteLLM API fallback: {str(e_fallback)}")
