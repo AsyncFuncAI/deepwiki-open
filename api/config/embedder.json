@@ -30,6 +30,18 @@
       "dimensions": 256
     }
   },
+  "embedder_openrouter": {
+    "client_class": "OpenAIClient",
+    "initialize_kwargs": {
+      "base_url": "https://openrouter.ai/api/v1",
+      "env_api_key_name": "OPENROUTER_API_KEY"
+    },
+    "batch_size": 500,
+    "model_kwargs": {
+      "model": "openai/text-embedding-3-small",
+      "encoding_format": "float"
+    }
+  },
   "retriever": {
     "top_k": 20
   },

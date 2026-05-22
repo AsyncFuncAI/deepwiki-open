@@ -29,7 +29,7 @@ GOOGLE_API_KEY=your_google_api_key        # Required for Google Gemini models
 OPENAI_API_KEY=your_openai_api_key        # Required for embeddings and OpenAI models
 
 # Optional API Keys
-OPENROUTER_API_KEY=your_openrouter_api_key  # Required only if using OpenRouter models
+OPENROUTER_API_KEY=your_openrouter_api_key  # Required if using OpenRouter models or embeddings (DEEPWIKI_EMBEDDER_TYPE=openrouter)
 
 # AWS Bedrock Configuration
 AWS_ACCESS_KEY_ID=your_aws_access_key_id      # Required for AWS Bedrock models
@@ -47,7 +47,7 @@ OLLAMA_HOST=https://your_ollama_host"  # Optional: Add Ollama host if not local.
 PORT=8001  # Optional, defaults to 8001
 ```
 
-If you're not using Ollama mode, you need to configure an OpenAI API key for embeddings. Other API keys are only required when configuring and using models from the corresponding providers.
+The embedder type is controlled by `DEEPWIKI_EMBEDDER_TYPE` (`openai`, `google`, `openrouter`, `ollama`, or `bedrock`; default: `openai`). The corresponding API key is required for the chosen embedder. Other API keys are only required when configuring and using models from the corresponding providers.
 
 > 💡 **Where to get these keys:**
 > - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
