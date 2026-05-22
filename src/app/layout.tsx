@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { ThemeProvider } from "next-themes";
-import { LanguageProvider } from "@/contexts/LanguageContext";
+import AppProviders from "@/components/AppProviders";
+import "@/lib/ensureServerStorage";
 
 export const metadata: Metadata = {
   title: "Deepwiki Open Source | Sheing Ng",
@@ -24,11 +24,7 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <ThemeProvider attribute="data-theme" defaultTheme="system" enableSystem>
-          <LanguageProvider>
-            {children}
-          </LanguageProvider>
-        </ThemeProvider>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

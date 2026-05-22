@@ -1,0 +1,141 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "DeepWiki: Install API",
+      "type": "shell",
+      "command": "poetry",
+      "args": [
+        "-C",
+        "${workspaceFolder}/api",
+        "install"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "DeepWiki: API",
+      "type": "shell",
+      "command": "${workspaceFolder}/api/.venv/bin/python",
+      "args": [
+        "-m",
+        "api.main"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}"
+        }
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "DeepWiki: Web",
+      "type": "shell",
+      "command": "env",
+      "args": [
+        "-u",
+        "ELECTRON_RUN_AS_NODE",
+        "npm",
+        "run",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "DeepWiki: Start All",
+      "dependsOn": [
+        "DeepWiki: API",
+        "DeepWiki: Web"
+      ],
+      "dependsOrder": "parallel"
+    },
+    {
+      "label": "DeepWiki: Promptfoo Smoke",
+      "type": "shell",
+      "command": "npm",
+      "args": [
+        "run",
+        "promptfoo:smoke"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "DeepWiki: Promptfoo Eval",
+      "type": "shell",
+      "command": "npm",
+      "args": [
+        "run",
+        "promptfoo:eval"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "DeepWiki: Promptfoo View",
+      "type": "shell",
+      "command": "npm",
+      "args": [
+        "run",
+        "promptfoo:view"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "DeepWiki: Promptfoo CI",
+      "type": "shell",
+      "command": "npm",
+      "args": [
+        "run",
+        "promptfoo:ci"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

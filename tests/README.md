@@ -38,6 +38,15 @@ python tests/run_tests.py --integration
 python tests/run_tests.py --api
 ```
 
+### Promptfoo Evals
+```bash
+npm run promptfoo:smoke
+npm run promptfoo:ci
+npm run promptfoo:eval
+```
+
+This local eval suite targets the running DeepWiki backend on `http://127.0.0.1:8001` and checks a few high-signal repository questions against the Ollama-backed setup. Use `promptfoo:smoke` for a smaller everyday check and `promptfoo:ci` for the full suite.
+
 ### Individual Test Files
 ```bash
 # Unit tests

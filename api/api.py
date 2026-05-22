@@ -180,7 +180,7 @@ async def get_model_config():
 
         # Create providers from the config file
         providers = []
-        default_provider = configs.get("default_provider", "google")
+        default_provider = configs.get("default_provider", "ollama")
 
         # Add provider configuration based on config.py
         for provider_id, provider_config in configs["providers"].items():
@@ -221,7 +221,7 @@ async def get_model_config():
                     ]
                 )
             ],
-            defaultProvider="google"
+            defaultProvider="ollama"
         )
 
 @app.post("/export/wiki")

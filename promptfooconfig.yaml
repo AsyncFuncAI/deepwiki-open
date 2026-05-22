@@ -1,0 +1,88 @@
+description: DeepWiki local evals for the Ollama-only setup
+
+prompts:
+  - "{{question}}"
+
+providers:
+  - id: file://./promptfoo/deepwiki-provider.mjs
+    label: deepwiki-local-ollama
+    config:
+      apiBaseUrl: http://127.0.0.1:8001
+      repoUrl: /Users/samroku/dev/deepwiki-open
+      repoType: local
+      provider: ollama
+      model: qwen3:1.7b
+      language: en
+
+defaultTest:
+  options:
+    transform: output.trim()
+
+tests:
+  - description: Detects the frontend stack from the local repository
+    metadata:
+      tier: smoke
+      area: frontend
+    vars:
+      question: What frontend framework is this project built with? Mention both Next.js and React.
+      included_files: package.json
+    assert:
+      - type: icontains
+        value: Next.js
+      - type: icontains
+        value: React
+
+  - description: Finds the local model provider from the checked-in config
+    metadata:
+      tier: smoke
+      area: llm-config
+    vars:
+      question: Which default model provider is configured in this local DeepWiki setup? Answer with the provider name only.
+      file_path: api/config/generator.json
+    assert:
+      - type: icontains
+        value: ollama
+
+  - description: Finds the local embedding model from the checked-in config
+    metadata:
+      tier: full
+      area: embeddings
+    vars:
+      question: Which embedding model is configured for local use? Answer with the exact model id only.
+      file_path: api/config/embedder.json
+    assert:
+      - type: icontains
+        value: nomic-embed-text
+
+  - description: Detects the backend framework from the API entrypoint
+    metadata:
+      tier: full
+      area: backend
+    vars:
+      question: Which Python web framework powers this API? Answer with only the framework name.
+      file_path: api/api.py
+    assert:
+      - type: icontains
+        value: FastAPI
+
+  - description: Finds the default local Ollama generation model
+    metadata:
+      tier: full
+      area: llm-config
+    vars:
+      question: Which Ollama model is the default generation model in this local setup? Answer with the exact model id only.
+      file_path: api/config/generator.json
+    assert:
+      - type: icontains
+        value: qwen3:1.7b
+
+  - description: Confirms the configured local promptfoo provider label
+    metadata:
+      tier: smoke
+      area: eval-config
+    vars:
+      question: What is the configured provider label in this promptfoo setup? Answer with only the exact configured value.
+      file_path: promptfooconfig.yaml
+    assert:
+      - type: icontains
+        value: deepwiki-local-ollama
