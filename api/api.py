@@ -178,18 +178,26 @@ async def _discover_openai_models(base_url: str) -> List[Model]:
     # Normalize: strip trailing /v1 if present since we'll add /models
     models_url = f"{base_url.rstrip('/')}/models"
 
+    # Pass API key if available (some endpoints require auth even for /models)
+    headers = {}
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
-            async with session.get(models_url) as response:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3)) as session:
+            async with session.get(models_url, headers=headers) as response:
                 response.raise_for_status()
                 data = await response.json()
 
                 discovered = []
-                # OpenAI /v1/models returns {"data": [{"id": "model-name", ...}, ...]}
-                for model_info in data.get("data", []):
-                    model_id = model_info.get("id", "")
-                    if model_id:
-                        discovered.append(Model(id=model_id, name=model_id))
+                if isinstance(data, dict):
+                    # OpenAI /v1/models returns {"data": [{"id": "model-name", ...}, ...]}
+                    for model_info in data.get("data", []):
+                        if isinstance(model_info, dict):
+                            model_id = model_info.get("id", "")
+                            if model_id:
+                                discovered.append(Model(id=model_id, name=model_id))
 
                 if discovered:
                     logger.info(f"Discovered {len(discovered)} models from {models_url}")
