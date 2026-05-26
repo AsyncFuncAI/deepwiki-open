@@ -9,6 +9,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 import google.generativeai as genai
 import asyncio
+import aiohttp
 
 # Configure logging
 from api.logging_config import setup_logging
@@ -164,6 +165,40 @@ async def validate_auth_code(request: AuthorizationConfig):
     """
     return {"success": WIKI_AUTH_CODE == request.code}
 
+async def _discover_openai_models(base_url: str) -> List[Model]:
+    """
+    Query a custom OpenAI-compatible endpoint's /models API to discover available models.
+
+    Args:
+        base_url: The base URL of the OpenAI-compatible API (e.g., http://host:port/v1)
+
+    Returns:
+        List of Model objects discovered from the endpoint, or empty list on failure.
+    """
+    # Normalize: strip trailing /v1 if present since we'll add /models
+    models_url = f"{base_url.rstrip('/')}/models"
+
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
+            async with session.get(models_url) as response:
+                response.raise_for_status()
+                data = await response.json()
+
+                discovered = []
+                # OpenAI /v1/models returns {"data": [{"id": "model-name", ...}, ...]}
+                for model_info in data.get("data", []):
+                    model_id = model_info.get("id", "")
+                    if model_id:
+                        discovered.append(Model(id=model_id, name=model_id))
+
+                if discovered:
+                    logger.info(f"Discovered {len(discovered)} models from {models_url}")
+                return discovered
+    except Exception as e:
+        logger.warning(f"Failed to discover models from {models_url}: {e}")
+        return []
+
+
 @app.get("/models/config", response_model=ModelConfig)
 async def get_model_config():
     """
@@ -172,11 +207,19 @@ async def get_model_config():
     This endpoint returns the configuration of available model providers and their
     respective models that can be used throughout the application.
 
+    When OPENAI_BASE_URL is set (indicating a custom OpenAI-compatible endpoint such as
+    llama.cpp, vLLM, or LocalAI), the openai provider's model list is dynamically
+    discovered by querying the endpoint's /models API. This allows automatic detection
+    of locally hosted models without manual configuration.
+
     Returns:
         ModelConfig: A configuration object containing providers and their models
     """
     try:
         logger.info("Fetching model configurations")
+
+        # Check if a custom OpenAI endpoint is configured
+        openai_base_url = os.environ.get("OPENAI_BASE_URL")
 
         # Create providers from the config file
         providers = []
@@ -185,10 +228,20 @@ async def get_model_config():
         # Add provider configuration based on config.py
         for provider_id, provider_config in configs["providers"].items():
             models = []
-            # Add models from config
-            for model_id in provider_config["models"].keys():
-                # Get a more user-friendly display name if possible
-                models.append(Model(id=model_id, name=model_id))
+
+            # For the openai provider with a custom base URL, discover models dynamically
+            if provider_id == "openai" and openai_base_url:
+                discovered = await _discover_openai_models(openai_base_url)
+                if discovered:
+                    models = discovered
+                else:
+                    # Fall back to static config if discovery fails
+                    for model_id in provider_config["models"].keys():
+                        models.append(Model(id=model_id, name=model_id))
+            else:
+                # Add models from config
+                for model_id in provider_config["models"].keys():
+                    models.append(Model(id=model_id, name=model_id))
 
             # Add provider with its models
             providers.append(
