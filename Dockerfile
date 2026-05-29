@@ -66,9 +66,12 @@ RUN if [ -n "${CUSTOM_CERT_DIR}" ]; then \
     fi
 
 ENV PATH="/opt/venv/bin:$PATH"
+ENV TIKTOKEN_CACHE_DIR=/opt/tiktoken_cache/
 
 # Copy Python dependencies
 COPY --from=py_deps /api/.venv /opt/venv
+RUN mkdir -p "$TIKTOKEN_CACHE_DIR" && \
+    python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
 COPY api/ ./api/
 
 # Copy Node app
