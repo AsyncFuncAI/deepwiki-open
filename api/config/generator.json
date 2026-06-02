@@ -193,6 +193,21 @@
           "top_p": 0.8
         }
       }
+    },
+    "litellm": {
+      "client_class": "LiteLLMClient",
+      "default_model": "openai/gpt-4o-mini",
+      "supportsCustomModel": true,
+      "models": {
+        "openai/gpt-4o": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "anthropic/claude-sonnet-4-20250514": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        }
+      }
     }
   }
 }
