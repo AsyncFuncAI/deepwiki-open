@@ -61,7 +61,7 @@ class TestMiniMaxClientTemperature:
         """Should clamp temperature=0 to 0.01 (MiniMax minimum)."""
         kwargs = self.client.convert_inputs_to_api_kwargs(
             input="test",
-            model_kwargs={"model": "MiniMax-M2.5", "temperature": 0},
+            model_kwargs={"model": "MiniMax-M3", "temperature": 0},
             model_type=ModelType.LLM,
         )
         assert kwargs["temperature"] == 0.01
@@ -70,7 +70,7 @@ class TestMiniMaxClientTemperature:
         """Should clamp negative temperature to 0.01."""
         kwargs = self.client.convert_inputs_to_api_kwargs(
             input="test",
-            model_kwargs={"model": "MiniMax-M2.5", "temperature": -0.5},
+            model_kwargs={"model": "MiniMax-M3", "temperature": -0.5},
             model_type=ModelType.LLM,
         )
         assert kwargs["temperature"] == 0.01
@@ -79,7 +79,7 @@ class TestMiniMaxClientTemperature:
         """Should clamp temperature > 1.0 to 1.0."""
         kwargs = self.client.convert_inputs_to_api_kwargs(
             input="test",
-            model_kwargs={"model": "MiniMax-M2.5", "temperature": 1.5},
+            model_kwargs={"model": "MiniMax-M3", "temperature": 1.5},
             model_type=ModelType.LLM,
         )
         assert kwargs["temperature"] == 1.0
@@ -88,7 +88,7 @@ class TestMiniMaxClientTemperature:
         """Should pass through valid temperature values."""
         kwargs = self.client.convert_inputs_to_api_kwargs(
             input="test",
-            model_kwargs={"model": "MiniMax-M2.5", "temperature": 0.7},
+            model_kwargs={"model": "MiniMax-M3", "temperature": 0.7},
             model_type=ModelType.LLM,
         )
         assert kwargs["temperature"] == 0.7
@@ -97,7 +97,7 @@ class TestMiniMaxClientTemperature:
         """Should pass through temperature=1.0 (MiniMax maximum)."""
         kwargs = self.client.convert_inputs_to_api_kwargs(
             input="test",
-            model_kwargs={"model": "MiniMax-M2.5", "temperature": 1.0},
+            model_kwargs={"model": "MiniMax-M3", "temperature": 1.0},
             model_type=ModelType.LLM,
         )
         assert kwargs["temperature"] == 1.0
@@ -106,7 +106,7 @@ class TestMiniMaxClientTemperature:
         """Should not add temperature if not provided."""
         kwargs = self.client.convert_inputs_to_api_kwargs(
             input="test",
-            model_kwargs={"model": "MiniMax-M2.5"},
+            model_kwargs={"model": "MiniMax-M3"},
             model_type=ModelType.LLM,
         )
         assert "temperature" not in kwargs
@@ -123,7 +123,7 @@ class TestMiniMaxClientResponseFormat:
         kwargs = self.client.convert_inputs_to_api_kwargs(
             input="test",
             model_kwargs={
-                "model": "MiniMax-M2.5",
+                "model": "MiniMax-M3",
                 "response_format": {"type": "json_object"},
             },
             model_type=ModelType.LLM,
@@ -135,7 +135,7 @@ class TestMiniMaxClientResponseFormat:
         kwargs = self.client.convert_inputs_to_api_kwargs(
             input="test",
             model_kwargs={
-                "model": "MiniMax-M2.5",
+                "model": "MiniMax-M3",
                 "temperature": 0.8,
                 "response_format": {"type": "json_object"},
                 "top_p": 0.9,
@@ -145,7 +145,7 @@ class TestMiniMaxClientResponseFormat:
         assert "response_format" not in kwargs
         assert kwargs["temperature"] == 0.8
         assert kwargs["top_p"] == 0.9
-        assert kwargs["model"] == "MiniMax-M2.5"
+        assert kwargs["model"] == "MiniMax-M3"
 
 
 class TestMiniMaxClientMessages:
@@ -158,7 +158,7 @@ class TestMiniMaxClientMessages:
         """Should convert string input to messages format."""
         kwargs = self.client.convert_inputs_to_api_kwargs(
             input="Hello, MiniMax!",
-            model_kwargs={"model": "MiniMax-M2.5"},
+            model_kwargs={"model": "MiniMax-M3"},
             model_type=ModelType.LLM,
         )
         assert "messages" in kwargs
@@ -170,10 +170,10 @@ class TestMiniMaxClientMessages:
         """Should preserve model in kwargs."""
         kwargs = self.client.convert_inputs_to_api_kwargs(
             input="test",
-            model_kwargs={"model": "MiniMax-M2.5-highspeed"},
+            model_kwargs={"model": "MiniMax-M2.7-highspeed"},
             model_type=ModelType.LLM,
         )
-        assert kwargs["model"] == "MiniMax-M2.5-highspeed"
+        assert kwargs["model"] == "MiniMax-M2.7-highspeed"
 
 
 class TestMiniMaxConfigIntegration:
@@ -196,10 +196,13 @@ class TestMiniMaxConfigIntegration:
 
         assert "minimax" in config["providers"]
         minimax_config = config["providers"]["minimax"]
-        assert minimax_config["default_model"] == "MiniMax-M2.7"
+        assert minimax_config["default_model"] == "MiniMax-M3"
+        assert "MiniMax-M3" in minimax_config["models"]
         assert "MiniMax-M2.7" in minimax_config["models"]
-        assert "MiniMax-M2.5" in minimax_config["models"]
-        assert "MiniMax-M2.5-highspeed" in minimax_config["models"]
+        assert "MiniMax-M2.7-highspeed" in minimax_config["models"]
+        # Ensure older models are removed
+        assert "MiniMax-M2.5" not in minimax_config["models"]
+        assert "MiniMax-M2.5-highspeed" not in minimax_config["models"]
         assert minimax_config["client_class"] == "MiniMaxClient"
         assert minimax_config["supportsCustomModel"] is True
 
@@ -212,12 +215,25 @@ class TestMiniMaxConfigIntegration:
         with open(config_path) as f:
             config = json.load(f)
 
-        for model_id in ["MiniMax-M2.7", "MiniMax-M2.5", "MiniMax-M2.5-highspeed"]:
+        for model_id in ["MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.7-highspeed"]:
             assert config["providers"]["minimax"]["models"][model_id]["temperature"] == 1.0
 
     def test_get_model_config_minimax(self):
         """Should be able to get model config for minimax provider."""
         from api.config import get_model_config
-        config = get_model_config(provider="minimax", model="MiniMax-M2.7")
+        config = get_model_config(provider="minimax", model="MiniMax-M3")
         assert config["model_client"] == MiniMaxClient
-        assert config["model_kwargs"]["model"] == "MiniMax-M2.7"
+        assert config["model_kwargs"]["model"] == "MiniMax-M3"
+
+    def test_minimax_m3_listed_first(self):
+        """M3 should be the first model listed for minimax provider."""
+        import json
+        from pathlib import Path
+
+        config_path = Path(__file__).parent.parent.parent / "api" / "config" / "generator.json"
+        with open(config_path) as f:
+            config = json.load(f)
+
+        model_ids = list(config["providers"]["minimax"]["models"].keys())
+        assert model_ids[0] == "MiniMax-M3"
+        assert model_ids == ["MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.7-highspeed"]

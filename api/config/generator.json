@@ -196,16 +196,16 @@
     },
     "minimax": {
       "client_class": "MiniMaxClient",
-      "default_model": "MiniMax-M2.7",
+      "default_model": "MiniMax-M3",
       "supportsCustomModel": true,
       "models": {
+        "MiniMax-M3": {
+          "temperature": 1.0
+        },
         "MiniMax-M2.7": {
           "temperature": 1.0
         },
-        "MiniMax-M2.5": {
-          "temperature": 1.0
-        },
-        "MiniMax-M2.5-highspeed": {
+        "MiniMax-M2.7-highspeed": {
           "temperature": 1.0
         }
       }

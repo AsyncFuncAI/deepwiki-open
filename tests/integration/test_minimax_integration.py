@@ -25,15 +25,15 @@ pytestmark = pytest.mark.skipif(not MINIMAX_API_KEY, reason="MINIMAX_API_KEY not
 class TestMiniMaxChatIntegration:
     """Integration tests for MiniMax chat completions."""
 
-    def test_m27_chat_completion(self):
-        """Should complete a basic chat request with MiniMax-M2.7 (default model)."""
+    def test_m3_chat_completion(self):
+        """Should complete a basic chat request with MiniMax-M3 (default model)."""
         from api.minimax_client import MiniMaxClient
         from adalflow.core.types import ModelType
 
         client = MiniMaxClient(api_key=MINIMAX_API_KEY)
         api_kwargs = client.convert_inputs_to_api_kwargs(
             input="Say 'hello' and nothing else.",
-            model_kwargs={"model": "MiniMax-M2.7", "max_tokens": 20, "temperature": 1.0},
+            model_kwargs={"model": "MiniMax-M3", "max_tokens": 20, "temperature": 1.0},
             model_type=ModelType.LLM,
         )
         response = client.call(api_kwargs=api_kwargs, model_type=ModelType.LLM)
@@ -46,15 +46,15 @@ class TestMiniMaxChatIntegration:
         content = str(output.raw_response).lower()
         assert "hello" in content
 
-    def test_m25_chat_completion(self):
-        """Should complete a basic chat request with MiniMax-M2.5."""
+    def test_m27_chat_completion(self):
+        """Should complete a basic chat request with MiniMax-M2.7."""
         from api.minimax_client import MiniMaxClient
         from adalflow.core.types import ModelType
 
         client = MiniMaxClient(api_key=MINIMAX_API_KEY)
         api_kwargs = client.convert_inputs_to_api_kwargs(
             input="Say 'hello' and nothing else.",
-            model_kwargs={"model": "MiniMax-M2.5", "max_tokens": 20, "temperature": 1.0},
+            model_kwargs={"model": "MiniMax-M2.7", "max_tokens": 20, "temperature": 1.0},
             model_type=ModelType.LLM,
         )
         response = client.call(api_kwargs=api_kwargs, model_type=ModelType.LLM)
@@ -67,14 +67,14 @@ class TestMiniMaxChatIntegration:
         assert "hello" in content
 
     def test_highspeed_model(self):
-        """Should work with MiniMax-M2.5-highspeed model."""
+        """Should work with MiniMax-M2.7-highspeed model."""
         from api.minimax_client import MiniMaxClient
         from adalflow.core.types import ModelType
 
         client = MiniMaxClient(api_key=MINIMAX_API_KEY)
         api_kwargs = client.convert_inputs_to_api_kwargs(
             input="What is 2+2? Reply with just the number.",
-            model_kwargs={"model": "MiniMax-M2.5-highspeed", "max_tokens": 100, "temperature": 1.0},
+            model_kwargs={"model": "MiniMax-M2.7-highspeed", "max_tokens": 100, "temperature": 1.0},
             model_type=ModelType.LLM,
         )
         response = client.call(api_kwargs=api_kwargs, model_type=ModelType.LLM)
@@ -94,7 +94,7 @@ class TestMiniMaxChatIntegration:
         client = MiniMaxClient(api_key=MINIMAX_API_KEY)
         api_kwargs = client.convert_inputs_to_api_kwargs(
             input="Say 'test passed'",
-            model_kwargs={"model": "MiniMax-M2.7", "max_tokens": 20, "temperature": 0},
+            model_kwargs={"model": "MiniMax-M3", "max_tokens": 20, "temperature": 0},
             model_type=ModelType.LLM,
         )
         # Temperature should be clamped to 0.01

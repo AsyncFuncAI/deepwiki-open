@@ -7,9 +7,9 @@ API Documentation:
     - OpenAI Compatible: https://platform.minimax.io/docs/api-reference/text-openai-api
 
 Supported models:
-    - MiniMax-M2.7: Latest flagship model with enhanced reasoning (204K context)
-    - MiniMax-M2.5: Peak Performance. Ultimate Value. Master the Complex (204K context)
-    - MiniMax-M2.5-highspeed: Same performance, faster and more agile (204K context)
+    - MiniMax-M3: Latest flagship model (512K context, 128K max output, image input)
+    - MiniMax-M2.7: Previous generation model with enhanced reasoning (204K context)
+    - MiniMax-M2.7-highspeed: Previous generation low-latency model (204K context)
 """
 
 import os
