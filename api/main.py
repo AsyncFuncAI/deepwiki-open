@@ -43,21 +43,17 @@ if is_development:
 
 import uvicorn
 
-# Check for required environment variables
-required_env_vars = ['GOOGLE_API_KEY', 'OPENAI_API_KEY']
-missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
-if missing_vars:
-    logger.warning(f"Missing environment variables: {', '.join(missing_vars)}")
-    logger.warning("Some functionality may not work correctly without these variables.")
-
-# Configure Google Generative AI
+# Configure providers based on settings
+from api.config import configs
 import google.generativeai as genai
-from api.config import GOOGLE_API_KEY
 
-if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
-else:
-    logger.warning("GOOGLE_API_KEY not configured")
+# Only configure Google if it's being used as a provider
+if configs.get("default_provider") == "google":
+    from api.config import GOOGLE_API_KEY
+    if GOOGLE_API_KEY:
+        genai.configure(api_key=GOOGLE_API_KEY)
+    else:
+        logger.warning("GOOGLE_API_KEY not configured but Google is the default provider")
 
 if __name__ == "__main__":
     # Get port from environment variable or use default

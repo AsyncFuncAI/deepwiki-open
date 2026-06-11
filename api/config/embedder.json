@@ -30,6 +30,14 @@
       "dimensions": 256
     }
   },
+  "embedder_azure": {
+    "client_class": "AzureAIClient",
+    "batch_size": 100,
+    "model_kwargs": {
+      "model": "text-embedding-3-small",
+      "dimensions": 256
+    }
+  },
   "retriever": {
     "top_k": 20
   },

@@ -22,6 +22,8 @@ def get_embedder(is_local_ollama: bool = False, use_google_embedder: bool = Fals
             embedder_config = configs["embedder_google"]
         elif embedder_type == 'bedrock':
             embedder_config = configs["embedder_bedrock"]
+        elif embedder_type == 'azure':
+            embedder_config = configs["embedder_azure"]
         else:  # default to openai
             embedder_config = configs["embedder"]
     elif is_local_ollama:
@@ -37,6 +39,8 @@ def get_embedder(is_local_ollama: bool = False, use_google_embedder: bool = Fals
             embedder_config = configs["embedder_ollama"]
         elif current_type == 'google':
             embedder_config = configs["embedder_google"]
+        elif current_type == 'azure':
+            embedder_config = configs["embedder_azure"]
         else:
             embedder_config = configs["embedder"]
 
