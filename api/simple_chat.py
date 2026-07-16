@@ -1,6 +1,7 @@
 import logging
 import os
-from typing import List, Optional
+from collections.abc import AsyncIterator
+from typing import List, Optional, TYPE_CHECKING
 from urllib.parse import unquote
 
 import google.generativeai as genai
@@ -465,11 +466,16 @@ async def chat_completions_stream(request: ChatCompletionRequest):
             try:
                 if request.provider == "ollama":
                     # Get the response and handle it properly using the previously created api_kwargs
-                    response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                    response: "AsyncIterator[ChatResponse]" = await model.acall(
+                        api_kwargs=api_kwargs,
+                        model_type=ModelType.LLM,
+                    )
                     # Handle streaming response from Ollama
                     async for chunk in response:
-                        text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
-                        if text and not text.startswith('model=') and not text.startswith('created_at='):
+                        assert hasattr(chunk, "message"), \
+                            f"`message` field not found in response. Wrong ollama-python version probably."
+                        text = chunk.message.content
+                        if text:
                             text = text.replace('<think>', '').replace('</think>', '')
                             yield text
                 elif request.provider == "openrouter":
