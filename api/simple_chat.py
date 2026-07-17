@@ -475,8 +475,10 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                     )
                     # Handle streaming response from Ollama
                     async for chunk in response:
-                        assert hasattr(chunk, "message"), \
-                            f"`message` field not found in response. Wrong ollama-python version probably."
+                        if not hasattr(chunk, "message"):
+                            raise RuntimeError(
+                                "`message` field not found in response. Wrong ollama-python version probably.",
+                            )
                         text = chunk.message.content
                         if text:
                             text = text.replace('<think>', '').replace('</think>', '')
@@ -604,8 +606,10 @@ async def chat_completions_stream(request: ChatCompletionRequest):
 
                             # Handle streaming fallback_response from Ollama
                             async for chunk in fallback_response:
-                                assert hasattr(chunk, "message"), \
-                                    f"`message` field not found in response. Wrong ollama-python version probably."
+                                if not hasattr(chunk, "message"):
+                                    raise RuntimeError(
+                                        "`message` field not found in response. Wrong ollama-python version probably.",
+                                    )
                                 text = chunk.message.content
                                 if text:
                                     text = text.replace('<think>', '').replace('</think>', '')
