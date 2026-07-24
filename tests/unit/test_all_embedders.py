@@ -206,7 +206,7 @@ class TestEmbedderClients:
             logger.warning("Skipping Google embedder test - GOOGLE_API_KEY not available")
             return
             
-        from api.google_embedder_client import GoogleEmbedderClient
+        from api.clients import GoogleEmbedderClient
         from adalflow.core.types import ModelType
         
         client = GoogleEmbedderClient()
@@ -234,7 +234,7 @@ class TestEmbedderClients:
             return
             
         import adalflow as adal
-        from api.openai_client import OpenAIClient
+        from api.clients import OpenAIClient
         
         client = OpenAIClient()
         embedder = adal.Embedder(

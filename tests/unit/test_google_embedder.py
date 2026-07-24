@@ -25,7 +25,7 @@ def test_google_embedder_client():
     logger.info("Testing Google embedder client...")
     
     try:
-        from api.google_embedder_client import GoogleEmbedderClient
+        from api.clients import GoogleEmbedderClient
         from adalflow.core.types import ModelType
         
         # Initialize the client

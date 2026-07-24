@@ -2,11 +2,14 @@ import os
 import sys
 import logging
 from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 # Load environment variables from .env file
 load_dotenv()
 
 from api.logger import setup_logging, get_logger
+from api.routers import system, auth, wiki, chat
 
 # Configure logging
 setup_logging()
@@ -15,9 +18,6 @@ logger = get_logger(__name__)
 # Configure watchfiles logger to show file paths
 watchfiles_logger = logging.getLogger("watchfiles.main")
 watchfiles_logger.setLevel(logging.DEBUG)  # Enable DEBUG to see file paths
-
-# Add the current directory to the path so we can import the api package
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Apply watchfiles monkey patch BEFORE uvicorn import
 is_development = os.environ.get("NODE_ENV") != "production"
@@ -41,23 +41,30 @@ if is_development:
         return original_watch(*api_subdirs, **kwargs)
     watchfiles.watch = patched_watch
 
+app = FastAPI(
+    title="Streaming API",
+    description="API for streaming chat completions and wiki generation",
+    version="0.1.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+for module in (
+    system,
+    auth,
+    wiki,
+    chat,
+):
+    app.include_router(module.router)
+
 import uvicorn
 
-# Check for required environment variables
-required_env_vars = ['GOOGLE_API_KEY', 'OPENAI_API_KEY']
-missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
-if missing_vars:
-    logger.warning(f"Missing environment variables: {', '.join(missing_vars)}")
-    logger.warning("Some functionality may not work correctly without these variables.")
-
-# Configure Google Generative AI
-import google.generativeai as genai
-from api.config import GOOGLE_API_KEY
-
-if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
-else:
-    logger.warning("GOOGLE_API_KEY not configured")
 
 if __name__ == "__main__":
     # Get port from environment variable or use default
@@ -70,7 +77,7 @@ if __name__ == "__main__":
 
     # Run the FastAPI app with uvicorn
     uvicorn.run(
-        "api.api:app",
+        "api.main:app",
         host="0.0.0.0",
         port=port,
         reload=is_development,

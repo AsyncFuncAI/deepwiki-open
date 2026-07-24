@@ -1,5 +1,6 @@
-from fastapi import WebSocket, WebSocketDisconnect
-from starlette.websockets import WebSocketState
+from fastapi import WebSocket, WebSocketDisconnect, APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+from fastapi.websockets import WebSocketState
 
 from api.schemas import ChatCompletionRequest
 from api.logger import get_logger
@@ -8,11 +9,13 @@ from api.utils.research import research_chat
 logger = get_logger(__name__)
 
 
+router = APIRouter(tags=["chat"])
+
 async def _send_if_connect(websocket: WebSocket, msg: str):
     if websocket.application_state == WebSocketState.CONNECTED:
         await websocket.send_text(msg)
 
-
+@router.websocket_route("/ws/chat")
 async def handle_websocket_chat(websocket: WebSocket):
     """
     Handle WebSocket connection for chat completions.
@@ -57,3 +60,51 @@ async def handle_websocket_chat(websocket: WebSocket):
     finally:
         if websocket.application_state == WebSocketState.CONNECTED:
             await websocket.close()
+
+
+@router.post("/chat/completions/stream")
+async def chat_completions_stream(request: ChatCompletionRequest):
+    """Stream a chat completion response directly using Google Generative AI"""  # Validate request
+    if not request.messages or len(request.messages) == 0:
+        raise HTTPException(status_code=400, detail="No messages provided")
+
+    last_message = request.messages[-1]
+    if last_message.role != "user":
+        raise HTTPException(
+            status_code=400, detail="Last message must be from the user"
+        )
+
+    try:
+        async_respond = await research_chat(request=request)
+
+    except ValueError as e:
+        if "No valid documents with embeddings found" in str(e):
+            raise HTTPException(
+                status_code=500,
+                detail="No valid document embeddings found. This may be due to embedding size inconsistencies or API errors during document processing. Please try again or check your repository content.",
+            )
+        else:
+            raise HTTPException(
+                status_code=500, detail=f"Error preparing retriever: {str(e)}"
+            )
+    except Exception as e:
+        if "All embeddings should be of the same size" in str(e):
+            raise HTTPException(
+                status_code=500,
+                detail="Inconsistent embedding sizes detected. Some documents may have failed to embed properly. Please try again.",
+            )
+        else:
+            raise HTTPException(
+                status_code=500, detail=f"Error preparing retriever: {str(e)}"
+            )
+
+    try:
+        return StreamingResponse(
+            async_respond,
+            media_type="text/event-stream",
+        )
+
+    except Exception as e_handler:
+        error_msg = f"Error in streaming chat completion: {str(e_handler)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
