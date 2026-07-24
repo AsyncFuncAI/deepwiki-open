@@ -220,7 +220,7 @@ async def get_processed_projects():
     Projects are identified by files named like: deepwiki_cache_{repo_type}_{owner}_{repo}_{language}.json
     """
     try:
-        return list_processed_projects()
+        return await list_processed_projects()
     except Exception:
         raise HTTPException(
             status_code=500,

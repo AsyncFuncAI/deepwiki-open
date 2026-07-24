@@ -63,6 +63,35 @@ for module in (
 ):
     app.include_router(module.router)
 
+
+@app.get("/")
+async def root():
+    """Root endpoint to check if the API is running and list available endpoints dynamically."""
+    # Collect routes dynamically from the FastAPI app
+    endpoints = {}
+    for route in app.routes:
+        if hasattr(route, "methods") and hasattr(route, "path"):
+            # Skip docs and static routes
+            if route.path in ["/openapi.json", "/docs", "/redoc", "/favicon.ico"]:
+                continue
+            # Group endpoints by first path segment
+            path_parts = route.path.strip("/").split("/")
+            group = path_parts[0].capitalize() if path_parts[0] else "Root"
+            method_list = list(route.methods - {"HEAD", "OPTIONS"})
+            for method in method_list:
+                endpoints.setdefault(group, []).append(f"{method} {route.path}")
+
+    # Optionally, sort endpoints for readability
+    for group in endpoints:
+        endpoints[group].sort()
+
+    return {
+        "message": "Welcome to Streaming API",
+        "version": "1.0.0",
+        "endpoints": endpoints
+    }
+
+
 import uvicorn
 
 

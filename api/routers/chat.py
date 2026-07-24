@@ -36,6 +36,8 @@ async def handle_websocket_chat(websocket: WebSocket):
         async for chunk in await research_chat(request):
             await websocket.send_text(chunk)
 
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected")
     except ValueError as e:
         if "No valid documents with embeddings found" in str(e):
             txt_message = "Error: No valid document embeddings found. This may be due to embedding size inconsistencies or API errors during document processing. Please try again or check your repository content."
@@ -55,8 +57,6 @@ async def handle_websocket_chat(websocket: WebSocket):
             await _send_if_connect(websocket, txt_message)
         except Exception:
             pass
-    except WebSocketDisconnect:
-        logger.info("WebSocket disconnected")
     finally:
         if websocket.application_state == WebSocketState.CONNECTED:
             await websocket.close()
