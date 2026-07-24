@@ -11,6 +11,7 @@ from api.config import (
     AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY,
     LITELLM_API_KEY,
+    GOOGLE_API_KEY,
 )
 from api.logger import get_logger
 
@@ -293,6 +294,8 @@ class GoogleGenerativeChatStreamer(ChatStreamer):
     def __init__(self, *, model: str, model_config: MODEL_CFG):
         import google.generativeai as genai
         from google.generativeai.types import GenerationConfig
+
+        genai.configure(api_key=GOOGLE_API_KEY)
 
         self.client = genai.GenerativeModel(
             model_name=model,
