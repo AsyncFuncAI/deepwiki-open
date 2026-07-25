@@ -1,16 +1,16 @@
-from typing import Literal
-from datetime import datetime
-import os
-import json
 import asyncio
+import json
+import os
+from datetime import datetime
+from typing import Literal
 
+from api.logger import get_logger
 from api.schemas import (
+    ProcessedProjectEntry,
     WikiCacheData,
     WikiCacheRequest,
-    ProcessedProjectEntry,
     WikiPage,
 )
-from api.logger import get_logger
 
 logger = get_logger(__name__)
 

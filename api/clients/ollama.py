@@ -1,18 +1,16 @@
 # This file exists to patch the adalflow OllamaClient to support ollama batch embedding api `embed`
 
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
+import backoff
 from adalflow.components.model_client.ollama_client import (
     OllamaClient,
     RequestError,
     ResponseError,
     log,
 )
-from adalflow.core.types import EmbedderOutput, Embedding
-
 from adalflow.core import ModelType
-
-import backoff
+from adalflow.core.types import EmbedderOutput, Embedding
 
 
 def convert_inputs_to_api_kwargs(

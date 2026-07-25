@@ -1,5 +1,6 @@
-import os
 import logging
+import os
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,8 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 # Load environment variables from .env file
 load_dotenv()
 
-from api.logger import setup_logging, get_logger
-from api.routers import system, auth, wiki, chat
+from api.logger import get_logger, setup_logging
+from api.routers import auth, chat, system, wiki
 
 # Configure logging
 setup_logging()
@@ -92,7 +93,6 @@ async def root():
 
 
 import uvicorn
-
 
 if __name__ == "__main__":
     # Get port from environment variable or use default

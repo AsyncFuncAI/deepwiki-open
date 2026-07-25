@@ -1,18 +1,19 @@
 """OpenRouter ModelClient integration."""
 
-from typing import Dict, Any
 import json
-import aiohttp
-from requests.exceptions import RequestException
+from typing import Any, Dict
 
+import aiohttp
 from adalflow.core.model_client import ModelClient
 from adalflow.core.types import (
     CompletionUsage,
-    ModelType,
     GeneratorOutput,
+    ModelType,
 )
+from requests.exceptions import RequestException
 
 from api.logger import get_logger
+
 log = get_logger(__name__)
 
 
@@ -207,7 +208,9 @@ class OpenRouterClient(ModelClient):
                                                             fixed_xml = fixed_xml.replace('</', '</').replace('  >', '>')
 
                                                             # Try to parse the fixed XML
-                                                            from xml.dom.minidom import parseString
+                                                            from xml.dom.minidom import (
+                                                                parseString,
+                                                            )
                                                             dom = parseString(fixed_xml)
 
                                                             # Get the pretty-printed XML with proper indentation

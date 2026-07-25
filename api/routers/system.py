@@ -1,8 +1,10 @@
-from fastapi import APIRouter
 from datetime import datetime
+
+from fastapi import APIRouter
+
 from api.config import configs
-from api.schemas import ModelConfig, Provider, Model
 from api.logger import get_logger
+from api.schemas import Model, ModelConfig, Provider
 
 logger = get_logger(__name__)
 

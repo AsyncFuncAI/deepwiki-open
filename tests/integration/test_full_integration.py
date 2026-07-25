@@ -46,8 +46,7 @@ def test_embedder_selection():
     print("\n🔧 Testing embedder selection...")
     
     try:
-        from api.tools.embedder import get_embedder
-        from api.config import get_embedder_type, is_google_embedder
+        from api.config import get_embedder_type, is_google_embedder, get_embedder
         
         # Test default embedder type
         current_type = get_embedder_type()
@@ -84,9 +83,8 @@ def test_google_embedder_with_env():
         import api.config
         importlib.reload(api.config)
         
-        from api.config import EMBEDDER_TYPE, get_embedder_type, get_embedder_config
-        from api.tools.embedder import get_embedder
-        
+        from api.config import EMBEDDER_TYPE, get_embedder_type, get_embedder_config, get_embedder
+
         print(f"📋 EMBEDDER_TYPE: {EMBEDDER_TYPE}")
         print(f"📋 get_embedder_type(): {get_embedder_type()}")
         

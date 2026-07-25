@@ -1,16 +1,17 @@
 """AWS Bedrock ModelClient integration."""
 
 import json
+from typing import Any, Dict, List, Optional, Sequence
+
+import backoff
 import boto3
 import botocore
-import backoff
-from typing import Dict, Any, Optional, List, Sequence
-
 from adalflow.core.model_client import ModelClient
-from adalflow.core.types import ModelType, EmbedderOutput
+from adalflow.core.types import EmbedderOutput, ModelType
 
 # Configure logging
 from api.logger import get_logger
+
 log = get_logger(__name__)
 
 class BedrockClient(ModelClient):
@@ -53,10 +54,10 @@ class BedrockClient(ModelClient):
         super().__init__(*args, **kwargs)
         from api.config import (
             AWS_ACCESS_KEY_ID,
-            AWS_SECRET_ACCESS_KEY,
-            AWS_SESSION_TOKEN,
             AWS_REGION,
             AWS_ROLE_ARN,
+            AWS_SECRET_ACCESS_KEY,
+            AWS_SESSION_TOKEN,
         )
 
         self.aws_access_key_id = aws_access_key_id or AWS_ACCESS_KEY_ID

@@ -148,14 +148,14 @@ class TestEmbedderFactory:
     
     def test_get_embedder_with_explicit_type(self):
         """Test get_embedder with explicit embedder_type parameter."""
-        from api.tools.embedder import get_embedder
+        from api.config import get_embedder
         
         # Test Google embedder
         google_embedder = get_embedder(embedder_type='google')
         assert google_embedder is not None, "Google embedder should be created"
 
         # Test Bedrock embedder (mock boto3 to avoid hitting AWS credential providers)
-        with patch("api.bedrock_client.boto3.Session") as mock_session_cls:
+        with patch("api.clients.bedrock.boto3.Session") as mock_session_cls:
             mock_session = MagicMock()
             mock_session.client.return_value = MagicMock()
             mock_session_cls.return_value = mock_session
@@ -175,7 +175,7 @@ class TestEmbedderFactory:
 
     def test_get_embedder_with_legacy_params(self):
         """Test get_embedder with legacy boolean parameters."""
-        from api.tools.embedder import get_embedder
+        from api.config import get_embedder
         
         # Test with use_google_embedder=True
         google_embedder = get_embedder(use_google_embedder=True)
@@ -190,7 +190,7 @@ class TestEmbedderFactory:
 
     def test_get_embedder_auto_detection(self):
         """Test get_embedder with automatic type detection."""
-        from api.tools.embedder import get_embedder
+        from api.config import get_embedder
         
         # Test auto-detection (should use current configuration)
         embedder = get_embedder()
@@ -253,7 +253,7 @@ class TestDataPipelineFunctions:
     
     def test_count_tokens(self, embedder_type=None):
         """Test token counting with different embedder types."""
-        from api.data_pipeline import count_tokens
+        from api.rag import count_tokens
         
         test_text = "This is a test string for token counting."
         
@@ -271,7 +271,7 @@ class TestDataPipelineFunctions:
 
     def test_prepare_data_pipeline(self, is_ollama=None):
         """Test data pipeline preparation with different embedder types."""
-        from api.data_pipeline import prepare_data_pipeline
+        from api.rag.pipeline import prepare_data_pipeline
         
         if is_ollama is not None:
             try:
@@ -391,7 +391,7 @@ class TestIssuesIdentified:
 
     def test_binary_assumptions_in_data_pipeline(self):
         """Test binary assumptions in data pipeline functions."""
-        from api.data_pipeline import prepare_data_pipeline, count_tokens
+        from api.rag.pipeline import prepare_data_pipeline, count_tokens
         
         # These functions currently only consider is_ollama_embedder parameter
         # This test documents the issue and will verify fixes

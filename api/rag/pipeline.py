@@ -10,9 +10,13 @@ from adalflow.core.db import LocalDB
 from adalflow.core.types import Document, List
 from adalflow.utils import get_adalflow_default_root_path
 
-from api.config import DEFAULT_EXCLUDED_DIRS, DEFAULT_EXCLUDED_FILES, configs
+from api.config import (
+    DEFAULT_EXCLUDED_DIRS,
+    DEFAULT_EXCLUDED_FILES,
+    configs,
+    get_embedder,
+)
 from api.logger import get_logger
-from api.tools.embedder import get_embedder
 
 logger = get_logger(__name__)
 

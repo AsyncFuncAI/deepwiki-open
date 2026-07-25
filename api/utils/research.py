@@ -1,21 +1,19 @@
 import asyncio
-from collections.abc import Callable, AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from functools import partial
 
-from api.config import configs, get_model_config
-from api.schemas import ChatCompletionRequest
-from api.logger import get_logger
-from api.rag import RAG, count_tokens
 from api.chat import ChatStreamer, is_token_limit_error, prompt_builder
-from api.repository import get_repo_content
-
+from api.config import configs, get_model_config
+from api.logger import get_logger
 from api.prompts import (
-    DEEP_RESEARCH_FIRST_ITERATION_PROMPT,
     DEEP_RESEARCH_FINAL_ITERATION_PROMPT,
+    DEEP_RESEARCH_FIRST_ITERATION_PROMPT,
     DEEP_RESEARCH_INTERMEDIATE_ITERATION_PROMPT,
     SIMPLE_CHAT_SYSTEM_PROMPT,
 )
-
+from api.rag import RAG, count_tokens
+from api.repository import get_repo_content
+from api.schemas import ChatCompletionRequest
 
 logger = get_logger(__name__)
 

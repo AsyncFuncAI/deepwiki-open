@@ -1,63 +1,65 @@
 """Dashscope (Alibaba Cloud) ModelClient integration."""
 
+import logging
 import os
 import pickle
+from copy import deepcopy
 from typing import (
-    Dict,
-    Optional,
     Any,
     Callable,
+    Dict,
     Generator,
-    Union,
-    Literal,
     List,
+    Literal,
+    Optional,
     Sequence,
+    Union,
 )
 
-import logging
 import backoff
-from copy import deepcopy
-from tqdm import tqdm
 
 # optional import
-from adalflow.utils.lazy_import import safe_import, OptionalPackages
+from adalflow.utils.lazy_import import OptionalPackages, safe_import
+from tqdm import tqdm
 
 openai = safe_import(OptionalPackages.OPENAI.value[0], OptionalPackages.OPENAI.value[1])
 
-from openai import OpenAI, AsyncOpenAI, Stream
+import adalflow.core.functional as F
+from adalflow.components.model_client.utils import parse_embedding_response
+from adalflow.core.component import DataComponent
+from adalflow.core.embedder import (
+    BatchEmbedderInputType,
+    BatchEmbedderOutputType,
+)
+from adalflow.core.model_client import ModelClient
+from adalflow.core.types import (
+    CompletionUsage,
+    Document,
+    EmbedderInputType,
+    EmbedderOutput,
+    EmbedderOutputType,
+    Embedding,
+    GeneratorOutput,
+    ModelType,
+)
 from openai import (
     APITimeoutError,
-    InternalServerError,
-    RateLimitError,
-    UnprocessableEntityError,
+    AsyncOpenAI,
     BadRequestError,
+    InternalServerError,
+    OpenAI,
+    RateLimitError,
+    Stream,
+    UnprocessableEntityError,
 )
 from openai.types import (
     Completion,
     CreateEmbeddingResponse,
 )
-from openai.types.chat import ChatCompletionChunk, ChatCompletion
-
-from adalflow.core.model_client import ModelClient
-from adalflow.core.types import (
-    ModelType,
-    EmbedderOutput,
-    CompletionUsage,
-    GeneratorOutput,
-    Document,
-    Embedding,
-    EmbedderOutputType,
-    EmbedderInputType,
-)
-from adalflow.core.component import DataComponent
-from adalflow.core.embedder import (
-    BatchEmbedderOutputType,
-    BatchEmbedderInputType,
-)
-import adalflow.core.functional as F
-from adalflow.components.model_client.utils import parse_embedding_response
+from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 from api.logger import get_logger
+
 log = get_logger(__name__)
 
 def get_first_message_content(completion: ChatCompletion) -> str:

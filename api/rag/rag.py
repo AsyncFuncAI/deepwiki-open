@@ -1,20 +1,15 @@
-from collections.abc import Sized
-
-from adalflow.components.retriever.faiss_retriever import FAISSRetriever
-from api.config import configs
-from api.rag.pipeline import DatabaseManager
-from adalflow.core.types import UserQuery, AssistantResponse, DialogTurn
-
-from api.logger import get_logger
-
-
 import asyncio
 import os
+from collections.abc import Sized
 from uuid import uuid4
 
 import adalflow as adal
+from adalflow.components.retriever.faiss_retriever import FAISSRetriever
+from adalflow.core.types import AssistantResponse, DialogTurn, UserQuery
 
-from api.tools.embedder import get_embedder
+from api.config import configs, get_embedder
+from api.logger import get_logger
+from api.rag.pipeline import DatabaseManager
 
 logger = get_logger(__name__)
 
@@ -43,8 +38,8 @@ def check_ollama_model_exists(model_name: str, ollama_host: str | None = None) -
     Returns:
         bool: True if model exists, False otherwise
     """
-    import ollama
     import httpx
+    import ollama
 
     if ollama_host is None:
         ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")

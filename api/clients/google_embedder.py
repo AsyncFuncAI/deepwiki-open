@@ -1,19 +1,20 @@
 """Google AI Embeddings ModelClient integration."""
 
 import os
-import backoff
-from typing import Dict, Any, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
+import backoff
 from adalflow.core.model_client import ModelClient
-from adalflow.core.types import ModelType, EmbedderOutput
+from adalflow.core.types import EmbedderOutput, ModelType
 
 try:
     import google.generativeai as genai
-    from google.generativeai.types.text_types import EmbeddingDict, BatchEmbeddingDict
+    from google.generativeai.types.text_types import BatchEmbeddingDict, EmbeddingDict
 except ImportError:
     raise ImportError("google-generativeai is required. Install it with 'pip install google-generativeai'")
 
 from api.logger import get_logger
+
 log = get_logger(__name__)
 
 

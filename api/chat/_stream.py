@@ -1,24 +1,24 @@
-from abc import abstractmethod, ABC
-
+from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING
 
-from collections.abc import AsyncIterator
-
 from adalflow.core.types import ModelType
+
 from api.config import (
-    OPENROUTER_API_KEY,
-    OPENAI_API_KEY,
     AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY,
-    LITELLM_API_KEY,
     GOOGLE_API_KEY,
+    LITELLM_API_KEY,
+    OPENAI_API_KEY,
+    OPENROUTER_API_KEY,
 )
 from api.logger import get_logger
 
 if TYPE_CHECKING:
     from ollama import ChatResponse
-    from openai.types.chat import ChatCompletionChunk
     from openai import AsyncStream
+    from openai.types.chat import ChatCompletionChunk
+
     from api.clients import OpenAIClient
 
 MODEL_CFG = dict[str, str | int | float]
@@ -317,13 +317,14 @@ class AnthropicChatStreamer(ChatStreamer):
     provider = "anthropic"
 
     def __init__(self, *, model: str, model_config: MODEL_CFG):
-        from ..clients.anthropic import AnthropicBedrockClient
         from api.config import (
             AWS_ACCESS_KEY_ID,
-            AWS_SECRET_ACCESS_KEY,
             AWS_REGION,
+            AWS_SECRET_ACCESS_KEY,
             AWS_SESSION_TOKEN,
         )
+
+        from ..clients.anthropic import AnthropicBedrockClient
         self.client = AnthropicBedrockClient(
             aws_access_key_id=AWS_ACCESS_KEY_ID,
             aws_session_token=AWS_SESSION_TOKEN,
