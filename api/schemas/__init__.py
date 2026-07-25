@@ -1,4 +1,5 @@
 from api.schemas.chat import ChatCompletionRequest
+from api.schemas.io import aload, asave
 from api.schemas.models import (
     AuthorizationConfig,
     Model,
@@ -30,4 +31,6 @@ __all__ = [
     "WikiPage",
     "WikiSection",
     "WikiStructureModel",
+    "aload",
+    "asave",
 ]

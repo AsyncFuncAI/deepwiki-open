@@ -10,6 +10,8 @@ from api.schemas import (
     WikiCacheData,
     WikiCacheRequest,
     WikiPage,
+    aload,
+    asave,
 )
 
 logger = get_logger(__name__)
@@ -38,7 +40,7 @@ async def read_wiki_cache(
     if not os.path.exists(cache_path):
         return None
     try:
-        return await WikiCacheData.load(cache_path)
+        return await aload(WikiCacheData, cache_path, encoding="utf-8")
     except Exception as e:
         logger.exception("Error reading wiki cache from %s", cache_path)
         return None
@@ -58,7 +60,7 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
             provider=data.provider,
             model=data.model,
         )
-        await wiki_cache.save(cache_path)
+        await asave(wiki_cache, cache_path, encoding="utf-8")
         logger.info(f"Wiki cache successfully saved to {cache_path}")
         return True
     except OSError:

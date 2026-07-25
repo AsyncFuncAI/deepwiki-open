@@ -4,6 +4,8 @@ from api.schemas import (
     WikiCacheData,
     WikiPage,
     WikiStructureModel,
+    aload,
+    asave,
 )
 
 
@@ -26,7 +28,7 @@ async def test_wiki_cache_async_save(tmp_path) -> None:
     )
 
     path = tmp_path / "test.wiki"
-    await cache.save(path)
+    await asave(cache, path.as_posix(), encoding="utf-8")
     assert path.exists()
     
 @pytest.mark.asyncio
@@ -48,7 +50,7 @@ async def test_wiki_cache_async_load(tmp_path) -> None:
     )
 
     path = tmp_path / "test.wiki"
-    await cache.save(path)
-    ret = await cache.load(path)
+    await asave(cache, path.as_posix(), encoding="utf-8")
+    ret = await aload(WikiCacheData, path.as_posix(), encoding="utf-8")
 
     assert ret == cache
