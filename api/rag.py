@@ -1,48 +1,20 @@
-import logging
+from collections.abc import Sized
+
+from adalflow.components.retriever.faiss_retriever import FAISSRetriever
+from api.config import configs
+from api.data_pipeline import DatabaseManager
+from adalflow.core.types import UserQuery, AssistantResponse, DialogTurn
+
+from api.logger import get_logger
+
+
 import asyncio
 import os
-from dataclasses import dataclass
-from typing import Any, List, Tuple, Dict
 from uuid import uuid4
 
 import adalflow as adal
 
 from api.tools.embedder import get_embedder
-from api.prompts import RAG_SYSTEM_PROMPT as system_prompt, RAG_TEMPLATE
-
-# Create our own implementation of the conversation classes
-@dataclass
-class UserQuery:
-    query_str: str
-
-@dataclass
-class AssistantResponse:
-    response_str: str
-
-@dataclass
-class DialogTurn:
-    id: str
-    user_query: UserQuery
-    assistant_response: AssistantResponse
-
-class CustomConversation:
-    """Custom implementation of Conversation to fix the list assignment index out of range error"""
-
-    def __init__(self):
-        self.dialog_turns = []
-
-    def append_dialog_turn(self, dialog_turn):
-        """Safely append a dialog turn to the conversation"""
-        if not hasattr(self, 'dialog_turns'):
-            self.dialog_turns = []
-        self.dialog_turns.append(dialog_turn)
-
-# Import other adalflow components
-from adalflow.components.retriever.faiss_retriever import FAISSRetriever
-from api.config import configs
-from api.data_pipeline import DatabaseManager
-
-from api.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -63,6 +35,10 @@ def _get_rag_semaphore() -> asyncio.Semaphore:
     return _RAG_PREPARE_SEMAPHORE
 
 
+class CustomConversation(list[DialogTurn]):
+    """Custom implementation of Conversation to fix the list assignment index out of range error"""
+
+
 class Memory(adal.core.component.DataComponent):
     """Simple conversation management with a list of dialog turns."""
 
@@ -71,39 +47,19 @@ class Memory(adal.core.component.DataComponent):
         # Use our custom implementation instead of the original Conversation class
         self.current_conversation = CustomConversation()
 
-    def call(self) -> Dict:
+    def call(self) -> dict:
         """Return the conversation history as a dictionary."""
-        all_dialog_turns = {}
-        try:
-            # Check if dialog_turns exists and is a list
-            if hasattr(self.current_conversation, 'dialog_turns'):
-                if self.current_conversation.dialog_turns:
-                    logger.info(f"Memory content: {len(self.current_conversation.dialog_turns)} turns")
-                    for i, turn in enumerate(self.current_conversation.dialog_turns):
-                        if hasattr(turn, 'id') and turn.id is not None:
-                            all_dialog_turns[turn.id] = turn
-                            logger.info(f"Added turn {i+1} with ID {turn.id} to memory")
-                        else:
-                            logger.warning(f"Skipping invalid turn object in memory: {turn}")
-                else:
-                    logger.info("Dialog turns list exists but is empty")
-            else:
-                logger.info("No dialog_turns attribute in current_conversation")
-                # Try to initialize it
-                self.current_conversation.dialog_turns = []
-        except Exception as e:
-            logger.error(f"Error accessing dialog turns: {str(e)}")
-            # Try to recover
-            try:
-                self.current_conversation = CustomConversation()
-                logger.info("Recovered by creating new conversation")
-            except Exception as e2:
-                logger.error(f"Failed to recover: {str(e2)}")
-
+        all_dialog_turns = (
+            {}
+            if not self.current_conversation
+            else {
+                dialog_turn.id: dialog_turn for dialog_turn in self.current_conversation
+            }
+        )
         logger.info(f"Returning {len(all_dialog_turns)} dialog turns from memory")
         return all_dialog_turns
 
-    def add_dialog_turn(self, user_query: str, assistant_response: str) -> bool:
+    def add_dialog_turn(self, user_query: str, assistant_response: str) -> None:
         """
         Add a dialog turn to the conversation history.
 
@@ -111,59 +67,38 @@ class Memory(adal.core.component.DataComponent):
             user_query: The user's query
             assistant_response: The assistant's response
 
-        Returns:
-            bool: True if successful, False otherwise
         """
-        try:
-            # Create a new dialog turn using our custom implementation
-            dialog_turn = DialogTurn(
-                id=str(uuid4()),
-                user_query=UserQuery(query_str=user_query),
-                assistant_response=AssistantResponse(response_str=assistant_response),
-            )
+        # Create a new dialog turn using our custom implementation
+        dialog_turn = DialogTurn(
+            id=str(uuid4()),
+            user_query=UserQuery(query_str=user_query),
+            assistant_response=AssistantResponse(response_str=assistant_response),
+        )
 
-            # Make sure the current_conversation has the append_dialog_turn method
-            if not hasattr(self.current_conversation, 'append_dialog_turn'):
-                logger.warning("current_conversation does not have append_dialog_turn method, creating new one")
-                # Initialize a new conversation if needed
-                self.current_conversation = CustomConversation()
-
-            # Ensure dialog_turns exists
-            if not hasattr(self.current_conversation, 'dialog_turns'):
-                logger.warning("dialog_turns not found, initializing empty list")
-                self.current_conversation.dialog_turns = []
-
-            # Safely append the dialog turn
-            self.current_conversation.dialog_turns.append(dialog_turn)
-            logger.info(f"Successfully added dialog turn, now have {len(self.current_conversation.dialog_turns)} turns")
-            return True
-
-        except Exception as e:
-            logger.error(f"Error adding dialog turn: {str(e)}")
-            # Try to recover by creating a new conversation
-            try:
-                self.current_conversation = CustomConversation()
-                dialog_turn = DialogTurn(
-                    id=str(uuid4()),
-                    user_query=UserQuery(query_str=user_query),
-                    assistant_response=AssistantResponse(response_str=assistant_response),
-                )
-                self.current_conversation.dialog_turns.append(dialog_turn)
-                logger.info("Recovered from error by creating new conversation")
-                return True
-            except Exception as e2:
-                logger.error(f"Failed to recover from error: {str(e2)}")
-                return False
+        # Safely append the dialog turn
+        self.current_conversation.append(dialog_turn)
+        logger.info(
+            f"Successfully added dialog turn, now have {len(self.current_conversation)} turns"
+        )
 
 
 from dataclasses import dataclass, field
 
+
 @dataclass
 class RAGAnswer(adal.DataClass):
-    rationale: str = field(default="", metadata={"desc": "Chain of thoughts for the answer."})
-    answer: str = field(default="", metadata={"desc": "Answer to the user query, formatted in markdown for beautiful rendering with react-markdown. DO NOT include ``` triple backticks fences at the beginning or end of your answer."})
+    rationale: str = field(
+        default="", metadata={"desc": "Chain of thoughts for the answer."}
+    )
+    answer: str = field(
+        default="",
+        metadata={
+            "desc": "Answer to the user query, formatted in markdown for beautiful rendering with react-markdown. DO NOT include ``` triple backticks fences at the beginning or end of your answer."
+        },
+    )
 
     __output_fields__ = ["rationale", "answer"]
+
 
 class RAG(adal.Component):
     """RAG with one repo.
@@ -184,22 +119,26 @@ class RAG(adal.Component):
         self.model = model
 
         # Import the helper functions
-        from api.config import get_embedder_config, get_embedder_type
+        from api.config import get_embedder_type
 
         # Determine embedder type based on current configuration
         self.embedder_type = get_embedder_type()
-        self.is_ollama_embedder = (self.embedder_type == 'ollama')  # Backward compatibility
+        self.is_ollama_embedder = (
+            self.embedder_type == "ollama"
+        )  # Backward compatibility
 
         # Check if Ollama model exists before proceeding
         if self.is_ollama_embedder:
             from api.ollama_patch import check_ollama_model_exists
             from api.config import get_embedder_config
-            
+
             embedder_config = get_embedder_config()
             if embedder_config and embedder_config.get("model_kwargs", {}).get("model"):
                 model_name = embedder_config["model_kwargs"]["model"]
                 if not check_ollama_model_exists(model_name):
-                    raise Exception(f"Ollama model '{model_name}' not found. Please run 'ollama pull {model_name}' to install it.")
+                    raise ValueError(
+                        f"Ollama model '{model_name}' not found. Please run 'ollama pull {model_name}' to install it."
+                    )
 
         # Initialize components
         self.memory = Memory()
@@ -211,7 +150,7 @@ class RAG(adal.Component):
         self.db_manager = DatabaseManager()
         self.transformed_docs = []
 
-    def _validate_and_filter_embeddings(self, documents: List) -> List:
+    def _validate_and_filter_embeddings(self, documents: list) -> list:
         """
         Validate embeddings and filter out documents with invalid or mismatched embedding sizes.
 
@@ -230,29 +169,37 @@ class RAG(adal.Component):
 
         # First pass: collect all embedding sizes and count occurrences
         for i, doc in enumerate(documents):
-            if not hasattr(doc, 'vector') or doc.vector is None:
+            if not hasattr(doc, "vector") or doc.vector is None:
                 logger.warning(f"Document {i} has no embedding vector, skipping")
                 continue
 
             try:
-                if isinstance(doc.vector, list):
-                    embedding_size = len(doc.vector)
-                elif hasattr(doc.vector, 'shape'):
-                    embedding_size = doc.vector.shape[0] if len(doc.vector.shape) == 1 else doc.vector.shape[-1]
-                elif hasattr(doc.vector, '__len__'):
+                if hasattr(doc.vector, "shape"):
+                    embedding_size = (
+                        doc.vector.shape[0]
+                        if len(doc.vector.shape) == 1
+                        else doc.vector.shape[-1]
+                    )
+                elif isinstance(doc.vector, Sized):
                     embedding_size = len(doc.vector)
                 else:
-                    logger.warning(f"Document {i} has invalid embedding vector type: {type(doc.vector)}, skipping")
+                    logger.warning(
+                        f"Document {i} has invalid embedding vector type: {type(doc.vector)}, skipping"
+                    )
                     continue
 
                 if embedding_size == 0:
                     logger.warning(f"Document {i} has empty embedding vector, skipping")
                     continue
 
-                embedding_sizes[embedding_size] = embedding_sizes.get(embedding_size, 0) + 1
+                embedding_sizes[embedding_size] = (
+                    embedding_sizes.get(embedding_size, 0) + 1
+                )
 
             except Exception as e:
-                logger.warning(f"Error checking embedding size for document {i}: {str(e)}, skipping")
+                logger.warning(
+                    f"Error checking embedding size for document {i}: {str(e)}, skipping"
+                )
                 continue
 
         if not embedding_sizes:
@@ -261,24 +208,30 @@ class RAG(adal.Component):
 
         # Find the most common embedding size (this should be the correct one)
         target_size = max(embedding_sizes.keys(), key=lambda k: embedding_sizes[k])
-        logger.info(f"Target embedding size: {target_size} (found in {embedding_sizes[target_size]} documents)")
+        logger.info(
+            f"Target embedding size: {target_size} (found in {embedding_sizes[target_size]} documents)"
+        )
 
         # Log all embedding sizes found
         for size, count in embedding_sizes.items():
             if size != target_size:
-                logger.warning(f"Found {count} documents with incorrect embedding size {size}, will be filtered out")
+                logger.warning(
+                    f"Found {count} documents with incorrect embedding size {size}, will be filtered out"
+                )
 
         # Second pass: filter documents with the target embedding size
         for i, doc in enumerate(documents):
-            if not hasattr(doc, 'vector') or doc.vector is None:
+            if not hasattr(doc, "vector") or doc.vector is None:
                 continue
 
             try:
-                if isinstance(doc.vector, list):
-                    embedding_size = len(doc.vector)
-                elif hasattr(doc.vector, 'shape'):
-                    embedding_size = doc.vector.shape[0] if len(doc.vector.shape) == 1 else doc.vector.shape[-1]
-                elif hasattr(doc.vector, '__len__'):
+                if hasattr(doc.vector, "shape"):
+                    embedding_size = (
+                        doc.vector.shape[0]
+                        if len(doc.vector.shape) == 1
+                        else doc.vector.shape[-1]
+                    )
+                elif isinstance(doc.vector, Sized):
                     embedding_size = len(doc.vector)
                 else:
                     continue
@@ -287,27 +240,46 @@ class RAG(adal.Component):
                     valid_documents.append(doc)
                 else:
                     # Log which document is being filtered out
-                    file_path = getattr(doc, 'meta_data', {}).get('file_path', f'document_{i}')
-                    logger.warning(f"Filtering out document '{file_path}' due to embedding size mismatch: {embedding_size} != {target_size}")
+                    file_path = getattr(doc, "meta_data", {}).get(
+                        "file_path", f"document_{i}"
+                    )
+                    logger.warning(
+                        f"Filtering out document '{file_path}' due to embedding size mismatch: {embedding_size} != {target_size}"
+                    )
 
             except Exception as e:
-                file_path = getattr(doc, 'meta_data', {}).get('file_path', f'document_{i}')
-                logger.warning(f"Error validating embedding for document '{file_path}': {str(e)}, skipping")
+                file_path = getattr(doc, "meta_data", {}).get(
+                    "file_path", f"document_{i}"
+                )
+                logger.warning(
+                    f"Error validating embedding for document '{file_path}': {str(e)}, skipping"
+                )
                 continue
 
-        logger.info(f"Embedding validation complete: {len(valid_documents)}/{len(documents)} documents have valid embeddings")
+        logger.info(
+            f"Embedding validation complete: {len(valid_documents)}/{len(documents)} documents have valid embeddings"
+        )
 
-        if len(valid_documents) == 0:
-            logger.error("No documents with valid embeddings remain after filtering")
+        if not valid_documents:
+            logger.warning("No documents with valid embeddings remained after filtering")
         elif len(valid_documents) < len(documents):
             filtered_count = len(documents) - len(valid_documents)
-            logger.warning(f"Filtered out {filtered_count} documents due to embedding issues")
+            logger.warning(
+                f"Filtered out {filtered_count} documents due to embedding issues"
+            )
 
         return valid_documents
 
-    def prepare_retriever(self, repo_url_or_path: str, type: str = "github", access_token: str = None,
-                      excluded_dirs: List[str] = None, excluded_files: List[str] = None,
-                      included_dirs: List[str] = None, included_files: List[str] = None):
+    def prepare_retriever(
+        self,
+        repo_url_or_path: str,
+        type: str = "github",
+        access_token: str | None = None,
+        excluded_dirs: list[str] | None = None,
+        excluded_files: list[str] | None = None,
+        included_dirs: list[str] | None = None,
+        included_files: list[str] | None = None,
+    ):
         """
         Prepare the retriever for a repository.
         Will load database from local storage if available.
@@ -330,17 +302,23 @@ class RAG(adal.Component):
             excluded_dirs=excluded_dirs,
             excluded_files=excluded_files,
             included_dirs=included_dirs,
-            included_files=included_files
+            included_files=included_files,
         )
         logger.info(f"Loaded {len(self.transformed_docs)} documents for retrieval")
 
         # Validate and filter embeddings to ensure consistent sizes
-        self.transformed_docs = self._validate_and_filter_embeddings(self.transformed_docs)
+        self.transformed_docs = self._validate_and_filter_embeddings(
+            self.transformed_docs
+        )
 
         if not self.transformed_docs:
-            raise ValueError("No valid documents with embeddings found. Cannot create retriever.")
+            raise ValueError(
+                "No valid documents with embeddings found. Cannot create retriever."
+            )
 
-        logger.info(f"Using {len(self.transformed_docs)} documents with valid embeddings for retrieval")
+        logger.info(
+            f"Using {len(self.transformed_docs)} documents with valid embeddings for retrieval"
+        )
 
         try:
             # Use the appropriate embedder for retrieval
@@ -355,17 +333,25 @@ class RAG(adal.Component):
             logger.error(f"Error creating FAISS retriever: {str(e)}")
             # Try to provide more specific error information
             if "All embeddings should be of the same size" in str(e):
-                logger.error("Embedding size validation failed. This suggests there are still inconsistent embedding sizes.")
+                logger.error(
+                    "Embedding size validation failed. This suggests there are still inconsistent embedding sizes."
+                )
                 # Log embedding sizes for debugging
                 sizes = []
-                for i, doc in enumerate(self.transformed_docs[:10]):  # Check first 10 docs
-                    if hasattr(doc, 'vector') and doc.vector is not None:
+                for i, doc in enumerate(
+                    self.transformed_docs[:10]
+                ):  # Check first 10 docs
+                    if hasattr(doc, "vector") and doc.vector is not None:
                         try:
                             if isinstance(doc.vector, list):
                                 size = len(doc.vector)
-                            elif hasattr(doc.vector, 'shape'):
-                                size = doc.vector.shape[0] if len(doc.vector.shape) == 1 else doc.vector.shape[-1]
-                            elif hasattr(doc.vector, '__len__'):
+                            elif hasattr(doc.vector, "shape"):
+                                size = (
+                                    doc.vector.shape[0]
+                                    if len(doc.vector.shape) == 1
+                                    else doc.vector.shape[-1]
+                                )
+                            elif hasattr(doc.vector, "__len__"):
                                 size = len(doc.vector)
                             else:
                                 size = "unknown"
@@ -376,14 +362,14 @@ class RAG(adal.Component):
             raise
 
     async def aprepare_retriever(
-            self,
-            repo_url_or_path: str,
-            type: str = "github",
-            access_token: str | None = None,
-            excluded_dirs: list[str] | None = None,
-            excluded_files: list[str] | None = None,
-            included_dirs: list[str] | None = None,
-            included_files: list[str] | None = None,
+        self,
+        repo_url_or_path: str,
+        type: str = "github",
+        access_token: str | None = None,
+        excluded_dirs: list[str] | None = None,
+        excluded_files: list[str] | None = None,
+        included_dirs: list[str] | None = None,
+        included_files: list[str] | None = None,
     ):
         """Async version of the original `prepare_retriever`.
 
@@ -413,7 +399,7 @@ class RAG(adal.Component):
                 included_files=included_files,
             )
 
-    def call(self, query: str, language: str = "en") -> Tuple[List]:
+    def call(self, query: str, language: str = "en") -> tuple[list]:
         """
         Process a query using RAG.
 
@@ -440,11 +426,10 @@ class RAG(adal.Component):
             # Create error response
             error_response = RAGAnswer(
                 rationale="Error occurred while processing the query.",
-                answer=f"I apologize, but I encountered an error while processing your question. Please try again or rephrase your question."
+                answer=f"I apologize, but I encountered an error while processing your question. Please try again or rephrase your question.",
             )
             return error_response, []
 
     async def acall(self, query: str, language: str = "en") -> tuple[list]:
-        """Async version of the original `call` method.
-        """
+        """Async version of the original `call` method."""
         return await asyncio.to_thread(self.call, query, language)
