@@ -15,7 +15,7 @@ async def _send_if_connect(websocket: WebSocket, msg: str):
     if websocket.application_state == WebSocketState.CONNECTED:
         await websocket.send_text(msg)
 
-@router.websocket_route("/ws/chat")
+@router.websocket("/ws/chat")
 async def handle_websocket_chat(websocket: WebSocket):
     """
     Handle WebSocket connection for chat completions.
