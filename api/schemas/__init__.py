@@ -1,33 +1,33 @@
-from api.schemas.chat_models import ChatCompletionRequest
+from api.schemas.chat import ChatCompletionRequest
+from api.schemas.models import (
+    AuthorizationConfig,
+    Model,
+    ModelConfig,
+    Provider,
+)
 from api.schemas.wiki import (
-    WikiPage,
-    WikiSection,
-    WikiStructureModel,
+    ProcessedProjectEntry,
+    RepoInfo,
     WikiCacheData,
     WikiCacheRequest,
     WikiExportRequest,
-    RepoInfo,
-    ProcessedProjectEntry,
-)
-from api.schemas.models import (
-    Model,
-    Provider,
-    ModelConfig,
-    AuthorizationConfig,
+    WikiPage,
+    WikiSection,
+    WikiStructureModel,
 )
 
 __all__ = [
+    "AuthorizationConfig",
     "ChatCompletionRequest",
-    "WikiPage",
-    "WikiSection",
-    "WikiStructureModel",
+    "Model",
+    "ModelConfig",
+    "ProcessedProjectEntry",
+    "Provider",
+    "RepoInfo",
     "WikiCacheData",
     "WikiCacheRequest",
     "WikiExportRequest",
-    "RepoInfo",
-    "Model",
-    "Provider",
-    "ModelConfig",
-    "AuthorizationConfig",
-    "ProcessedProjectEntry",
+    "WikiPage",
+    "WikiSection",
+    "WikiStructureModel",
 ]
