@@ -2,7 +2,7 @@ from collections.abc import Sized
 
 from adalflow.components.retriever.faiss_retriever import FAISSRetriever
 from api.config import configs
-from api.data_pipeline import DatabaseManager
+from api.rag.pipeline import DatabaseManager
 from adalflow.core.types import UserQuery, AssistantResponse, DialogTurn
 
 from api.logger import get_logger
@@ -18,9 +18,6 @@ from api.tools.embedder import get_embedder
 
 logger = get_logger(__name__)
 
-# Maximum token limit for embedding models
-MAX_INPUT_TOKENS = 7500  # Safe threshold below 8192 token limit
-
 # Maximum concurrent RAG preparing count
 _RAG_PREPARE_SEMAPHORE: asyncio.Semaphore | None = None
 
@@ -33,6 +30,44 @@ def _get_rag_semaphore() -> asyncio.Semaphore:
         )
     assert isinstance(_RAG_PREPARE_SEMAPHORE, asyncio.Semaphore)
     return _RAG_PREPARE_SEMAPHORE
+
+
+def check_ollama_model_exists(model_name: str, ollama_host: str | None = None) -> bool:
+    """
+    Check if an Ollama model exists before attempting to use it.
+
+    Args:
+        model_name: Name of the model to check
+        ollama_host: Ollama host URL, defaults to localhost:11434
+
+    Returns:
+        bool: True if model exists, False otherwise
+    """
+    import ollama
+    import httpx
+
+    if ollama_host is None:
+        ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+    try:
+        # Remove /api prefix if present and add it back
+        ollama_host = ollama_host.removesuffix("/api")
+        ret: ollama.ListResponse = ollama.Client(host=ollama_host, timeout=5).list()
+        is_available = any(model_name == model.model for model in ret.models)
+        if is_available:
+            logger.info("Ollama model '%s' is available", model_name)
+        else:
+            logger.warning(
+                "Ollama model '%s' is not available. Available models: %s. ",
+                model_name,
+                str([model.model for model in ret.models]),
+            )
+        return is_available
+    except (httpx.ConnectTimeout, ConnectionError) as e:
+        logger.warning(f"Could not connect to Ollama to check models: {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"Error checking Ollama model availability: {e}")
+        return False
 
 
 class CustomConversation(list[DialogTurn]):
@@ -129,7 +164,6 @@ class RAG(adal.Component):
 
         # Check if Ollama model exists before proceeding
         if self.is_ollama_embedder:
-            from api.ollama_patch import check_ollama_model_exists
             from api.config import get_embedder_config
 
             embedder_config = get_embedder_config()
@@ -261,7 +295,9 @@ class RAG(adal.Component):
         )
 
         if not valid_documents:
-            logger.warning("No documents with valid embeddings remained after filtering")
+            logger.warning(
+                "No documents with valid embeddings remained after filtering"
+            )
         elif len(valid_documents) < len(documents):
             filtered_count = len(documents) - len(valid_documents)
             logger.warning(
@@ -420,8 +456,8 @@ class RAG(adal.Component):
 
             return retrieved_documents
 
-        except Exception as e:
-            logger.error(f"Error in RAG call: {str(e)}")
+        except Exception:
+            logger.exception("Error in RAG call.")
 
             # Create error response
             error_response = RAGAnswer(

@@ -64,12 +64,12 @@ class WikiCacheData(BaseModel):
 
     async def save(self, path):
         async with await anyio.open_file(path, mode="w", encoding="utf-8") as file:
-            json.dump(self.model_dump_json(), await file)
+            await file.write(self.model_dump_json())
 
     @classmethod
     async def load(cls, path):
         async with await anyio.open_file(path, mode="r", encoding="utf-8") as file:
-            return cls(**json.load(await file))
+            return cls(**json.loads(await file.read()))
 
 
 class WikiCacheRequest(BaseModel):

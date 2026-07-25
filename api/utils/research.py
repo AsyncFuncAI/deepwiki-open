@@ -4,10 +4,10 @@ from functools import partial
 
 from api.config import configs, get_model_config
 from api.schemas import ChatCompletionRequest
-from api.data_pipeline import count_tokens, get_file_content
 from api.logger import get_logger
-from api.rag import RAG, MAX_INPUT_TOKENS
+from api.rag import RAG, count_tokens
 from api.chat import ChatStreamer, is_token_limit_error, prompt_builder
+from api.repository import get_repo_content
 
 from api.prompts import (
     DEEP_RESEARCH_FIRST_ITERATION_PROMPT,
@@ -18,6 +18,10 @@ from api.prompts import (
 
 
 logger = get_logger(__name__)
+
+
+# Maximum token limit for embedding models
+MAX_INPUT_TOKENS = 7500  # Safe threshold below 8192 token limit
 
 
 async def research_chat(
@@ -229,7 +233,7 @@ async def research_chat(
     if request.filePath:
         try:
             file_content = await asyncio.to_thread(
-                get_file_content,
+                get_repo_content,
                 repo_url=request.repo_url,
                 file_path=request.filePath,
                 repo_type=request.type,

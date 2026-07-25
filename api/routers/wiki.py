@@ -129,7 +129,7 @@ async def get_local_repo_structure(
 
 
 @router.get("/api/wiki_cache", response_model=Optional[WikiCacheData])
-async def get_cached_wiki(
+async def read_wiki(
     owner: str = Query(..., description="Repository owner"),
     repo: str = Query(..., description="Repository name"),
     repo_type: str = Query(..., description="Repository type (e.g., github, gitlab)"),
@@ -154,7 +154,7 @@ async def get_cached_wiki(
 
 
 @router.post("/api/wiki_cache")
-async def store_wiki_cache(request_data: WikiCacheRequest):
+async def save_wiki(request_data: WikiCacheRequest):
     """
     Stores generated wiki data (structure and pages) to the server-side cache.
     """
@@ -175,7 +175,7 @@ async def store_wiki_cache(request_data: WikiCacheRequest):
 
 
 @router.delete("/api/wiki_cache")
-async def delete_wiki_cache(
+async def delete_wiki(
     owner: str = Query(..., description="Repository owner"),
     repo: str = Query(..., description="Repository name"),
     repo_type: str = Query(..., description="Repository type (e.g., github, gitlab)"),
@@ -200,7 +200,7 @@ async def delete_wiki_cache(
     )
 
     try:
-        deleted = delete_wiki_cache(owner, repo, repo_type, language)
+        deleted = await delete_wiki_cache(owner, repo, repo_type, language)
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to delete wiki cache: {str(e)}"
