@@ -4,7 +4,12 @@ import os
 import json
 import asyncio
 
-from api.schemas import WikiCacheData, WikiCacheRequest, ProcessedProjectEntry, WikiPage
+from api.schemas import (
+    WikiCacheData,
+    WikiCacheRequest,
+    ProcessedProjectEntry,
+    WikiPage,
+)
 from api.logger import get_logger
 
 logger = get_logger(__name__)
@@ -25,56 +30,51 @@ def get_wiki_cache_path(owner: str, repo: str, repo_type: str, language: str) ->
     return os.path.join(WIKI_CACHE_DIR, filename)
 
 
-async def read_wiki_cache(owner: str, repo: str, repo_type: str, language: str) -> WikiCacheData | None:
+async def read_wiki_cache(
+    owner: str, repo: str, repo_type: str, language: str
+) -> WikiCacheData | None:
     """Reads wiki cache data from the file system."""
     cache_path = get_wiki_cache_path(owner, repo, repo_type, language)
-    if os.path.exists(cache_path):
-        try:
-            with open(cache_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                return WikiCacheData(**data)
-        except Exception as e:
-            logger.error(f"Error reading wiki cache from {cache_path}: {e}")
-            return None
-    return None
+    if not os.path.exists(cache_path):
+        return None
+    try:
+        return await WikiCacheData.load(cache_path)
+    except Exception as e:
+        logger.exception("Error reading wiki cache from %s", cache_path)
+        return None
 
 
 async def save_wiki_cache(data: WikiCacheRequest) -> bool:
     """Saves wiki cache data to the file system."""
-    cache_path = get_wiki_cache_path(data.repo.owner, data.repo.repo, data.repo.type, data.language)
+    cache_path = get_wiki_cache_path(
+        data.repo.owner, data.repo.repo, data.repo.type, data.language
+    )
     logger.info(f"Attempting to save wiki cache. Path: {cache_path}")
     try:
-        payload = WikiCacheData(
+        wiki_cache = WikiCacheData(
             wiki_structure=data.wiki_structure,
             generated_pages=data.generated_pages,
             repo=data.repo,
             provider=data.provider,
-            model=data.model
+            model=data.model,
         )
-        # Log size of data to be cached for debugging (avoid logging full content if large)
-        try:
-            payload_json = payload.model_dump_json()
-            payload_size = len(payload_json.encode('utf-8'))
-            logger.info(f"Payload prepared for caching. Size: {payload_size} bytes.")
-        except Exception as ser_e:
-            logger.warning(f"Could not serialize payload for size logging: {ser_e}")
-
-        logger.info(f"Writing cache file to: {cache_path}")
-        with open(cache_path, 'w', encoding='utf-8') as f:
-            json.dump(payload.model_dump(), f, indent=2)
+        await wiki_cache.save(cache_path)
         logger.info(f"Wiki cache successfully saved to {cache_path}")
         return True
-    except IOError as e:
-        logger.error(f"IOError saving wiki cache to {cache_path}: {e.strerror} (errno: {e.errno})", exc_info=True)
+    except OSError:
+        logger.exception("IOError saving wiki cache to %s", cache_path)
         return False
-    except Exception as e:
-        logger.error(f"Unexpected error saving wiki cache to {cache_path}: {e}", exc_info=True)
+    except Exception:
+        logger.exception("Unexpected error saving wiki cache to %s", cache_path)
         return False
 
 
 async def delete_wiki_cache(owner: str, repo: str, repo_type: str, language: str):
     cache_path = get_wiki_cache_path(
-        owner, repo, repo_type, language,
+        owner,
+        repo,
+        repo_type,
+        language,
     )
 
     if not os.path.exists(cache_path):
@@ -90,7 +90,9 @@ async def list_processed_projects() -> list[ProcessedProjectEntry]:
     project_entries: list[ProcessedProjectEntry] = []
 
     if not os.path.exists(WIKI_CACHE_DIR):
-        logger.info(f"Cache directory {WIKI_CACHE_DIR} not found. Returning empty list.")
+        logger.info(
+            f"Cache directory {WIKI_CACHE_DIR} not found. Returning empty list."
+        )
         return []
 
     logger.info(f"Scanning for project cache files in: {WIKI_CACHE_DIR}")
@@ -101,7 +103,11 @@ async def list_processed_projects() -> list[ProcessedProjectEntry]:
             file_path = os.path.join(WIKI_CACHE_DIR, filename)
             try:
                 stats = await asyncio.to_thread(os.stat, file_path)
-                parts = filename.replace("deepwiki_cache_", "").replace(".json", "").split("_")
+                parts = (
+                    filename.replace("deepwiki_cache_", "")
+                    .replace(".json", "")
+                    .split("_")
+                )
                 # Expecting repo_type_owner_repo_language
                 if len(parts) >= 4:
                     repo_type = parts[0]
@@ -120,7 +126,9 @@ async def list_processed_projects() -> list[ProcessedProjectEntry]:
                         )
                     )
                 else:
-                    logger.warning(f"Could not parse project details from filename: {filename}")
+                    logger.warning(
+                        f"Could not parse project details from filename: {filename}"
+                    )
             except Exception as e:
                 logger.error(f"Error processing file {file_path}: {e}")
                 continue
@@ -130,7 +138,9 @@ async def list_processed_projects() -> list[ProcessedProjectEntry]:
     return project_entries
 
 
-def _generate_json_export(repo_url: str, pages: list[WikiPage], timestamp: datetime) -> str:
+def _generate_json_export(
+    repo_url: str, pages: list[WikiPage], timestamp: datetime
+) -> str:
     """
     Generate JSON export of wiki pages.
 
@@ -146,16 +156,18 @@ def _generate_json_export(repo_url: str, pages: list[WikiPage], timestamp: datet
         "metadata": {
             "repository": repo_url,
             "generated_at": timestamp.isoformat(),
-            "page_count": len(pages)
+            "page_count": len(pages),
         },
-        "pages": [page.model_dump() for page in pages]
+        "pages": [page.model_dump() for page in pages],
     }
 
     # Convert to JSON string with pretty formatting
     return json.dumps(export_data, indent=2)
 
 
-def _generate_markdown_export(repo_url: str, pages: list[WikiPage], timestamp: datetime) -> str:
+def _generate_markdown_export(
+    repo_url: str, pages: list[WikiPage], timestamp: datetime
+) -> str:
     """
     Generate Markdown export of wiki pages.
 
@@ -202,10 +214,10 @@ def _generate_markdown_export(repo_url: str, pages: list[WikiPage], timestamp: d
 
 
 def export_wiki(
-        repo_url: str,
-        pages: list[WikiPage],
-        format: Literal["json", "markdown"],
-        timestamp: datetime | None = None,
+    repo_url: str,
+    pages: list[WikiPage],
+    format: Literal["json", "markdown"],
+    timestamp: datetime | None = None,
 ) -> str:
     dt = timestamp or datetime.now()
     if format == "json":
