@@ -86,13 +86,9 @@ class Memory(adal.core.component.DataComponent):
 
     def call(self) -> dict:
         """Return the conversation history as a dictionary."""
-        all_dialog_turns = (
-            {}
-            if not self.current_conversation
-            else {
-                dialog_turn.id: dialog_turn for dialog_turn in self.current_conversation
-            }
-        )
+        all_dialog_turns = {
+            dialog_turn.id: dialog_turn for dialog_turn in self.current_conversation
+        }
         logger.info(f"Returning {len(all_dialog_turns)} dialog turns from memory")
         return all_dialog_turns
 
