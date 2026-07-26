@@ -1,29 +1,31 @@
 import asyncio
 import logging
-from typing import Callable
 from functools import partial
+from typing import Callable
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from api.chat import ChatStreamer, prompt_builder, is_token_limit_error
-from api.config import get_model_config, configs
-from api.data_pipeline import count_tokens, get_file_content
-from api.rag import RAG, MAX_INPUT_TOKENS
-from api.prompts import (
-    DEEP_RESEARCH_FIRST_ITERATION_PROMPT,
-    DEEP_RESEARCH_FINAL_ITERATION_PROMPT,
-    DEEP_RESEARCH_INTERMEDIATE_ITERATION_PROMPT,
-    SIMPLE_CHAT_SYSTEM_PROMPT
-)
+from api.chat import ChatStreamer, is_token_limit_error, prompt_builder
 from api.chat_model import ChatCompletionRequest
+from api.config import configs, get_model_config
+from api.logging_config import setup_logging
+from api.prompts import (
+    DEEP_RESEARCH_FINAL_ITERATION_PROMPT,
+    DEEP_RESEARCH_FIRST_ITERATION_PROMPT,
+    DEEP_RESEARCH_INTERMEDIATE_ITERATION_PROMPT,
+    SIMPLE_CHAT_SYSTEM_PROMPT,
+)
+from api.rag import RAG, count_tokens
+from api.repository import get_repo_content
 
 # Configure logging
-from api.logging_config import setup_logging
-
 setup_logging()
 logger = logging.getLogger(__name__)
+
+# Maximum token limit for embedding models
+MAX_INPUT_TOKENS = 7500  # Safe threshold below 8192 token limit
 
 
 # Initialize FastAPI app
@@ -254,7 +256,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         if request.filePath:
             try:
                 file_content = await asyncio.to_thread(
-                    get_file_content,
+                    get_repo_content,
                     repo_url=request.repo_url,
                     file_path=request.filePath,
                     repo_type=request.type,
