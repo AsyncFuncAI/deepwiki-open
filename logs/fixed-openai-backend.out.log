@@ -1,0 +1,31 @@
+Model route: ark-code-latest -> https://ark.cn-beijing.volces.com/api/coding/v3
+Model route: deepseek-v4-flash-260425 -> https://ark.cn-beijing.volces.com/api/coding/v3
+Model route: crs -> http://47.101.159.7:39187/v1 (gpt5.5)
+Embedding: Ark -> https://ark.cn-beijing.volces.com/api/coding/v3 (doubao-embedding-vision-251215)
+LiteLLM URL: http://localhost:4000
+Backend URL: http://localhost:8002
+API keys remain in process memory only.
+INFO:     127.0.0.1:57725 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57774 - "GET /models/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57813 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57981 - "GET /lang/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57984 - "GET /auth/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57984 - "GET /auth/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57991 - "GET /models/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57991 - "GET /models/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57997 - "GET /api/wiki_cache?owner=local&repo=skillhub&repo_type=local&language=zh&comprehensive=false HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58000 - "GET /auth/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58000 - "GET /auth/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58003 - "GET /local_repo/structure?path=D%3A%5Csrc%5Cgithub-log%5Cskillhub HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58097 - "POST /api/wiki_cache HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58234 - "GET /models/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58234 - "GET /models/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58249 - "GET /models/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58249 - "GET /models/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58275 - "DELETE /api/wiki_cache?owner=local&repo=skillhub&repo_type=local&language=zh&provider=openai&model=deepseek-v4-flash-260425&is_custom_model=false&custom_model=&comprehensive=false&authorization_code= HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58278 - "GET /api/wiki_cache?owner=local&repo=skillhub&repo_type=local&language=zh&comprehensive=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58280 - "GET /local_repo/structure?path=D%3A%5Csrc%5Cgithub-log%5Cskillhub HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59013 - "POST /api/wiki_cache HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59686 - "GET /models/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59686 - "GET /models/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59688 - "POST /export/wiki HTTP/1.1" 200 OK

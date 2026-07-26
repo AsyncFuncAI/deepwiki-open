@@ -1,0 +1,18 @@
+2026-07-26 13:31:52,205 - WARNING - __main__ - main.py:50 - Missing environment variables: GOOGLE_API_KEY
+2026-07-26 13:31:52,206 - WARNING - __main__ - main.py:51 - Some functionality may not work correctly without these variables.
+2026-07-26 13:31:55,046 - WARNING - adalflow.tracing.mlflow_integration - mlflow_integration.py:20 - MLflow not available. Install with: pip install mlflow
+2026-07-26 13:31:55,654 - INFO - api.config - config.py:114 - Loading configuration from D:\src\deepwiki-open\api\config\generator.json
+2026-07-26 13:31:55,655 - INFO - api.config - config.py:114 - Loading configuration from D:\src\deepwiki-open\api\config\embedder.json
+2026-07-26 13:31:55,656 - INFO - api.config - config.py:114 - Loading configuration from D:\src\deepwiki-open\api\config\repo.json
+2026-07-26 13:31:55,656 - INFO - api.config - config.py:114 - Loading configuration from D:\src\deepwiki-open\api\config\lang.json
+2026-07-26 13:31:55,657 - WARNING - __main__ - main.py:60 - GOOGLE_API_KEY not configured
+2026-07-26 13:31:56,191 - INFO - faiss.loader - loader.py:125 - Loading faiss with AVX2 support.
+2026-07-26 13:31:56,311 - INFO - faiss.loader - loader.py:127 - Successfully loaded faiss with AVX2 support.
+2026-07-26 13:31:56,319 - INFO - faiss - __init__.py:186 - Failed to load GPU Faiss: name 'GpuIndexIVFFlat' is not defined. Will not load constructor refs for GPU indexes. This is only an error if you're trying to use GPU Faiss.
+2026-07-26 13:31:56,337 - INFO - __main__ - main.py:69 - Starting Streaming API on port 8002
+INFO:     Started server process [35848]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8002 (Press CTRL+C to quit)
+2026-07-26 13:32:11,575 - INFO - api.api - api.py:179 - Fetching model configurations
+2026-07-26 13:32:29,079 - INFO - api.api - api.py:179 - Fetching model configurations

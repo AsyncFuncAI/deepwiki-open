@@ -1,0 +1,8 @@
+Model route: ark-code-latest -> CC Switch OpenCode 'codingtplan'.
+Model route: ccswitch-codex -> CC Switch Codex '47' (gpt-5.5).
+LiteLLM URL: http://localhost:4000
+Backend URL: http://localhost:8002
+API keys remain in process memory only.
+INFO:     127.0.0.1:54917 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54951 - "GET /models/config HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54976 - "GET /models/config HTTP/1.1" 200 OK
