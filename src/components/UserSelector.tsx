@@ -21,6 +21,27 @@ interface ModelConfig {
   defaultProvider: string;
 }
 
+const MODEL_HINTS: Record<string, string> = {
+  'gpt-5': 'Best quality',
+  'gpt-5-mini': 'Balanced',
+  'gpt-5-nano': 'Fastest',
+  'gpt-4o': 'General purpose',
+  'gpt-4.1': 'Code and long context',
+  o1: 'Deep reasoning',
+  o3: 'Advanced reasoning',
+  'o4-mini': 'Fast reasoning',
+  'gemini-2.5-pro': 'Best quality',
+  'gemini-2.5-flash': 'Balanced',
+  'gemini-2.5-flash-lite': 'Fastest',
+  'qwen-plus': 'Best quality',
+  'qwen-turbo': 'Fastest',
+  'deepseek-r1': 'Reasoning',
+};
+
+const getModelHint = (modelId: string, modelName: string) => {
+  return MODEL_HINTS[modelId] || MODEL_HINTS[modelName] || 'Available model';
+};
+
 interface ModelSelectorProps {
   provider: string;
   setProvider: (value: string) => void;
@@ -78,6 +99,8 @@ export default function UserSelector({
   // State for viewing default values
   const [showDefaultDirs, setShowDefaultDirs] = useState(false);
   const [showDefaultFiles, setShowDefaultFiles] = useState(false);
+  const selectedProvider = modelConfig?.providers.find((p: Provider) => p.id === provider);
+  const availableModels = selectedProvider?.models || [];
 
   // Fetch model configurations from the backend
   useEffect(() => {
@@ -315,19 +338,46 @@ next.config.js
               className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
             />
           ) : (
-            <select
+            <div
               id="model-dropdown"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
-              disabled={!provider || isLoading || !modelConfig?.providers.find(p => p.id === provider)?.models?.length}
+              role="radiogroup"
+              aria-label={t.form?.modelSelection || 'Model Selection'}
+              className="grid grid-cols-1 sm:grid-cols-2 gap-2"
             >
-              {modelConfig?.providers.find((p: Provider) => p.id === provider)?.models.map((modelOption) => (
-                <option key={modelOption.id} value={modelOption.id}>
-                  {modelOption.name}
-                </option>
-              )) || <option value="">{t.form?.selectModel || 'Select Model'}</option>}
-            </select>
+              {availableModels.length > 0 ? (
+                availableModels.map((modelOption) => {
+                  const isSelected = model === modelOption.id;
+                  return (
+                    <button
+                      key={modelOption.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      onClick={() => setModel(modelOption.id)}
+                      className={`min-w-0 rounded-md border px-3 py-2 text-left transition-colors ${
+                        isSelected
+                          ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 text-[var(--foreground)]'
+                          : 'border-[var(--border-color)] bg-[var(--background)]/40 text-[var(--foreground)] hover:border-[var(--accent-primary)]/60 hover:bg-[var(--background)]/70'
+                      }`}
+                    >
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 truncate font-mono text-sm">{modelOption.name}</span>
+                        {isSelected && (
+                          <span className="h-2 w-2 flex-none rounded-full bg-[var(--accent-primary)]" />
+                        )}
+                      </span>
+                      <span className="mt-1 block truncate text-xs text-[var(--muted)]">
+                        {getModelHint(modelOption.id, modelOption.name)}
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="rounded-md border border-[var(--border-color)] bg-[var(--background)]/40 px-3 py-2 text-sm text-[var(--muted)]">
+                  {t.form?.selectModel || 'Select Model'}
+                </div>
+              )}
+            </div>
           )}
         </div>
 

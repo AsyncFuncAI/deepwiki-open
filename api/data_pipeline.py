@@ -8,6 +8,7 @@ import tiktoken
 import logging
 import base64
 import glob
+import time
 from adalflow.utils import get_adalflow_default_root_path
 from adalflow.core.db import LocalDB
 from api.config import configs, DEFAULT_EXCLUDED_DIRS, DEFAULT_EXCLUDED_FILES
@@ -452,9 +453,24 @@ def transform_documents_and_save_to_db(
     db = LocalDB()
     db.register_transformer(transformer=data_transformer, key="split_and_embed")
     db.load(documents)
+    start_time = time.time()
+    logger.info(
+        "Starting split and embedding: source_documents=%s embedder_type=%s db_path=%s",
+        len(documents),
+        embedder_type or "configured",
+        db_path,
+    )
     db.transform(key="split_and_embed")
+    elapsed = time.time() - start_time
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     db.save_state(filepath=db_path)
+    transformed_docs = db.get_transformed_data(key="split_and_embed") or []
+    logger.info(
+        "Finished split and embedding: transformed_documents=%s elapsed_seconds=%.1f db_path=%s",
+        len(transformed_docs),
+        elapsed,
+        db_path,
+    )
     return db
 
 def get_github_file_content(repo_url: str, file_path: str, access_token: str = None) -> str:

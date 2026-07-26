@@ -2,24 +2,23 @@ model_list:
   # -----------------------
   # Chat / Generation models
   # -----------------------
-  - model_name: qwen3:1.7b #Can be named anything - qwen3-1.7b
+  - model_name: ark-code-latest
     litellm_params:
-      model: ollama/qwen3:1.7b
-      api_base: http://host.docker.internal:11434
-      api_key: "not-needed"
+      model: openai/ark-code-latest
+      api_base: https://ark.cn-beijing.volces.com/api/coding/v3
+      api_key: os.environ/LITELLM_ARK_API_KEY
 
-  # -----------------------
-  # Embedding models
-  # -----------------------
-  - model_name: nomic-embed-text
+  - model_name: deepseek-v4-flash-260425
     litellm_params:
-      model: ollama/nomic-embed-text
-      api_base: http://host.docker.internal:11434
-      api_key: "not-needed"
+      model: openai/deepseek-v4-flash-260425
+      api_base: https://ark.cn-beijing.volces.com/api/coding/v3
+      api_key: os.environ/LITELLM_ARK_API_KEY
 
-# This overrides the one in the docker-compose file
-general_settings:
-  database_url: postgres://litellm:litellm_password@db:5432/litellm
+  - model_name: crs
+    litellm_params:
+      model: openai/gpt5.5
+      api_base: http://47.101.159.7:39187/v1
+      api_key: os.environ/LITELLM_CRS_API_KEY
 
 litellm_settings:
   set_verbose: true

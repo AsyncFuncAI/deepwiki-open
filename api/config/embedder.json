@@ -1,10 +1,13 @@
 {
   "embedder": {
     "client_class": "OpenAIClient",
-    "batch_size": 500,
+    "initialize_kwargs": {
+      "env_base_url_name": "DEEPWIKI_EMBEDDING_BASE_URL",
+      "env_api_key_name": "DEEPWIKI_EMBEDDING_API_KEY"
+    },
+    "batch_size": 100,
     "model_kwargs": {
-      "model": "text-embedding-3-small",
-      "dimensions": 256,
+      "model": "${DEEPWIKI_EMBEDDING_MODEL}",
       "encoding_format": "float"
     }
   },

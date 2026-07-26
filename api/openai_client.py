@@ -412,7 +412,27 @@ class OpenAIClient(ModelClient):
         """
         kwargs is the combined input and model_kwargs.  Support streaming call.
         """
-        log.info(f"api_kwargs: {api_kwargs}")
+        if model_type == ModelType.EMBEDDER:
+            embed_input = api_kwargs.get("input")
+            if isinstance(embed_input, list):
+                input_summary = f"list[{len(embed_input)}]"
+            elif isinstance(embed_input, str):
+                input_summary = f"str[{len(embed_input)} chars]"
+            else:
+                input_summary = type(embed_input).__name__
+            log.info(
+                "OpenAI-compatible embedding call: model=%s input=%s base_url=%s",
+                api_kwargs.get("model"),
+                input_summary,
+                self.base_url,
+            )
+        else:
+            log.info(
+                "OpenAI-compatible LLM call: model=%s stream=%s base_url=%s",
+                api_kwargs.get("model"),
+                api_kwargs.get("stream", False),
+                self.base_url,
+            )
         self._api_kwargs = api_kwargs
         if model_type == ModelType.EMBEDDER:
             return self.sync_client.embeddings.create(**api_kwargs)

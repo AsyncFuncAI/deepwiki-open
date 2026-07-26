@@ -60,8 +60,24 @@ def setup_logging(format: str = None):
     # Configure format
     log_format = format or "%(asctime)s - %(levelname)s - %(name)s - %(filename)s:%(lineno)d - %(message)s"
 
-    # Create handlers
-    file_handler = RotatingFileHandler(resolved_path, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8")
+    # Create handlers.
+    #
+    # On Windows, RotatingFileHandler can fail with WinError 32 when another
+    # handler/process still has the file open during rollover. In this project
+    # setup_logging() is imported from several modules, and the backend is often
+    # inspected while running. A logging rollover must never break API requests,
+    # so use a plain append-only FileHandler on Windows by default.
+    if os.name == "nt" or backup_count <= 0:
+        file_handler = logging.FileHandler(resolved_path, encoding="utf-8")
+        handler_description = "FileHandler(no rotation)"
+    else:
+        file_handler = RotatingFileHandler(
+            resolved_path,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding="utf-8",
+        )
+        handler_description = "RotatingFileHandler"
     console_handler = logging.StreamHandler()
 
     # Set format for both handlers
@@ -80,6 +96,6 @@ def setup_logging(format: str = None):
     logger = logging.getLogger(__name__)
     logger.debug(
         f"Logging configured: level={log_level_str}, "
-        f"file={resolved_path}, max_size={max_bytes} bytes, "
-        f"backup_count={backup_count}"
+        f"file={resolved_path}, handler={handler_description}, "
+        f"max_size={max_bytes} bytes, backup_count={backup_count}"
     )

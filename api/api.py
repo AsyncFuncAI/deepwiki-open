@@ -287,18 +287,45 @@ async def get_local_repo_structure(path: str = Query(None, description="Path to 
             content={"error": f"Directory not found: {path}"}
         )
 
-    try:
-        logger.info(f"Processing local repository at: {path}")
+    def scan_local_repository(repo_path: str) -> Dict[str, str]:
         file_tree_lines = []
         readme_content = ""
+        excluded_dirs = {
+            ".git",
+            ".hg",
+            ".svn",
+            ".next",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".ruff_cache",
+            "__pycache__",
+            "node_modules",
+            ".venv",
+            "venv",
+            "env",
+            "dist",
+            "build",
+            "out",
+            "target",
+            "logs",
+            "log",
+        }
+        excluded_files = {
+            ".DS_Store",
+            "Thumbs.db",
+            "desktop.ini",
+        }
 
-        for root, dirs, files in os.walk(path):
+        for root, dirs, files in os.walk(repo_path):
             # Exclude hidden dirs/files and virtual envs
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__' and d != 'node_modules' and d != '.venv']
+            dirs[:] = [
+                d for d in dirs
+                if not d.startswith(".") and d not in excluded_dirs
+            ]
             for file in files:
-                if file.startswith('.') or file == '__init__.py' or file == '.DS_Store':
+                if file.startswith(".") or file == "__init__.py" or file in excluded_files:
                     continue
-                rel_dir = os.path.relpath(root, path)
+                rel_dir = os.path.relpath(root, repo_path)
                 rel_file = os.path.join(rel_dir, file) if rel_dir != '.' else file
                 file_tree_lines.append(rel_file)
                 # Find README.md (case-insensitive)
@@ -312,6 +339,10 @@ async def get_local_repo_structure(path: str = Query(None, description="Path to 
 
         file_tree_str = '\n'.join(sorted(file_tree_lines))
         return {"file_tree": file_tree_str, "readme": readme_content}
+
+    try:
+        logger.info(f"Processing local repository at: {path}")
+        return await asyncio.to_thread(scan_local_repository, path)
     except Exception as e:
         logger.error(f"Error processing local repository: {str(e)}")
         return JSONResponse(

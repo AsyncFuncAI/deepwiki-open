@@ -1,5 +1,5 @@
 {
-  "default_provider": "google",
+  "default_provider": "openai",
   "providers": {
     "dashscope": {
       "default_model": "qwen-plus",
@@ -41,9 +41,18 @@
       }
     },
     "openai": {
-      "default_model": "gpt-5-nano",
+      "default_model": "ark-code-latest",
       "supportsCustomModel": true,
       "models": {
+        "ark-code-latest": {
+          "temperature": 1.0
+        },
+        "deepseek-v4-flash-260425": {
+          "temperature": 1.0
+        },
+        "crs": {
+          "temperature": 1.0
+        },
         "gpt-5": {
           "temperature": 1.0
         },
