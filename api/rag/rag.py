@@ -1,11 +1,13 @@
 import asyncio
 import os
+from collections import defaultdict
 from collections.abc import Sized
+from dataclasses import dataclass, field
 from uuid import uuid4
 
 import adalflow as adal
 from adalflow.components.retriever.faiss_retriever import FAISSRetriever
-from adalflow.core.types import AssistantResponse, DialogTurn, UserQuery
+from adalflow.core.types import AssistantResponse, DialogTurn, Document, UserQuery
 
 from api.config import configs, get_embedder
 from api.logger import get_logger
@@ -108,11 +110,9 @@ class Memory(adal.core.component.DataComponent):
         # Safely append the dialog turn
         self.current_conversation.append(dialog_turn)
         logger.info(
-            f"Successfully added dialog turn, now have {len(self.current_conversation)} turns"
+            "Successfully added dialog turn, now have %d turns",
+            len(self.current_conversation),
         )
-
-
-from dataclasses import dataclass, field
 
 
 @dataclass
@@ -128,6 +128,21 @@ class RAGAnswer(adal.DataClass):
     )
 
     __output_fields__ = ["rationale", "answer"]
+
+
+def _get_document_vector_size(document: Document) -> int | None:
+    if hasattr(document.vector, "shape"):
+        embedding_size = (
+            document.vector.shape[0]
+            if len(document.vector.shape) == 1
+            else document.vector.shape[-1]
+        )
+    elif isinstance(document.vector, Sized):
+        embedding_size = len(document.vector)
+    else:
+        embedding_size = None
+
+    return embedding_size
 
 
 class RAG(adal.Component):
@@ -179,7 +194,8 @@ class RAG(adal.Component):
         self.db_manager = DatabaseManager()
         self.transformed_docs = []
 
-    def _validate_and_filter_embeddings(self, documents: list) -> list:
+    @staticmethod
+    def _validate_and_filter_embeddings(documents: list[Document]) -> list:
         """
         Validate embeddings and filter out documents with invalid or mismatched embedding sizes.
 
@@ -193,112 +209,42 @@ class RAG(adal.Component):
             logger.warning("No documents provided for embedding validation")
             return []
 
-        valid_documents = []
-        embedding_sizes = {}
+        docs_embeddings = defaultdict(list)
 
-        # First pass: collect all embedding sizes and count occurrences
-        for i, doc in enumerate(documents):
-            if not hasattr(doc, "vector") or doc.vector is None:
-                logger.warning(f"Document {i} has no embedding vector, skipping")
-                continue
-
-            try:
-                if hasattr(doc.vector, "shape"):
-                    embedding_size = (
-                        doc.vector.shape[0]
-                        if len(doc.vector.shape) == 1
-                        else doc.vector.shape[-1]
-                    )
-                elif isinstance(doc.vector, Sized):
-                    embedding_size = len(doc.vector)
-                else:
-                    logger.warning(
-                        f"Document {i} has invalid embedding vector type: {type(doc.vector)}, skipping"
-                    )
-                    continue
-
-                if embedding_size == 0:
-                    logger.warning(f"Document {i} has empty embedding vector, skipping")
-                    continue
-
-                embedding_sizes[embedding_size] = (
-                    embedding_sizes.get(embedding_size, 0) + 1
-                )
-
-            except Exception as e:
-                logger.warning(
-                    f"Error checking embedding size for document {i}: {str(e)}, skipping"
-                )
-                continue
-
-        if not embedding_sizes:
+        for doc, embed_size in filter(
+            lambda x: isinstance(x[0], Document) and bool(x[1]),
+            ((x, _get_document_vector_size(x)) for x in documents),
+        ):
+            docs_embeddings[embed_size].append(doc)
+        if not docs_embeddings:
             logger.error("No valid embeddings found in any documents")
             return []
 
-        # Find the most common embedding size (this should be the correct one)
-        target_size = max(embedding_sizes.keys(), key=lambda k: embedding_sizes[k])
+        target_size = max(docs_embeddings, key=lambda x: len(docs_embeddings[x]))
         logger.info(
-            f"Target embedding size: {target_size} (found in {embedding_sizes[target_size]} documents)"
+            "Target embedding size: %s (found in %s documents)",
+            target_size,
+            len(docs_embeddings[target_size]),
         )
+        
+        valid_documents = docs_embeddings.pop(target_size)
 
-        # Log all embedding sizes found
-        for size, count in embedding_sizes.items():
-            if size != target_size:
+        if docs_embeddings:
+            for embed_size, docs_list in docs_embeddings.items():
                 logger.warning(
-                    f"Found {count} documents with incorrect embedding size {size}, will be filtered out"
+                    "Found %s documents with incorrect embedding size %s, will be filtered out.",
+                    len(docs_list),
+                    str(embed_size),
                 )
-
-        # Second pass: filter documents with the target embedding size
-        for i, doc in enumerate(documents):
-            if not hasattr(doc, "vector") or doc.vector is None:
-                continue
-
-            try:
-                if hasattr(doc.vector, "shape"):
-                    embedding_size = (
-                        doc.vector.shape[0]
-                        if len(doc.vector.shape) == 1
-                        else doc.vector.shape[-1]
-                    )
-                elif isinstance(doc.vector, Sized):
-                    embedding_size = len(doc.vector)
-                else:
-                    continue
-
-                if embedding_size == target_size:
-                    valid_documents.append(doc)
-                else:
-                    # Log which document is being filtered out
-                    file_path = getattr(doc, "meta_data", {}).get(
-                        "file_path", f"document_{i}"
-                    )
-                    logger.warning(
-                        f"Filtering out document '{file_path}' due to embedding size mismatch: {embedding_size} != {target_size}"
-                    )
-
-            except Exception as e:
-                file_path = getattr(doc, "meta_data", {}).get(
-                    "file_path", f"document_{i}"
-                )
-                logger.warning(
-                    f"Error validating embedding for document '{file_path}': {str(e)}, skipping"
-                )
-                continue
-
-        logger.info(
-            f"Embedding validation complete: {len(valid_documents)}/{len(documents)} documents have valid embeddings"
-        )
-
+                
         if not valid_documents:
-            logger.warning(
-                "No documents with valid embeddings remained after filtering"
+            logger.warning("No documents with valid embeddings remained after filtering")
+        else:
+            logger.info(
+                "Embedding validation complete: %d/%d documents have valid embeddings.",
+                len(valid_documents),
+                len(documents),
             )
-        elif len(valid_documents) < len(documents):
-            filtered_count = len(documents) - len(valid_documents)
-            logger.warning(
-                f"Filtered out {filtered_count} documents due to embedding issues"
-            )
-
         return valid_documents
 
     def prepare_retriever(
@@ -374,18 +320,7 @@ class RAG(adal.Component):
                 ):  # Check first 10 docs
                     if hasattr(doc, "vector") and doc.vector is not None:
                         try:
-                            if isinstance(doc.vector, list):
-                                size = len(doc.vector)
-                            elif hasattr(doc.vector, "shape"):
-                                size = (
-                                    doc.vector.shape[0]
-                                    if len(doc.vector.shape) == 1
-                                    else doc.vector.shape[-1]
-                                )
-                            elif hasattr(doc.vector, "__len__"):
-                                size = len(doc.vector)
-                            else:
-                                size = "unknown"
+                            size = _get_document_vector_size(doc) or "unknown"
                             sizes.append(f"doc_{i}: {size}")
                         except Exception:
                             sizes.append(f"doc_{i}: error")
