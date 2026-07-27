@@ -67,7 +67,9 @@ interface ResearchStage {
 
 // A finished exchange kept in the conversation log so previous
 // question/answer pairs are preserved instead of being overwritten.
-interface ConversationTurn {
+// A committed chat (normal / deep-research) exchange.
+interface ChatTurn {
+  kind: 'chat';
   question: string;
   response: string;
   mode: 'normal' | 'deep_research';
@@ -77,6 +79,17 @@ interface ConversationTurn {
   // Index of the stage currently shown for this turn.
   stageIndex?: number;
 }
+
+// A committed codemap exchange.
+interface CodemapTurn {
+  kind: 'codemap';
+  question: string;
+  data: CodemapData;
+}
+
+// Unified, ordered conversation entry — chat and codemap turns share one list
+// so they render in the true chronological order they were asked.
+type ConversationTurn = ChatTurn | CodemapTurn;
 
 interface AskProps {
   repoInfo: RepoInfo;
@@ -119,8 +132,6 @@ const Ask: React.FC<AskProps> = ({
   const [codemapError, setCodemapError] = useState<string | null>(null);
   const [codemapPhaseStatus, setCodemapPhaseStatus] =
     useState<Record<CodemapPhase, PhaseStatus>>(IDLE_PHASES);
-  const [codemapTurns, setCodemapTurns] =
-    useState<{ question: string; data: CodemapData }[]>([]);
 
   // Model selection state
   const [selectedProvider, setSelectedProvider] = useState(provider);
@@ -237,7 +248,6 @@ const Ask: React.FC<AskProps> = ({
     setCodemapData(null);
     setCodemapError(null);
     setCodemapPhaseStatus(IDLE_PHASES);
-    setCodemapTurns([]);
     onCloseCodeViewer?.();
     if (inputRef.current) {
       inputRef.current.focus();
@@ -247,10 +257,17 @@ const Ask: React.FC<AskProps> = ({
   // Build the message list for previously completed turns so follow-up
   // questions carry the earlier conversation as context.
   const buildHistoryFromTurns = (): Message[] =>
-    conversationTurns.flatMap(turn => [
-      { role: 'user' as const, content: turn.question, mode: turn.mode },
-      { role: 'assistant' as const, content: turn.response },
-    ]);
+    conversationTurns.flatMap(turn =>
+      turn.kind === 'codemap'
+        ? [
+            { role: 'user' as const, content: turn.question, mode: 'normal' as const },
+            { role: 'assistant' as const, content: turn.data.summary || turn.data.title },
+          ]
+        : [
+            { role: 'user' as const, content: turn.question, mode: turn.mode },
+            { role: 'assistant' as const, content: turn.response },
+          ]
+    );
   const downloadresponse = (content: string = response) =>{
   const blob = new Blob([content], { type: 'text/markdown' });
   const url = URL.createObjectURL(blob);
@@ -772,7 +789,10 @@ const Ask: React.FC<AskProps> = ({
         setIsLoading(false);
         setCodemapActive(false);
         if (finalData) {
-          setCodemapTurns((prev) => [...prev, { question: askedQuestion, data: finalData! }]);
+          setConversationTurns((prev) => [
+            ...prev,
+            { kind: 'codemap', question: askedQuestion, data: finalData! },
+          ]);
           setCodemapData(null);
           setCodemapQuestion('');
           setCodemapPhaseStatus(IDLE_PHASES);
@@ -921,6 +941,7 @@ const Ask: React.FC<AskProps> = ({
     }
 
     setConversationTurns(prev => [...prev, {
+      kind: 'chat',
       question: turnQuestion,
       response: turnResponse,
       mode,
@@ -936,7 +957,9 @@ const Ask: React.FC<AskProps> = ({
   // Switch which research stage is shown for a committed deep research turn.
   const setTurnStage = (turnIndex: number, stageIndex: number) => {
     setConversationTurns(prev =>
-      prev.map((turn, i) => (i === turnIndex ? { ...turn, stageIndex } : turn))
+      prev.map((turn, i) =>
+        i === turnIndex && turn.kind === 'chat' ? { ...turn, stageIndex } : turn
+      )
     );
   };
 
@@ -957,6 +980,25 @@ const Ask: React.FC<AskProps> = ({
           are appended below as their own sections. */}
       <div className="flex-1 px-4 pt-4 space-y-6">
         {conversationTurns.map((turn, idx) => {
+          // Codemap turn: render the codemap card in its chronological position.
+          if (turn.kind === 'codemap') {
+            return (
+              <div key={idx} className="space-y-2">
+                <div className="flex justify-end">
+                  <div className="max-w-[85%] rounded-lg px-4 py-2 bg-[var(--accent-primary)]/10 text-[var(--foreground)] text-sm whitespace-pre-wrap break-words">
+                    {turn.question}
+                  </div>
+                </div>
+                <CodeMap
+                  data={turn.data}
+                  phaseStatus={DONE_PHASES}
+                  onCitationClick={(c) => handleCitationClick(c, turn.data)}
+                />
+              </div>
+            );
+          }
+
+          // Chat turn (normal / deep research).
           // Deep research turns keep every iteration; show the selected one
           // and expose navigation. Normal turns just show their response.
           const stages = turn.researchStages ?? [];
@@ -1029,22 +1071,6 @@ const Ask: React.FC<AskProps> = ({
             </div>
           );
         })}
-
-        {/* Committed codemap turns */}
-        {codemapTurns.map((turn, i) => (
-          <div key={`codemap-${i}`} className="space-y-2">
-            <div className="flex justify-end">
-              <div className="max-w-[85%] rounded-lg px-4 py-2 bg-[var(--accent-primary)]/10 text-[var(--foreground)] text-sm whitespace-pre-wrap break-words">
-                {turn.question}
-              </div>
-            </div>
-            <CodeMap
-              data={turn.data}
-              phaseStatus={DONE_PHASES}
-              onCitationClick={(c) => handleCitationClick(c, turn.data)}
-            />
-          </div>
-        ))}
 
         {/* Live codemap generation */}
         {codemapActive && (
@@ -1256,7 +1282,7 @@ const Ask: React.FC<AskProps> = ({
 
           {/* Clear the whole conversation */}
           {(conversationTurns.length > 0 || response || currentQuestion ||
-            codemapTurns.length > 0 || codemapActive || codemapData) && (
+            codemapActive || codemapData) && (
             <button
               id="ask-clear-conversation"
               onClick={clearConversation}
