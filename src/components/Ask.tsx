@@ -4,7 +4,7 @@ import React, {useState, useRef, useEffect} from 'react';
 import { FaChevronLeft, FaChevronRight, FaBolt, FaMicroscope, FaBook, FaChevronDown, FaCheck } from 'react-icons/fa';
 import Markdown from './Markdown';
 import CodeMap, { PhaseStatus } from './CodeMap';
-import CodeViewer, { CodeTarget } from './CodeViewer';
+import type { CodeTarget } from './CodeViewer';
 import { useLanguage } from '@/contexts/LanguageContext';
 import RepoInfo from '@/types/repoinfo';
 import getRepoUrl from '@/utils/getRepoUrl';
@@ -86,6 +86,9 @@ interface AskProps {
   customModel?: string;
   language?: string;
   onRef?: (ref: { clearConversation: () => void }) => void;
+  // Notifies the parent to open the right-side code viewer (rendered at the
+  // modal level so it isn't clipped by this component's scroll container).
+  onOpenCodeViewer?: (target: CodeTarget, files: string[]) => void;
 }
 
 const Ask: React.FC<AskProps> = ({
@@ -95,7 +98,8 @@ const Ask: React.FC<AskProps> = ({
   isCustomModel = false,
   customModel = '',
   language = 'en',
-  onRef
+  onRef,
+  onOpenCodeViewer,
 }) => {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
@@ -113,10 +117,6 @@ const Ask: React.FC<AskProps> = ({
     useState<Record<CodemapPhase, PhaseStatus>>(IDLE_PHASES);
   const [codemapTurns, setCodemapTurns] =
     useState<{ question: string; data: CodemapData }[]>([]);
-  // Right-side code viewer drawer.
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const [viewerTarget, setViewerTarget] = useState<CodeTarget | null>(null);
-  const [viewerFiles, setViewerFiles] = useState<string[]>([]);
 
   // Model selection state
   const [selectedProvider, setSelectedProvider] = useState(provider);
@@ -234,9 +234,6 @@ const Ask: React.FC<AskProps> = ({
     setCodemapError(null);
     setCodemapPhaseStatus(IDLE_PHASES);
     setCodemapTurns([]);
-    setViewerOpen(false);
-    setViewerTarget(null);
-    setViewerFiles([]);
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -684,16 +681,18 @@ const Ask: React.FC<AskProps> = ({
     return Array.from(files);
   };
 
-  // Open the right-side viewer at a citation's grounded line range.
+  // Ask the parent to open the right-side viewer at a citation's grounded range.
   const handleCitationClick = (citation: CodemapCitation, data: CodemapData | null) => {
-    if (data) setViewerFiles(collectCodemapFiles(data));
-    setViewerTarget({
-      file_path: citation.file_path,
-      start_line: citation.start_line,
-      end_line: citation.end_line,
-      snippet: citation.snippet,
-    });
-    setViewerOpen(true);
+    const files = data ? collectCodemapFiles(data) : [citation.file_path];
+    onOpenCodeViewer?.(
+      {
+        file_path: citation.file_path,
+        start_line: citation.start_line,
+        end_line: citation.end_line,
+        snippet: citation.snippet,
+      },
+      files
+    );
   };
 
   // Generate a codemap over the WebSocket NDJSON stream.
@@ -1361,25 +1360,6 @@ const Ask: React.FC<AskProps> = ({
         authRequired={false}
         isAuthLoading={false}
       />
-
-      {/* Right-side code viewer drawer (overlays the panel; keeps the chat
-          column layout untouched). */}
-      {viewerOpen && (
-        <div className="absolute top-0 right-0 h-full w-[55%] min-w-[320px] z-20 shadow-2xl">
-          <CodeViewer
-            isOpen={viewerOpen}
-            onClose={() => setViewerOpen(false)}
-            repoUrl={getRepoUrl(repoInfo)}
-            repoType={repoInfo.type}
-            token={repoInfo.token ?? undefined}
-            files={viewerFiles}
-            target={viewerTarget}
-            onSelectFile={(f) =>
-              setViewerTarget({ file_path: f, start_line: null, end_line: null, snippet: '' })
-            }
-          />
-        </div>
-      )}
     </div>
   );
 };

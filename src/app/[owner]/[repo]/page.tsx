@@ -2,6 +2,7 @@
 'use client';
 
 import Ask from '@/components/Ask';
+import CodeViewer, { CodeTarget } from '@/components/CodeViewer';
 import Markdown from '@/components/Markdown';
 import ModelSelectionModal from '@/components/ModelSelectionModal';
 import ThemeToggle from '@/components/theme-toggle';
@@ -274,6 +275,17 @@ export default function RepoWikiPage() {
   // State for Ask modal
   const [isAskModalOpen, setIsAskModalOpen] = useState(false);
   const askComponentRef = useRef<{ clearConversation: () => void } | null>(null);
+
+  // Code viewer drawer (rendered at modal level so its header isn't clipped by
+  // the Ask panel's scroll container). Opened by codemap citation clicks.
+  const [codeViewerOpen, setCodeViewerOpen] = useState(false);
+  const [codeViewerTarget, setCodeViewerTarget] = useState<CodeTarget | null>(null);
+  const [codeViewerFiles, setCodeViewerFiles] = useState<string[]>([]);
+  const openCodeViewer = useCallback((target: CodeTarget, files: string[]) => {
+    setCodeViewerFiles(files);
+    setCodeViewerTarget(target);
+    setCodeViewerOpen(true);
+  }, []);
 
   // Authentication state
   const [authRequired, setAuthRequired] = useState<boolean>(false);
@@ -2207,7 +2219,7 @@ IMPORTANT:
       {/* Floating Chat Button */}
       {!isLoading && wikiStructure && (
         <button
-          onClick={() => setIsAskModalOpen(true)}
+          onClick={() => { setIsAskModalOpen(true); setCodeViewerOpen(false); }}
           className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[var(--accent-primary)] text-white shadow-lg flex items-center justify-center hover:bg-[var(--accent-primary)]/90 transition-all z-50"
           aria-label={messages.ask?.title || 'Ask about this repository'}
         >
@@ -2217,12 +2229,13 @@ IMPORTANT:
 
       {/* Ask Modal - Always render but conditionally show/hide */}
       <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 transition-opacity duration-300 ${isAskModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <div className="bg-[var(--card-bg)] rounded-lg shadow-xl w-full max-w-7xl h-[90vh] flex flex-col">
-          <div className="flex items-center justify-end p-3 absolute top-0 right-0 z-10">
+        <div className="bg-[var(--card-bg)] rounded-lg shadow-xl w-full max-w-7xl h-[90vh] flex flex-col relative overflow-hidden">
+          <div className="flex items-center justify-end p-3 absolute top-0 right-0 z-30">
             <button
               onClick={() => {
                 // Just close the modal without clearing the conversation
                 setIsAskModalOpen(false);
+                setCodeViewerOpen(false);
               }}
               className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors bg-[var(--card-bg)]/80 rounded-full p-2"
               aria-label="Close"
@@ -2239,8 +2252,28 @@ IMPORTANT:
               customModel={customSelectedModelState}
               language={language}
               onRef={(ref) => (askComponentRef.current = ref)}
+              onOpenCodeViewer={openCodeViewer}
             />
           </div>
+
+          {/* Code viewer drawer — sibling of the scroll area, anchored to the
+              fixed-height modal so its tabs/close header are always visible. */}
+          {codeViewerOpen && (
+            <div className="absolute inset-y-0 right-0 w-[55%] min-w-[320px] z-20 shadow-2xl">
+              <CodeViewer
+                isOpen={codeViewerOpen}
+                onClose={() => setCodeViewerOpen(false)}
+                repoUrl={getRepoUrl(effectiveRepoInfo)}
+                repoType={effectiveRepoInfo.type}
+                token={effectiveRepoInfo.token ?? undefined}
+                files={codeViewerFiles}
+                target={codeViewerTarget}
+                onSelectFile={(f) =>
+                  setCodeViewerTarget({ file_path: f, start_line: null, end_line: null, snippet: '' })
+                }
+              />
+            </div>
+          )}
         </div>
       </div>
 
