@@ -2230,19 +2230,23 @@ IMPORTANT:
       {/* Ask Modal - Always render but conditionally show/hide */}
       <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 transition-opacity duration-300 ${isAskModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         <div className="bg-[var(--card-bg)] rounded-lg shadow-xl w-full max-w-7xl h-[90vh] flex flex-col relative overflow-hidden">
-          <div className="flex items-center justify-end p-3 absolute top-0 right-0 z-30">
-            <button
-              onClick={() => {
-                // Just close the modal without clearing the conversation
-                setIsAskModalOpen(false);
-                setCodeViewerOpen(false);
-              }}
-              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors bg-[var(--card-bg)]/80 rounded-full p-2"
-              aria-label="Close"
-            >
-              <FaTimes className="text-xl" />
-            </button>
-          </div>
+          {/* Hide the modal's own close button while the code viewer drawer is
+              open, so it doesn't overlap the drawer's close button. */}
+          {!codeViewerOpen && (
+            <div className="flex items-center justify-end p-3 absolute top-0 right-0 z-30">
+              <button
+                onClick={() => {
+                  // Just close the modal without clearing the conversation
+                  setIsAskModalOpen(false);
+                  setCodeViewerOpen(false);
+                }}
+                className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors bg-[var(--card-bg)]/80 rounded-full p-2"
+                aria-label="Close"
+              >
+                <FaTimes className="text-xl" />
+              </button>
+            </div>
+          )}
           <div className="flex-1 overflow-y-auto p-4">
             <Ask
               repoInfo={effectiveRepoInfo}
