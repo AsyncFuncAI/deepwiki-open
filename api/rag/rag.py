@@ -3,12 +3,17 @@ import logging
 import os
 from collections import defaultdict
 from collections.abc import Sized
-from dataclasses import dataclass, field
 from uuid import uuid4
 
 import adalflow as adal
 from adalflow.components.retriever.faiss_retriever import FAISSRetriever
-from adalflow.core.types import AssistantResponse, DialogTurn, Document, UserQuery
+from adalflow.core.types import (
+    AssistantResponse,
+    DialogTurn,
+    Document,
+    RetrieverOutput,
+    UserQuery,
+)
 
 from api.config import configs
 from api.rag.pipeline import DatabaseManager
@@ -114,21 +119,6 @@ class Memory(adal.core.component.DataComponent):
             "Successfully added dialog turn, now have %d turns",
             len(self.current_conversation),
         )
-
-
-@dataclass
-class RAGAnswer(adal.DataClass):
-    rationale: str = field(
-        default="", metadata={"desc": "Chain of thoughts for the answer."}
-    )
-    answer: str = field(
-        default="",
-        metadata={
-            "desc": "Answer to the user query, formatted in markdown for beautiful rendering with react-markdown. DO NOT include ``` triple backticks fences at the beginning or end of your answer."
-        },
-    )
-
-    __output_fields__ = ["rationale", "answer"]
 
 
 def _get_document_vector_size(document: Document) -> int | None:
@@ -366,7 +356,7 @@ class RAG(adal.Component):
                 included_files=included_files,
             )
 
-    def call(self, query: str, language: str = "en") -> tuple[list]:
+    def call(self, query: str | list[str], language: str = "en") -> list[RetrieverOutput]:
         """
         Process a query using RAG.
 
@@ -374,7 +364,7 @@ class RAG(adal.Component):
             query: The user's query
 
         Returns:
-            Tuple of (RAGAnswer, retrieved_documents)
+            list of RetrieverOutput.
         """
         try:
             retrieved_documents = self.retriever(query)
@@ -388,15 +378,9 @@ class RAG(adal.Component):
             return retrieved_documents
 
         except Exception:
-            logger.exception("Error in RAG call.")
+            logger.exception("Error in RAG call, returning empty list")
+            return []
 
-            # Create error response
-            error_response = RAGAnswer(
-                rationale="Error occurred while processing the query.",
-                answer="I apologize, but I encountered an error while processing your question. Please try again or rephrase your question.",
-            )
-            return error_response, []
-
-    async def acall(self, query: str, language: str = "en") -> tuple[list]:
+    async def acall(self, query: str, language: str = "en") -> list[RetrieverOutput]:
         """Async version of the original `call` method."""
         return await asyncio.to_thread(self.call, query, language)
