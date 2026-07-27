@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 
 from api.logger import get_logger, setup_logging
-from api.routers import auth, chat, system, wiki
+from api.routers import auth, chat, codemap, system, wiki
 
 # Configure logging
 setup_logging()
@@ -60,6 +60,7 @@ for module in (
     auth,
     wiki,
     chat,
+    codemap,
 ):
     app.include_router(module.router)
 

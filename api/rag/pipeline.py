@@ -427,6 +427,43 @@ def read_all_documents(
     return documents
 
 
+class LineTrackingTextSplitter(TextSplitter):
+    """TextSplitter that annotates each chunk with its 1-based start/end line.
+
+    adalflow's ``TextSplitter`` deep-copies the parent ``meta_data`` once and shares
+    that single dict across every chunk of the same document, so we first give each
+    chunk its own copy before writing per-chunk line numbers. Token chunks are exact
+    substrings of the parent text, so each chunk is located with an order-preserving
+    substring search to compute its line range.
+    """
+
+    def call(self, documents):
+        parent_text = {doc.id: (doc.text or "") for doc in documents}
+        split_docs = super().call(documents)
+
+        chunks_by_parent = {}
+        for chunk in split_docs:
+            chunks_by_parent.setdefault(chunk.parent_doc_id, []).append(chunk)
+
+        for parent_id, chunks in chunks_by_parent.items():
+            text = parent_text.get(parent_id, "")
+            cursor = 0
+            for chunk in sorted(chunks, key=lambda c: c.order):
+                # Each chunk needs its own meta_data copy (the parent shares one dict).
+                chunk.meta_data = dict(chunk.meta_data or {})
+                pos = text.find(chunk.text, cursor)
+                if pos == -1:
+                    pos = text.find(chunk.text)  # fall back to a global search
+                if pos == -1:
+                    continue  # leave line numbers unset if the chunk can't be located
+                start_line = text.count("\n", 0, pos) + 1
+                end_line = start_line + chunk.text.count("\n")
+                chunk.meta_data["start_line"] = start_line
+                chunk.meta_data["end_line"] = end_line
+                cursor = pos + 1
+        return split_docs
+
+
 def prepare_data_pipeline(embedder_type: str = None, is_ollama_embedder: bool = None):
     """
     Creates and returns the data transformation pipeline.
@@ -450,7 +487,7 @@ def prepare_data_pipeline(embedder_type: str = None, is_ollama_embedder: bool = 
     if embedder_type is None:
         embedder_type = get_embedder_type()
 
-    splitter = TextSplitter(**configs["text_splitter"])
+    splitter = LineTrackingTextSplitter(**configs["text_splitter"])
     embedder_config = get_embedder_config()
 
     embedder = get_embedder(embedder_type=embedder_type)

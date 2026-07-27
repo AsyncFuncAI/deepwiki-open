@@ -1,4 +1,11 @@
 from api.schemas.chat import ChatCompletionRequest
+from api.schemas.codemap import (
+    CodeMap,
+    CodeMapCitation,
+    CodeMapRequest,
+    CodeMapSection,
+    CodeMapStep,
+)
 from api.schemas.io import aload, asave
 from api.schemas.models import (
     AuthorizationConfig,
@@ -20,6 +27,11 @@ from api.schemas.wiki import (
 __all__ = [
     "AuthorizationConfig",
     "ChatCompletionRequest",
+    "CodeMap",
+    "CodeMapCitation",
+    "CodeMapRequest",
+    "CodeMapSection",
+    "CodeMapStep",
     "Model",
     "ModelConfig",
     "ProcessedProjectEntry",

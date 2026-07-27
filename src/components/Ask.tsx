@@ -3,11 +3,33 @@
 import React, {useState, useRef, useEffect} from 'react';
 import {FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Markdown from './Markdown';
+import CodeMap, { PhaseStatus } from './CodeMap';
+import CodeViewer, { CodeTarget } from './CodeViewer';
 import { useLanguage } from '@/contexts/LanguageContext';
 import RepoInfo from '@/types/repoinfo';
 import getRepoUrl from '@/utils/getRepoUrl';
 import ModelSelectionModal from './ModelSelectionModal';
-import { createChatWebSocket, closeWebSocket, ChatCompletionRequest } from '@/utils/websocketClient';
+import {
+  createChatWebSocket,
+  closeWebSocket,
+  ChatCompletionRequest,
+  createCodemapWebSocket,
+  CodemapRequest,
+  CodemapData,
+  CodemapCitation,
+  CodemapPhase,
+} from '@/utils/websocketClient';
+
+const DONE_PHASES: Record<CodemapPhase, PhaseStatus> = {
+  analyzing: 'done',
+  initial_codemap: 'done',
+  diagrams: 'done',
+};
+const IDLE_PHASES: Record<CodemapPhase, PhaseStatus> = {
+  analyzing: 'pending',
+  initial_codemap: 'pending',
+  diagrams: 'pending',
+};
 
 interface Model {
   id: string;
@@ -70,6 +92,21 @@ const Ask: React.FC<AskProps> = ({
   const [response, setResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [deepResearch, setDeepResearch] = useState(false);
+
+  // Codemap state (a parallel flow to the normal/deep-research chat).
+  const [codemapMode, setCodemapMode] = useState(false);
+  const [codemapActive, setCodemapActive] = useState(false); // a codemap is generating
+  const [codemapQuestion, setCodemapQuestion] = useState('');
+  const [codemapData, setCodemapData] = useState<CodemapData | null>(null);
+  const [codemapError, setCodemapError] = useState<string | null>(null);
+  const [codemapPhaseStatus, setCodemapPhaseStatus] =
+    useState<Record<CodemapPhase, PhaseStatus>>(IDLE_PHASES);
+  const [codemapTurns, setCodemapTurns] =
+    useState<{ question: string; data: CodemapData }[]>([]);
+  // Right-side code viewer drawer.
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerTarget, setViewerTarget] = useState<CodeTarget | null>(null);
+  const [viewerFiles, setViewerFiles] = useState<string[]>([]);
 
   // Model selection state
   const [selectedProvider, setSelectedProvider] = useState(provider);
@@ -180,6 +217,16 @@ const Ask: React.FC<AskProps> = ({
     setResearchComplete(false);
     setResearchStages([]);
     setCurrentStageIndex(0);
+    // Codemap resets
+    setCodemapActive(false);
+    setCodemapQuestion('');
+    setCodemapData(null);
+    setCodemapError(null);
+    setCodemapPhaseStatus(IDLE_PHASES);
+    setCodemapTurns([]);
+    setViewerOpen(false);
+    setViewerTarget(null);
+    setViewerFiles([]);
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -609,7 +656,89 @@ const Ask: React.FC<AskProps> = ({
 
     if (!question.trim() || isLoading) return;
 
+    if (codemapMode) {
+      handleCodemapAsk();
+      return;
+    }
     handleConfirmAsk();
+  };
+
+  // Unique set of files cited across a codemap (used as viewer tabs).
+  const collectCodemapFiles = (data: CodemapData): string[] => {
+    const files = new Set<string>();
+    data.sections.forEach((s) =>
+      s.steps.forEach((st) => {
+        if (st.citation?.file_path) files.add(st.citation.file_path);
+      })
+    );
+    return Array.from(files);
+  };
+
+  // Open the right-side viewer at a citation's grounded line range.
+  const handleCitationClick = (citation: CodemapCitation, data: CodemapData | null) => {
+    if (data) setViewerFiles(collectCodemapFiles(data));
+    setViewerTarget({
+      file_path: citation.file_path,
+      start_line: citation.start_line,
+      end_line: citation.end_line,
+      snippet: citation.snippet,
+    });
+    setViewerOpen(true);
+  };
+
+  // Generate a codemap over the WebSocket NDJSON stream.
+  const handleCodemapAsk = () => {
+    const askedQuestion = question;
+    setIsLoading(true);
+    setQuestion('');
+    setCodemapActive(true);
+    setCodemapData(null);
+    setCodemapError(null);
+    setCodemapQuestion(askedQuestion);
+    setCodemapPhaseStatus({ analyzing: 'active', initial_codemap: 'pending', diagrams: 'pending' });
+
+    const request: CodemapRequest = {
+      repo_url: getRepoUrl(repoInfo),
+      question: askedQuestion,
+      type: repoInfo.type,
+      provider: selectedProvider,
+      model: isCustomSelectedModel ? customSelectedModel : selectedModel,
+      language,
+    };
+    if (repoInfo?.token) request.token = repoInfo.token;
+
+    closeWebSocket(webSocketRef.current);
+    let finalData: CodemapData | null = null;
+
+    webSocketRef.current = createCodemapWebSocket(request, {
+      onEvent: (evt) => {
+        if (evt.type === 'phase') {
+          setCodemapPhaseStatus((prev) => ({
+            ...prev,
+            [evt.phase]: evt.status === 'done' ? 'done' : 'active',
+          }));
+        } else if (evt.type === 'codemap') {
+          finalData = evt.data;
+          setCodemapData(evt.data);
+        } else if (evt.type === 'error') {
+          setCodemapError(evt.message);
+        }
+      },
+      onError: () => {
+        setCodemapError('Connection failed. Please try again.');
+        setIsLoading(false);
+      },
+      onClose: () => {
+        setIsLoading(false);
+        setCodemapActive(false);
+        if (finalData) {
+          setCodemapTurns((prev) => [...prev, { question: askedQuestion, data: finalData! }]);
+          setCodemapData(null);
+          setCodemapQuestion('');
+          setCodemapPhaseStatus(IDLE_PHASES);
+        }
+      },
+    });
   };
 
   // Handle confirm and send request
@@ -781,7 +910,7 @@ const Ask: React.FC<AskProps> = ({
   }, [messages.ask?.askButton, isLoading]);
 
   return (
-    <div className="flex flex-col min-h-full">
+    <div className="relative flex flex-col min-h-full">
       {/* Conversation log: previous turns are preserved and new results
           are appended below as their own sections. */}
       <div className="flex-1 px-4 pt-4 space-y-6">
@@ -859,6 +988,41 @@ const Ask: React.FC<AskProps> = ({
           );
         })}
 
+        {/* Committed codemap turns */}
+        {codemapTurns.map((turn, i) => (
+          <div key={`codemap-${i}`} className="space-y-2">
+            <div className="flex justify-end">
+              <div className="max-w-[85%] rounded-lg px-4 py-2 bg-[var(--accent-primary)]/10 text-[var(--foreground)] text-sm whitespace-pre-wrap break-words">
+                {turn.question}
+              </div>
+            </div>
+            <CodeMap
+              data={turn.data}
+              phaseStatus={DONE_PHASES}
+              onCitationClick={(c) => handleCitationClick(c, turn.data)}
+            />
+          </div>
+        ))}
+
+        {/* Live codemap generation */}
+        {codemapActive && (
+          <div className="space-y-2">
+            {codemapQuestion && (
+              <div className="flex justify-end">
+                <div className="max-w-[85%] rounded-lg px-4 py-2 bg-[var(--accent-primary)]/10 text-[var(--foreground)] text-sm whitespace-pre-wrap break-words">
+                  {codemapQuestion}
+                </div>
+              </div>
+            )}
+            <CodeMap
+              data={codemapData}
+              phaseStatus={codemapPhaseStatus}
+              error={codemapError}
+              onCitationClick={(c) => handleCitationClick(c, codemapData)}
+            />
+          </div>
+        )}
+
         {/* Live turn: the question being asked and its streaming response */}
         {(currentQuestion || response) && (
           <div className="space-y-2">
@@ -932,7 +1096,7 @@ const Ask: React.FC<AskProps> = ({
         )}
 
         {/* Loading indicator */}
-        {isLoading && !response && (
+        {isLoading && !response && !codemapActive && (
           <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-2">
               <div className="animate-pulse flex space-x-1">
@@ -1096,8 +1260,27 @@ const Ask: React.FC<AskProps> = ({
             </button>
           </div>
 
-          {/* Deep Research toggle */}
-          <div className="flex items-center mt-2 justify-between">
+          {/* Deep Research + Codemap toggles */}
+          <div className="flex items-center mt-2 gap-4">
+            {/* Codemap toggle */}
+            <label className="flex items-center cursor-pointer">
+              <span className="text-xs text-gray-600 dark:text-gray-400 mr-2">📖 Codemap</span>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={codemapMode}
+                  onChange={() => {
+                    const next = !codemapMode;
+                    setCodemapMode(next);
+                    if (next) setDeepResearch(false);
+                  }}
+                  className="sr-only"
+                />
+                <div className={`w-10 h-5 rounded-full transition-colors ${codemapMode ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
+                <div className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform transform ${codemapMode ? 'translate-x-5' : ''}`}></div>
+              </div>
+            </label>
+
             <div className="group relative">
               <label className="flex items-center cursor-pointer">
                 <span className="text-xs text-gray-600 dark:text-gray-400 mr-2">Deep Research</span>
@@ -1105,7 +1288,11 @@ const Ask: React.FC<AskProps> = ({
                   <input
                     type="checkbox"
                     checked={deepResearch}
-                    onChange={() => setDeepResearch(!deepResearch)}
+                    onChange={() => {
+                      const next = !deepResearch;
+                      setDeepResearch(next);
+                      if (next) setCodemapMode(false);
+                    }}
                     className="sr-only"
                   />
                   <div className={`w-10 h-5 rounded-full transition-colors ${deepResearch ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
@@ -1160,6 +1347,25 @@ const Ask: React.FC<AskProps> = ({
         authRequired={false}
         isAuthLoading={false}
       />
+
+      {/* Right-side code viewer drawer (overlays the panel; keeps the chat
+          column layout untouched). */}
+      {viewerOpen && (
+        <div className="absolute top-0 right-0 h-full w-[55%] min-w-[320px] z-20 shadow-2xl">
+          <CodeViewer
+            isOpen={viewerOpen}
+            onClose={() => setViewerOpen(false)}
+            repoUrl={getRepoUrl(repoInfo)}
+            repoType={repoInfo.type}
+            token={repoInfo.token ?? undefined}
+            files={viewerFiles}
+            target={viewerTarget}
+            onSelectFile={(f) =>
+              setViewerTarget({ file_path: f, start_line: null, end_line: null, snippet: '' })
+            }
+          />
+        </div>
+      )}
     </div>
   );
 };

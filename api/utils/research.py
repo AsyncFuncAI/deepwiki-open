@@ -161,8 +161,19 @@ async def research_chat(
                     for file_path, docs in docs_by_file.items():
                         # Add file header with metadata
                         header = f"## File Path: {file_path}\n\n"
-                        # Add document content
-                        content = "\n\n".join([doc.text for doc in docs])
+                        # Add document content, annotating each chunk with its
+                        # real line range when available so the model can cite lines.
+                        chunk_texts = []
+                        for doc in docs:
+                            start_line = doc.meta_data.get("start_line")
+                            end_line = doc.meta_data.get("end_line")
+                            if start_line and end_line:
+                                chunk_texts.append(
+                                    f"[lines {start_line}-{end_line}]\n{doc.text}"
+                                )
+                            else:
+                                chunk_texts.append(doc.text)
+                        content = "\n\n".join(chunk_texts)
 
                         context_parts.append(f"{header}{content}")
 
