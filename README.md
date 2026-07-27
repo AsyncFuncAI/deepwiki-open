@@ -26,6 +26,45 @@ https://github.com/user-attachments/assets/48d1e60a-eb91-4c05-a5a8-3624ffb79fb1
 
 
 
+## 🔌 Custom OpenAI-Compatible Endpoints (llama.cpp, vLLM, LocalAI, etc.)
+
+DeepWiki supports using any OpenAI-compatible API as the LLM backend. This is
+ideal for self-hosted models via llama.cpp, vLLM, text-generation-webui, LocalAI,
+or any other server that exposes the OpenAI API format.
+
+### Configuration
+
+Set the following environment variables:
+
+```bash
+OPENAI_BASE_URL=http://your-host:port/v1   # Your OpenAI-compatible endpoint
+OPENAI_API_KEY=dummy                         # Required by the client but not validated by most local servers
+```
+
+### Automatic Model Discovery
+
+When `OPENAI_BASE_URL` is set, DeepWiki will automatically query the endpoint's
+`/v1/models` API to discover available models. The discovered models are then
+shown in the UI's model selector dropdown — no manual editing of `generator.json`
+is required.
+
+If the `/v1/models` endpoint is unreachable or returns an error, DeepWiki
+gracefully falls back to the statically configured models in `generator.json`.
+
+### Example: llama.cpp
+
+```bash
+# Start llama.cpp server
+./llama-server -m your-model.gguf --port 8000
+
+# Configure DeepWiki
+export OPENAI_BASE_URL=http://localhost:8000/v1
+export OPENAI_API_KEY=dummy
+```
+
+The model loaded in llama.cpp will automatically appear in DeepWiki's model
+selector as the available option under the "Openai" provider.
+
 ## 🤝 Contributing
 
 Contributions are welcome! Feel free to:
