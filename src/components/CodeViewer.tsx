@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/cjs/styles/prism';
-import { FaTimes } from 'react-icons/fa';
 import { getApiBaseUrl } from '@/utils/websocketClient';
 
 export interface CodeTarget {
@@ -15,7 +14,6 @@ export interface CodeTarget {
 
 interface CodeViewerProps {
   isOpen: boolean;
-  onClose: () => void;
   repoUrl: string;
   repoType: string;
   token?: string;
@@ -41,7 +39,7 @@ const langOf = (filePath: string): string => {
 };
 
 const CodeViewer: React.FC<CodeViewerProps> = ({
-  isOpen, onClose, repoUrl, repoType, token, files, target, onSelectFile,
+  isOpen, repoUrl, repoType, token, files, target, onSelectFile,
 }) => {
   const [contentByFile, setContentByFile] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -91,7 +89,7 @@ const CodeViewer: React.FC<CodeViewerProps> = ({
   return (
     <div className="h-full flex flex-col bg-[var(--background)] border-l border-[var(--border-color)]/40">
       {/* Header + file tabs */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-color)]/40">
+      <div className="flex items-center px-3 py-2 border-b border-[var(--border-color)]/40">
         <div className="flex gap-1 overflow-x-auto">
           {files.map((f) => (
             <button
@@ -108,13 +106,6 @@ const CodeViewer: React.FC<CodeViewerProps> = ({
             </button>
           ))}
         </div>
-        <button
-          onClick={onClose}
-          className="text-[var(--foreground)]/60 hover:text-[var(--foreground)] p-1"
-          aria-label="Close code viewer"
-        >
-          <FaTimes size={14} />
-        </button>
       </div>
 
       {/* File path breadcrumb */}

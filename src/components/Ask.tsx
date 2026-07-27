@@ -89,6 +89,9 @@ interface AskProps {
   // Notifies the parent to open the right-side code viewer (rendered at the
   // modal level so it isn't clipped by this component's scroll container).
   onOpenCodeViewer?: (target: CodeTarget, files: string[]) => void;
+  // Notifies the parent to close the code viewer (e.g. non-codemap query,
+  // codemap with no citations, or conversation cleared).
+  onCloseCodeViewer?: () => void;
 }
 
 const Ask: React.FC<AskProps> = ({
@@ -100,6 +103,7 @@ const Ask: React.FC<AskProps> = ({
   language = 'en',
   onRef,
   onOpenCodeViewer,
+  onCloseCodeViewer,
 }) => {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
@@ -234,6 +238,7 @@ const Ask: React.FC<AskProps> = ({
     setCodemapError(null);
     setCodemapPhaseStatus(IDLE_PHASES);
     setCodemapTurns([]);
+    onCloseCodeViewer?.();
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -681,6 +686,16 @@ const Ask: React.FC<AskProps> = ({
     return Array.from(files);
   };
 
+  // First step citation across all sections (used to auto-open the viewer).
+  const firstCitation = (data: CodemapData): CodemapCitation | null => {
+    for (const section of data.sections) {
+      for (const step of section.steps) {
+        if (step.citation?.file_path) return step.citation;
+      }
+    }
+    return null;
+  };
+
   // Ask the parent to open the right-side viewer at a citation's grounded range.
   const handleCitationClick = (citation: CodemapCitation, data: CodemapData | null) => {
     const files = data ? collectCodemapFiles(data) : [citation.file_path];
@@ -705,6 +720,9 @@ const Ask: React.FC<AskProps> = ({
     setCodemapError(null);
     setCodemapQuestion(askedQuestion);
     setCodemapPhaseStatus({ analyzing: 'active', initial_codemap: 'pending', diagrams: 'pending' });
+    // Full-width progress while generating; the viewer auto-opens only once a
+    // codemap with citations arrives.
+    onCloseCodeViewer?.();
 
     const request: CodemapRequest = {
       repo_url: getRepoUrl(repoInfo),
@@ -729,6 +747,19 @@ const Ask: React.FC<AskProps> = ({
         } else if (evt.type === 'codemap') {
           finalData = evt.data;
           setCodemapData(evt.data);
+          // Auto-open the code viewer at the first citation, if any.
+          const first = firstCitation(evt.data);
+          if (first) {
+            onOpenCodeViewer?.(
+              {
+                file_path: first.file_path,
+                start_line: first.start_line,
+                end_line: first.end_line,
+                snippet: first.snippet,
+              },
+              collectCodemapFiles(evt.data)
+            );
+          }
         } else if (evt.type === 'error') {
           setCodemapError(evt.message);
         }
@@ -766,6 +797,8 @@ const Ask: React.FC<AskProps> = ({
     setResearchComplete(false);
     setResearchStages([]);
     setCurrentStageIndex(0);
+    // Non-codemap answers use the full width, so make sure the viewer is closed.
+    onCloseCodeViewer?.();
 
     try {
       // Create initial message

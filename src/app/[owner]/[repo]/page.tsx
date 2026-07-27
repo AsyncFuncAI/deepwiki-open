@@ -2230,54 +2230,54 @@ IMPORTANT:
       {/* Ask Modal - Always render but conditionally show/hide */}
       <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 transition-opacity duration-300 ${isAskModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         <div className="bg-[var(--card-bg)] rounded-lg shadow-xl w-full max-w-7xl h-[90vh] flex flex-col relative overflow-hidden">
-          {/* Hide the modal's own close button while the code viewer drawer is
-              open, so it doesn't overlap the drawer's close button. */}
-          {!codeViewerOpen && (
-            <div className="flex items-center justify-end p-3 absolute top-0 right-0 z-30">
-              <button
-                onClick={() => {
-                  // Just close the modal without clearing the conversation
-                  setIsAskModalOpen(false);
-                  setCodeViewerOpen(false);
-                }}
-                className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors bg-[var(--card-bg)]/80 rounded-full p-2"
-                aria-label="Close"
-              >
-                <FaTimes className="text-xl" />
-              </button>
-            </div>
-          )}
-          <div className="flex-1 overflow-y-auto p-4">
-            <Ask
-              repoInfo={effectiveRepoInfo}
-              provider={selectedProviderState}
-              model={selectedModelState}
-              isCustomModel={isCustomSelectedModelState}
-              customModel={customSelectedModelState}
-              language={language}
-              onRef={(ref) => (askComponentRef.current = ref)}
-              onOpenCodeViewer={openCodeViewer}
-            />
+          {/* Close the whole panel */}
+          <div className="flex items-center justify-end p-3 absolute top-0 right-0 z-30">
+            <button
+              onClick={() => {
+                // Just close the modal without clearing the conversation
+                setIsAskModalOpen(false);
+                setCodeViewerOpen(false);
+              }}
+              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors bg-[var(--card-bg)]/80 rounded-full p-2"
+              aria-label="Close"
+            >
+              <FaTimes className="text-xl" />
+            </button>
           </div>
 
-          {/* Code viewer drawer — sibling of the scroll area, anchored to the
-              fixed-height modal so its tabs/close header are always visible. */}
-          {codeViewerOpen && (
-            <div className="absolute inset-y-0 right-0 w-[55%] min-w-[320px] z-20 shadow-2xl">
-              <CodeViewer
-                isOpen={codeViewerOpen}
-                onClose={() => setCodeViewerOpen(false)}
-                repoUrl={getRepoUrl(effectiveRepoInfo)}
-                repoType={effectiveRepoInfo.type}
-                token={effectiveRepoInfo.token ?? undefined}
-                files={codeViewerFiles}
-                target={codeViewerTarget}
-                onSelectFile={(f) =>
-                  setCodeViewerTarget({ file_path: f, start_line: null, end_line: null, snippet: '' })
-                }
+          {/* Split layout: conversation on the left, code viewer on the right.
+              When no codemap citation needs a viewer, the conversation uses the
+              full width (same as fast / deep-research modes). ~6:4 when open. */}
+          <div className="flex-1 flex min-h-0">
+            <div className={`overflow-y-auto p-4 min-h-0 ${codeViewerOpen ? 'w-3/5' : 'w-full'}`}>
+              <Ask
+                repoInfo={effectiveRepoInfo}
+                provider={selectedProviderState}
+                model={selectedModelState}
+                isCustomModel={isCustomSelectedModelState}
+                customModel={customSelectedModelState}
+                language={language}
+                onRef={(ref) => (askComponentRef.current = ref)}
+                onOpenCodeViewer={openCodeViewer}
+                onCloseCodeViewer={() => setCodeViewerOpen(false)}
               />
             </div>
-          )}
+            {codeViewerOpen && (
+              <div className="w-2/5 min-w-[320px] min-h-0">
+                <CodeViewer
+                  isOpen={codeViewerOpen}
+                  repoUrl={getRepoUrl(effectiveRepoInfo)}
+                  repoType={effectiveRepoInfo.type}
+                  token={effectiveRepoInfo.token ?? undefined}
+                  files={codeViewerFiles}
+                  target={codeViewerTarget}
+                  onSelectFile={(f) =>
+                    setCodeViewerTarget({ file_path: f, start_line: null, end_line: null, snippet: '' })
+                  }
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
