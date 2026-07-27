@@ -1,7 +1,7 @@
 'use client';
 
 import React, {useState, useRef, useEffect} from 'react';
-import {FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaBolt, FaMicroscope, FaBook, FaChevronDown, FaCheck } from 'react-icons/fa';
 import Markdown from './Markdown';
 import CodeMap, { PhaseStatus } from './CodeMap';
 import CodeViewer, { CodeTarget } from './CodeViewer';
@@ -30,6 +30,15 @@ const IDLE_PHASES: Record<CodemapPhase, PhaseStatus> = {
   initial_codemap: 'pending',
   diagrams: 'pending',
 };
+
+// Chat mode selector options (replaces the standalone Deep Research / Codemap toggles).
+type ChatMode = 'fast' | 'deep_research' | 'codemap';
+
+const MODES: { id: ChatMode; label: string; description: string; icon: React.ReactNode }[] = [
+  { id: 'fast', label: 'Fast', description: 'Quick and responsive answers', icon: <FaBolt size={14} /> },
+  { id: 'deep_research', label: 'Deep Research', description: 'More thorough investigation', icon: <FaMicroscope size={14} /> },
+  { id: 'codemap', label: 'Codemap', description: 'Structured explanation grounded in code', icon: <FaBook size={14} /> },
+];
 
 interface Model {
   id: string;
@@ -95,6 +104,7 @@ const Ask: React.FC<AskProps> = ({
 
   // Codemap state (a parallel flow to the normal/deep-research chat).
   const [codemapMode, setCodemapMode] = useState(false);
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [codemapActive, setCodemapActive] = useState(false); // a codemap is generating
   const [codemapQuestion, setCodemapQuestion] = useState('');
   const [codemapData, setCodemapData] = useState<CodemapData | null>(null);
@@ -1260,66 +1270,70 @@ const Ask: React.FC<AskProps> = ({
             </button>
           </div>
 
-          {/* Deep Research + Codemap toggles */}
-          <div className="flex items-center mt-2 gap-4">
-            {/* Codemap toggle */}
-            <label className="flex items-center cursor-pointer">
-              <span className="text-xs text-gray-600 dark:text-gray-400 mr-2">📖 Codemap</span>
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={codemapMode}
-                  onChange={() => {
-                    const next = !codemapMode;
-                    setCodemapMode(next);
-                    if (next) setDeepResearch(false);
-                  }}
-                  className="sr-only"
-                />
-                <div className={`w-10 h-5 rounded-full transition-colors ${codemapMode ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
-                <div className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform transform ${codemapMode ? 'translate-x-5' : ''}`}></div>
-              </div>
-            </label>
+          {/* Chat mode selector (Fast / Deep Research / Codemap) */}
+          <div className="mt-2 flex items-center gap-2">
+            {(() => {
+              const currentMode: ChatMode = codemapMode
+                ? 'codemap'
+                : deepResearch
+                ? 'deep_research'
+                : 'fast';
+              const current = MODES.find((m) => m.id === currentMode)!;
+              const selectMode = (id: ChatMode) => {
+                setDeepResearch(id === 'deep_research');
+                setCodemapMode(id === 'codemap');
+                setModeMenuOpen(false);
+              };
+              return (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setModeMenuOpen((o) => !o)}
+                    className={`text-xs px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
+                      currentMode !== 'fast'
+                        ? 'bg-purple-600/15 text-purple-600 dark:text-purple-400'
+                        : 'border border-[var(--border-color)]/40 text-[var(--foreground)]/70 hover:bg-[var(--background)]/30'
+                    }`}
+                  >
+                    {current.icon}
+                    <span>{current.label}</span>
+                    <FaChevronDown size={10} />
+                  </button>
+                  {modeMenuOpen && (
+                    <>
+                      {/* Click-away backdrop */}
+                      <div className="fixed inset-0 z-10" onClick={() => setModeMenuOpen(false)} />
+                      <div className="absolute bottom-full left-0 mb-2 w-64 z-20 rounded-lg border border-[var(--border-color)]/40 bg-[var(--background)] shadow-xl overflow-hidden">
+                        {MODES.map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => selectMode(m.id)}
+                            className="w-full flex items-start gap-2.5 px-3 py-2 text-left hover:bg-[var(--accent-primary)]/10 transition-colors"
+                          >
+                            <span className="mt-0.5 text-[var(--foreground)]/70">{m.icon}</span>
+                            <span className="flex-1 min-w-0">
+                              <span className="flex items-center justify-between">
+                                <span className="text-sm text-[var(--foreground)]">{m.label}</span>
+                                {currentMode === m.id && (
+                                  <FaCheck size={11} className="text-purple-600 dark:text-purple-400" />
+                                )}
+                              </span>
+                              <span className="block text-xs text-[var(--foreground)]/50">{m.description}</span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
-            <div className="group relative">
-              <label className="flex items-center cursor-pointer">
-                <span className="text-xs text-gray-600 dark:text-gray-400 mr-2">Deep Research</span>
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={deepResearch}
-                    onChange={() => {
-                      const next = !deepResearch;
-                      setDeepResearch(next);
-                      if (next) setCodemapMode(false);
-                    }}
-                    className="sr-only"
-                  />
-                  <div className={`w-10 h-5 rounded-full transition-colors ${deepResearch ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
-                  <div className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform transform ${deepResearch ? 'translate-x-5' : ''}`}></div>
-                </div>
-              </label>
-              <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 w-72 z-10">
-                <div className="relative">
-                  <div className="absolute -bottom-2 left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                  <p className="mb-1">Deep Research conducts a multi-turn investigation process:</p>
-                  <ul className="list-disc pl-4 text-xs">
-                    <li><strong>Initial Research:</strong> Creates a research plan and initial findings</li>
-                    <li><strong>Iteration 1:</strong> Explores specific aspects in depth</li>
-                    <li><strong>Iteration 2:</strong> Investigates remaining questions</li>
-                    <li><strong>Iterations 3-4:</strong> Dives deeper into complex areas</li>
-                    <li><strong>Final Conclusion:</strong> Comprehensive answer based on all iterations</li>
-                  </ul>
-                  <p className="mt-1 text-xs italic">The AI automatically continues research until complete (up to 5 iterations)</p>
-                </div>
-              </div>
-            </div>
-            {deepResearch && (
-              <div className="text-xs text-purple-600 dark:text-purple-400">
-                Multi-turn research process enabled
-                {researchIteration > 0 && !researchComplete && ` (iteration ${researchIteration})`}
-                {researchComplete && ` (complete)`}
-              </div>
+            {deepResearch && researchIteration > 0 && (
+              <span className="text-xs text-purple-600 dark:text-purple-400">
+                {researchComplete ? '(complete)' : `(iteration ${researchIteration})`}
+              </span>
             )}
           </div>
         </form>
