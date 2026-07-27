@@ -1,18 +1,17 @@
 """OpenRouter ModelClient integration."""
 
-from typing import Dict, Sequence, Optional, Any, List
-import logging
 import json
-import aiohttp
-import requests
-from requests.exceptions import RequestException, Timeout
+import logging
+from typing import Any, Dict
 
+import aiohttp
 from adalflow.core.model_client import ModelClient
 from adalflow.core.types import (
     CompletionUsage,
-    ModelType,
     GeneratorOutput,
+    ModelType,
 )
+from requests.exceptions import RequestException
 
 log = logging.getLogger(__name__)
 
@@ -141,7 +140,6 @@ class OpenRouterClient(ModelClient):
             # Make the API call
             try:
                 log.info(f"Making async OpenRouter API call to {self.async_client['base_url']}/chat/completions")
-                log.info(f"Request headers: {headers}")
                 log.info(f"Request body: {api_kwargs}")
 
                 async with aiohttp.ClientSession() as session:
