@@ -16,26 +16,39 @@ interface CodeMapProps {
   onCitationClick: (citation: CodemapCitation) => void;
 }
 
-const PHASE_LABELS: { key: CodemapPhase; label: string }[] = [
-  { key: 'analyzing', label: 'Analyzing code' },
-  { key: 'initial_codemap', label: 'Generating initial codemap' },
-  { key: 'diagrams', label: 'Generating diagrams and guides' },
-];
+const PHASE_ORDER: CodemapPhase[] = ['analyzing', 'initial_codemap', 'diagrams'];
 
-const PhaseIndicator: React.FC<{ status: PhaseStatus; label: string }> = ({ status, label }) => (
-  <div className="flex items-center gap-2 text-xs">
-    {status === 'done' ? (
-      <span className="w-3.5 h-3.5 rounded-full bg-green-500 flex items-center justify-center text-white text-[8px]">✓</span>
-    ) : status === 'active' ? (
-      <span className="w-3.5 h-3.5 rounded-full border-2 border-t-transparent border-purple-500 animate-spin" />
-    ) : (
-      <span className="w-3.5 h-3.5 rounded-full border border-[var(--border-color)]" />
-    )}
-    <span className={status === 'pending' ? 'text-[var(--foreground)]/40' : 'text-[var(--foreground)]/80'}>
-      {label}
-    </span>
-  </div>
-);
+// Header text + indented sub-steps shown for the currently active phase,
+// mirroring the Deep Research progress display.
+const PHASE_DETAIL: Record<CodemapPhase, { header: string; items: { color: string; text: string }[] }> = {
+  analyzing: {
+    header: 'Analyzing code',
+    items: [
+      { color: 'bg-blue-500', text: 'Retrieving relevant source files...' },
+      { color: 'bg-green-500', text: 'Identifying key structures and entry points...' },
+    ],
+  },
+  initial_codemap: {
+    header: 'Generating initial codemap',
+    items: [
+      { color: 'bg-blue-500', text: 'Organizing sections and steps...' },
+      { color: 'bg-green-500', text: 'Grounding citations to source lines...' },
+    ],
+  },
+  diagrams: {
+    header: 'Generating diagrams and guides',
+    items: [
+      { color: 'bg-amber-500', text: 'Writing section guides...' },
+      { color: 'bg-purple-500', text: 'Drawing diagrams...' },
+    ],
+  },
+};
+
+// The phase currently in flight (or the furthest-progressed one between events).
+const activePhase = (status: Record<CodemapPhase, PhaseStatus>): CodemapPhase =>
+  PHASE_ORDER.find((p) => status[p] === 'active') ??
+  [...PHASE_ORDER].reverse().find((p) => status[p] !== 'pending') ??
+  'analyzing';
 
 const CitationChip: React.FC<{ citation: CodemapCitation; onClick: () => void }> = ({ citation, onClick }) => {
   const range = citation.start_line
@@ -53,17 +66,33 @@ const CitationChip: React.FC<{ citation: CodemapCitation; onClick: () => void }>
 };
 
 const CodeMap: React.FC<CodeMapProps> = ({ data, phaseStatus, error, onCitationClick }) => {
-  // Progress view while generating (and no data yet).
+  // Progress view while generating (and no data yet) — styled like Deep Research.
   if (!data) {
+    const phase = activePhase(phaseStatus);
+    const detail = PHASE_DETAIL[phase];
     return (
-      <div className="rounded-lg border border-[var(--border-color)]/40 bg-[var(--background)]/30 p-4 space-y-2">
-        <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--accent-primary)] mb-2">
-          <span>📖</span><span>Codemap</span>
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center space-x-2">
+          <div className="animate-pulse flex space-x-1">
+            <div className="h-2 w-2 bg-purple-600 rounded-full"></div>
+            <div className="h-2 w-2 bg-purple-600 rounded-full"></div>
+            <div className="h-2 w-2 bg-purple-600 rounded-full"></div>
+          </div>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            📖 Codemap — {detail.header} in progress...
+          </span>
         </div>
-        {PHASE_LABELS.map(({ key, label }) => (
-          <PhaseIndicator key={key} status={phaseStatus[key]} label={label} />
-        ))}
-        {error && <div className="text-xs text-red-500 pt-1">{error}</div>}
+        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 pl-5">
+          <div className="flex flex-col space-y-1">
+            {detail.items.map((item, i) => (
+              <div key={i} className="flex items-center">
+                <div className={`w-2 h-2 ${item.color} rounded-full mr-2`}></div>
+                <span>{item.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        {error && <div className="mt-2 text-xs text-red-500 pl-5">{error}</div>}
       </div>
     );
   }
