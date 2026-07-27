@@ -81,13 +81,9 @@ class Memory(adal.core.component.DataComponent):
 
     def call(self) -> dict:
         """Return the conversation history as a dictionary."""
-        all_dialog_turns = (
-            {}
-            if not self.current_conversation
-            else {
-                dialog_turn.id: dialog_turn for dialog_turn in self.current_conversation
-            }
-        )
+        all_dialog_turns = {
+            dialog_turn.id: dialog_turn for dialog_turn in self.current_conversation
+        }
         logger.info(f"Returning {len(all_dialog_turns)} dialog turns from memory")
         return all_dialog_turns
 
@@ -226,7 +222,7 @@ class RAG(adal.Component):
             target_size,
             len(docs_embeddings[target_size]),
         )
-        
+
         valid_documents = docs_embeddings.pop(target_size)
 
         if docs_embeddings:
@@ -236,7 +232,7 @@ class RAG(adal.Component):
                     len(docs_list),
                     str(embed_size),
                 )
-                
+
         if not valid_documents:
             logger.warning("No documents with valid embeddings remained after filtering")
         else:
