@@ -1222,7 +1222,8 @@ const Ask: React.FC<AskProps> = ({
           </button>
 
           {/* Clear the whole conversation */}
-          {(conversationTurns.length > 0 || response || currentQuestion) && (
+          {(conversationTurns.length > 0 || response || currentQuestion ||
+            codemapTurns.length > 0 || codemapActive || codemapData) && (
             <button
               id="ask-clear-conversation"
               onClick={clearConversation}
