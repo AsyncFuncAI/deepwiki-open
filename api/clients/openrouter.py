@@ -142,7 +142,6 @@ class OpenRouterClient(ModelClient):
             # Make the API call
             try:
                 log.info(f"Making async OpenRouter API call to {self.async_client['base_url']}/chat/completions")
-                log.info(f"Request headers: {headers}")
                 log.info(f"Request body: {api_kwargs}")
 
                 async with aiohttp.ClientSession() as session:
