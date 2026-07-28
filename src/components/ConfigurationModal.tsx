@@ -49,6 +49,10 @@ interface ConfigurationModalProps {
   includedFiles: string;
   setIncludedFiles: (value: string) => void;
 
+  // Repository refetch options
+  forceRefetch: boolean;
+  setForceRefetch: (forceRefetch: boolean) => void;
+
   // Form submission
   onSubmit: () => void;
   isSubmitting: boolean;
@@ -94,7 +98,9 @@ export default function ConfigurationModal({
   authRequired,
   authCode,
   setAuthCode,
-  isAuthLoading
+  isAuthLoading,
+  forceRefetch,
+  setForceRefetch,
 }: ConfigurationModalProps) {
   const { messages: t } = useLanguage();
 
@@ -211,23 +217,25 @@ export default function ConfigurationModal({
             {/* Model Selector */}
             <div className="mb-4">
               <UserSelector
-                provider={provider}
-                setProvider={setProvider}
-                model={model}
-                setModel={setModel}
-                isCustomModel={isCustomModel}
-                setIsCustomModel={setIsCustomModel}
-                customModel={customModel}
-                setCustomModel={setCustomModel}
-                showFileFilters={true}
-                excludedDirs={excludedDirs}
-                setExcludedDirs={setExcludedDirs}
-                excludedFiles={excludedFiles}
-                setExcludedFiles={setExcludedFiles}
-                includedDirs={includedDirs}
-                setIncludedDirs={setIncludedDirs}
-                includedFiles={includedFiles}
-                setIncludedFiles={setIncludedFiles}
+                  provider={provider}
+                  setProvider={setProvider}
+                  model={model}
+                  setModel={setModel}
+                  isCustomModel={isCustomModel}
+                  setIsCustomModel={setIsCustomModel}
+                  customModel={customModel}
+                  setCustomModel={setCustomModel}
+                  showFileFilters={true}
+                  excludedDirs={excludedDirs}
+                  setExcludedDirs={setExcludedDirs}
+                  excludedFiles={excludedFiles}
+                  setExcludedFiles={setExcludedFiles}
+                  includedDirs={includedDirs}
+                  setIncludedDirs={setIncludedDirs}
+                  includedFiles={includedFiles}
+                  setIncludedFiles={setIncludedFiles}
+                  forceRefetch={forceRefetch}
+                  setForceRefetch={setForceRefetch}
               />
             </div>
 
