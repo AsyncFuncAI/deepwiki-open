@@ -293,47 +293,6 @@ def load_lang_config():
 
     return loaded_config
 
-# Default excluded directories and files
-DEFAULT_EXCLUDED_DIRS: List[str] = [
-    # Virtual environments and package managers
-    "./.venv/", "./venv/", "./env/", "./virtualenv/",
-    "./node_modules/", "./bower_components/", "./jspm_packages/",
-    # Version control
-    "./.git/", "./.svn/", "./.hg/", "./.bzr/",
-    # Cache and compiled files
-    "./__pycache__/", "./.pytest_cache/", "./.mypy_cache/", "./.ruff_cache/", "./.coverage/",
-    # Build and distribution
-    "./dist/", "./build/", "./out/", "./target/", "./bin/", "./obj/",
-    # Documentation
-    "./docs/", "./_docs/", "./site-docs/", "./_site/",
-    # IDE specific
-    "./.idea/", "./.vscode/", "./.vs/", "./.eclipse/", "./.settings/",
-    # Logs and temporary files
-    "./logs/", "./log/", "./tmp/", "./temp/",
-]
-
-DEFAULT_EXCLUDED_FILES: List[str] = [
-    "yarn.lock", "pnpm-lock.yaml", "npm-shrinkwrap.json", "poetry.lock",
-    "Pipfile.lock", "requirements.txt.lock", "Cargo.lock", "composer.lock",
-    ".lock", ".DS_Store", "Thumbs.db", "desktop.ini", "*.lnk", ".env",
-    ".env.*", "*.env", "*.cfg", "*.ini", ".flaskenv", ".gitignore",
-    ".gitattributes", ".gitmodules", ".github", ".gitlab-ci.yml",
-    ".prettierrc", ".eslintrc", ".eslintignore", ".stylelintrc",
-    ".editorconfig", ".jshintrc", ".pylintrc", ".flake8", "mypy.ini",
-    "pyproject.toml", "tsconfig.json", "webpack.config.js", "babel.config.js",
-    "rollup.config.js", "jest.config.js", "karma.conf.js", "vite.config.js",
-    "next.config.js", "*.min.js", "*.min.css", "*.bundle.js", "*.bundle.css",
-    "*.map", "*.gz", "*.zip", "*.tar", "*.tgz", "*.rar", "*.7z", "*.iso",
-    "*.dmg", "*.img", "*.msix", "*.appx", "*.appxbundle", "*.xap", "*.ipa",
-    "*.deb", "*.rpm", "*.msi", "*.exe", "*.dll", "*.so", "*.dylib", "*.o",
-    "*.obj", "*.jar", "*.war", "*.ear", "*.jsm", "*.class", "*.pyc", "*.pyd",
-    "*.pyo", "__pycache__", "*.a", "*.lib", "*.lo", "*.la", "*.slo", "*.dSYM",
-    "*.egg", "*.egg-info", "*.dist-info", "*.eggs", "node_modules",
-    "bower_components", "jspm_packages", "lib-cov", "coverage", "htmlcov",
-    ".nyc_output", ".tox", "dist", "build", "bld", "out", "bin", "target",
-    "packages/*/dist", "packages/*/build", ".output"
-]
-
 # Initialize empty configuration
 configs = {}
 
@@ -356,7 +315,7 @@ if embedder_config:
 
 # Update repository configuration
 if repo_config:
-    for key in ["file_filters", "repository"]:
+    for key in ["file_filters", "repository", "code_extensions", "doc_extensions"]:
         if key in repo_config:
             configs[key] = repo_config[key]
 
