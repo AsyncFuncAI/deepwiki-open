@@ -13,7 +13,7 @@ from api.schemas import (
     WikiCacheRequest,
     WikiExportRequest,
 )
-from api.utils.wiki import (
+from api.services.wiki import (
     delete_wiki_cache,
     export_wiki,
     list_processed_projects,

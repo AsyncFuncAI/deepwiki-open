@@ -4,7 +4,7 @@ from fastapi.websockets import WebSocketState
 
 from api.logger import get_logger
 from api.schemas import CodeMapRequest
-from api.utils.codemap import generate_codemap, read_repo_file
+from api.services.codemap import generate_codemap, read_repo_file
 
 logger = get_logger(__name__)
 

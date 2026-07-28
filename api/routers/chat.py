@@ -4,7 +4,7 @@ from fastapi.websockets import WebSocketState
 
 from api.logger import get_logger
 from api.schemas import ChatCompletionRequest
-from api.utils.research import research_chat
+from api.services.research import research_chat
 
 logger = get_logger(__name__)
 
