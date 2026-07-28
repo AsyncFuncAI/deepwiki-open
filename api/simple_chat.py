@@ -17,7 +17,7 @@ from api.prompts import (
     DEEP_RESEARCH_INTERMEDIATE_ITERATION_PROMPT,
     SIMPLE_CHAT_SYSTEM_PROMPT
 )
-from api.chat_model import ChatCompletionRequest
+from api.schemas import ChatCompletionRequest
 
 # Configure logging
 from api.logging_config import setup_logging

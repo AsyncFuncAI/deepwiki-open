@@ -1,18 +1,31 @@
-import os
+import asyncio
+import json
 import logging
-from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
+import os
+from datetime import datetime
+from typing import List, Optional
+
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
-from typing import List, Optional, Dict, Any, Literal
-import json
-from datetime import datetime
-from pydantic import BaseModel, Field
-import google.generativeai as genai
-import asyncio
+
+from api.config import WIKI_AUTH_CODE, WIKI_AUTH_MODE, configs
+from api.logging_config import setup_logging
+from api.schemas import (
+    AuthorizationConfig,
+    Model,
+    ModelConfig,
+    ProcessedProjectEntry,
+    Provider,
+    WikiCacheData,
+    WikiCacheRequest,
+    WikiExportRequest,
+    WikiPage,
+    aload,
+    asave,
+)
 
 # Configure logging
-from api.logging_config import setup_logging
-
 setup_logging()
 logger = logging.getLogger(__name__)
 
@@ -36,115 +49,6 @@ app.add_middleware(
 def get_adalflow_default_root_path():
     return os.path.expanduser(os.path.join("~", ".adalflow"))
 
-# --- Pydantic Models ---
-class WikiPage(BaseModel):
-    """
-    Model for a wiki page.
-    """
-    id: str
-    title: str
-    content: str
-    filePaths: List[str]
-    importance: str # Should ideally be Literal['high', 'medium', 'low']
-    relatedPages: List[str]
-
-class ProcessedProjectEntry(BaseModel):
-    id: str  # Filename
-    owner: str
-    repo: str
-    name: str  # owner/repo
-    repo_type: str # Renamed from type to repo_type for clarity with existing models
-    submittedAt: int # Timestamp
-    language: str # Extracted from filename
-
-class RepoInfo(BaseModel):
-    owner: str
-    repo: str
-    type: str
-    token: Optional[str] = None
-    localPath: Optional[str] = None
-    repoUrl: Optional[str] = None
-
-
-class WikiSection(BaseModel):
-    """
-    Model for the wiki sections.
-    """
-    id: str
-    title: str
-    pages: List[str]
-    subsections: Optional[List[str]] = None
-
-
-class WikiStructureModel(BaseModel):
-    """
-    Model for the overall wiki structure.
-    """
-    id: str
-    title: str
-    description: str
-    pages: List[WikiPage]
-    sections: Optional[List[WikiSection]] = None
-    rootSections: Optional[List[str]] = None
-
-class WikiCacheData(BaseModel):
-    """
-    Model for the data to be stored in the wiki cache.
-    """
-    wiki_structure: WikiStructureModel
-    generated_pages: Dict[str, WikiPage]
-    repo_url: Optional[str] = None  #compatible for old cache
-    repo: Optional[RepoInfo] = None
-    provider: Optional[str] = None
-    model: Optional[str] = None
-
-class WikiCacheRequest(BaseModel):
-    """
-    Model for the request body when saving wiki cache.
-    """
-    repo: RepoInfo
-    language: str
-    wiki_structure: WikiStructureModel
-    generated_pages: Dict[str, WikiPage]
-    provider: str
-    model: str
-
-class WikiExportRequest(BaseModel):
-    """
-    Model for requesting a wiki export.
-    """
-    repo_url: str = Field(..., description="URL of the repository")
-    pages: List[WikiPage] = Field(..., description="List of wiki pages to export")
-    format: Literal["markdown", "json"] = Field(..., description="Export format (markdown or json)")
-
-# --- Model Configuration Models ---
-class Model(BaseModel):
-    """
-    Model for LLM model configuration
-    """
-    id: str = Field(..., description="Model identifier")
-    name: str = Field(..., description="Display name for the model")
-
-class Provider(BaseModel):
-    """
-    Model for LLM provider configuration
-    """
-    id: str = Field(..., description="Provider identifier")
-    name: str = Field(..., description="Display name for the provider")
-    models: List[Model] = Field(..., description="List of available models for this provider")
-    supportsCustomModel: Optional[bool] = Field(False, description="Whether this provider supports custom models")
-
-class ModelConfig(BaseModel):
-    """
-    Model for the entire model configuration
-    """
-    providers: List[Provider] = Field(..., description="List of available model providers")
-    defaultProvider: str = Field(..., description="ID of the default provider")
-
-class AuthorizationConfig(BaseModel):
-    code: str = Field(..., description="Authorization code")
-
-from api.config import configs, WIKI_AUTH_MODE, WIKI_AUTH_CODE
 
 @app.get("/lang/config")
 async def get_lang_config():
@@ -415,9 +319,7 @@ async def read_wiki_cache(owner: str, repo: str, repo_type: str, language: str) 
     cache_path = get_wiki_cache_path(owner, repo, repo_type, language)
     if os.path.exists(cache_path):
         try:
-            with open(cache_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                return WikiCacheData(**data)
+            return await aload(WikiCacheData, cache_path, encoding="utf-8")
         except Exception as e:
             logger.error(f"Error reading wiki cache from {cache_path}: {e}")
             return None
@@ -435,18 +337,8 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
             provider=data.provider,
             model=data.model
         )
-        # Log size of data to be cached for debugging (avoid logging full content if large)
-        try:
-            payload_json = payload.model_dump_json()
-            payload_size = len(payload_json.encode('utf-8'))
-            logger.info(f"Payload prepared for caching. Size: {payload_size} bytes.")
-        except Exception as ser_e:
-            logger.warning(f"Could not serialize payload for size logging: {ser_e}")
-
-
         logger.info(f"Writing cache file to: {cache_path}")
-        with open(cache_path, 'w', encoding='utf-8') as f:
-            json.dump(payload.model_dump(), f, indent=2)
+        await asave(payload, cache_path, encoding="utf-8")
         logger.info(f"Wiki cache successfully saved to {cache_path}")
         return True
     except IOError as e:
