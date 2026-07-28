@@ -45,7 +45,7 @@ const WikiTypeSelector: React.FC<WikiTypeSelectorProps> = ({
             </div>
           )}
         </button>
-        
+
         <button
           type="button"
           onClick={() => setIsComprehensiveView(false)}

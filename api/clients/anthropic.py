@@ -13,16 +13,15 @@ from anthropic import (
 
 
 class AnthropicBedrockClient(ModelClient):
-
     def __init__(
-            self,
-            aws_access_key_id: str | None = None,
-            aws_secret_access_key: str | None = None,
-            aws_session_token: str | None = None,
-            aws_region: str | None = None,
-            **kwargs,
+        self,
+        aws_access_key_id: str | None = None,
+        aws_secret_access_key: str | None = None,
+        aws_session_token: str | None = None,
+        aws_region: str | None = None,
+        **kwargs,
     ):
-        """ A client wrapper for interacting with Anthropic Bedrock API.
+        """A client wrapper for interacting with Anthropic Bedrock API.
 
         This class currently only provides chat completion API calls.
 
@@ -90,7 +89,10 @@ class AnthropicBedrockClient(ModelClient):
     @async_client.setter
     def async_client(self, value):
         from anthropic import AsyncAnthropicBedrock
-        if value is None and isinstance(getattr(self, "_async_client", None), AsyncAnthropicBedrock):
+
+        if value is None and isinstance(
+            getattr(self, "_async_client", None), AsyncAnthropicBedrock
+        ):
             self.async_client.close()
         self._async_client = value
 
@@ -103,7 +105,10 @@ class AnthropicBedrockClient(ModelClient):
     @sync_client.setter
     def sync_client(self, value):
         from anthropic import AnthropicBedrock
-        if value is None and isinstance(getattr(self, "_sync_client", None), AnthropicBedrock):
+
+        if value is None and isinstance(
+            getattr(self, "_sync_client", None), AnthropicBedrock
+        ):
             self.sync_client.close()
         self._sync_client = value
 
@@ -113,13 +118,14 @@ class AnthropicBedrockClient(ModelClient):
         model_kwargs: dict | None = None,
         model_type: ModelType = ModelType.UNDEFINED,
     ) -> dict[str, Any]:
-
         final_model_kwargs = model_kwargs.copy() if model_kwargs else {}
         if model_type == ModelType.LLM:
             if isinstance(input, str):
                 input = [{"role": "user", "content": input}]
             elif not isinstance(input, list):
-                raise ValueError(f"input must be a string or a list or messages, get {type(input).__name__}")
+                raise ValueError(
+                    f"input must be a string or a list or messages, get {type(input).__name__}"
+                )
             final_model_kwargs["messages"] = input
             return final_model_kwargs
 
@@ -134,13 +140,15 @@ class AnthropicBedrockClient(ModelClient):
         ),
         max_time=5,
     )
-    def call(self, api_kwargs: dict | None = None, model_type: ModelType | None = None) -> Any:
+    def call(
+        self, api_kwargs: dict | None = None, model_type: ModelType | None = None
+    ) -> Any:
         api_kwargs = api_kwargs or {}
         if model_type != ModelType.LLM:
             raise ValueError(f"model_type {model_type} is not supported")
 
         if "model" not in api_kwargs:
-            raise ValueError(f"must provide 'model' parameter in api_kwargs")
+            raise ValueError("must provide 'model' parameter in api_kwargs")
 
         return self.sync_client.messages.create(**api_kwargs)
 
@@ -155,13 +163,15 @@ class AnthropicBedrockClient(ModelClient):
         ),
         max_time=5,
     )
-    async def acall(self, api_kwargs: dict | None = None, model_type: ModelType | None = None) -> Any:
+    async def acall(
+        self, api_kwargs: dict | None = None, model_type: ModelType | None = None
+    ) -> Any:
         api_kwargs = api_kwargs or {}
         if model_type != ModelType.LLM:
             raise ValueError(f"model_type {model_type} is not supported")
 
         if "model" not in api_kwargs:
-            raise ValueError(f"must provide 'model' parameter in api_kwargs")
+            raise ValueError("must provide 'model' parameter in api_kwargs")
 
         return await self.async_client.messages.create(**api_kwargs)
 

@@ -297,7 +297,7 @@ docker-compose up
 
 | Variável             | Descrição                                                  | Obrigatória | Observação                                                                                                     |
 |----------------------|--------------------------------------------------------------|----------|----------------------------------------------------------------------------------------------------------|
-| `GOOGLE_API_KEY`     | Chave API Google Gemini para geração com IA                      | Não | Necessária apenas se você quiser usar modelos Google Gemini                                                    
+| `GOOGLE_API_KEY`     | Chave API Google Gemini para geração com IA                      | Não | Necessária apenas se você quiser usar modelos Google Gemini  
 | `OPENAI_API_KEY`     | Chave API OpenAI para embeddings                                | Sim | Nota: Isso é necessário mesmo se você não estiver usando modelos OpenAI, pois é usado para embeddings.              |
 | `OPENROUTER_API_KEY` | Chave API OpenRouter para modelos alternativos                    | Não | Necessária apenas se você quiser usar modelos OpenRouter                                                       |
 | `OLLAMA_HOST`        | Host Ollama (padrão: http://localhost:11434)                | Não | Necessária apenas se você quiser usar servidor Ollama externo                                                  |

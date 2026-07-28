@@ -16,5 +16,10 @@ def test_chat_completion_request_split_path():
     assert isinstance(request.included_files, list)
     assert isinstance(request.included_dirs, list)
 
-    for path in request.included_files + request.included_dirs + request.excluded_files +request.excluded_dirs:
+    for path in (
+        request.included_files
+        + request.included_dirs
+        + request.excluded_files
+        + request.excluded_dirs
+    ):
         assert isinstance(path, str)

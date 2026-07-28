@@ -560,5 +560,3 @@ Projet sous licence MIT – Voir le fichier [LICENSE](LICENSE).
 ## ⭐ Historique des stars
 
 [![Historique des stars](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
-
-

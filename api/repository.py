@@ -146,7 +146,7 @@ def _get_gitlab_file_content(
                 logger.info(f"Found default branch: {default_branch}")
             else:
                 logger.warning(
-                    f"Could not fetch project info, using 'main' as default branch"
+                    "Could not fetch project info, using 'main' as default branch"
                 )
                 default_branch = "main"
         except Exception as e:
@@ -227,7 +227,7 @@ def _get_bitbucket_file_content(
                 logger.info(f"Found default branch: {default_branch}")
             else:
                 logger.warning(
-                    f"Could not fetch repository info, using 'main' as default branch"
+                    "Could not fetch repository info, using 'main' as default branch"
                 )
                 default_branch = "main"
         except Exception as e:

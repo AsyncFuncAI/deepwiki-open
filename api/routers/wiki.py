@@ -161,7 +161,7 @@ async def save_wiki(request_data: WikiCacheRequest):
     # Language validation
     supported_langs = configs["lang_config"]["supported_languages"]
 
-    if not request_data.language in supported_langs:
+    if request_data.language not in supported_langs:
         request_data.language = configs["lang_config"]["default"]
 
     logger.info(
@@ -187,7 +187,7 @@ async def delete_wiki(
     """
     # Language validation
     supported_langs = configs["lang_config"]["supported_languages"]
-    if not language in supported_langs:
+    if language not in supported_langs:
         raise HTTPException(status_code=400, detail="Language is not supported")
 
     if WIKI_AUTH_MODE:

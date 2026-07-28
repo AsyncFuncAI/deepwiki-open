@@ -322,6 +322,7 @@ def load_lang_config():
 
     return loaded_config
 
+
 # Initialize empty configuration
 configs = {}
 

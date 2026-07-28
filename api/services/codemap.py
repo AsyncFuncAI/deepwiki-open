@@ -61,7 +61,9 @@ async def _generate_json(
         except Exception as e:  # noqa: BLE001
             last_error = e
             logger.warning("JSON parse attempt %d/%d failed: %s", attempt, attempts, e)
-    raise ValueError(f"Model did not return valid JSON after {attempts} attempts: {last_error}")
+    raise ValueError(
+        f"Model did not return valid JSON after {attempts} attempts: {last_error}"
+    )
 
 
 def _repair_json(candidate: str) -> str:
@@ -87,7 +89,7 @@ def _extract_json(text: str) -> dict:
         # remove opening fence (```json or ```) and trailing fence
         cleaned = cleaned.split("\n", 1)[-1]
         if cleaned.rstrip().endswith("```"):
-            cleaned = cleaned.rstrip()[: -3]
+            cleaned = cleaned.rstrip()[:-3]
 
     # Isolate the first balanced top-level object (ignoring braces inside strings).
     start = cleaned.find("{")

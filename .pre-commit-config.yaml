@@ -1,0 +1,71 @@
+# Pre-commit hooks for deepwiki-open (Next.js frontend + FastAPI backend)
+#
+# Setup:
+#   pipx install pre-commit        # or: pip install pre-commit
+#   pre-commit install             # install the git hook
+#   pre-commit run --all-files     # run once across the whole repo
+#
+# Update pinned versions later with:  pre-commit autoupdate
+
+default_language_version:
+  python: python3.12
+
+# Never touch generated / vendored / log / backup files.
+exclude: |
+  (?x)^(
+    .*\.bak|
+    api/logs/.*|
+    .*/__pycache__/.*|
+    public/.*\.svg|
+    yarn\.lock|
+    package-lock\.json|
+    uv\.lock|
+    api/poetry\.lock
+  )$
+
+repos:
+  # ---------------------------------------------------------------------------
+  # General hygiene
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+        # .vscode/*.json and tsconfig.json are JSONC (allow comments) -> skip
+        exclude: ^(\.vscode/|tsconfig\.json$)
+      - id: detect-private-key
+
+  # ---------------------------------------------------------------------------
+  # Secret scanning
+  # Blocks commits that contain tokens, keys, or credentials.
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  # ---------------------------------------------------------------------------
+  # Python — ruff replaces flake8 + isort + black (lint + format in one tool).
+  # Scoped to the backend and test dirs only.
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        name: ruff (lint + autofix)
+        args: [--fix]
+        files: ^(api|test)/.*\.py$  # disable tests folders for now
+      - id: ruff-format
+        name: ruff (format)
+        files: ^(api|test)/.*\.py$

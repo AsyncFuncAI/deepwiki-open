@@ -41,7 +41,7 @@ async def read_wiki_cache(
         return None
     try:
         return await aload(WikiCacheData, cache_path, encoding="utf-8")
-    except Exception as e:
+    except Exception:
         logger.exception("Error reading wiki cache from %s", cache_path)
         return None
 

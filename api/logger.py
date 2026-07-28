@@ -30,9 +30,9 @@ def get_logger(name: str | None = None) -> logging.Logger:
 
 
 def _default_log_config(
-        path: str | None = None,
-        max_bytes: int = 10485760,  # 10MB
-        backup_count: int = 5,
+    path: str | None = None,
+    max_bytes: int = 10485760,  # 10MB
+    backup_count: int = 5,
 ) -> dict[str, Any]:
     handlers: dict[str, dict[str, str | int]] = {
         "stdout": {
@@ -74,7 +74,6 @@ def _default_log_config(
     }
 
 
-
 def setup_logging() -> None:
     cfg_path = os.path.join(os.getcwd(), "log_cfg.json")
     if os.path.isfile(cfg_path):
@@ -82,7 +81,10 @@ def setup_logging() -> None:
         with open(cfg_path, "r") as f:
             log_cfg = json.load(f)
     else:
-        log_file = os.getenv("LOG_FILE_PATH", (Path(__file__).parent / "logs" / "application.log").as_posix())
+        log_file = os.getenv(
+            "LOG_FILE_PATH",
+            (Path(__file__).parent / "logs" / "application.log").as_posix(),
+        )
         log_cfg = _default_log_config(
             log_file,
             max_bytes=int(os.getenv("LOG_MAX_SIZE", 10)) * 1024 * 1024,
@@ -90,5 +92,3 @@ def setup_logging() -> None:
         )
 
     logging.config.dictConfig(log_cfg)
-
-

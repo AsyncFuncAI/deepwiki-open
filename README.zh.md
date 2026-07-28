@@ -382,4 +382,3 @@ OpenAI 客户端的 base_url 配置主要为拥有私有 API 渠道的企业用�
 3. 程序会自动用环境变量的值替换 embedder.json 里的占位符。
 
 这样即可无缝切换到 OpenAI 兼容的 embedding 服务，无需修改代码。
-

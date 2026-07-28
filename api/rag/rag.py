@@ -224,7 +224,9 @@ class RAG(adal.Component):
                 )
 
         if not valid_documents:
-            logger.warning("No documents with valid embeddings remained after filtering")
+            logger.warning(
+                "No documents with valid embeddings remained after filtering"
+            )
         else:
             logger.info(
                 "Embedding validation complete: %d/%d documents have valid embeddings.",
@@ -351,7 +353,9 @@ class RAG(adal.Component):
                 included_files=included_files,
             )
 
-    def call(self, query: str | list[str], language: str = "en") -> list[RetrieverOutput]:
+    def call(
+        self, query: str | list[str], language: str = "en"
+    ) -> list[RetrieverOutput]:
         """
         Process a query using RAG.
 

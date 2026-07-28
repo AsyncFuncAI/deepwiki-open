@@ -11,9 +11,11 @@ logger = get_logger(__name__)
 
 router = APIRouter(tags=["chat"])
 
+
 async def _send_if_connect(websocket: WebSocket, msg: str):
     if websocket.application_state == WebSocketState.CONNECTED:
         await websocket.send_text(msg)
+
 
 @router.websocket("/ws/chat")
 async def handle_websocket_chat(websocket: WebSocket):

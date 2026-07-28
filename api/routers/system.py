@@ -17,13 +17,14 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "service": "deepwiki-api"
+        "service": "deepwiki-api",
     }
 
 
 @router.get("/lang/config")
 async def lang_config():
     return configs["lang_config"]
+
 
 @router.get("/models/config", response_model=ModelConfig)
 async def get_model_config():
@@ -56,16 +57,15 @@ async def get_model_config():
                 Provider(
                     id=provider_id,
                     name=f"{provider_id.capitalize()}",
-                    supportsCustomModel=provider_config.get("supportsCustomModel", False),
-                    models=models
+                    supportsCustomModel=provider_config.get(
+                        "supportsCustomModel", False
+                    ),
+                    models=models,
                 )
             )
 
         # Create and return the full configuration
-        config = ModelConfig(
-            providers=providers,
-            defaultProvider=default_provider
-        )
+        config = ModelConfig(providers=providers, defaultProvider=default_provider)
         return config
 
     except Exception as e:
@@ -77,11 +77,8 @@ async def get_model_config():
                     id="google",
                     name="Google",
                     supportsCustomModel=True,
-                    models=[
-                        Model(id="gemini-2.5-flash", name="Gemini 2.5 Flash")
-                    ]
+                    models=[Model(id="gemini-2.5-flash", name="Gemini 2.5 Flash")],
                 )
             ],
-            defaultProvider="google"
+            defaultProvider="google",
         )
-

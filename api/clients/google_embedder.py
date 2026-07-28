@@ -4,14 +4,18 @@ import os
 from typing import Any, Dict, Optional, Sequence
 
 import backoff
+from adalflow.utils.lazy_import import safe_import, OptionalPackages
 from adalflow.core.model_client import ModelClient
 from adalflow.core.types import EmbedderOutput, ModelType
 
-try:
-    import google.generativeai as genai
-    from google.generativeai.types.text_types import BatchEmbeddingDict, EmbeddingDict
-except ImportError:
-    raise ImportError("google-generativeai is required. Install it with 'pip install google-generativeai'")
+# ruff: noqa: E402
+google = safe_import(
+    OptionalPackages.GOOGLE_GENERATIVEAI.value[0],
+    OptionalPackages.GOOGLE_GENERATIVEAI.value[1],
+)
+# ruff: noqa: E402
+
+from google import generativeai as genai
 
 from api.logger import get_logger
 
@@ -57,7 +61,7 @@ class GoogleEmbedderClient(ModelClient):
         env_api_key_name: str = "GOOGLE_API_KEY",
     ):
         """Initialize Google AI Embeddings client.
-        
+
         Args:
             api_key: Google AI API key. If not provided, uses environment variable.
             env_api_key_name: Name of environment variable containing API key.
@@ -78,16 +82,16 @@ class GoogleEmbedderClient(ModelClient):
 
     def parse_embedding_response(self, response) -> EmbedderOutput:
         """Parse Google AI embedding response to EmbedderOutput format.
-        
+
         Args:
             response: Google AI embedding response (EmbeddingDict or BatchEmbeddingDict)
-            
+
         Returns:
             EmbedderOutput with parsed embeddings
         """
         try:
             from adalflow.core.types import Embedding
-            
+
             embedding_data = []
 
             def _extract_embedding_value(obj):
@@ -114,10 +118,12 @@ class GoogleEmbedderClient(ModelClient):
                         except Exception:
                             pass
                 return None
-            
+
             embedding_value = _extract_embedding_value(response)
             if embedding_value is None:
-                log.warning("Unexpected embedding response type/structure: %s", type(response))
+                log.warning(
+                    "Unexpected embedding response type/structure: %s", type(response)
+                )
                 embedding_data = []
             elif isinstance(embedding_value, list) and len(embedding_value) > 0:
                 if isinstance(embedding_value[0], (int, float)):
@@ -143,21 +149,21 @@ class GoogleEmbedderClient(ModelClient):
                 embedding_data = []
 
             if embedding_data:
-                first_dim = len(embedding_data[0].embedding) if embedding_data[0].embedding is not None else 0
-                log.info("Parsed %s embedding(s) (dim=%s)", len(embedding_data), first_dim)
-            
+                first_dim = (
+                    len(embedding_data[0].embedding)
+                    if embedding_data[0].embedding is not None
+                    else 0
+                )
+                log.info(
+                    "Parsed %s embedding(s) (dim=%s)", len(embedding_data), first_dim
+                )
+
             return EmbedderOutput(
-                data=embedding_data,
-                error=None,
-                raw_response=response
+                data=embedding_data, error=None, raw_response=response
             )
         except Exception as e:
             log.error(f"Error parsing Google AI embedding response: {e}")
-            return EmbedderOutput(
-                data=[],
-                error=str(e),
-                raw_response=response
-            )
+            return EmbedderOutput(data=[], error=str(e), raw_response=response)
 
     def convert_inputs_to_api_kwargs(
         self,
@@ -166,18 +172,20 @@ class GoogleEmbedderClient(ModelClient):
         model_type: ModelType = ModelType.UNDEFINED,
     ) -> Dict:
         """Convert inputs to Google AI API format.
-        
+
         Args:
             input: Text input(s) to embed
             model_kwargs: Model parameters including model name and task_type
             model_type: Should be ModelType.EMBEDDER for this client
-            
+
         Returns:
             Dict: API kwargs for Google AI embedding call
         """
         if model_type != ModelType.EMBEDDER:
-            raise ValueError(f"GoogleEmbedderClient only supports EMBEDDER model type, got {model_type}")
-        
+            raise ValueError(
+                f"GoogleEmbedderClient only supports EMBEDDER model type, got {model_type}"
+            )
+
         # Ensure input is a list
         if isinstance(input, str):
             content = [input]
@@ -185,23 +193,23 @@ class GoogleEmbedderClient(ModelClient):
             content = list(input)
         else:
             raise TypeError("input must be a string or sequence of strings")
-        
+
         final_model_kwargs = model_kwargs.copy()
-        
+
         # Handle single vs batch embedding
         if len(content) == 1:
             final_model_kwargs["content"] = content[0]
         else:
             final_model_kwargs["contents"] = content
-            
+
         # Set default task type if not provided
         if "task_type" not in final_model_kwargs:
             final_model_kwargs["task_type"] = "SEMANTIC_SIMILARITY"
-            
+
         # Set default model if not provided
         if "model" not in final_model_kwargs:
             final_model_kwargs["model"] = "gemini-embedding-001"
-            
+
         return final_model_kwargs
 
     @backoff.on_exception(
@@ -211,28 +219,32 @@ class GoogleEmbedderClient(ModelClient):
     )
     def call(self, api_kwargs: Dict = {}, model_type: ModelType = ModelType.UNDEFINED):
         """Call Google AI embedding API.
-        
+
         Args:
             api_kwargs: API parameters
             model_type: Should be ModelType.EMBEDDER
-            
+
         Returns:
             Google AI embedding response
         """
         if model_type != ModelType.EMBEDDER:
-            raise ValueError(f"GoogleEmbedderClient only supports EMBEDDER model type")
-            
-        safe_log_kwargs = {k: v for k, v in api_kwargs.items() if k not in {"content", "contents"}}
+            raise ValueError("GoogleEmbedderClient only supports EMBEDDER model type")
+
+        safe_log_kwargs = {
+            k: v for k, v in api_kwargs.items() if k not in {"content", "contents"}
+        }
         if "content" in api_kwargs:
             safe_log_kwargs["content_chars"] = len(str(api_kwargs.get("content", "")))
         if "contents" in api_kwargs:
             try:
                 contents = api_kwargs.get("contents")
-                safe_log_kwargs["contents_count"] = len(contents) if hasattr(contents, "__len__") else None
+                safe_log_kwargs["contents_count"] = (
+                    len(contents) if hasattr(contents, "__len__") else None
+                )
             except Exception:
                 safe_log_kwargs["contents_count"] = None
         log.info("Google AI Embeddings call kwargs (sanitized): %s", safe_log_kwargs)
-        
+
         try:
             # Use embed_content for single text or batch embedding
             if "content" in api_kwargs:
@@ -246,16 +258,18 @@ class GoogleEmbedderClient(ModelClient):
                 response = genai.embed_content(content=contents, **kwargs)
             else:
                 raise ValueError("Either 'content' or 'contents' must be provided")
-                
+
             return response
-            
+
         except Exception as e:
             log.error(f"Error calling Google AI Embeddings API: {e}")
             raise
 
-    async def acall(self, api_kwargs: Dict = {}, model_type: ModelType = ModelType.UNDEFINED):
+    async def acall(
+        self, api_kwargs: Dict = {}, model_type: ModelType = ModelType.UNDEFINED
+    ):
         """Async call to Google AI embedding API.
-        
+
         Note: Google AI Python client doesn't have async support yet,
         so this falls back to synchronous call.
         """

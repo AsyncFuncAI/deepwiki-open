@@ -7,7 +7,9 @@ from pydantic import BaseModel, Field, field_validator
 class CodeMapCitation(BaseModel):
     """A grounded reference from a codemap step back to real source code."""
 
-    file_path: str = Field(..., description="Repository-relative path of the source file")
+    file_path: str = Field(
+        ..., description="Repository-relative path of the source file"
+    )
     start_line: int | None = Field(
         None, description="1-based start line of the cited range in the source file"
     )
@@ -36,7 +38,9 @@ class CodeMapSection(BaseModel):
 
     id: str = Field(..., description="Section id such as '1', '2'")
     title: str = Field(..., description="Section title")
-    guide: str = Field("", description="Prose guide for the section (filled in phase 2)")
+    guide: str = Field(
+        "", description="Prose guide for the section (filled in phase 2)"
+    )
     diagram: str = Field(
         "", description="Mermaid diagram source for the section (filled in phase 2)"
     )

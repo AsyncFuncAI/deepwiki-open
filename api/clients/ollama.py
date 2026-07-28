@@ -14,10 +14,10 @@ from adalflow.core.types import EmbedderOutput, Embedding
 
 
 def convert_inputs_to_api_kwargs(
-        self,
-        input: Optional[Any] = None,
-        model_kwargs: Dict = {},
-        model_type: ModelType = ModelType.UNDEFINED,
+    self,
+    input: Optional[Any] = None,
+    model_kwargs: Dict = {},
+    model_type: ModelType = ModelType.UNDEFINED,
 ) -> Dict:
     self.generate = False
     final_model_kwargs = model_kwargs.copy()
@@ -47,21 +47,19 @@ def convert_inputs_to_api_kwargs(
 
 
 @backoff.on_exception(
-        backoff.expo,
-        (RequestError, ResponseError),
-        max_tries=5,
+    backoff.expo,
+    (RequestError, ResponseError),
+    max_tries=5,
 )
 async def acall(
-        self,
-        api_kwargs: dict = None,
-        model_type: ModelType = ModelType.UNDEFINED,
+    self,
+    api_kwargs: dict = None,
+    model_type: ModelType = ModelType.UNDEFINED,
 ):
     if self.async_client is None:
         self.init_async_client()
         if self.async_client is None:
-            raise RuntimeError(
-                "Async client is not initialized"
-            )
+            raise RuntimeError("Async client is not initialized")
     api_kwargs = api_kwargs or {}
     if model_type == ModelType.EMBEDDER:
         return await self.async_client.embed(**api_kwargs)
@@ -77,16 +75,15 @@ async def acall(
         raise ValueError(f"model_type {model_type} is not supported")
 
 
-
 @backoff.on_exception(
     backoff.expo,
     (RequestError, ResponseError),
     max_tries=5,
 )
 def call(
-        self,
-        api_kwargs: dict = None,
-        model_type: ModelType = ModelType.UNDEFINED,
+    self,
+    api_kwargs: dict = None,
+    model_type: ModelType = ModelType.UNDEFINED,
 ):
     api_kwargs = api_kwargs or {}
     if not self.sync_client:
@@ -107,23 +104,23 @@ def call(
         raise ValueError(f"model_type {model_type} is not supported")
 
 
-def parse_embedding_response(
-        self, response: Dict[str, list[float]]
-) -> EmbedderOutput:
+def parse_embedding_response(self, response: Dict[str, list[float]]) -> EmbedderOutput:
     r"""Parse the embedding response to a structure AdalFlow components can understand.
     Pull the embedding from response['embedding'] and store it Embedding dataclass
     """
     try:
-        return EmbedderOutput(data=[
-            Embedding(embedding=emb, index=i)
-            for i, emb in enumerate(response["embeddings"])
-        ])
+        return EmbedderOutput(
+            data=[
+                Embedding(embedding=emb, index=i)
+                for i, emb in enumerate(response["embeddings"])
+            ]
+        )
     except Exception as e:
         log.error(f"Error parsing the embedding response: {e}")
         return EmbedderOutput(data=[], error=str(e), raw_response=response)
+
 
 OllamaClient.convert_inputs_to_api_kwargs = convert_inputs_to_api_kwargs
 OllamaClient.parse_embedding_response = parse_embedding_response
 OllamaClient.call = call
 OllamaClient.acall = acall
-

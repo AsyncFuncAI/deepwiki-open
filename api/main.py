@@ -4,9 +4,12 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
 # Load environment variables from .env file
+# ruff: noqa: E402
 load_dotenv()
+# ruff: noqa: E402
 
 from api.logger import get_logger, setup_logging
 from api.routers import auth, chat, codemap, system, wiki
@@ -23,10 +26,12 @@ watchfiles_logger.setLevel(logging.DEBUG)  # Enable DEBUG to see file paths
 is_development = os.environ.get("NODE_ENV") != "production"
 if is_development:
     import watchfiles
+
     current_dir = os.path.dirname(os.path.abspath(__file__))
     logs_dir = os.path.join(current_dir, "logs")
-    
+
     original_watch = watchfiles.watch
+
     def patched_watch(*args, **kwargs):
         # Only watch the api directory but exclude logs subdirectory
         # Instead of watching the entire api directory, watch specific subdirectories
@@ -37,8 +42,9 @@ if is_development:
                 api_subdirs.append(item_path)
             elif os.path.isfile(item_path) and item.endswith(".py"):
                 api_subdirs.append(item_path)
-        
+
         return original_watch(*api_subdirs, **kwargs)
+
     watchfiles.watch = patched_watch
 
 app = FastAPI(
@@ -89,11 +95,9 @@ async def root():
     return {
         "message": "Welcome to Streaming API",
         "version": "1.0.0",
-        "endpoints": endpoints
+        "endpoints": endpoints,
     }
 
-
-import uvicorn
 
 if __name__ == "__main__":
     # Get port from environment variable or use default
@@ -107,5 +111,7 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=port,
         reload=is_development,
-        reload_excludes=["**/logs/*", "**/__pycache__/*", "**/*.pyc"] if is_development else None,
+        reload_excludes=["**/logs/*", "**/__pycache__/*", "**/*.pyc"]
+        if is_development
+        else None,
     )

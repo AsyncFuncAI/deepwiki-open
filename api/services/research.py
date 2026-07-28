@@ -282,8 +282,8 @@ async def research_chat(
                 except Exception as e2:
                     logger.error("Error in fallback streaming response: %s", str(e2))
                     yield (
-                        f"\nI apologize, but your request is too large for me to process. "
-                        f"Please try a shorter query or break it into smaller parts."
+                        "\nI apologize, but your request is too large for me to process. "
+                        "Please try a shorter query or break it into smaller parts."
                     )
             else:
                 error_str = f"Error with {streamer.provider} API: {e}"

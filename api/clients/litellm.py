@@ -34,7 +34,9 @@ class LiteLLMClient(OpenAIClient):
         env_base_url_name: str = "LITELLM_BASE_URL",
         env_api_key_name: str = "LITELLM_API_KEY",
     ):
-        resolved_base_url = base_url or os.getenv(env_base_url_name, "http://localhost:4000")
+        resolved_base_url = base_url or os.getenv(
+            env_base_url_name, "http://localhost:4000"
+        )
         if not resolved_base_url.endswith("/v1"):
             resolved_base_url = f"{resolved_base_url.rstrip('/')}/v1"
         super().__init__(

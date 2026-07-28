@@ -14,6 +14,7 @@ from api.logger import get_logger
 
 log = get_logger(__name__)
 
+
 class BedrockClient(ModelClient):
     __doc__ = r"""A component wrapper for the AWS Bedrock API client.
 
@@ -40,10 +41,10 @@ class BedrockClient(ModelClient):
         aws_region: Optional[str] = None,
         aws_role_arn: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ) -> None:
         """Initialize the AWS Bedrock client.
-        
+
         Args:
             aws_access_key_id: AWS access key ID. If not provided, will use environment variable AWS_ACCESS_KEY_ID.
             aws_secret_access_key: AWS secret access key. If not provided, will use environment variable AWS_SECRET_ACCESS_KEY.
@@ -65,7 +66,7 @@ class BedrockClient(ModelClient):
         self.aws_session_token = aws_session_token or AWS_SESSION_TOKEN
         self.aws_region = aws_region or AWS_REGION or "us-east-1"
         self.aws_role_arn = aws_role_arn or AWS_ROLE_ARN
-        
+
         self.sync_client = self.init_sync_client()
         self.async_client = None  # Initialize async client only when needed
 
@@ -91,10 +92,10 @@ class BedrockClient(ModelClient):
         """
         state = self.__dict__.copy()
         # Remove the unpicklable client instances
-        if 'sync_client' in state:
-            del state['sync_client']
-        if 'async_client' in state:
-            del state['async_client']
+        if "sync_client" in state:
+            del state["sync_client"]
+        if "async_client" in state:
+            del state["async_client"]
         return state
 
     def __setstate__(self, state):
@@ -115,34 +116,32 @@ class BedrockClient(ModelClient):
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
                 aws_session_token=self.aws_session_token,
-                region_name=self.aws_region
+                region_name=self.aws_region,
             )
-            
+
             # If a role ARN is provided, assume that role
             if self.aws_role_arn:
-                sts_client = session.client('sts')
+                sts_client = session.client("sts")
                 assumed_role = sts_client.assume_role(
-                    RoleArn=self.aws_role_arn,
-                    RoleSessionName="DeepWikiBedrockSession"
+                    RoleArn=self.aws_role_arn, RoleSessionName="DeepWikiBedrockSession"
                 )
-                credentials = assumed_role['Credentials']
-                
+                credentials = assumed_role["Credentials"]
+
                 # Create a new session with the assumed role credentials
                 session = boto3.Session(
-                    aws_access_key_id=credentials['AccessKeyId'],
-                    aws_secret_access_key=credentials['SecretAccessKey'],
-                    aws_session_token=credentials['SessionToken'],
-                    region_name=self.aws_region
+                    aws_access_key_id=credentials["AccessKeyId"],
+                    aws_secret_access_key=credentials["SecretAccessKey"],
+                    aws_session_token=credentials["SessionToken"],
+                    region_name=self.aws_region,
                 )
-            
+
             # Create the Bedrock client
             bedrock_runtime = session.client(
-                service_name='bedrock-runtime',
-                region_name=self.aws_region
+                service_name="bedrock-runtime", region_name=self.aws_region
             )
-            
+
             return bedrock_runtime
-            
+
         except Exception as e:
             log.error(f"Error initializing AWS Bedrock client: {str(e)}")
             # Return None to indicate initialization failure
@@ -150,7 +149,7 @@ class BedrockClient(ModelClient):
 
     def init_async_client(self):
         """Initialize the asynchronous AWS Bedrock client.
-        
+
         Note: boto3 doesn't have native async support, so we'll use the sync client
         in async methods and handle async behavior at a higher level.
         """
@@ -159,10 +158,10 @@ class BedrockClient(ModelClient):
 
     def _get_model_provider(self, model_id: str) -> str:
         """Extract the provider from the model ID.
-        
+
         Args:
             model_id: The model inference ID, e.g., "anthropic.claude-3-sonnet-20240229-v1:0", "global.anthropic.claude-sonnet-4-5-20250929-v1:0", or "global.cohere.embed-v4:0"
-            
+
         Returns:
             The provider name, e.g., "anthropic"
         """
@@ -177,14 +176,16 @@ class BedrockClient(ModelClient):
             # Default to Amazon if format is unexpected
             return "amazon"
 
-    def _format_prompt_for_provider(self, provider: str, prompt: str, messages=None) -> Dict[str, Any]:
+    def _format_prompt_for_provider(
+        self, provider: str, prompt: str, messages=None
+    ) -> Dict[str, Any]:
         """Format the prompt according to the provider's requirements.
-        
+
         Args:
             provider: The provider name, e.g., "anthropic"
             prompt: The prompt text
             messages: Optional list of messages for chat models
-            
+
         Returns:
             A dictionary with the formatted prompt
         """
@@ -195,14 +196,18 @@ class BedrockClient(ModelClient):
                 formatted_messages = []
                 for msg in messages:
                     role = "user" if msg.get("role") == "user" else "assistant"
-                    formatted_messages.append({
-                        "role": role,
-                        "content": [{"type": "text", "text": msg.get("content", "")}]
-                    })
+                    formatted_messages.append(
+                        {
+                            "role": role,
+                            "content": [
+                                {"type": "text", "text": msg.get("content", "")}
+                            ],
+                        }
+                    )
                 return {
                     "anthropic_version": "bedrock-2023-05-31",
                     "messages": formatted_messages,
-                    "max_tokens": 4096
+                    "max_tokens": 4096,
                 }
             else:
                 # Format as a single prompt
@@ -211,7 +216,7 @@ class BedrockClient(ModelClient):
                     "messages": [
                         {"role": "user", "content": [{"type": "text", "text": prompt}]}
                     ],
-                    "max_tokens": 4096
+                    "max_tokens": 4096,
                 }
         elif provider == "amazon":
             # Format for Amazon Titan models
@@ -221,24 +226,19 @@ class BedrockClient(ModelClient):
                     "maxTokenCount": 4096,
                     "stopSequences": [],
                     "temperature": 0.7,
-                    "topP": 0.8
-                }
+                    "topP": 0.8,
+                },
             }
         elif provider == "cohere":
             # Format for Cohere models
-            return {
-                "prompt": prompt,
-                "max_tokens": 4096,
-                "temperature": 0.7,
-                "p": 0.8
-            }
+            return {"prompt": prompt, "max_tokens": 4096, "temperature": 0.7, "p": 0.8}
         elif provider == "ai21":
             # Format for AI21 models
             return {
                 "prompt": prompt,
                 "maxTokens": 4096,
                 "temperature": 0.7,
-                "topP": 0.8
+                "topP": 0.8,
             }
         else:
             # Default format
@@ -246,11 +246,11 @@ class BedrockClient(ModelClient):
 
     def _extract_response_text(self, provider: str, response: Dict[str, Any]) -> str:
         """Extract the generated text from the response.
-        
+
         Args:
             provider: The provider name, e.g., "anthropic"
             response: The response from the Bedrock API
-            
+
         Returns:
             The generated text
         """
@@ -280,15 +280,20 @@ class BedrockClient(ModelClient):
             if isinstance(response, dict) and "embeddings" in response:
                 embeddings = response.get("embeddings") or []
                 embedding_data = [
-                    Embedding(embedding=emb, index=i) for i, emb in enumerate(embeddings)
+                    Embedding(embedding=emb, index=i)
+                    for i, emb in enumerate(embeddings)
                 ]
             elif isinstance(response, dict) and "embedding" in response:
                 emb = response.get("embedding") or []
                 embedding_data = [Embedding(embedding=emb, index=0)]
             else:
-                raise ValueError(f"Unexpected embedding response type: {type(response)}")
+                raise ValueError(
+                    f"Unexpected embedding response type: {type(response)}"
+                )
 
-            return EmbedderOutput(data=embedding_data, error=None, raw_response=response)
+            return EmbedderOutput(
+                data=embedding_data, error=None, raw_response=response
+            )
         except Exception as e:
             log.error(f"Error parsing Bedrock embedding response: {e}")
             return EmbedderOutput(data=[], error=str(e), raw_response=response)
@@ -301,35 +306,39 @@ class BedrockClient(ModelClient):
     def call(self, api_kwargs: Dict = None, model_type: ModelType = None) -> Any:
         """Make a synchronous call to the AWS Bedrock API."""
         api_kwargs = api_kwargs or {}
-        
+
         # Check if client is initialized
         if not self.sync_client:
             error_msg = "AWS Bedrock client not initialized. Check your AWS credentials and region."
             log.error(error_msg)
             return error_msg
-        
+
         if model_type == ModelType.LLM:
-            model_id = api_kwargs.get("model", "anthropic.claude-3-sonnet-20240229-v1:0")
+            model_id = api_kwargs.get(
+                "model", "anthropic.claude-3-sonnet-20240229-v1:0"
+            )
             provider = self._get_model_provider(model_id)
-            
+
             # Get the prompt from api_kwargs
             prompt = api_kwargs.get("input", "")
             messages = api_kwargs.get("messages")
-            
+
             # Format the prompt according to the provider
             request_body = self._format_prompt_for_provider(provider, prompt, messages)
-            
+
             # Add model parameters if provided
             if "temperature" in api_kwargs:
                 if provider == "anthropic":
                     request_body["temperature"] = api_kwargs["temperature"]
                 elif provider == "amazon":
-                    request_body["textGenerationConfig"]["temperature"] = api_kwargs["temperature"]
+                    request_body["textGenerationConfig"]["temperature"] = api_kwargs[
+                        "temperature"
+                    ]
                 elif provider == "cohere":
                     request_body["temperature"] = api_kwargs["temperature"]
                 elif provider == "ai21":
                     request_body["temperature"] = api_kwargs["temperature"]
-            
+
             if "top_p" in api_kwargs:
                 if provider == "anthropic":
                     request_body["top_p"] = api_kwargs["top_p"]
@@ -339,25 +348,22 @@ class BedrockClient(ModelClient):
                     request_body["p"] = api_kwargs["top_p"]
                 elif provider == "ai21":
                     request_body["topP"] = api_kwargs["top_p"]
-            
+
             # Convert request body to JSON
             body = json.dumps(request_body)
-            
+
             try:
                 # Make the API call
-                response = self.sync_client.invoke_model(
-                    modelId=model_id,
-                    body=body
-                )
-                
+                response = self.sync_client.invoke_model(modelId=model_id, body=body)
+
                 # Parse the response
                 response_body = json.loads(response["body"].read())
-                
+
                 # Extract the generated text
                 generated_text = self._extract_response_text(provider, response_body)
-                
+
                 return generated_text
-                
+
             except Exception as e:
                 log.error(f"Error calling AWS Bedrock API: {str(e)}")
                 return f"Error: {str(e)}"
@@ -397,7 +403,9 @@ class BedrockClient(ModelClient):
 
                     emb = response_body.get("embedding")
                     if emb is None:
-                        raise ValueError(f"Embedding not found in response: {response_body}")
+                        raise ValueError(
+                            f"Embedding not found in response: {response_body}"
+                        )
                     embeddings.append(emb)
 
             elif provider == "cohere":
@@ -423,12 +431,18 @@ class BedrockClient(ModelClient):
                 elif isinstance(batch_embeddings, dict) and "float" in batch_embeddings:
                     embeddings = batch_embeddings["float"]
                 else:
-                    raise ValueError(f"Embeddings not found in response: {response_body}")
+                    raise ValueError(
+                        f"Embeddings not found in response: {response_body}"
+                    )
             else:
-                raise NotImplementedError(f"Embedding provider '{provider}' is not supported by the Bedrock client.")
+                raise NotImplementedError(
+                    f"Embedding provider '{provider}' is not supported by the Bedrock client."
+                )
             return {"embeddings": embeddings, "raw_responses": raw_responses}
         else:
-            raise ValueError(f"Model type {model_type} is not supported by AWS Bedrock client")
+            raise ValueError(
+                f"Model type {model_type} is not supported by AWS Bedrock client"
+            )
 
     async def acall(self, api_kwargs: Dict = None, model_type: ModelType = None) -> Any:
         """Make an asynchronous call to the AWS Bedrock API."""
@@ -442,17 +456,19 @@ class BedrockClient(ModelClient):
         """Convert inputs to API kwargs for AWS Bedrock."""
         model_kwargs = model_kwargs or {}
         api_kwargs = {}
-        
+
         if model_type == ModelType.LLM:
-            api_kwargs["model"] = model_kwargs.get("model", "anthropic.claude-3-sonnet-20240229-v1:0")
+            api_kwargs["model"] = model_kwargs.get(
+                "model", "anthropic.claude-3-sonnet-20240229-v1:0"
+            )
             api_kwargs["input"] = input
-            
+
             # Add model parameters
             if "temperature" in model_kwargs:
                 api_kwargs["temperature"] = model_kwargs["temperature"]
             if "top_p" in model_kwargs:
                 api_kwargs["top_p"] = model_kwargs["top_p"]
-            
+
             return api_kwargs
         elif model_type == ModelType.EMBEDDER:
             if isinstance(input, str):
@@ -462,9 +478,13 @@ class BedrockClient(ModelClient):
             else:
                 raise TypeError("input must be a string or sequence of strings")
 
-            api_kwargs["model"] = model_kwargs.get("model", "amazon.titan-embed-text-v2:0")
+            api_kwargs["model"] = model_kwargs.get(
+                "model", "amazon.titan-embed-text-v2:0"
+            )
             api_kwargs["input"] = inputs
             api_kwargs["model_kwargs"] = model_kwargs
             return api_kwargs
         else:
-            raise ValueError(f"Model type {model_type} is not supported by AWS Bedrock client")
+            raise ValueError(
+                f"Model type {model_type} is not supported by AWS Bedrock client"
+            )

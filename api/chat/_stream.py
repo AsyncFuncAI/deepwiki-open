@@ -25,6 +25,7 @@ MODEL_CFG = dict[str, str | int | float]
 
 logger = get_logger("chat")
 
+
 class ChatStreamer(ABC):
     _registry: dict[str, type["ChatStreamer"]] = {}
     provider: str
@@ -36,7 +37,9 @@ class ChatStreamer(ABC):
             ChatStreamer._registry[provider] = cls
 
     @classmethod
-    def create(cls, *, provider: str, model: str | None = None, model_config: MODEL_CFG) -> "ChatStreamer":
+    def create(
+        cls, *, provider: str, model: str | None = None, model_config: MODEL_CFG
+    ) -> "ChatStreamer":
         model = model or model_config.get("model")
         logger.info("Using %s with model: %s", provider, model)
         registered = ChatStreamer._registry.get(provider, None)
@@ -46,7 +49,9 @@ class ChatStreamer(ABC):
 
     @abstractmethod
     def respond_stream(self, prompt: str) -> AsyncIterator[str]:
-        raise NotImplementedError(f"{type(self).__name__} does not implement `respond_stream`")
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement `respond_stream`"
+        )
 
 
 class OllamaChatStreamer(ChatStreamer):
@@ -62,15 +67,16 @@ class OllamaChatStreamer(ChatStreamer):
             "options": {
                 "temperature": model_config["temperature"],
                 "top_p": model_config["top_p"],
-                "num_ctx": model_config["num_ctx"]
-            }
+                "num_ctx": model_config["num_ctx"],
+            },
         }
 
         logger.debug(f"Prompting Ollama with kwargs: {self.model_kwargs}")
 
     async def respond_stream(self, prompt: str) -> AsyncIterator[str]:
         api_kwargs = self.client.convert_inputs_to_api_kwargs(
-            input=prompt + " /no_think",  # todo I think this could be added into model kwargs?
+            input=prompt
+            + " /no_think",  # todo I think this could be added into model kwargs?
             model_kwargs=self.model_kwargs,
             model_type=ModelType.LLM,
         )
@@ -87,7 +93,7 @@ class OllamaChatStreamer(ChatStreamer):
                 )
             text = chunk.message.content
             if text:
-                text = text.replace('<think>', '').replace('</think>', '')
+                text = text.replace("<think>", "").replace("</think>", "")
                 yield text
 
 
@@ -100,7 +106,9 @@ class OpenRouterChatStreamer(ChatStreamer):
 
     def __init__(self, *, model: str, model_config: MODEL_CFG):
         if not OPENROUTER_API_KEY:
-            logger.warning("OPENROUTER_API_KEY not configured, but continuing with request")
+            logger.warning(
+                "OPENROUTER_API_KEY not configured, but continuing with request"
+            )
             # We'll let the OpenRouterClient handle this and return a friendly error message
         from api.clients import OpenRouterClient
 
@@ -108,7 +116,7 @@ class OpenRouterChatStreamer(ChatStreamer):
         self.model_kwargs = {
             "model": model,
             "stream": True,
-            "temperature": model_config["temperature"]
+            "temperature": model_config["temperature"],
         }
         if "top_k" in model_config:
             self.model_kwargs["top_k"] = model_config["top_k"]
@@ -120,8 +128,8 @@ class OpenRouterChatStreamer(ChatStreamer):
             model_type=ModelType.LLM,
         )
         async for chunk in await self.client.acall(
-                api_kwargs=api_kwargs,
-                model_type=ModelType.LLM,
+            api_kwargs=api_kwargs,
+            model_type=ModelType.LLM,
         ):
             yield chunk
 
@@ -135,7 +143,7 @@ class _OpenAICompatStreamer(ChatStreamer):
         self.model_kwargs = {
             "model": model,
             "stream": True,
-            "temperature": model_config["temperature"]
+            "temperature": model_config["temperature"],
         }
         # Only add top_p if it exists in the model config
         if "top_p" in model_config:
@@ -149,9 +157,7 @@ class _OpenAICompatStreamer(ChatStreamer):
 
     async def respond_stream(self, prompt: str) -> AsyncIterator[str]:
         api_kwargs = self.client.convert_inputs_to_api_kwargs(
-            input=prompt,
-            model_kwargs=self.model_kwargs,
-            model_type=ModelType.LLM
+            input=prompt, model_kwargs=self.model_kwargs, model_type=ModelType.LLM
         )
         response: "AsyncStream[ChatCompletionChunk]" = await self.client.acall(
             api_kwargs=api_kwargs,
@@ -160,9 +166,9 @@ class _OpenAICompatStreamer(ChatStreamer):
 
         async for chunk in response:
             if (
-                    chunk.choices and
-                    chunk.choices[0].delta is not None and
-                    chunk.choices[0].delta.content is not None
+                chunk.choices
+                and chunk.choices[0].delta is not None
+                and chunk.choices[0].delta.content is not None
             ):
                 yield chunk.choices[0].delta.content
 
@@ -182,6 +188,7 @@ class OpenAIChatStreamer(_OpenAICompatStreamer):
 
     def _build_client(self):
         from api.clients import OpenAIClient
+
         return OpenAIClient()
 
 
@@ -195,6 +202,7 @@ class AzureChatStreamer(_OpenAICompatStreamer):
 
     def _build_client(self):
         from api.clients import AzureAIClient
+
         return AzureAIClient()
 
 
@@ -207,13 +215,16 @@ class LiteLLMChatStreamer(_OpenAICompatStreamer):
 
     def __init__(self, *, model: str, model_config: MODEL_CFG):
         if not LITELLM_API_KEY:
-            logger.warning("LITELLM_API_KEY not configured, but continuing with request")
+            logger.warning(
+                "LITELLM_API_KEY not configured, but continuing with request"
+            )
             # We'll let the OpenAIClient handle this and return an error message
 
         super().__init__(model=model, model_config=model_config)
 
     def _build_client(self):
         from api.clients import LiteLLMClient
+
         return LiteLLMClient()
 
 
@@ -226,7 +237,9 @@ class BedrockChatStreamer(ChatStreamer):
 
     def __init__(self, *, model: str, model_config: MODEL_CFG):
         if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
-            logger.warning("AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY not configured, but continuing with request")
+            logger.warning(
+                "AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY not configured, but continuing with request"
+            )
             # We'll let the BedrockClient handle this and return an error message
         from api.clients import BedrockClient
 
@@ -234,8 +247,8 @@ class BedrockChatStreamer(ChatStreamer):
         self.model_kwargs = {"model": model}
 
         for key in (
-                "temperature",
-                "top_p",
+            "temperature",
+            "top_p",
         ):
             if key in model_config:
                 self.model_kwargs[key] = model_config[key]
@@ -303,7 +316,7 @@ class GoogleGenerativeChatStreamer(ChatStreamer):
                 temperature=model_config.get("temperature"),
                 top_p=model_config.get("top_p"),
                 top_k=model_config.get("top_k"),
-            )
+            ),
         )
 
     async def respond_stream(self, prompt: str) -> AsyncIterator[str]:
@@ -325,6 +338,7 @@ class AnthropicChatStreamer(ChatStreamer):
         )
 
         from ..clients.anthropic import AnthropicBedrockClient
+
         self.client = AnthropicBedrockClient(
             aws_access_key_id=AWS_ACCESS_KEY_ID,
             aws_session_token=AWS_SESSION_TOKEN,
@@ -335,7 +349,7 @@ class AnthropicChatStreamer(ChatStreamer):
         self.model_kwargs = {
             "model": model,
             "stream": True,
-            "max_tokens": model_config["max_tokens"],   # max_tokens must exist
+            "max_tokens": model_config["max_tokens"],  # max_tokens must exist
         }
         for key in (
             "temperature",
