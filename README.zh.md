@@ -8,6 +8,7 @@
 2. 生成全面的文档
 3. 创建可视化图表解释一切如何运作
 4. 将所有内容整理成易于导航的Wiki
+5. 生成代码地图，提供以代码为中心的引导式导览
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 

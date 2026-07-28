@@ -8,6 +8,7 @@
 2. Generará documentación completa
 3. Creará diagramas visuales para explicar cómo funciona todo
 4. Organizará todo en una wiki fácil de navegar
+5. Generará un mapa de código (codemap) para recorridos guiados centrados en el código
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 

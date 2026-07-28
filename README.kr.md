@@ -8,6 +8,7 @@
 2. 포괄적인 문서 생성
 3. 모든 작동 방식을 설명하는 시각적 다이어그램 생성
 4. 이를 쉽게 탐색할 수 있는 위키로 정리
+5. 코드 중심의 가이드 투어를 위한 코드맵 생성
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 

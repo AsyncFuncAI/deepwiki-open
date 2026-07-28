@@ -9,6 +9,7 @@
 2. Génère une documentation complète  
 3. Crée des diagrammes visuels pour expliquer le fonctionnement  
 4. Organise le tout dans un wiki facile à naviguer
+5. Génère une codemap pour des visites guidées centrées sur le code
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 [![Tip in Crypto](https://tip.md/badge.svg)](https://tip.md/sng-asyncfunc)

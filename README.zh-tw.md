@@ -8,6 +8,7 @@
 2. 產生全面的文件
 3. 建立視覺化圖表解釋一切如何運作
 4. 將所有內容整理成易於導覽的 Wiki
+5. 產生程式碼地圖，提供以程式碼為中心的引導式導覽
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 [![Tip in Crypto](https://tip.md/badge.svg)](https://tip.md/sng-asyncfunc)

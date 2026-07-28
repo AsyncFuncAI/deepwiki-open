@@ -8,6 +8,7 @@
 2. Tạo tài liệu đầy đủ và chi tiết
 3. Tạo sơ đồ trực quan để giải thích cách mọi thứ hoạt động
 4. Sắp xếp tất cả documents thành một wiki dễ hiểu
+5. Tạo codemap cho các chuyến tham quan có hướng dẫn tập trung vào mã nguồn
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 

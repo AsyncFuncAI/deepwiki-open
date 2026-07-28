@@ -8,6 +8,7 @@
 2. Gerar documentação abrangente
 3. Criar diagramas visuais para explicar como tudo funciona
 4. Organizar tudo em uma wiki fácil de navegar
+5. Gerar um codemap para tours guiados centrados no código
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 [![Tip in Crypto](https://tip.md/badge.svg)](https://tip.md/sng-asyncfunc)

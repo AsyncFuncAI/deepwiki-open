@@ -8,6 +8,7 @@
 2. 包括的なドキュメントを生成
 3. すべての仕組みを説明する視覚的な図を作成
 4. すべてを簡単に閲覧できる Wiki に整理
+5. コード中心のガイドツアーのためのコードマップを生成
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 
