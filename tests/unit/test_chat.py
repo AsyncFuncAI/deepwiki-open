@@ -1,14 +1,16 @@
 import pytest
+
 from api.chat import ChatStreamer
 from api.chat._stream import (
-    OllamaChatStreamer,
-    OpenRouterChatStreamer,
-    OpenAIChatStreamer,
+    AnthropicChatStreamer,
     AzureChatStreamer,
     BedrockChatStreamer,
     DashScopeChatStreamer,
     GoogleGenerativeChatStreamer,
     LiteLLMChatStreamer,
+    OllamaChatStreamer,
+    OpenAIChatStreamer,
+    OpenRouterChatStreamer,
 )
 
 
@@ -23,6 +25,7 @@ from api.chat._stream import (
         ("dashscope", DashScopeChatStreamer),
         ("google", GoogleGenerativeChatStreamer),
         ("litellm", LiteLLMChatStreamer),
+        ("anthropic", AnthropicChatStreamer),
     ],
 )
 def test_every_provider_is_registered(provider, expected):
@@ -40,6 +43,7 @@ def test_every_provider_is_registered(provider, expected):
         ("dashscope", DashScopeChatStreamer),
         ("google", GoogleGenerativeChatStreamer),
         ("litellm", LiteLLMChatStreamer),
+        ("anthropic", AnthropicChatStreamer),
     ],
 )
 def test_create_returns_correct_subclass(monkeypatch, provider, expected):

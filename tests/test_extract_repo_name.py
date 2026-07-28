@@ -6,13 +6,6 @@ Run this script to test only the repository name extraction functionality.
 Usage: python test_extract_repo_name.py
 """
 
-import os
-import sys
-
-# Add the parent directory to the path to import the data_pipeline module
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-
-# Import the modules under test
 from api.rag.pipeline import DatabaseManager
 
 

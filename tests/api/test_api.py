@@ -1,6 +1,7 @@
-import requests
 import json
 import sys
+
+import requests
 
 
 def test_streaming_endpoint(repo_url, query, file_path=None):
