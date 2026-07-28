@@ -398,6 +398,9 @@ _個人アクセストークンを使用したプライベートリポジトリ�
 ![詳細調査機能](screenshots/DeepResearch.png)
 _詳細調査は複雑なトピックに対して多段階の調査を実施_
 
+![Codemap](screenshots/Codemap.png)
+*Codemap*
+
 ### デモビデオ
 
 [![DeepWikiデモビデオ](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)

@@ -290,6 +290,9 @@ Para usar Investigación Profunda, simplemente activa el interruptor "Investigac
 ![Función de Investigación Profunda](screenshots/DeepResearch.png)
 *Investigación Profunda realiza investigaciones de múltiples turnos para temas complejos*
 
+![Codemap](screenshots/Codemap.png)
+*Codemap*
+
 ### Video de Demostración
 
 [![Video de Demostración de DeepWiki](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)

@@ -208,6 +208,9 @@ deepwiki/
 ![深度研究功能](screenshots/DeepResearch.png)
 *深度研究为复杂主题进行多轮调查*
 
+![Codemap](screenshots/Codemap.png)
+*代码地图*
+
 ### 演示视频
 
 [![DeepWiki演示视频](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)

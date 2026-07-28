@@ -462,6 +462,9 @@ docker build --build-arg CUSTOM_CERT_DIR=certs .
 ![DeepResearch](screenshots/DeepResearch.png)  
 *DeepResearch анализирует сложные темы*
 
+![Codemap](screenshots/Codemap.png)
+*Codemap*
+
 ### Видео-демо
 
 [![Видео](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)

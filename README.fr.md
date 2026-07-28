@@ -515,6 +515,9 @@ Pour utiliser DeepResearch, activez simplement le commutateur "Deep Research" da
 ![Fonctionnalité DeepResearch](screenshots/DeepResearch.png)
 *DeepResearch effectue des recherches en plusieurs étapes pour des sujets complexes*
 
+![Codemap](screenshots/Codemap.png)
+*Codemap*
+
 ### Vidéo de démonstration
 
 [![Vidéo de démo DeepWiki](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)

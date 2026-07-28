@@ -378,6 +378,9 @@ DeepResearch nâng tầm phân tích kho mã với quy trình nghiện cứu nhi
 ![Tính năng DeepResearch](screenshots/DeepResearch.png)
 *DeepResearch thực hiện nghiện cứu nhiểu vòng cho các chủ đề phức tạp*
 
+![Codemap](screenshots/Codemap.png)
+*Codemap*
+
 ### Demo Video
 
 [![DeepWiki Demo Video](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)

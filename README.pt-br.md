@@ -467,6 +467,9 @@ Para usar o DeepResearch, simplesmente alterne o interruptor "Pesquisa Aprofunda
 ![Recurso DeepResearch](screenshots/DeepResearch.png)
 *DeepResearch conduz investigações em várias etapas para tópicos complexos*
 
+![Codemap](screenshots/Codemap.png)
+*Codemap*
+
 ### Vídeo de Demonstração
 
 [![Vídeo de Demonstração do DeepWiki](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)

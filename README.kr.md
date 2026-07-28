@@ -386,6 +386,9 @@ DeepResearch를 사용하려면 질문 제출 전 Ask 인터페이스에서 "Dee
 ![DeepResearch Feature](screenshots/DeepResearch.png)
 *DeepResearch는 복잡한 주제에 대해 다중 턴 조사를 수행*
 
+![Codemap](screenshots/Codemap.png)
+*Codemap*
+
 ### 데모 영상
 
 [![DeepWiki Demo Video](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)

@@ -467,16 +467,16 @@ OpenRouter 特別適用於以下情況：
 ## 📱 螢幕截圖
 
 ### 主頁面
-![主頁面](screenshots/home.png)
+![主頁面](./screenshots/Interface.png)
 
 ### Wiki 頁面
-![Wiki 頁面](screenshots/wiki-page.png)
-
-### 提問功能
-![提問功能](screenshots/ask.png)
+![Wiki 頁面](screenshots/Deepwiki.png)
 
 ### 深度研究
-![深度研究](screenshots/deep-research.png)
+![深度研究](screenshots/DeepResearch.png)
+
+### Codemap
+![Codemap](screenshots/Codemap.png)
 
 ### 展示影片
 
