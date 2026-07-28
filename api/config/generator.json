@@ -37,6 +37,16 @@
           "temperature": 1.0,
           "top_p": 0.8,
           "top_k": 20
+        },
+        "gemini-3-pro": {
+          "temperature": 1.0,
+          "top_p": 0.8,
+          "top_k": 20
+        },
+        "gemini-3.1-pro-preview": {
+          "temperature": 1.0,
+          "top_p": 0.8,
+          "top_k": 20
         }
       }
     },
@@ -196,4 +206,3 @@
     }
   }
 }
-
