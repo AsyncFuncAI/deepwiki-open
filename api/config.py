@@ -1,11 +1,9 @@
-import os
 import json
 import logging
+import os
 import re
 from pathlib import Path
-from typing import List, Union, Dict, Any
-
-logger = logging.getLogger(__name__)
+from typing import Any, Dict, List, Union
 
 from api.clients import (
     AzureAIClient,
@@ -19,16 +17,18 @@ from api.clients import (
     OpenRouterClient,
 )
 
+logger = logging.getLogger(__name__)
+
 # Get API keys from environment variables
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
-LITELLM_API_KEY = os.environ.get('LITELLM_API_KEY')
-GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
-OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
-AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
-AWS_SESSION_TOKEN = os.environ.get('AWS_SESSION_TOKEN')
-AWS_REGION = os.environ.get('AWS_REGION')
-AWS_ROLE_ARN = os.environ.get('AWS_ROLE_ARN')
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+AWS_SESSION_TOKEN = os.environ.get("AWS_SESSION_TOKEN")
+AWS_REGION = os.environ.get("AWS_REGION")
+AWS_ROLE_ARN = os.environ.get("AWS_ROLE_ARN")
 
 # Set keys in environment (in case they're needed elsewhere in the code)
 if OPENAI_API_KEY:
@@ -51,30 +51,45 @@ if AWS_ROLE_ARN:
     os.environ["AWS_ROLE_ARN"] = AWS_ROLE_ARN
 
 # Wiki authentication settings
-raw_auth_mode = os.environ.get('DEEPWIKI_AUTH_MODE', 'False')
-WIKI_AUTH_MODE = raw_auth_mode.lower() in ['true', '1', 't']
-WIKI_AUTH_CODE = os.environ.get('DEEPWIKI_AUTH_CODE', '')
+raw_auth_mode = os.environ.get("DEEPWIKI_AUTH_MODE", "False")
+WIKI_AUTH_MODE = raw_auth_mode.lower() in ["true", "1", "t"]
+WIKI_AUTH_CODE = os.environ.get("DEEPWIKI_AUTH_CODE", "")
 
 # Embedder settings
-EMBEDDER_TYPE = os.environ.get('DEEPWIKI_EMBEDDER_TYPE', 'openai').lower()
+EMBEDDER_TYPE = os.environ.get("DEEPWIKI_EMBEDDER_TYPE", "openai").lower()
 
 # Get configuration directory from environment variable, or use default if not set
-CONFIG_DIR = os.environ.get('DEEPWIKI_CONFIG_DIR', None)
+CONFIG_DIR = os.environ.get("DEEPWIKI_CONFIG_DIR", None)
 
 # Client class mapping
 CLIENT_CLASSES = {
-    "GoogleGenAIClient": GoogleGenAIClient,
-    "GoogleEmbedderClient": GoogleEmbedderClient,
-    "OpenAIClient": OpenAIClient,
-    "LiteLLMClient" : LiteLLMClient,
-    "OpenRouterClient": OpenRouterClient,
-    "OllamaClient": OllamaClient,
-    "BedrockClient": BedrockClient,
-    "AzureAIClient": AzureAIClient,
-    "DashscopeClient": DashscopeClient
+    GoogleGenAIClient.__name__: GoogleGenAIClient,
+    GoogleEmbedderClient.__name__: GoogleEmbedderClient,
+    OpenAIClient.__name__: OpenAIClient,
+    LiteLLMClient.__name__: LiteLLMClient,
+    OpenRouterClient.__name__: OpenRouterClient,
+    OllamaClient.__name__: OllamaClient,
+    BedrockClient.__name__: BedrockClient,
+    AzureAIClient.__name__: AzureAIClient,
+    DashscopeClient.__name__: DashscopeClient,
 }
 
-def replace_env_placeholders(config: Union[Dict[str, Any], List[Any], str, Any]) -> Union[Dict[str, Any], List[Any], str, Any]:
+
+_DEFAULT_PROVIDER_MAP = {
+    "google": GoogleGenAIClient,
+    "openai": OpenAIClient,
+    "litellm": LiteLLMClient,
+    "openrouter": OpenRouterClient,
+    "ollama": OllamaClient,
+    "bedrock": BedrockClient,
+    "azure": AzureAIClient,
+    "dashscope": DashscopeClient,
+}
+
+
+def replace_env_placeholders(
+    config: Union[Dict[str, Any], List[Any], str, Any],
+) -> Union[Dict[str, Any], List[Any], str, Any]:
     """
     Recursively replace placeholders like "${ENV_VAR}" in string values
     within a nested configuration structure (dicts, lists, strings)
@@ -104,6 +119,7 @@ def replace_env_placeholders(config: Union[Dict[str, Any], List[Any], str, Any])
         # Handles numbers, booleans, None, etc.
         return config
 
+
 # Load JSON configuration file
 def load_json_config(filename):
     try:
@@ -120,13 +136,14 @@ def load_json_config(filename):
             logger.warning(f"Configuration file {config_path} does not exist")
             return {}
 
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             config = json.load(f)
             config = replace_env_placeholders(config)
             return config
     except Exception as e:
         logger.error(f"Error loading configuration file {filename}: {str(e)}")
         return {}
+
 
 # Load generator model configuration
 def load_generator_config():
@@ -137,24 +154,17 @@ def load_generator_config():
         for provider_id, provider_config in generator_config["providers"].items():
             # Try to set client class from client_class
             if provider_config.get("client_class") in CLIENT_CLASSES:
-                provider_config["model_client"] = CLIENT_CLASSES[provider_config["client_class"]]
+                provider_config["model_client"] = CLIENT_CLASSES[
+                    provider_config["client_class"]
+                ]
             # Fall back to default mapping based on provider_id
-            elif provider_id in ["google", "openai", "openrouter", "ollama", "bedrock", "azure", "dashscope", "litellm"]:
-                default_map = {
-                    "google": GoogleGenAIClient,
-                    "openai": OpenAIClient,
-                    "litellm": LiteLLMClient,
-                    "openrouter": OpenRouterClient,
-                    "ollama": OllamaClient,
-                    "bedrock": BedrockClient,
-                    "azure": AzureAIClient,
-                    "dashscope": DashscopeClient
-                }
-                provider_config["model_client"] = default_map[provider_id]
+            elif provider_id in _DEFAULT_PROVIDER_MAP:
+                provider_config["model_client"] = _DEFAULT_PROVIDER_MAP[provider_id]
             else:
                 logger.warning(f"Unknown provider or client class: {provider_id}")
 
     return generator_config
+
 
 # Load embedder configuration
 def load_embedder_config():
@@ -169,6 +179,7 @@ def load_embedder_config():
 
     return embedder_config
 
+
 def get_embedder_config():
     """
     Get the current embedder configuration based on DEEPWIKI_EMBEDDER_TYPE.
@@ -177,14 +188,15 @@ def get_embedder_config():
         dict: The embedder configuration with model_client resolved
     """
     embedder_type = EMBEDDER_TYPE
-    if embedder_type == 'bedrock' and 'embedder_bedrock' in configs:
+    if embedder_type == "bedrock" and "embedder_bedrock" in configs:
         return configs.get("embedder_bedrock", {})
-    elif embedder_type == 'google' and 'embedder_google' in configs:
+    elif embedder_type == "google" and "embedder_google" in configs:
         return configs.get("embedder_google", {})
-    elif embedder_type == 'ollama' and 'embedder_ollama' in configs:
+    elif embedder_type == "ollama" and "embedder_ollama" in configs:
         return configs.get("embedder_ollama", {})
     else:
         return configs.get("embedder", {})
+
 
 def is_ollama_embedder():
     """
@@ -206,6 +218,7 @@ def is_ollama_embedder():
     client_class = embedder_config.get("client_class", "")
     return client_class == "OllamaClient"
 
+
 def is_google_embedder():
     """
     Check if the current embedder configuration uses GoogleEmbedderClient.
@@ -226,6 +239,7 @@ def is_google_embedder():
     client_class = embedder_config.get("client_class", "")
     return client_class == "GoogleEmbedderClient"
 
+
 def is_bedrock_embedder():
     """
     Check if the current embedder configuration uses BedrockClient.
@@ -244,25 +258,28 @@ def is_bedrock_embedder():
     client_class = embedder_config.get("client_class", "")
     return client_class == "BedrockClient"
 
+
 def get_embedder_type():
     """
     Get the current embedder type based on configuration.
-    
+
     Returns:
         str: 'bedrock', 'ollama', 'google', or 'openai' (default)
     """
     if is_bedrock_embedder():
-        return 'bedrock'
+        return "bedrock"
     elif is_ollama_embedder():
-        return 'ollama'
+        return "ollama"
     elif is_google_embedder():
-        return 'google'
+        return "google"
     else:
-        return 'openai'
+        return "openai"
+
 
 # Load repository and file filters configuration
 def load_repo_config():
     return load_json_config("repo.json")
+
 
 # Load language configuration
 def load_lang_config():
@@ -277,21 +294,26 @@ def load_lang_config():
             "vi": "Vietnamese (Tiếng Việt)",
             "pt-br": "Brazilian Portuguese (Português Brasileiro)",
             "fr": "Français (French)",
-            "ru": "Русский (Russian)"
+            "ru": "Русский (Russian)",
         },
-        "default": "en"
+        "default": "en",
     }
 
-    loaded_config = load_json_config("lang.json") # Let load_json_config handle path and loading
+    loaded_config = load_json_config(
+        "lang.json"
+    )  # Let load_json_config handle path and loading
 
     if not loaded_config:
         return default_config
 
     if "supported_languages" not in loaded_config or "default" not in loaded_config:
-        logger.warning("Language configuration file 'lang.json' is malformed. Using default language configuration.")
+        logger.warning(
+            "Language configuration file 'lang.json' is malformed. Using default language configuration."
+        )
         return default_config
 
     return loaded_config
+
 
 # Initialize empty configuration
 configs = {}
@@ -309,7 +331,14 @@ if generator_config:
 
 # Update embedder configuration
 if embedder_config:
-    for key in ["embedder", "embedder_ollama", "embedder_google", "embedder_bedrock", "retriever", "text_splitter"]:
+    for key in [
+        "embedder",
+        "embedder_ollama",
+        "embedder_google",
+        "embedder_bedrock",
+        "retriever",
+        "text_splitter",
+    ]:
         if key in embedder_config:
             configs[key] = embedder_config[key]
 
