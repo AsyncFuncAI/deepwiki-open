@@ -251,14 +251,15 @@ def _should_process_file(
         is_excluded = False
 
         # Check if file is in an excluded directory
-        for excluded in excluded_dirs:
-            clean_excluded = excluded.removeprefix("./").rstrip("/")
-            if clean_excluded in file_path_parts:
-                is_excluded = True
-                break
+        if excluded_dirs:
+            for excluded in excluded_dirs:
+                clean_excluded = excluded.removeprefix("./").rstrip("/")
+                if clean_excluded in file_path_parts:
+                    is_excluded = True
+                    break
 
         # Check if file matches excluded file patterns
-        if not is_excluded:
+        if not is_excluded and excluded_files:
             for excluded_file in excluded_files:
                 if file_name == excluded_file:
                     is_excluded = True
