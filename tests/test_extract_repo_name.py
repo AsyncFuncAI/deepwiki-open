@@ -6,113 +6,80 @@ Run this script to test only the repository name extraction functionality.
 Usage: python test_extract_repo_name.py
 """
 
-from api.rag.pipeline import DatabaseManager
+import os
+
+import pytest
+
+from api.repository import CLONE_REPO_ROOT, Repo
 
 
 class TestExtractRepoNameFromUrl:
     """Comprehensive tests for the _extract_repo_name_from_url method"""
 
-    def setup_method(self):
-        """Set up test fixtures before each test method."""
-        self.db_manager = DatabaseManager()
-
-    def test_extract_repo_name_github_standard_url(self):
+    @pytest.mark.parametrize(
+        "repo_url, name",
+        [
+            ("https://github.com/owner/repo", "owner_repo"),
+            ("https://github.com/owner/repo.git", "owner_repo"),
+            ("https://github.com/owner/repo/", "owner_repo"),
+            ("https://github.com/repo", "repo"),
+        ],
+    )
+    def test_extract_repo_name_github_standard_url(self, repo_url, name):
         # Test standard GitHub URL
-        github_url = "https://github.com/owner/repo"
-        result = self.db_manager._extract_repo_name_from_url(github_url, "github")
-        assert result == "owner_repo"
+        repo = Repo(repo_url=repo_url, repo_type="github")
+        assert repo.name == name
+        assert not repo.is_local
 
-        # Test GitHub URL with .git suffix
-        github_url_git = "https://github.com/owner/repo.git"
-        result = self.db_manager._extract_repo_name_from_url(github_url_git, "github")
-        assert result == "owner_repo"
-
-        # Test GitHub URL with trailing slash
-        github_url_slash = "https://github.com/owner/repo/"
-        result = self.db_manager._extract_repo_name_from_url(github_url_slash, "github")
-        assert result == "owner_repo"
-
-        print("✓ GitHub URL tests passed")
-
-    def test_extract_repo_name_gitlab_urls(self):
+    @pytest.mark.parametrize(
+        "repo_url, name",
+        [
+            ("https://gitlab.com/owner/repo", "owner_repo"),
+            ("https://gitlab.com/group/subgroup/repo", "subgroup_repo"),
+        ],
+    )
+    def test_extract_repo_name_gitlab_urls(self, repo_url, name):
         """Test repository name extraction from GitLab URLs"""
 
-        # Test standard GitLab URL
-        gitlab_url = "https://gitlab.com/owner/repo"
-        result = self.db_manager._extract_repo_name_from_url(gitlab_url, "gitlab")
-        assert result == "owner_repo"
-
-        # Test GitLab URL with subgroups
-        gitlab_subgroup = "https://gitlab.com/group/subgroup/repo"
-        result = self.db_manager._extract_repo_name_from_url(gitlab_subgroup, "gitlab")
-        assert result == "subgroup_repo"
-
-        print("✓ GitLab URL tests passed")
+        repo = Repo(repo_url=repo_url, repo_type="gitlab")
+        assert repo.name == name
+        assert not repo.is_local
 
     def test_extract_repo_name_bitbucket_urls(self):
         """Test repository name extraction from Bitbucket URLs"""
-        bitbucket_url = "https://bitbucket.org/owner/repo"
-        result = self.db_manager._extract_repo_name_from_url(bitbucket_url, "bitbucket")
-        assert result == "owner_repo"
+        repo = Repo(repo_url="https://bitbucket.org/owner/repo", repo_type="bitbucket")
+        assert repo.name == "owner_repo"
+        assert not repo.is_local
 
-        print("✓ Bitbucket URL tests passed")
-
-    def test_extract_repo_name_local_paths(self):
+    @pytest.mark.parametrize(
+        "repo_url, name",
+        [
+            ("/home/user/projects/my-repo", "my-repo"),
+            ("/var/repos/project.git", "project.git"),
+            ("my-repo", "my-repo"),
+        ],
+    )
+    def test_extract_repo_name_local_paths(self, repo_url, name):
         """Test repository name extraction from local paths"""
-        result = self.db_manager._extract_repo_name_from_url(
-            "/home/user/projects/my-repo", "local"
-        )
-        assert result == "my-repo"
+        repo = Repo(repo_url=repo_url, repo_type="local")
+        assert repo.name == name
+        assert repo.is_local
 
-        result = self.db_manager._extract_repo_name_from_url(
-            "/var/repos/project.git", "local"
-        )
-        assert result == "project"
 
-        print("✓ Local path tests passed")
-
-    def test_extract_repo_name_current_implementation_bug(self):
-        """Test that demonstrates the current implementation bug"""
-        # The current implementation references 'type' which is not in scope
-        try:
-            # This should raise a NameError due to undefined 'type' variable
-            result = self.db_manager._extract_repo_name_from_url(
-                "https://github.com/owner/repo"
-            )
-            print(
-                "⚠️  WARNING: Expected the current implementation to fail due to undefined 'type' variable"
-            )
-            print(f"    But got result: {result}")
-        except (NameError, TypeError) as e:
-            print(
-                f"✓ Current implementation correctly fails with: {type(e).__name__}: {e}"
-            )
-        except Exception as e:
-            print(f"⚠️  Unexpected error: {type(e).__name__}: {e}")
-
-        # Test absolute local path
-        local_path = "/home/user/projects/my-repo"
-        result = self.db_manager._extract_repo_name_from_url(local_path, "local")
-        assert result == "my-repo"
-
-        # Test local path with .git suffix
-        local_git = "/var/repos/project.git"
-        result = self.db_manager._extract_repo_name_from_url(local_git, "local")
-        assert result == "project"
-
-        print("✓ Local path tests passed")
-
-    def test_extract_repo_name_edge_cases(self):
-        """Test edge cases for repository name extraction"""
-
-        # Test URL with insufficient parts (should use fallback)
-        short_url = "https://github.com/repo"
-        result = self.db_manager._extract_repo_name_from_url(short_url, "github")
-        assert result == "repo"
-
-        # Test single directory name
-        single_name = "my-repo"
-        result = self.db_manager._extract_repo_name_from_url(single_name, "local")
-        assert result == "my-repo"
-
-        print("✓ Edge case tests passed")
+@pytest.mark.parametrize(
+    "url, repo_type, target_path",
+    [
+        (
+            "https://github.com/owner/repo",
+            "github",
+            os.path.join(CLONE_REPO_ROOT, "owner_repo"),
+        ),
+        (
+            "https://github.com/AsyncFuncAI/deepwiki-open",
+            "github",
+            os.path.join(CLONE_REPO_ROOT, "AsyncFuncAI_deepwiki-open"),
+        ),
+    ],
+)
+def test_save_dir(url, repo_type, target_path):
+    assert Repo(repo_url=url, repo_type=repo_type).save_path == target_path

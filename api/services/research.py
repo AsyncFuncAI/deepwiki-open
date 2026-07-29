@@ -13,13 +13,47 @@ from api.prompts import (
 )
 from api.rag import RAG, count_tokens
 from api.repository import get_repo_content
-from api.schemas import ChatCompletionRequest
+from api.schemas import ChatCompletionRequest, RepoPrepareRequest
 
 logger = get_logger(__name__)
 
 
 # Maximum token limit for embedding models
 MAX_INPUT_TOKENS = 7500  # Safe threshold below 8192 token limit
+
+
+class RepoNotIndexedError(ValueError):
+    """Raised when a chat request arrives before the repo has been indexed."""
+
+
+async def prepare_repo_index(
+    request: ChatCompletionRequest | RepoPrepareRequest,
+) -> RAG:
+    rag = await asyncio.to_thread(
+        RAG,
+        provider=request.provider,
+        model=request.model,
+    )
+    # Extract custom file filter parameters if provided
+    if request.excluded_dirs:
+        logger.info(f"Using custom excluded directories: {request.excluded_dirs}")
+    if request.excluded_files:
+        logger.info(f"Using custom excluded files: {request.excluded_files}")
+    if request.included_dirs:
+        logger.info(f"Using custom included directories: {request.included_dirs}")
+    if request.included_files:
+        logger.info(f"Using custom included files: {request.included_files}")
+
+    await rag.aprepare_retriever(
+        request.repo_url,
+        request.type,
+        request.token,
+        excluded_files=request.excluded_files,
+        excluded_dirs=request.excluded_dirs,
+        included_files=request.included_files,
+        included_dirs=request.included_dirs,
+    )
+    return rag
 
 
 async def research_chat(
@@ -38,32 +72,7 @@ async def research_chat(
                 input_too_large = True
 
     try:
-        rag = await asyncio.to_thread(
-            RAG,
-            provider=request.provider,
-            model=request.model,
-        )
-
-        # Extract custom file filter parameters if provided
-        if request.excluded_dirs:
-            logger.info(f"Using custom excluded directories: {request.excluded_dirs}")
-        if request.excluded_files:
-            logger.info(f"Using custom excluded files: {request.excluded_files}")
-        if request.included_dirs:
-            logger.info(f"Using custom included directories: {request.included_dirs}")
-        if request.included_files:
-            logger.info(f"Using custom included files: {request.included_files}")
-
-        await rag.aprepare_retriever(
-            request.repo_url,
-            request.type,
-            request.token,
-            excluded_files=request.excluded_files,
-            excluded_dirs=request.excluded_dirs,
-            included_files=request.included_files,
-            included_dirs=request.included_dirs,
-        )
-
+        rag = await prepare_repo_index(request=request)
         logger.info("Retriever prepared for %s", request.repo_url)
 
     except ValueError as e:

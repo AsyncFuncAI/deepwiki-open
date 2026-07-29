@@ -4,7 +4,7 @@ from fastapi.websockets import WebSocketState
 
 from api.logger import get_logger
 from api.schemas import ChatCompletionRequest
-from api.services.research import research_chat
+from api.services.research import RepoNotIndexedError, research_chat
 
 logger = get_logger(__name__)
 
@@ -40,6 +40,8 @@ async def handle_websocket_chat(websocket: WebSocket):
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected")
+    except RepoNotIndexedError as e:
+        await _send_if_connect(websocket, str(e))
     except ValueError as e:
         if "No valid documents with embeddings found" in str(e):
             txt_message = "Error: No valid document embeddings found. This may be due to embedding size inconsistencies or API errors during document processing. Please try again or check your repository content."
@@ -79,6 +81,8 @@ async def chat_completions_stream(request: ChatCompletionRequest):
     try:
         async_respond = await research_chat(request=request)
 
+    except RepoNotIndexedError as e:
+        raise HTTPException(status_code=425, detail=str(e))
     except ValueError as e:
         if "No valid documents with embeddings found" in str(e):
             raise HTTPException(

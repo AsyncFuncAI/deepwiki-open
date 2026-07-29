@@ -13,6 +13,7 @@
   "loading": {
     "initializing": "Đang khởi tạo wiki...",
     "fetchingStructure": "Đang lấy cấu trúc repository...",
+    "preparingIndex": "Đang chuẩn bị chỉ mục repository...",
     "determiningStructure": "Đang xác định cấu trúc wiki...",
     "clearingCache": "Đang xóa bộ nhớ đệm máy chủ...",
     "preparingDownload": "Đang tải! Vui lòng chờ..."

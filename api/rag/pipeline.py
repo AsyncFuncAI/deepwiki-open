@@ -1,20 +1,18 @@
 import os
-import subprocess
 from pathlib import Path
-from urllib.parse import quote, urlparse, urlunparse
 
 import adalflow as adal
 import tiktoken
 from adalflow.components.data_process import TextSplitter, ToEmbeddings
 from adalflow.core.db import LocalDB
 from adalflow.core.types import Document, List
-from adalflow.utils import get_adalflow_default_root_path
 
 from api.config import (
     configs,
     get_embedder,
 )
 from api.logger import get_logger
+from api.repository import Repo
 
 logger = get_logger(__name__)
 
@@ -69,124 +67,6 @@ def count_tokens(
         logger.warning(f"Error counting tokens with tiktoken: {e}")
         # Rough approximation: 4 characters per token
         return len(text) // 4
-
-
-def download_repo(
-    repo_url: str, local_path: str, repo_type: str = None, access_token: str = None
-) -> str:
-    """
-    Downloads a Git repository (GitHub, GitLab, or Bitbucket) to a specified local path.
-
-    Args:
-        repo_type(str): Type of repository
-        repo_url (str): The URL of the Git repository to clone.
-        local_path (str): The local directory where the repository will be cloned.
-        access_token (str, optional): Access token for private repositories.
-
-    Returns:
-        str: The output message from the `git` command.
-    """
-    try:
-        # Check if Git is installed
-        logger.info(f"Preparing to clone repository to {local_path}")
-        subprocess.run(
-            ["git", "--version"],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        # Check if repository already exists
-        if os.path.exists(local_path) and os.listdir(local_path):
-            # Directory exists and is not empty
-            logger.warning(
-                f"Repository already exists at {local_path}. Using existing repository."
-            )
-            return f"Using existing repository at {local_path}"
-
-        # Ensure the local path exists
-        os.makedirs(local_path, exist_ok=True)
-
-        # Prepare the clone URL with access token if provided
-        clone_url = repo_url
-        if access_token:
-            parsed = urlparse(repo_url)
-            # URL-encode the token to handle special characters
-            encoded_token = quote(access_token, safe="")
-            # Determine the repository type and format the URL accordingly
-            if repo_type == "github":
-                # Format: https://{token}@{domain}/owner/repo.git
-                # Works for both github.com and enterprise GitHub domains
-                clone_url = urlunparse(
-                    (
-                        parsed.scheme,
-                        f"{encoded_token}@{parsed.netloc}",
-                        parsed.path,
-                        "",
-                        "",
-                        "",
-                    )
-                )
-            elif repo_type == "gitlab":
-                # Format: https://oauth2:{token}@gitlab.com/owner/repo.git
-                clone_url = urlunparse(
-                    (
-                        parsed.scheme,
-                        f"oauth2:{encoded_token}@{parsed.netloc}",
-                        parsed.path,
-                        "",
-                        "",
-                        "",
-                    )
-                )
-            elif repo_type == "bitbucket":
-                # Bitbucket has two token formats with different auth schemes:
-                #   - HTTP access tokens (prefix "ATCTT") use x-bitbucket-api-token-auth
-                #   - App passwords (deprecated, EOL June 2026) use x-token-auth
-                # Detect by token prefix so existing app password users keep working.
-                if access_token.startswith("ATCTT"):
-                    auth_scheme = "x-bitbucket-api-token-auth"
-                else:
-                    auth_scheme = "x-token-auth"
-                # Format: https://{auth_scheme}:{token}@bitbucket.org/owner/repo.git
-                clone_url = urlunparse(
-                    (
-                        parsed.scheme,
-                        f"{auth_scheme}:{encoded_token}@{parsed.netloc}",
-                        parsed.path,
-                        "",
-                        "",
-                        "",
-                    )
-                )
-
-            logger.info("Using access token for authentication")
-
-        # Clone the repository
-        logger.info(f"Cloning repository from {repo_url} to {local_path}")
-        # We use repo_url in the log to avoid exposing the token in logs
-        result = subprocess.run(
-            ["git", "clone", "--depth=1", "--single-branch", clone_url, local_path],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        logger.info("Repository cloned successfully")
-        return result.stdout.decode("utf-8")
-
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr.decode("utf-8")
-        # Sanitize error message to remove any tokens (both raw and URL-encoded)
-        if access_token:
-            # Remove raw token
-            error_msg = error_msg.replace(access_token, "***TOKEN***")
-            # Also remove URL-encoded token to prevent leaking encoded version
-            encoded_token = quote(access_token, safe="")
-            error_msg = error_msg.replace(encoded_token, "***TOKEN***")
-        raise ValueError(f"Error during cloning: {error_msg}")
-    except Exception as e:
-        raise ValueError(f"An unexpected error occurred: {str(e)}")
 
 
 def _should_process_file(
@@ -404,6 +284,17 @@ def read_all_documents(
     return documents
 
 
+def get_repo_db(repo: Repo) -> str:
+    if not repo.root_path:
+        raise ValueError(f"Repo root path is empty: {repo}")
+    save_db_file = os.path.join(repo.root_path, "databases", f"{repo.name}.pkl")
+    return save_db_file
+
+
+def repo_index_exist(repo: Repo) -> bool:
+    return os.path.exists(get_repo_db(repo))
+
+
 class LineTrackingTextSplitter(TextSplitter):
     """TextSplitter that annotates each chunk with its 1-based start/end line.
 
@@ -571,21 +462,6 @@ class DatabaseManager:
         self.repo_url_or_path = None
         self.repo_paths = None
 
-    def _extract_repo_name_from_url(self, repo_url_or_path: str, repo_type: str) -> str:
-        # Extract owner and repo name to create unique identifier
-        url_parts = repo_url_or_path.rstrip("/").split("/")
-
-        if repo_type in ["github", "gitlab", "bitbucket"] and len(url_parts) >= 5:
-            # GitHub URL format: https://github.com/owner/repo
-            # GitLab URL format: https://gitlab.com/owner/repo or https://gitlab.com/group/subgroup/repo
-            # Bitbucket URL format: https://bitbucket.org/owner/repo
-            owner = url_parts[-2]
-            repo = url_parts[-1].replace(".git", "")
-            repo_name = f"{owner}_{repo}"
-        else:
-            repo_name = url_parts[-1].replace(".git", "")
-        return repo_name
-
     def _create_repo(
         self, repo_url_or_path: str, repo_type: str = None, access_token: str = None
     ) -> None:
@@ -605,42 +481,24 @@ class DatabaseManager:
         try:
             # Strip whitespace to handle URLs with leading/trailing spaces
             repo_url_or_path = repo_url_or_path.strip()
-
-            root_path = get_adalflow_default_root_path()
-
-            os.makedirs(root_path, exist_ok=True)
-            # url
-            if repo_url_or_path.startswith("https://") or repo_url_or_path.startswith(
-                "http://"
-            ):
-                # Extract the repository name from the URL
-                repo_name = self._extract_repo_name_from_url(
-                    repo_url_or_path, repo_type
+            repo = Repo(
+                repo_url=repo_url_or_path,
+                repo_type=repo_type,
+                access_token=access_token,
+            )
+            logger.info(f"Extracted repo name: {repo.name}")
+            if not repo.downloaded:
+                repo.download()
+            else:
+                logger.info(
+                    f"Repository already exists at {repo.save_path}. Using existing repository."
                 )
-                logger.info(f"Extracted repo name: {repo_name}")
 
-                save_repo_dir = os.path.join(root_path, "repos", repo_name)
-
-                # Check if the repository directory already exists and is not empty
-                if not (os.path.exists(save_repo_dir) and os.listdir(save_repo_dir)):
-                    # Only download if the repository doesn't exist or is empty
-                    download_repo(
-                        repo_url_or_path, save_repo_dir, repo_type, access_token
-                    )
-                else:
-                    logger.info(
-                        f"Repository already exists at {save_repo_dir}. Using existing repository."
-                    )
-            else:  # local path
-                repo_name = os.path.basename(repo_url_or_path)
-                save_repo_dir = repo_url_or_path
-
-            save_db_file = os.path.join(root_path, "databases", f"{repo_name}.pkl")
-            os.makedirs(save_repo_dir, exist_ok=True)
+            save_db_file = get_repo_db(repo)
             os.makedirs(os.path.dirname(save_db_file), exist_ok=True)
 
             self.repo_paths = {
-                "save_repo_dir": save_repo_dir,
+                "save_repo_dir": repo.save_path,
                 "save_db_file": save_db_file,
             }
             self.repo_url_or_path = repo_url_or_path

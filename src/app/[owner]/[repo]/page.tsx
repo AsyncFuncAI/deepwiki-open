@@ -10,6 +10,7 @@ import WikiTreeView from '@/components/WikiTreeView';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { RepoInfo } from '@/types/repoinfo';
 import getRepoUrl from '@/utils/getRepoUrl';
+import { prepareRepoIndex } from '@/utils/prepareRepo';
 import { extractUrlDomain, extractUrlPath } from '@/utils/urlDecoder';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
@@ -1492,6 +1493,40 @@ IMPORTANT:
         }
       }
 
+      // Warm the backend embedding index BEFORE the first chat call. This moves
+      // the slow, one-time cold embedding to a dedicated streaming endpoint (with
+      // progress) so determineWikiStructure hits a warm cache instead of blocking
+      // long enough to trigger a proxy headers timeout. No-op if already indexed.
+      const preparingIndexMsg = messages.loading?.preparingIndex || 'Preparing repository index...';
+      try {
+        const prepareBody: Record<string, unknown> = {
+          repo_url: getRepoUrl(effectiveRepoInfo),
+          type: effectiveRepoInfo.type,
+        };
+        addTokensToRequestBody(
+          prepareBody,
+          currentToken,
+          effectiveRepoInfo.type,
+          selectedProviderState,
+          selectedModelState,
+          isCustomSelectedModelState,
+          customSelectedModelState,
+          language,
+          modelExcludedDirs,
+          modelExcludedFiles,
+          modelIncludedDirs,
+          modelIncludedFiles,
+        );
+        setLoadingMessage(preparingIndexMsg);
+        await prepareRepoIndex(prepareBody, ({ elapsedSec }) => {
+          setLoadingMessage(elapsedSec ? `${preparingIndexMsg} (${elapsedSec}s)` : preparingIndexMsg);
+        });
+      } catch (prepareError) {
+        // Non-fatal: determineWikiStructure will build the index on demand as a
+        // fallback (slower). Log and continue so a prepare hiccup never blocks wiki generation.
+        console.warn('Repository index prepare failed; continuing with on-demand build:', prepareError);
+      }
+
       // Now determine the wiki structure
       await determineWikiStructure(fileTreeData, readmeContent, owner, repo);
 
@@ -1504,7 +1539,7 @@ IMPORTANT:
       // Reset the request in progress flag
       setRequestInProgress(false);
     }
-  }, [owner, repo, determineWikiStructure, currentToken, effectiveRepoInfo, requestInProgress, messages.loading]);
+  }, [owner, repo, determineWikiStructure, currentToken, effectiveRepoInfo, requestInProgress, messages.loading, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles, modelIncludedDirs, modelIncludedFiles]);
 
   // Function to export wiki content
   const exportWiki = useCallback(async (format: 'markdown' | 'json') => {

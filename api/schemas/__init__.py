@@ -13,6 +13,7 @@ from api.schemas.models import (
     ModelConfig,
     Provider,
 )
+from api.schemas.repo import RepoPrepareRequest
 from api.schemas.wiki import (
     ProcessedProjectEntry,
     RepoInfo,
@@ -37,6 +38,7 @@ __all__ = [
     "ProcessedProjectEntry",
     "Provider",
     "RepoInfo",
+    "RepoPrepareRequest",
     "WikiCacheData",
     "WikiCacheRequest",
     "WikiExportRequest",
