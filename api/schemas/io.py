@@ -15,7 +15,6 @@ async def asave(model: BaseModel, path: str, *, encoding: str = "utf-8"):
 
 async def aload(model: type[_M], path: str, *, encoding: str = "utf-8") -> _M:
     """Asynchronous deserialize and load a model"""
-    import json
 
     async with await anyio.open_file(path, mode="r", encoding=encoding) as file:
-        return model(**json.loads(await file.read()))
+        return model.model_validate_json(await file.read())

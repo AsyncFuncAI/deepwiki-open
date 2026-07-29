@@ -1,3 +1,4 @@
+from api.schemas.auth import AuthorizationConfig
 from api.schemas.chat import ChatCompletionRequest
 from api.schemas.codemap import (
     CodeMap,
@@ -8,15 +9,13 @@ from api.schemas.codemap import (
 )
 from api.schemas.io import aload, asave
 from api.schemas.models import (
-    AuthorizationConfig,
     Model,
     ModelConfig,
     Provider,
 )
-from api.schemas.repo import RepoPrepareRequest
+from api.schemas.repo import RepoInfo, RepoPrepareRequest
 from api.schemas.wiki import (
     ProcessedProjectEntry,
-    RepoInfo,
     WikiCacheData,
     WikiCacheRequest,
     WikiExportRequest,

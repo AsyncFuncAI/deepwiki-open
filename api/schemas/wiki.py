@@ -1,17 +1,8 @@
-import json
 from typing import Literal
 
-import anyio
 from pydantic import BaseModel, Field
 
-
-class RepoInfo(BaseModel):
-    owner: str
-    repo: str
-    type: str
-    token: str | None = None
-    localPath: str | None = None
-    repoUrl: str | None = None
+from api.schemas.repo import RepoInfo
 
 
 class WikiPage(BaseModel):
@@ -62,15 +53,6 @@ class WikiCacheData(BaseModel):
     repo: RepoInfo | None = None
     provider: str | None = None
     model: str | None = None
-
-    async def save(self, path):
-        async with await anyio.open_file(path, mode="w", encoding="utf-8") as file:
-            await file.write(self.model_dump_json())
-
-    @classmethod
-    async def load(cls, path):
-        async with await anyio.open_file(path, mode="r", encoding="utf-8") as file:
-            return cls(**json.loads(await file.read()))
 
 
 class WikiCacheRequest(BaseModel):

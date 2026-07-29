@@ -34,7 +34,3 @@ class ModelConfig(BaseModel):
         ..., description="List of available model providers"
     )
     defaultProvider: str = Field(..., description="ID of the default provider")
-
-
-class AuthorizationConfig(BaseModel):
-    code: str = Field(..., description="Authorization code")

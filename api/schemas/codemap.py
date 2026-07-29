@@ -1,7 +1,6 @@
-from typing import Literal
-from urllib.parse import unquote
+from pydantic import BaseModel, Field
 
-from pydantic import BaseModel, Field, field_validator
+from api.schemas.base import RepoRequestBase
 
 
 class CodeMapCitation(BaseModel):
@@ -57,36 +56,7 @@ class CodeMap(BaseModel):
     sections: list[CodeMapSection] = Field(default_factory=list)
 
 
-class CodeMapRequest(BaseModel):
+class CodeMapRequest(RepoRequestBase):
     """Request to generate a codemap for a repository question."""
 
-    repo_url: str = Field(..., description="URL or local path of the repository")
     question: str = Field(..., description="The user's how-to / usage question")
-    token: str | None = Field(
-        None, description="Personal access token for private repositories"
-    )
-    type: Literal["local", "github", "gitlab", "bitbucket"] | None = Field(
-        "github", description="Type of repository"
-    )
-
-    provider: str = Field("google", description="Model provider")
-    model: str | None = Field(None, description="Model name for the specified provider")
-    language: str | None = Field("en", description="Language for content generation")
-
-    excluded_dirs: list[str] = Field(default_factory=list)
-    excluded_files: list[str] = Field(default_factory=list)
-    included_dirs: list[str] = Field(default_factory=list)
-    included_files: list[str] = Field(default_factory=list)
-
-    @field_validator(
-        "excluded_dirs",
-        "excluded_files",
-        "included_dirs",
-        "included_files",
-        mode="before",
-    )
-    @classmethod
-    def validate_path(cls, value: list[str] | str) -> list[str]:
-        if isinstance(value, str):
-            value = [unquote(path) for path in value.strip().split("\n") if path]
-        return value
