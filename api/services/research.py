@@ -11,8 +11,8 @@ from api.prompts import (
     DEEP_RESEARCH_INTERMEDIATE_ITERATION_PROMPT,
     SIMPLE_CHAT_SYSTEM_PROMPT,
 )
-from api.rag import RAG, count_tokens
-from api.repository import get_repo_content
+from api.rag import RAG, count_tokens, repo_index_exist
+from api.repository import Repo, get_repo_content
 from api.schemas import ChatCompletionRequest, RepoPrepareRequest
 
 logger = get_logger(__name__)
@@ -70,6 +70,13 @@ async def research_chat(
                     f"Request exceeds recommended token limit ({tokens} > {MAX_INPUT_TOKENS})"
                 )
                 input_too_large = True
+
+    repo = Repo(repo_url=request.repo_url, repo_type=request.type)
+    if not repo_index_exist(repo=repo):
+        logger.warning(
+            "Repo %s is not indexed yet. Call `/repo/prepare` first if encounter Timeout",
+            repo.name,
+        )
 
     try:
         rag = await prepare_repo_index(request=request)
