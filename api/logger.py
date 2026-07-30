@@ -43,7 +43,9 @@ def _default_log_config(
         },
     }
     if path is not None:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        log_dir = os.path.dirname(path)
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
 
         handlers["ps_file"] = {
             "class": "logging.handlers.RotatingFileHandler",
@@ -58,6 +60,7 @@ def _default_log_config(
         "deepwiki": {
             "handlers": list(handlers.keys()),
             "level": "INFO",
+            "propagate": False,
         },
     }
 
@@ -74,12 +77,22 @@ def _default_log_config(
     }
 
 
+def _ensure_handler_dirs(log_cfg: dict[str, Any]) -> None:
+    """Create parent directories for any file-based handlers in the config."""
+    for handler in log_cfg.get("handlers", {}).values():
+        if filename := handler.get("filename"):
+            log_dir = os.path.dirname(filename)
+            if log_dir:
+                os.makedirs(log_dir, exist_ok=True)
+
+
 def setup_logging() -> None:
     cfg_path = os.path.join(os.getcwd(), "log_cfg.json")
     if os.path.isfile(cfg_path):
         print(f"loading config from {cfg_path}")
         with open(cfg_path, "r") as f:
             log_cfg = json.load(f)
+        _ensure_handler_dirs(log_cfg)
     else:
         log_file = os.getenv(
             "LOG_FILE_PATH",
@@ -87,8 +100,8 @@ def setup_logging() -> None:
         )
         log_cfg = _default_log_config(
             log_file,
-            max_bytes=int(os.getenv("LOG_MAX_SIZE", 10)) * 1024 * 1024,
-            backup_count=int(os.getenv("LOG_BACKUP_COUNT", 5)),
+            max_bytes=int(os.getenv("LOG_MAX_SIZE", "10")) * 1024 * 1024,
+            backup_count=int(os.getenv("LOG_BACKUP_COUNT", "5")),
         )
 
     logging.config.dictConfig(log_cfg)
