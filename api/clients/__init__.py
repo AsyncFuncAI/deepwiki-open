@@ -17,8 +17,8 @@ from .ollama import OllamaClient
 from .openrouter import OpenRouterClient
 
 __all__ = [
-    "AzureAIClient",
     "AnthropicBedrockClient",
+    "AzureAIClient",
     "BedrockClient",
     "DashscopeClient",
     "GoogleEmbedderClient",
