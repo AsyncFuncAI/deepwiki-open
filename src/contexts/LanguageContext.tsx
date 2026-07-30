@@ -37,25 +37,32 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         return 'en'; // Default to English if browser language is not available
       }
 
-      // Extract the language code (first 2 characters)
-      const langCode = browserLang.split('-')[0].toLowerCase();
+      // Normalise to lowercase full locale (e.g. 'zh-tw') and extract the base code (e.g. 'zh')
+      const normalizedLang = browserLang.toLowerCase();
+      const langCode = normalizedLang.split('-')[0];
       console.log('Extracted language code:', langCode);
+
+      // Special case for Chinese variants: distinguish Traditional from Simplified.
+      // Must run BEFORE the generic locales check, otherwise 'zh' would match first
+      // and Traditional Chinese users would always be served Simplified Chinese.
+      if (langCode === 'zh') {
+        const isTraditional =
+          normalizedLang.includes('tw') || // Taiwan
+          normalizedLang.includes('hk') || // Hong Kong
+          normalizedLang.includes('mo') || // Macau
+          normalizedLang.includes('hant'); // explicit Traditional script tag
+        if (isTraditional) {
+          console.log('Traditional Chinese variant detected, using: zh-tw');
+          return 'zh-tw';
+        }
+        console.log('Simplified Chinese detected, using: zh');
+        return 'zh';
+      }
 
       // Check if the detected language is supported
       if (locales.includes(langCode as any)) {
         console.log('Language supported, using:', langCode);
         return langCode;
-      }
-
-      // Special case for Chinese variants
-      if (langCode === 'zh') {
-        console.log('Chinese language detected');
-        // Check for traditional Chinese variants
-        if (browserLang.includes('TW') || browserLang.includes('HK')) {
-          console.log('Traditional Chinese variant detected');
-          return 'zh'; // Use Mandarin for traditional Chinese
-        }
-        return 'zh'; // Use Mandarin for simplified Chinese
       }
 
       console.log('Language not supported, defaulting to English');
