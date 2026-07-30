@@ -330,6 +330,150 @@ export default function RepoWikiPage() {
     return filePath;
   }, [effectiveRepoInfo, defaultBranch]);
 
+  // Post-process the LLM-generated wiki markdown to fix two recurring format
+  // issues that the prompt alone cannot reliably prevent:
+  //   1. Normalize the leading "Relevant source files" <details> block so it
+  //      always uses the exact, program-generated markdown. The model often
+  //      drops the links (rendering plain text) or appends bogus line numbers.
+  //   2. Resolve empty citation links `[file.ext:10-20]()` to real repository
+  //      URLs so they render as clickable links instead of dead ones.
+  const postProcessWikiContent = useCallback((content: string, filePaths: string[]): string => {
+    let processed = content;
+
+    // Escape the characters that would otherwise break a Markdown link label.
+    // File paths such as Next.js dynamic routes (src/app/[owner]/[repo]/page.tsx)
+    // contain '[' / ']' and MUST be escaped, or Markdown parses them as nested
+    // links and the citation renders as garbage.
+    const escapeLabel = (s: string) => s.replace(/([[\]])/g, '\\$1');
+
+    // Build the host-specific line anchor for an already-resolved file URL.
+    //   GitHub:    #L10-L20     (single: #L10)
+    //   GitLab:    #L10-20      (single: #L10)
+    //   Bitbucket: #lines-10:20 (single: #lines-10)
+    // Detect the host from the hostname only (mirroring generateFileUrl) so a
+    // repo/owner name that happens to contain another vendor's name in the URL
+    // path cannot cause a misclassification.
+    const lineAnchor = (url: string, start: string, end?: string): string => {
+      let hostname = '';
+      try {
+        hostname = new URL(url).hostname;
+      } catch {
+        hostname = '';
+      }
+      if (hostname.includes('github')) return end ? `#L${start}-L${end}` : `#L${start}`;
+      if (hostname.includes('gitlab')) return end ? `#L${start}-${end}` : `#L${start}`;
+      if (hostname.includes('bitbucket')) return end ? `#lines-${start}:${end}` : `#lines-${start}`;
+      return '';
+    };
+
+    // 1. Rebuild the <details> block from the known file list.
+    if (filePaths.length > 0) {
+      const detailsBlock = `<details>
+<summary>Relevant source files</summary>
+
+The following files were used as context for generating this wiki page:
+
+${filePaths.map(path => `- [${escapeLabel(path)}](${generateFileUrl(path)})`).join('\n')}
+</details>`;
+
+      const detailsRegex = /<details>\s*<summary>\s*Relevant source files\s*<\/summary>[\s\S]*?<\/details>/i;
+      if (detailsRegex.test(processed)) {
+        // Replace whatever the model produced, in place, with the canonical block.
+        processed = processed.replace(detailsRegex, detailsBlock);
+      } else {
+        // The model omitted the block entirely; prepend the canonical one.
+        processed = `${detailsBlock}\n\n${processed}`;
+      }
+    }
+
+    // 2. Resolve empty citation links `[path/to/file.ext:10-20]()` -> real URL.
+    //    Match ONLY against the known source-file paths (longest first, so the
+    //    most specific path wins). This is far safer than a generic `[...]()`
+    //    regex: malformed or nested brackets in the model output can no longer
+    //    be swallowed into a bogus label/URL, and paths containing '[' / ']'
+    //    are matched literally instead of tripping the Markdown parser.
+    if (filePaths.length > 0) {
+      const alternation = [...filePaths]
+        .sort((a, b) => b.length - a.length)
+        .map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('|');
+      const citationRegex = new RegExp(`\\[(${alternation})(?::(\\d+)(?:-(\\d+))?)?\\]\\(\\)`, 'g');
+      processed = processed.replace(citationRegex, (match, path: string, start: string, end: string) => {
+        const url = generateFileUrl(path);
+        // generateFileUrl returns the bare path for local repos / unresolved
+        // hosts; in that case there is no web URL to link to, so leave it as-is.
+        if (url === path) {
+          return match;
+        }
+        const linePart = start ? (end ? `:${start}-${end}` : `:${start}`) : '';
+        const anchor = start ? lineAnchor(url, start, end) : '';
+        return `[${escapeLabel(path)}${linePart}](${url}${anchor})`;
+      });
+    }
+
+    // 3. Resolve any REMAINING empty citation links that look like a repository
+    //    file path but were not in this page's filePaths. The model frequently
+    //    cites additional files it read (e.g. accelerator_connector.py) that were
+    //    never in the assigned list, leaving them as dead `[path:10-20]()` links.
+    //    The path token forbids brackets/whitespace/parens, so nested-bracket
+    //    edge cases are still avoided; bracketed paths (e.g. Next.js dynamic
+    //    routes) are already handled by the filePaths pass above.
+    const genericCitationRegex =
+      /\[([^[\]\s()]+?\.[A-Za-z0-9]+)(?::(\d+)(?:-(\d+))?)?\]\(\)/g;
+    processed = processed.replace(
+      genericCitationRegex,
+      (match, path: string, start: string, end: string) => {
+        const url = generateFileUrl(path);
+        if (url === path) {
+          return match; // local repo / unresolved host -> leave as-is
+        }
+        const linePart = start ? (end ? `:${start}-${end}` : `:${start}`) : '';
+        const anchor = start ? lineAnchor(url, start, end) : '';
+        return `[${escapeLabel(path)}${linePart}](${url}${anchor})`;
+      },
+    );
+
+    // 4. Resolve citations where the model put a "Sources:" prefix INSIDE the
+    //    bracket and/or used a bare filename instead of the full repo path, e.g.
+    //    `[Sources: fit_loop.py:56-104]()`. The bare name is mapped back to a
+    //    full path via this page's filePaths (by basename); the "Sources:" label
+    //    is moved outside the link to match the normal `Sources: [file](url)`
+    //    format. Unknown bare names are left untouched.
+    if (filePaths.length > 0) {
+      const byBasename = new Map<string, string>();
+      for (const p of filePaths) {
+        const base = p.split('/').pop() ?? p;
+        if (!byBasename.has(base)) byBasename.set(base, p);
+      }
+      const prefixedCitationRegex =
+        /\[(Sources?|Source):\s*([^[\]\s():]+?)(?::(\d+)(?:-(\d+))?)?\]\(\)/gi;
+      processed = processed.replace(
+        prefixedCitationRegex,
+        (match, prefix: string, token: string, start: string, end: string) => {
+          // token may already be a full path, or a bare basename to look up.
+          const fullPath = token.includes('/') ? token : byBasename.get(token);
+          if (!fullPath) {
+            return match; // unknown bare filename -> leave as-is
+          }
+          const url = generateFileUrl(fullPath);
+          if (url === fullPath) {
+            return match; // local repo / unresolved host
+          }
+          const linePart = start ? (end ? `:${start}-${end}` : `:${start}`) : '';
+          const anchor = start ? lineAnchor(url, start, end) : '';
+          return `${prefix}: [${escapeLabel(fullPath)}${linePart}](${url}${anchor})`;
+        },
+      );
+    }
+
+    // 5. Strip a redundant empty "()" left immediately after a completed link.
+    //    The model sometimes emits `[path](https://…)()` — a real link followed
+    //    by the citation template's empty parens — which renders a stray "()".
+    processed = processed.replace(/(\]\([^)\s]+\))\(\)/g, '$1');
+
+    return processed;
+  }, [generateFileUrl]);
+
   // Memoize repo info to avoid triggering updates in callbacks
 
   // Add useEffect to handle scroll reset
@@ -439,11 +583,11 @@ You will be given:
 
 CRITICAL STARTING INSTRUCTION:
 The very first thing on the page MUST be a \`<details>\` block listing ALL the \`[RELEVANT_SOURCE_FILES]\` you used to generate the content. There MUST be AT LEAST 5 source files listed - if fewer were provided, you MUST find additional related files to include.
-Format it exactly like this:
+Do not provide any acknowledgements, disclaimers, apologies, or any other preface before the \`<details>\` block. JUST START with the \`<details>\` block.
+Format the block EXACTLY like the following template, reproducing it verbatim (do not add line numbers, do not convert the links to plain text, do not add any other text):
 <details>
 <summary>Relevant source files</summary>
 
-Remember, do not provide any acknowledgements, disclaimers, apologies, or any other preface before the \`<details>\` block. JUST START with the \`<details>\` block.
 The following files were used as context for generating this wiki page:
 
 ${filePaths.map(path => `- [${path}](${generateFileUrl(path)})`).join('\n')}
@@ -510,7 +654,12 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
 6.  **Source Citations (EXTREMELY IMPORTANT):**
     *   For EVERY piece of significant information, explanation, diagram, table entry, or code snippet, you MUST cite the specific source file(s) and relevant line numbers from which the information was derived.
     *   Place citations at the end of the paragraph, under the diagram/table, or after the code snippet.
-    *   Use the exact format: \`Sources: [filename.ext:start_line-end_line]()\` for a range, or \`Sources: [filename.ext:line_number]()\` for a single line. Multiple files can be cited: \`Sources: [file1.ext:1-10](), [file2.ext:5](), [dir/file3.ext]()\` (if the whole file is relevant and line numbers are not applicable or too broad).
+    *   Use the EXACT format below, and ALWAYS use the FULL repository-relative path exactly as it appears in the "Relevant source files" list above — NEVER a bare filename (e.g. use \`src/lightning/pytorch/loops/fit_loop.py\`, not \`fit_loop.py\`):
+        *   Range: \`Sources: [src/full/path/file.ext:start_line-end_line]()\`
+        *   Single line: \`Sources: [src/full/path/file.ext:line_number]()\`
+        *   Multiple files: \`Sources: [src/full/path/a.ext:1-10](), [src/full/path/b.ext:5](), [src/full/path/c.ext]()\` (omit line numbers when the whole file is relevant).
+    *   The word \`Sources:\` MUST be placed BEFORE the opening bracket, never inside it (write \`Sources: [path]()\`, NOT \`[Sources: path]()\`).
+    *   Leave the parentheses \`()\` EMPTY — they are resolved into real links automatically. Do not put a URL inside them.
     *   If an entire section is overwhelmingly based on one or two files, you can cite them under the section heading in addition to more specific citations within the section.
     *   IMPORTANT: You MUST cite AT LEAST 5 different source files throughout the wiki page to ensure comprehensive coverage.
 
@@ -657,6 +806,9 @@ Remember:
         // Clean up markdown delimiters
         content = content.replace(/^```markdown\s*/i, '').replace(/```\s*$/i, '');
 
+        // Normalize the <details> block and resolve empty citation links.
+        content = postProcessWikiContent(content, filePaths);
+
         console.log(`Received content for ${page.title}, length: ${content.length} characters`);
 
         // Store the FINAL generated content
@@ -691,7 +843,7 @@ Remember:
         setLoadingMessage(undefined); // Clear specific loading message
       }
     });
-  }, [generatedPages, currentToken, effectiveRepoInfo, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests, generateFileUrl]);
+  }, [generatedPages, currentToken, effectiveRepoInfo, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests, generateFileUrl, postProcessWikiContent]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -963,6 +1115,11 @@ IMPORTANT:
 
       let xmlText = xmlMatch[0];
       xmlText = xmlText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+      // Escape bare ampersands that are not part of a valid XML entity. A single
+      // unescaped '&' (very common in LLM-generated titles/descriptions such as
+      // "Frontend & Backend") makes strict text/xml parsing fail with a
+      // <parsererror>, which would otherwise drop the whole structure.
+      xmlText = xmlText.replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
       // Try parsing with DOMParser
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xmlText, "text/xml");
@@ -996,10 +1153,6 @@ IMPORTANT:
       // Parse pages using DOM
       pages = [];
 
-      if (parseError && (!pagesEls || pagesEls.length === 0)) {
-        console.warn('DOM parsing failed, trying regex fallback');
-      }
-
       pagesEls.forEach(pageEl => {
         const id = pageEl.getAttribute('id') || `page-${pages.length + 1}`;
         const titleEl = pageEl.querySelector('title');
@@ -1031,6 +1184,28 @@ IMPORTANT:
           relatedPages
         });
       });
+
+      // Regex fallback: strict text/xml parsing can still fail (or yield no
+      // <page> nodes) on malformed LLM output. Recover pages directly from the
+      // raw XML text so a parse hiccup does not produce an empty wiki.
+      if (pages.length === 0) {
+        console.warn('DOM parsing yielded no pages; using regex fallback');
+        const pageBlocks = xmlText.match(/<page\b[\s\S]*?<\/page>/g) || [];
+        pages = pageBlocks.map((block, i) => {
+          const pid = block.match(/<page\s+id="([^"]+)"/)?.[1] ?? `page-${i + 1}`;
+          const ptitle = block.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.trim() ?? '';
+          const imp = block.match(/<importance>([\s\S]*?)<\/importance>/)?.[1]?.trim();
+          const importance: 'high' | 'medium' | 'low' =
+            imp === 'high' ? 'high' : imp === 'low' ? 'low' : 'medium';
+          const filePaths = Array.from(
+            block.matchAll(/<file_path>([\s\S]*?)<\/file_path>/g),
+          ).map(m => m[1].trim()).filter(Boolean);
+          const relatedPages = Array.from(
+            block.matchAll(/<related>([\s\S]*?)<\/related>/g),
+          ).map(m => m[1].trim()).filter(Boolean);
+          return { id: pid, title: ptitle, content: '', filePaths, importance, relatedPages };
+        });
+      }
 
       // Extract sections if they exist in the XML
       const sections: WikiSection[] = [];
