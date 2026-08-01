@@ -6,10 +6,10 @@ from api.services.wiki_content import (
 
 GITHUB = RepoUrlContext(
     type="github",
-    repo_url="https://github.com/Lightning-AI/pytorch-lightning",
+    repo_url="https://github.com/AsyncFuncAI/deepwiki-open",
     default_branch="main",
 )
-BASE = "https://github.com/Lightning-AI/pytorch-lightning/blob/main"
+BASE = "https://github.com/AsyncFuncAI/deepwiki-open/blob/main"
 
 
 # --------------------------------------------------------------------------- #
@@ -44,33 +44,33 @@ def test_resolves_citation_for_file_in_filepaths():  # case 1
 
 
 def test_resolves_generic_citation_not_in_filepaths():  # case 2
-    path = "src/lightning/pytorch/trainer/connectors/accelerator_connector.py"
+    path = "src/i18n.ts"
     out = post_process_wiki_content(
-        f"see [{path}:67-111]().", ["src/lightning/pytorch/accelerators/cuda.py"], GITHUB
+        f"see [{path}:67-111]().", ["src/utils/getRepoUrl.tsx"], GITHUB
     )
     assert f"[{path}:67-111]({BASE}/{path}#L67-L111)" in out
     assert "]()" not in out
 
 
 def test_strips_redundant_empty_parens_after_link():  # case 3
-    path = "src/lightning/pytorch/strategies/strategy.py"
+    path = "src/app/page.tsx"
     text = f"x [{path}]({BASE}/{path})()"
     assert post_process_wiki_content(text, [], GITHUB) == f"x [{path}]({BASE}/{path})"
 
 
 def test_resolves_sources_prefix_bare_filename():  # variant 2
-    full = "src/lightning/pytorch/loops/fit_loop.py"
-    out = post_process_wiki_content("flow [Sources: fit_loop.py:56-104]().", [full], GITHUB)
-    assert f"Sources: [{full}:56-104]({BASE}/{full}#L56-L104)" in out
+    full = "src/i18n.ts"
+    out = post_process_wiki_content("flow [Sources: i18n.ts:1-10]().", [full], GITHUB)
+    assert f"Sources: [{full}:1-10]({BASE}/{full}#L1-L10)" in out
     assert "]()" not in out
 
 
 def test_unknown_bare_filename_left_untouched():
-    # loop.py is not a basename of any filePath -> the citation stays unresolved.
+    # not_exist.tsx not a basename of any filePath -> the citation stays unresolved.
     # (The <details> block is still prepended because filePaths is non-empty.)
-    text = "[Sources: loop.py:1-47]()"
-    out = post_process_wiki_content(text, ["src/lightning/pytorch/loops/fit_loop.py"], GITHUB)
-    assert "[Sources: loop.py:1-47]()" in out
+    text = "[Sources: not_exist.tsx:1-47]()"
+    out = post_process_wiki_content(text, ["src/app/page.tsx"], GITHUB)
+    assert "[Sources: not_exist.tsx:1-47]()" in out
 
 
 def test_rebuilds_details_block_when_missing():
