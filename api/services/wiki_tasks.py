@@ -12,6 +12,7 @@ from api.schemas import (
     WikiStructureModel,
     WikiTaskStatus,
     WikiTaskSubmitResult,
+    WikiTaskSummary,
     WikiPage,
     RepoInfo,
     TaskStatus,
@@ -21,7 +22,6 @@ from api.rag import repo_index_exist
 from api.services.research import prepare_repo_index
 from api.services.wiki import save_wiki_cache, wiki_cache_exists
 from api.logger import get_logger
-from schemas import WikiTaskSummary
 
 logger = get_logger(__name__)
 
@@ -40,7 +40,7 @@ MAX_CONCURRENT_WIKI_TASKS = _env_int(
     "DEEPWIKI_MAX_CONCURRENT_WIKI_TASKS", max(1, (os.cpu_count() or 2) // 2)
 )
 # Concurrent page generations within a single task (1 == sequential, as today).
-WIKI_PAGE_CONCURRENCY = _env_int("DEEPWIKI_WIKI_PAGE_CONCURRENCY", 2)
+WIKI_PAGE_CONCURRENCY = _env_int("DEEPWIKI_WIKI_PAGE_CONCURRENCY", 1)
 # Retries per page for transient errors before falling back to an error placeholder.
 WIKI_PAGE_RETRIES = _env_int("DEEPWIKI_WIKI_PAGE_RETRIES", 2)
 # How long a terminal (COMPLETED/FAILED) task lingers in the registry.
@@ -145,7 +145,7 @@ class TaskRegistry:
             if exist_task and not exist_task.status.is_terminal():
                 return WikiTaskSubmitResult(
                     task_id=key,
-                    status=task.status,
+                    status=exist_task.status,
                     joined=True,
                 )
 
@@ -161,7 +161,7 @@ class TaskRegistry:
                     from_cache=True,
                 )
 
-            task.task = asyncio.create_task(async_func(task))
+            task.task = asyncio.create_task(self._run(task, async_func))
             self._tasks[key] = task
             return WikiTaskSubmitResult(task_id=key, status=task.status, created=True)
 
