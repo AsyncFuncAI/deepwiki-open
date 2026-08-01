@@ -841,8 +841,14 @@ export default function RepoWikiPage() {
   const progressDone = generationProgress
     ? generationProgress.pages_done
     : (wikiStructure ? wikiStructure.pages.length - pagesInProgress.size : 0);
+  // Pages still to come, in structure order (backend generates them in order).
+  // With per-page concurrency 1 the backend only reports a single in-flight id,
+  // so we surface the remaining backlog (done count onward) to keep the old
+  // "currently processing" list showing several upcoming titles.
   const processingPageIds = generationProgress
-    ? generationProgress.current_page_ids
+    ? (wikiStructure
+        ? wikiStructure.pages.slice(generationProgress.pages_done).map(p => p.id)
+        : generationProgress.current_page_ids)
     : Array.from(pagesInProgress);
 
   return (
