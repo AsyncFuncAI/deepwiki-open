@@ -96,8 +96,7 @@ def test_read_repo_file_tree(tmp_path):
     (tmp_path / "__pycache__").mkdir()
     (tmp_path / "__pycache__" / "junk.pyc").write_text("j", encoding="utf-8")
 
-    tree, readme = read_repo_file_tree(str(tmp_path))
-    entries = tree.split("\n")
+    entries, readme = read_repo_file_tree(str(tmp_path))
     assert "README.md" in entries
     assert "src/a.py" in entries
     assert ".hidden" not in entries

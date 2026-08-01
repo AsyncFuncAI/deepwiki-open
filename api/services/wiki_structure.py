@@ -11,37 +11,41 @@ import subprocess
 import xml.etree.ElementTree as ET
 
 from api.logger import get_logger
+from api.config import iterate_files
 from api.schemas import WikiPage, WikiSection, WikiStructureModel
 
 logger = get_logger(__name__)
 
-_EXCLUDED_DIRS = {"__pycache__", "node_modules", ".venv"}
-_EXCLUDED_FILES = {"__init__.py", ".DS_Store"}
 
+def read_repo_file_tree(
+    path: str,
+    included_files: list[str] | None = None,
+    included_dirs: list[str] | None = None,
+    excluded_files: list[str] | None = None,
+    excluded_dirs: list[str] | None = None,
+) -> tuple[list[str], str]:
+    """Walk a cloned/local repo dir → (file list, README.md text)."""
 
-def read_repo_file_tree(path: str) -> tuple[str, str]:
-    """Walk a cloned/local repo dir → (newline-joined file tree, README.md text).
+    files = iterate_files(
+        root_dir=path,
+        included_files=included_files,
+        included_dirs=included_dirs,
+        excluded_dirs=excluded_dirs,
+        excluded_files=excluded_files,
+    )
 
-    Mirrors the frontend get_local_repo_structure filter (skip hidden entries,
-    virtualenvs, node_modules, __pycache__, __init__.py, .DS_Store).
-    """
-    file_tree_lines: list[str] = []
     readme = ""
-    for root, dirs, files in os.walk(path):
-        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in _EXCLUDED_DIRS]
-        for file in files:
-            if file.startswith(".") or file in _EXCLUDED_FILES:
-                continue
-            rel_dir = os.path.relpath(root, path)
-            rel_file = file if rel_dir == "." else os.path.join(rel_dir, file)
-            file_tree_lines.append(rel_file.replace(os.sep, "/"))
-            if file.lower() == "readme.md" and not readme:
-                try:
-                    with open(os.path.join(root, file), encoding="utf-8") as f:
-                        readme = f.read()
-                except OSError as e:
-                    logger.warning("Could not read README.md: %s", e)
-    return "\n".join(sorted(file_tree_lines)), readme
+
+    for file in sorted(files, key=lambda x: len(x)):
+        if os.path.splitext(file)[0].lower().endswith("readme"):
+            try:
+                with open(os.path.join(path, file), encoding="utf-8") as f:
+                    readme = f.read()
+            except OSError as e:
+                logger.warning("Could not read README.md: %s", e)
+                readme = ""
+            break
+    return files, readme
 
 
 def detect_default_branch(path: str) -> str:
