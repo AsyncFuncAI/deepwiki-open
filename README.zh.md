@@ -8,6 +8,7 @@
 2. 生成全面的文档
 3. 创建可视化图表解释一切如何运作
 4. 将所有内容整理成易于导航的Wiki
+5. 生成代码地图，提供以代码为中心的引导式导览
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 
@@ -207,6 +208,9 @@ deepwiki/
 ![深度研究功能](screenshots/DeepResearch.png)
 *深度研究为复杂主题进行多轮调查*
 
+![Codemap](screenshots/Codemap.png)
+*代码地图*
+
 ### 演示视频
 
 [![DeepWiki演示视频](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)
@@ -382,4 +386,3 @@ OpenAI 客户端的 base_url 配置主要为拥有私有 API 渠道的企业用�
 3. 程序会自动用环境变量的值替换 embedder.json 里的占位符。
 
 这样即可无缝切换到 OpenAI 兼容的 embedding 服务，无需修改代码。
-

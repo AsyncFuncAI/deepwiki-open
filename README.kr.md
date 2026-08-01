@@ -8,6 +8,7 @@
 2. 포괄적인 문서 생성
 3. 모든 작동 방식을 설명하는 시각적 다이어그램 생성
 4. 이를 쉽게 탐색할 수 있는 위키로 정리
+5. 코드 중심의 가이드 투어를 위한 코드맵 생성
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 
@@ -385,6 +386,9 @@ DeepResearch를 사용하려면 질문 제출 전 Ask 인터페이스에서 "Dee
 ![DeepResearch Feature](screenshots/DeepResearch.png)
 *DeepResearch는 복잡한 주제에 대해 다중 턴 조사를 수행*
 
+![Codemap](screenshots/Codemap.png)
+*Codemap*
+
 ### 데모 영상
 
 [![DeepWiki Demo Video](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)
@@ -427,4 +431,3 @@ DeepResearch를 사용하려면 질문 제출 전 Ask 인터페이스에서 "Dee
 ## ⭐ 스타 히스토리
 
 [![Star History Chart](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
-

@@ -13,6 +13,7 @@
   "loading": {
     "initializing": "初始化 Wiki 產生...",
     "fetchingStructure": "取得儲存庫結構...",
+    "preparingIndex": "準備儲存庫索引...",
     "determiningStructure": "驗證 Wiki 結構...",
     "clearingCache": "清除伺服器快取...",
     "preparingDownload": "請稍候，我們正在準備您的下載..."
@@ -128,4 +129,4 @@
     "existingProjects": "現有專案",
     "recentProjects": "最近專案"
   }
-} 
+}

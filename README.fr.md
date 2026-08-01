@@ -9,6 +9,7 @@
 2. Génère une documentation complète  
 3. Crée des diagrammes visuels pour expliquer le fonctionnement  
 4. Organise le tout dans un wiki facile à naviguer
+5. Génère une codemap pour des visites guidées centrées sur le code
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 [![Tip in Crypto](https://tip.md/badge.svg)](https://tip.md/sng-asyncfunc)
@@ -514,6 +515,9 @@ Pour utiliser DeepResearch, activez simplement le commutateur "Deep Research" da
 ![Fonctionnalité DeepResearch](screenshots/DeepResearch.png)
 *DeepResearch effectue des recherches en plusieurs étapes pour des sujets complexes*
 
+![Codemap](screenshots/Codemap.png)
+*Codemap*
+
 ### Vidéo de démonstration
 
 [![Vidéo de démo DeepWiki](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)
@@ -560,5 +564,3 @@ Projet sous licence MIT – Voir le fichier [LICENSE](LICENSE).
 ## ⭐ Historique des stars
 
 [![Historique des stars](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
-
-

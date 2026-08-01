@@ -22,11 +22,11 @@ interface ProcessedProjectsProps {
   messages?: Record<string, Record<string, string>>; // Translation messages with proper typing
 }
 
-export default function ProcessedProjects({ 
-  showHeader = true, 
-  maxItems, 
+export default function ProcessedProjects({
+  showHeader = true,
+  maxItems,
   className = "",
-  messages 
+  messages
 }: ProcessedProjectsProps) {
   const [projects, setProjects] = useState<ProcessedProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,7 +87,7 @@ export default function ProcessedProjects({
     }
 
     const query = searchQuery.toLowerCase();
-    const filtered = projects.filter(project => 
+    const filtered = projects.filter(project =>
       project.name.toLowerCase().includes(query) ||
       project.owner.toLowerCase().includes(query) ||
       project.repo.toLowerCase().includes(query) ||

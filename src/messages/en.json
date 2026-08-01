@@ -13,6 +13,7 @@
   "loading": {
     "initializing": "Initializing wiki generation...",
     "fetchingStructure": "Fetching repository structure...",
+    "preparingIndex": "Preparing repository index...",
     "determiningStructure": "Determining wiki structure...",
     "clearingCache": "Clearing server cache...",
     "preparingDownload": "Please wait while we prepare your download..."

@@ -8,6 +8,7 @@
 2. Tạo tài liệu đầy đủ và chi tiết
 3. Tạo sơ đồ trực quan để giải thích cách mọi thứ hoạt động
 4. Sắp xếp tất cả documents thành một wiki dễ hiểu
+5. Tạo codemap cho các chuyến tham quan có hướng dẫn tập trung vào mã nguồn
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 
@@ -377,6 +378,9 @@ DeepResearch nâng tầm phân tích kho mã với quy trình nghiện cứu nhi
 ![Tính năng DeepResearch](screenshots/DeepResearch.png)
 *DeepResearch thực hiện nghiện cứu nhiểu vòng cho các chủ đề phức tạp*
 
+![Codemap](screenshots/Codemap.png)
+*Codemap*
+
 ### Demo Video
 
 [![DeepWiki Demo Video](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)
@@ -420,4 +424,3 @@ Dự án này được cấp phép theo Giấy phép MIT - xem file [LICENSE](LI
 ## ⭐ Lịch sử
 
 [![Biểu đồ lịch sử](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
-

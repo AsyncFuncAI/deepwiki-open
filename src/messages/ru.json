@@ -13,6 +13,7 @@
   "loading": {
     "initializing": "Инициализация генерации wiki...",
     "fetchingStructure": "Получение структуры репозитория...",
+    "preparingIndex": "Подготовка индекса репозитория...",
     "determiningStructure": "Определение структуры wiki...",
     "clearingCache": "Очистка кеша сервера...",
     "preparingDownload": "Пожалуйста, подождите, идет подготовка загрузки..."

@@ -13,6 +13,7 @@
   "loading": {
     "initializing": "初始化Wiki生成...",
     "fetchingStructure": "获取仓库结构...",
+    "preparingIndex": "准备仓库索引...",
     "determiningStructure": "验证Wiki结构...",
     "clearingCache": "清除服务器缓存...",
     "preparingDownload": "请等待，我们正在准备您的下载..."

@@ -13,6 +13,7 @@
     "loading": {
       "initializing": "Initialisation de la génération du wiki...",
       "fetchingStructure": "Récupération de la structure du dépôt...",
+      "preparingIndex": "Préparation de l'index du dépôt...",
       "determiningStructure": "Détermination de la structure du wiki...",
       "clearingCache": "Nettoyage du cache serveur...",
       "preparingDownload": "Veuillez patienter pendant que nous préparons votre téléchargement..."
@@ -140,4 +141,3 @@
       "recentProjects": "Projets récents"
     }
   }
-  

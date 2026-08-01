@@ -13,6 +13,7 @@
     "loading": {
       "initializing": "위키 생성을 초기화하는 중...",
       "fetchingStructure": "저장소 구조를 가져오는 중...",
+      "preparingIndex": "저장소 인덱스를 준비하는 중...",
       "determiningStructure": "위키 구조를 결정하는 중...",
       "clearingCache": "서버 캐시를 지우는 중...",
       "preparingDownload": "다운로드를 준비 중입니다. 잠시만 기다려 주세요..."

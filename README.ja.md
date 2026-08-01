@@ -8,6 +8,7 @@
 2. 包括的なドキュメントを生成
 3. すべての仕組みを説明する視覚的な図を作成
 4. すべてを簡単に閲覧できる Wiki に整理
+5. コード中心のガイドツアーのためのコードマップを生成
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 
@@ -397,6 +398,9 @@ _個人アクセストークンを使用したプライベートリポジトリ�
 ![詳細調査機能](screenshots/DeepResearch.png)
 _詳細調査は複雑なトピックに対して多段階の調査を実施_
 
+![Codemap](screenshots/Codemap.png)
+*Codemap*
+
 ### デモビデオ
 
 [![DeepWikiデモビデオ](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)
@@ -444,4 +448,3 @@ _DeepWiki の動作を見る！_
 ## ⭐ スター履歴
 
 [![スター履歴チャート](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
-
