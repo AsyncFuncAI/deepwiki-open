@@ -133,6 +133,7 @@
       "noProjects": "Aucun projet trouvé dans le cache du serveur. Le cache est peut-être vide ou le serveur a rencontré un problème.",
       "noSearchResults": "Aucun projet ne correspond à vos critères de recherche.",
       "processedOn": "Traité le :",
+      "inProgress": "En cours",
       "loadingProjects": "Chargement des projets...",
       "errorLoading": "Erreur lors du chargement des projets :",
       "backToHome": "Retour à l’accueil",

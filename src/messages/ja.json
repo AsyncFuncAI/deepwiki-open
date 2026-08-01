@@ -124,6 +124,7 @@
     "noProjects": "サーバーキャッシュにプロジェクトが見つかりません。キャッシュが空であるか、サーバーで問題が発生した可能性があります。",
     "noSearchResults": "検索条件に一致するプロジェクトがありません。",
     "processedOn": "処理日時:",
+    "inProgress": "処理中",
     "loadingProjects": "プロジェクトを読み込み中...",
     "errorLoading": "プロジェクトの読み込みエラー:",
     "backToHome": "ホームに戻る",

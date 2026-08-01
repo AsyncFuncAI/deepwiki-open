@@ -124,6 +124,7 @@
     "noProjects": "服务器缓存中未找到项目。缓存可能为空或服务器遇到问题。",
     "noSearchResults": "没有项目符合您的搜索条件。",
     "processedOn": "处理时间:",
+    "inProgress": "处理中",
     "loadingProjects": "正在加载项目...",
     "errorLoading": "加载项目时出错:",
     "backToHome": "返回首页",
