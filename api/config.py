@@ -417,6 +417,105 @@ def get_model_config(provider="google", model=None):
     return result
 
 
+def _should_process_file(
+    file_path: Path,
+    use_inclusion: bool,
+    included_dirs: list[str],
+    included_files: list[str],
+    excluded_dirs: list[str],
+    excluded_files: list[str],
+) -> bool:
+    """Decide if a file passes the include/exclude rules (moved from rag.pipeline
+    so the tree listing and the RAG indexer share one implementation)."""
+    if isinstance(file_path, str):
+        file_path = Path(file_path)
+    file_path_parts = file_path.resolve().parts
+    file_name = file_path_parts[-1]
+
+    if use_inclusion:
+        is_included = False
+        if included_dirs:
+            for included in included_dirs:
+                clean_included = included.removeprefix("./").rstrip("/")
+                if clean_included in file_path_parts:
+                    is_included = True
+                    break
+        if not is_included and included_files:
+            for included_file in included_files:
+                if file_name == included_file or file_name.endswith(included_file):
+                    is_included = True
+                    break
+        if not included_dirs and not included_files:
+            is_included = True
+        return is_included
+
+    is_excluded = False
+    if excluded_dirs:
+        for excluded in excluded_dirs:
+            clean_excluded = excluded.removeprefix("./").rstrip("/")
+            if clean_excluded in file_path_parts:
+                is_excluded = True
+                break
+    if not is_excluded and excluded_files:
+        for excluded_file in excluded_files:
+            if file_name == excluded_file:
+                is_excluded = True
+                break
+    return not is_excluded
+
+
+def iterate_files(
+    root_dir: str,
+    excluded_dirs: list[str] | None = None,
+    excluded_files: list[str] | None = None,
+    included_dirs: list[str] | None = None,
+    included_files: list[str] | None = None,
+) -> list[str]:
+    """Walk ``root_dir`` and return repo-relative paths of the files worth
+    processing, using the SAME rules the RAG indexer uses so the wiki-structure
+    file tree matches what actually gets indexed:
+
+    * restrict to the configured code/doc extensions;
+    * exclusion mode: config ``file_filters`` excluded_dirs/files UNION the
+      request-provided excluded_dirs/files;
+    * inclusion mode (when included_dirs/files are given): only those.
+    """
+    use_inclusion = bool(included_dirs or included_files)
+    if use_inclusion:
+        inc_dirs = list(set(included_dirs or []))
+        inc_files = list(set(included_files or []))
+        exc_dirs: list[str] = []
+        exc_files: list[str] = []
+    else:
+        file_filters = configs.get("file_filters", {})
+        exc_dir_set = set(file_filters.get("excluded_dirs", []))
+        exc_file_set = set(file_filters.get("excluded_files", []))
+        if excluded_dirs:
+            exc_dir_set.update(excluded_dirs)
+        if excluded_files:
+            exc_file_set.update(excluded_files)
+        exc_dirs = list(exc_dir_set)
+        exc_files = list(exc_file_set)
+        inc_dirs = []
+        inc_files = []
+
+    extensions = tuple(
+        configs.get("code_extensions", []) + configs.get("doc_extensions", [])
+    )
+
+    results: list[str] = []
+    for p in Path(root_dir).rglob("*"):
+        if not p.is_file():
+            continue
+        if extensions and p.suffix.lower() not in extensions:
+            continue
+        if _should_process_file(
+            p, use_inclusion, inc_dirs, inc_files, exc_dirs, exc_files
+        ):
+            results.append(os.path.relpath(p, root_dir).replace(os.sep, "/"))
+    return results
+
+
 def get_embedder(
     is_local_ollama: bool = False,
     use_google_embedder: bool = False,
