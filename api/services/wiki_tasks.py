@@ -1,4 +1,5 @@
 import os
+import re
 import asyncio
 from typing import Callable, Any
 from collections.abc import Coroutine
@@ -7,6 +8,7 @@ from pydantic import BaseModel, Field, computed_field, ConfigDict
 
 from api.utils import deepwiki_root
 from api.schemas import (
+    ChatCompletionRequest,
     WikiCacheData,
     WikiTaskRequest,
     WikiStructureModel,
@@ -19,8 +21,19 @@ from api.schemas import (
 )
 from api.repository import Repo
 from api.rag import repo_index_exist
-from api.services.research import prepare_repo_index
+from api.services.research import prepare_repo_index, research_chat
 from api.services.wiki import save_wiki_cache, wiki_cache_exists
+from api.services.wiki_content import (
+    RepoUrlContext,
+    generate_file_url,
+    post_process_wiki_content,
+)
+from api.services.wiki_prompts import build_page_prompt, build_structure_prompt
+from api.services.wiki_structure import (
+    detect_default_branch,
+    parse_wiki_structure,
+    read_repo_file_tree,
+)
 from api.logger import get_logger
 
 logger = get_logger(__name__)
@@ -57,6 +70,7 @@ class WikiTask(BaseModel):
     pages_done: int = 0
     current_page_ids: list[str] = Field(default_factory=list)
     wiki_structure: WikiStructureModel | None = None
+    default_branch: str = "main"  # set by determine_structure; used for file URLs
     error: str | None = None
     submitted_at: int = Field(default_factory=lambda: int(time.time() * 1000))
     task: asyncio.Task | None = Field(default=None, repr=False)
@@ -289,20 +303,92 @@ async def _generate_pages(
 
 
 async def determine_structure(task: WikiTask) -> WikiStructureModel:
-    """TODO(port): port `determineWikiStructure` (page.tsx).
+    """Determine the wiki structure (port of determineWikiStructure).
 
-    Fetch the file tree + README, prompt the LLM for the wiki structure, parse
-    the XML (with the `&`-escape + regex fallback), and return a
-    WikiStructureModel. Fail-fast: raising here marks the task FAILED (§7.1).
+    Reads the file tree + README from the local clone (already present after
+    indexing), asks the LLM for the structure, and parses the XML. Fail-fast:
+    raising here marks the task FAILED (§7.1).
     """
-    raise NotImplementedError("TODO(port): determine_structure — see SPEC.md §11")
+    r = task.request
+    repo = Repo(r.repo_url, r.type, access_token=r.token)
+    if not repo.is_local and not repo.downloaded:
+        await asyncio.to_thread(repo.download)
+
+    task.default_branch = await asyncio.to_thread(detect_default_branch, repo.save_path)
+    file_tree, readme = await asyncio.to_thread(
+        read_repo_file_tree,
+        repo.save_path,
+        r.excluded_dirs,
+        r.excluded_files,
+        r.included_dirs,
+        r.included_files,
+    )
+
+    prompt = build_structure_prompt(
+        r.owner, r.repo, file_tree, readme, r.comprehensive, r.language
+    )
+    chat_request = ChatCompletionRequest(
+        repo_url=r.repo_url,
+        type=r.type,
+        token=r.token,
+        provider=r.provider,
+        model=r.model,
+        language=r.language,
+        excluded_dirs=r.excluded_dirs,
+        excluded_files=r.excluded_files,
+        included_dirs=r.included_dirs,
+        included_files=r.included_files,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    text = ""
+    async for chunk in await research_chat(chat_request):
+        text += chunk
+
+    return parse_wiki_structure(text, comprehensive=r.comprehensive)
+
+
+def _strip_markdown_fences(content: str) -> str:
+    """Remove a leading ```markdown fence and a trailing ``` if the model wrapped
+    the whole page in a code block (port of the frontend cleanup)."""
+    content = re.sub(r"^```markdown\s*", "", content, flags=re.IGNORECASE)
+    content = re.sub(r"```\s*$", "", content)
+    return content
 
 
 async def generate_page(task: WikiTask, page: WikiPage) -> WikiPage:
-    """TODO(port): port `generatePageContent` + `postProcessWikiContent`.
+    """Generate one wiki page: build the prompt, stream from the LLM (reusing the
+    RAG chat pipeline), strip fences, and resolve citations.
 
-    Stream the page content from the LLM, then run the 5 citation/XML
-    post-processing passes (ported from src/utils/wikiContent.ts). Return the
-    page with `content` filled in.
+    Port of the frontend `generatePageContent` + `postProcessWikiContent`.
     """
-    raise NotImplementedError("TODO(port): generate_page — see SPEC.md §11")
+    r = task.request
+    ctx = RepoUrlContext(
+        type=r.type, repo_url=r.repo_url, default_branch=task.default_branch
+    )
+    file_links = "\n".join(
+        f"- [{p}]({generate_file_url(p, ctx)})" for p in page.filePaths
+    )
+    prompt = build_page_prompt(page.title, file_links, r.language)
+
+    chat_request = ChatCompletionRequest(
+        repo_url=r.repo_url,
+        type=r.type,
+        token=r.token,
+        provider=r.provider,
+        model=r.model,
+        language=r.language,
+        excluded_dirs=r.excluded_dirs,
+        excluded_files=r.excluded_files,
+        included_dirs=r.included_dirs,
+        included_files=r.included_files,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    content = ""
+    async for chunk in await research_chat(chat_request):
+        content += chunk
+
+    content = _strip_markdown_fences(content)
+    content = post_process_wiki_content(content, list(page.filePaths), ctx)
+    return page.model_copy(update={"content": content})

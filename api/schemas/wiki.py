@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from api.schemas.repo import RepoInfo, TaskStatus
 
@@ -96,6 +96,12 @@ class WikiTaskSummary(BaseModel):
     Serialization target for WikiTask.to_status(); never carries the token.
     """
 
+    # Canonical field is snake_case `submitted_at` (also the serialized/wire
+    # name). `submittedAt` is accepted on input via a validation alias for
+    # backward compatibility during the transition; populate_by_name keeps the
+    # field name usable too.
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
     owner: str
     repo: str
@@ -106,7 +112,7 @@ class WikiTaskSummary(BaseModel):
     pages_total: int = Field(default=0, ge=0)
     current_page_ids: list[str] = Field(default_factory=list)
     error: str | None = None
-    submitted_at: int = Field(..., ge=0)
+    submitted_at: int = Field(..., ge=0, validation_alias="submittedAt")
 
     @computed_field
     @property

@@ -222,7 +222,7 @@ async def test_run_task_end_to_end(monkeypatch):
     monkeypatch.setattr(wt, "Repo", _FakeRepo)
     monkeypatch.setattr(wt, "detect_default_branch", lambda p: "main")
     monkeypatch.setattr(
-        wt, "read_repo_file_tree", lambda p: ("README.md\nsrc/a.py", "readme")
+        wt, "read_repo_file_tree", lambda p, *a, **k: ("README.md\nsrc/a.py", "readme")
     )
 
     async def fake_research(request):
@@ -239,7 +239,7 @@ async def test_run_task_end_to_end(monkeypatch):
 
     saved: dict = {}
 
-    async def fake_save(task, s, pages):
+    async def fake_save(task, pages):
         saved["pages"] = pages
 
     monkeypatch.setattr(wt, "_save", fake_save)
