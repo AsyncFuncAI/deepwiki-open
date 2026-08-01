@@ -14,10 +14,15 @@ from api.services.wiki_tasks import (
 pytestmark = pytest.mark.asyncio
 
 
-def _req(**kw) -> WikiTaskRequest:
-    d = dict(owner="o", repo="r", type="github", repo_url="https://github.com/o/r")
+def _req(**kw) -> WikiTask:
+    d = dict(
+        owner="o",
+        repo="r",
+        type="github",
+        repo_url="https://github.com/o/r",
+    )
     d.update(kw)
-    return WikiTaskRequest(**d)
+    return WikiTask.from_wiki_request(WikiTaskRequest(**d))
 
 
 def _structure(n: int = 2) -> WikiStructureModel:
@@ -49,7 +54,7 @@ async def _wait_active(reg: TaskRegistry, task_id: str) -> None:
 async def test_submit_creates_and_completes(monkeypatch):
     reg = TaskRegistry()
     monkeypatch.setattr(wt, "WIKI_TASK_TTL_SECONDS", 0)
-    monkeypatch.setattr(wt, "_wiki_cache_exists", lambda p: False)
+    monkeypatch.setattr(wt, "wiki_cache_exists", lambda **p: False)
     monkeypatch.setattr(wt, "repo_index_exist", lambda repo: True)  # skip indexing
 
     structure = _structure(2)
@@ -61,18 +66,18 @@ async def test_submit_creates_and_completes(monkeypatch):
     async def fake_generate(task, page):
         return page.model_copy(update={"content": f"ok:{page.id}"})
 
-    async def fake_save(task, s, pages):
+    async def fake_save(task, pages):
         saved["pages"] = pages
 
     monkeypatch.setattr(wt, "determine_structure", fake_determine)
     monkeypatch.setattr(wt, "generate_page", fake_generate)
     monkeypatch.setattr(wt, "_save", fake_save)
 
-    res = await reg.submit(_req())
+    res = await reg.submit(_req(), async_func=generate_repo_wiki)
     assert res.created and res.status == TaskStatus.PENDING
 
     task = reg.get(res.task_id)
-    await task._task  # wait for the worker to finish
+    await task.task  # wait for the worker to finish
 
     assert task.status == TaskStatus.COMPLETED
     assert task.pages_total == 2 and task.pages_done == 2
@@ -82,34 +87,33 @@ async def test_submit_creates_and_completes(monkeypatch):
 async def test_submit_joins_active_task(monkeypatch):
     reg = TaskRegistry(max_concurrent=2)
     monkeypatch.setattr(wt, "WIKI_TASK_TTL_SECONDS", 0)
-    monkeypatch.setattr(wt, "_wiki_cache_exists", lambda p: False)
+    monkeypatch.setattr(wt, "wiki_cache_exists", lambda **p: False)
 
     gate = asyncio.Event()
 
-    async def blocking_run(task):
+    async def blocking_run(task: WikiTask) -> None:
         task.status = TaskStatus.GENERATING
         await gate.wait()
         task.status = TaskStatus.COMPLETED
 
-    monkeypatch.setattr(wt, "run_task", blocking_run)
 
-    r1 = await reg.submit(_req())
+    r1 = await reg.submit(_req(), blocking_run)
     assert r1.created
     await _wait_active(reg, r1.task_id)
 
-    r2 = await reg.submit(_req(language="ja"))  # different settings, same repo
+    r2 = await reg.submit(_req(language="ja"), blocking_run)  # different settings, same repo
     assert r2.joined and not r2.created
     assert r2.task_id == r1.task_id
 
     gate.set()
-    await reg.get(r1.task_id)._task
+    await reg.get(r1.task_id).task
 
 
 async def test_submit_serves_cache(monkeypatch):
     reg = TaskRegistry()
-    monkeypatch.setattr(wt, "_wiki_cache_exists", lambda p: True)
+    monkeypatch.setattr(wt, "wiki_cache_exists", lambda **p: True)
 
-    res = await reg.submit(_req())
+    res = await reg.submit(_req(), generate_repo_wiki)
     assert res.from_cache and not res.created
     assert res.status == TaskStatus.COMPLETED
     assert reg.get(res.task_id) is None  # no task was created
@@ -130,15 +134,15 @@ async def test_page_failure_yields_placeholder_but_completes(monkeypatch):
     async def failing_generate(task, page):
         raise RuntimeError("boom")
 
-    async def fake_save(task, s, pages):
+    async def fake_save(task, pages):
         saved.update(pages)
 
     monkeypatch.setattr(wt, "determine_structure", fake_determine)
     monkeypatch.setattr(wt, "generate_page", failing_generate)
     monkeypatch.setattr(wt, "_save", fake_save)
 
-    task = WikiTask(id="github_o_r", request=_req())
-    await run_task(task)
+    task = _req()
+    await generate_repo_wiki(task)
 
     assert task.status == TaskStatus.COMPLETED  # one bad page must not fail the task
     assert "Error generating content: boom" in saved["page-1"].content
@@ -152,8 +156,8 @@ async def test_determine_structure_failure_fails_task(monkeypatch):
 
     monkeypatch.setattr(wt, "determine_structure", boom)
 
-    task = WikiTask(id="github_o_r", request=_req())
-    await run_task(task)
+    task = _req()
+    await generate_repo_wiki(task)
 
     assert task.status == TaskStatus.FAILED
     assert "no structure" in (task.error or "")
@@ -181,14 +185,17 @@ async def test_generate_page_strips_fences_and_resolves_citations(monkeypatch):
         importance="high",
         relatedPages=[],
     )
-    out = await wt.generate_page(WikiTask(id="github_o_r", request=_req()), page)
+    out = await wt.generate_page(_req(), page)
 
     # leading ```markdown fence stripped
     assert "```markdown" not in out.content
     # <details> block rebuilt from filePaths
     assert out.content.startswith("<details>")
     # empty citation resolved to a real GitHub URL with line anchor
-    assert "[README.md:1-2](https://github.com/o/r/blob/main/README.md#L1-L2)" in out.content
+    assert (
+        "[README.md:1-2](https://github.com/o/r/blob/main/README.md#L1-L2)"
+        in out.content
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -202,7 +209,7 @@ class _FakeRepo:
 
 
 _STRUCT_XML = (
-    '<wiki_structure><title>T</title><description>d</description><pages>'
+    "<wiki_structure><title>T</title><description>d</description><pages>"
     '<page id="page-1"><title>P1</title><importance>high</importance>'
     "<relevant_files><file_path>README.md</file_path></relevant_files></page>"
     "</pages></wiki_structure>"
@@ -214,7 +221,9 @@ async def test_run_task_end_to_end(monkeypatch):
     monkeypatch.setattr(wt, "repo_index_exist", lambda repo: True)
     monkeypatch.setattr(wt, "Repo", _FakeRepo)
     monkeypatch.setattr(wt, "detect_default_branch", lambda p: "main")
-    monkeypatch.setattr(wt, "read_repo_file_tree", lambda p: ("README.md\nsrc/a.py", "readme"))
+    monkeypatch.setattr(
+        wt, "read_repo_file_tree", lambda p: ("README.md\nsrc/a.py", "readme")
+    )
 
     async def fake_research(request):
         # structure prompt contains "<file_tree>"; page prompt does not.
@@ -235,8 +244,8 @@ async def test_run_task_end_to_end(monkeypatch):
 
     monkeypatch.setattr(wt, "_save", fake_save)
 
-    task = WikiTask(id="github_o_r", request=_req(comprehensive=False))
-    await run_task(task)
+    task = _req(comprehensive=False)
+    await generate_repo_wiki(task)
 
     assert task.status == TaskStatus.COMPLETED
     assert task.default_branch == "main"
@@ -250,7 +259,7 @@ async def test_run_task_end_to_end(monkeypatch):
 # serialization
 # --------------------------------------------------------------------------- #
 async def test_public_dict_hides_token():
-    task = WikiTask(id="github_o_r", request=_req(token="SECRET"))
+    task = _req(token="SECRET")
     d = task.to_status().model_dump()
     assert "token" not in d
     assert "SECRET" not in str(d)

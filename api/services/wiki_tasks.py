@@ -157,7 +157,7 @@ class TaskRegistry:
             ):
                 return WikiTaskSubmitResult(
                     task_id=key,
-                    status=task.status,
+                    status=TaskStatus.COMPLETED,
                     from_cache=True,
                 )
 
