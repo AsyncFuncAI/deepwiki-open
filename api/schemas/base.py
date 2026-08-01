@@ -8,11 +8,11 @@ RepoType = Literal["local", "github", "gitlab", "bitbucket"]
 
 class RepoRequestBase(BaseModel):
     repo_url: str = Field(..., description="URL or local path of the repository")
-    type: RepoType | None = Field("github", description="Repository type")
+    type: RepoType = Field("github", description="Repository type")
     token: str | None = Field(None, description="PAT for private repositories")
     provider: str = Field("google", description="Model provider")
     model: str | None = Field(None, description="Model name for the provider")
-    language: str | None = Field("en", description="Language for content generation")
+    language: str = Field("en", description="Language for content generation")
     excluded_dirs: list[str] = Field(
         default_factory=list,
         description="List or newline-separated string of directories to exclude from processing",

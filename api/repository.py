@@ -5,15 +5,15 @@ import subprocess
 from urllib.parse import quote, urlparse, urlunparse
 
 import requests
-from adalflow.utils import get_adalflow_default_root_path
 from requests.exceptions import RequestException
 
 from api.logger import get_logger
+from api.utils import deepwiki_root
 
 logger = get_logger(__name__)
 
 
-CLONE_REPO_ROOT = os.path.join(get_adalflow_default_root_path(), "repo")
+CLONE_REPO_ROOT = os.path.join(deepwiki_root(), "repo")
 
 
 def _get_github_file_content(

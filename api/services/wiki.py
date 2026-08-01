@@ -6,39 +6,42 @@ from typing import Literal
 
 from api.logger import get_logger
 from api.schemas import (
+    TaskStatus,
     ProcessedProjectEntry,
     WikiCacheData,
-    WikiCacheRequest,
+    WikiTaskSummary,
     WikiPage,
     aload,
     asave,
 )
+from api.utils import deepwiki_root
 
 logger = get_logger(__name__)
 
-
-# Helper function to get adalflow root path
-def get_adalflow_default_root_path():
-    return os.path.expanduser(os.path.join("~", ".adalflow"))
-
-
-WIKI_CACHE_DIR = os.path.join(get_adalflow_default_root_path(), "wikicache")
+WIKI_CACHE_DIR = os.path.join(deepwiki_root(), "wikicache")
 os.makedirs(WIKI_CACHE_DIR, exist_ok=True)
+WIKI_PREFIX = "deepwiki_cache_"
 
 
 def get_wiki_cache_path(owner: str, repo: str, repo_type: str, language: str) -> str:
     """Generates the file path for a given wiki cache."""
-    filename = f"deepwiki_cache_{repo_type}_{owner}_{repo}_{language}.json"
+    filename = f"{WIKI_PREFIX}{repo_type}_{owner}_{repo}_{language}.json"
     return os.path.join(WIKI_CACHE_DIR, filename)
+
+
+def wiki_cache_exists(owner: str, repo: str, repo_type: str, language: str) -> bool:
+    return os.path.exists(
+        get_wiki_cache_path(owner, repo=repo, repo_type=repo_type, language=language)
+    )
 
 
 async def read_wiki_cache(
     owner: str, repo: str, repo_type: str, language: str
 ) -> WikiCacheData | None:
     """Reads wiki cache data from the file system."""
-    cache_path = get_wiki_cache_path(owner, repo, repo_type, language)
-    if not os.path.exists(cache_path):
+    if not wiki_cache_exists(owner, repo, repo_type, language):
         return None
+    cache_path = get_wiki_cache_path(owner, repo, repo_type, language)
     try:
         return await aload(WikiCacheData, cache_path, encoding="utf-8")
     except Exception:
@@ -46,20 +49,18 @@ async def read_wiki_cache(
         return None
 
 
-async def save_wiki_cache(data: WikiCacheRequest) -> bool:
+async def save_wiki_cache(
+    owner: str, repo: str, repo_type: str, language: str, wiki_cache: WikiCacheData
+) -> bool:
     """Saves wiki cache data to the file system."""
     cache_path = get_wiki_cache_path(
-        data.repo.owner, data.repo.repo, data.repo.type, data.language
+        owner=owner,
+        repo=repo,
+        repo_type=repo_type,
+        language=language,
     )
     logger.info(f"Attempting to save wiki cache. Path: {cache_path}")
     try:
-        wiki_cache = WikiCacheData(
-            wiki_structure=data.wiki_structure,
-            generated_pages=data.generated_pages,
-            repo=data.repo,
-            provider=data.provider,
-            model=data.model,
-        )
         await asave(wiki_cache, cache_path, encoding="utf-8")
         logger.info(f"Wiki cache successfully saved to {cache_path}")
         return True
@@ -88,9 +89,7 @@ async def delete_wiki_cache(owner: str, repo: str, repo_type: str, language: str
     return True
 
 
-async def list_processed_projects() -> list[ProcessedProjectEntry]:
-    project_entries: list[ProcessedProjectEntry] = []
-
+async def list_wiki_cache() -> list[WikiTaskSummary]:
     if not os.path.exists(WIKI_CACHE_DIR):
         logger.info(
             f"Cache directory {WIKI_CACHE_DIR} not found. Returning empty list."
@@ -98,45 +97,49 @@ async def list_processed_projects() -> list[ProcessedProjectEntry]:
         return []
 
     logger.info(f"Scanning for project cache files in: {WIKI_CACHE_DIR}")
-    filenames = await asyncio.to_thread(os.listdir, WIKI_CACHE_DIR)
-
-    for filename in filenames:
-        if filename.startswith("deepwiki_cache_") and filename.endswith(".json"):
-            file_path = os.path.join(WIKI_CACHE_DIR, filename)
-            try:
-                stats = await asyncio.to_thread(os.stat, file_path)
-                parts = (
-                    filename.replace("deepwiki_cache_", "")
-                    .replace(".json", "")
-                    .split("_")
+    entries = []
+    for filename in await asyncio.to_thread(os.listdir, WIKI_CACHE_DIR):
+        if not filename.startswith(WIKI_PREFIX) and filename.endswith(".json"):
+            continue
+        file_path = os.path.join(WIKI_CACHE_DIR, filename)
+        try:
+            stats = await asyncio.to_thread(os.stat, file_path)
+            repo_type, owner, *repo, language = (
+                os.path.splitext(filename)[0].removeprefix(WIKI_PREFIX).split("_")
+            )
+            entries.append(
+                WikiTaskSummary(
+                    id=filename,
+                    owner=owner,
+                    repo="_".join(repo),
+                    repo_type=repo_type,
+                    language=language,
+                    submitted_at=int(stats.st_mtime * 1000),
+                    status=TaskStatus.COMPLETED,
                 )
-                # Expecting repo_type_owner_repo_language
-                if len(parts) >= 4:
-                    repo_type = parts[0]
-                    owner = parts[1]
-                    language = parts[-1]
-                    repo = "_".join(parts[2:-1])  # repo can contain underscores
-                    project_entries.append(
-                        ProcessedProjectEntry(
-                            id=filename,
-                            owner=owner,
-                            repo=repo,
-                            name=f"{owner}/{repo}",
-                            repo_type=repo_type,
-                            submittedAt=int(stats.st_mtime * 1000),
-                            language=language,
-                        )
-                    )
-                else:
-                    logger.warning(
-                        f"Could not parse project details from filename: {filename}"
-                    )
-            except Exception as e:
-                logger.error(f"Error processing file {file_path}: {e}")
-                continue
+            )
+        except Exception:
+            logger.exception("Error processing file %s", file_path, exc_info=True)
+
+    logger.info("Found %d processed project entries.", len(entries))
+    return entries
+
+
+async def list_processed_projects() -> list[ProcessedProjectEntry]:
+    project_entries: list[ProcessedProjectEntry] = [
+        ProcessedProjectEntry(
+            id=wiki.id,
+            owner=wiki.owner,
+            repo=wiki.repo,
+            name=wiki.name,
+            repo_type=wiki.repo_type,
+            submittedAt=wiki.submitted_at,
+            language=wiki.language,
+        )
+        for wiki in await list_wiki_cache()
+    ]
 
     project_entries.sort(key=lambda p: p.submittedAt, reverse=True)
-    logger.info(f"Found {len(project_entries)} processed project entries.")
     return project_entries
 
 

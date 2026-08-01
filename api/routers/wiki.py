@@ -1,25 +1,33 @@
+import asyncio
 import os
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from api.config import WIKI_AUTH_CODE, WIKI_AUTH_MODE, configs
 from api.logger import get_logger
 from api.schemas import (
     ProcessedProjectEntry,
     WikiCacheData,
-    WikiCacheRequest,
     WikiExportRequest,
+    WikiTaskSummary,
+    WikiTaskRequest,
+    WikiTaskSubmitResult,
+    WikiTaskStatus,
 )
 from api.services.wiki import (
     delete_wiki_cache,
     export_wiki,
     list_processed_projects,
+    list_wiki_cache,
     read_wiki_cache,
-    save_wiki_cache,
 )
+
+from api.services.wiki_tasks import generate_repo_wiki, WikiTask
+
+from api.services.wiki_tasks import registry, TaskStatus
 
 logger = get_logger(__name__)
 
@@ -153,27 +161,6 @@ async def read_wiki(
     return None
 
 
-@router.post("/api/wiki_cache")
-async def save_wiki(request_data: WikiCacheRequest):
-    """
-    Stores generated wiki data (structure and pages) to the server-side cache.
-    """
-    # Language validation
-    supported_langs = configs["lang_config"]["supported_languages"]
-
-    if request_data.language not in supported_langs:
-        request_data.language = configs["lang_config"]["default"]
-
-    logger.info(
-        f"Attempting to save wiki cache for {request_data.repo.owner}/{request_data.repo.repo} ({request_data.repo.type}), lang: {request_data.language}"
-    )
-    success = await save_wiki_cache(request_data)
-    if success:
-        return {"message": "Wiki cache saved successfully"}
-    else:
-        raise HTTPException(status_code=500, detail="Failed to save wiki cache")
-
-
 @router.delete("/api/wiki_cache")
 async def delete_wiki(
     owner: str = Query(..., description="Repository owner"),
@@ -226,3 +213,90 @@ async def get_processed_projects():
             status_code=500,
             detail="Failed to list processed projects from server cache.",
         )
+
+
+@router.post("/wiki/tasks", response_model=WikiTaskSubmitResult)
+async def submit_wiki_task(request: WikiTaskRequest):
+    """Submit a repo for index + wiki generation (get-or-create; SPEC.md §6).
+
+    Returns one of: created (new task), joined (an active task for the repo
+    already exists), or from_cache (this variant is already generated).
+    """
+
+    return await registry.submit(
+        WikiTask.from_wiki_request(request), async_func=generate_repo_wiki
+    )
+
+
+@router.get(
+    "/wiki/tasks",
+    response_model=list[WikiTaskSummary],
+)
+async def list_wiki_tasks(
+    status: Literal["active", "completed", None] = Query(
+        None, description="active | completed | (omit for completed + queued)"
+    ),
+):
+    """List tasks.
+
+    Omit `status` for the homepage list: completed projects first, then queued
+    tasks (by submission time) last.
+    """
+
+    active = [
+        task.to_summary()
+        for task in sorted(
+            registry.active(),
+            key=lambda task: task.submitted_at,
+        )
+    ]
+    if status == "active":
+        return active
+    completed = await list_wiki_cache()
+    if status == "completed":
+        return completed
+    return completed + active
+
+
+@router.get("/wiki/tasks/{task_id}", response_model=WikiTaskStatus)
+async def get_wiki_task(task_id: str):
+    """Single task status + progress (SPEC.md §9). 404 once the task is gone —
+    the frontend then falls back to the wiki cache."""
+    task = registry.get(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task.to_status()
+
+
+@router.get("/wiki/tasks/{task_id}/stream")
+async def stream_wiki_task(task_id: str):
+    """SSE progress stream: `progress` events until a terminal `done`/`error`."""
+    if registry.get(task_id) is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    async def event_stream():
+        while True:
+            task = registry.get(task_id)
+            if task is None:
+                yield "event: error\ndata: {'error': 'task no longer available'}\n\n"
+                return
+
+            # we use wiki task status, so that frontend could show the current processing pages.
+            payload = task.to_status().model_dump_json()
+            if task.status == TaskStatus.COMPLETED:
+                yield f"event: done\ndata: {payload}\n\n"
+                return
+            if task.status == TaskStatus.FAILED:
+                yield f"event: error\ndata: {payload}\n\n"
+                return
+            yield f"event: progress\ndata: {payload}\n\n"
+            await asyncio.sleep(1)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
+    )

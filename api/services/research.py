@@ -13,7 +13,8 @@ from api.prompts import (
 )
 from api.rag import RAG, count_tokens, repo_index_exist
 from api.repository import Repo, get_repo_content
-from api.schemas import ChatCompletionRequest, RepoPrepareRequest
+from api.schemas.base import RepoRequestBase
+from api.schemas import ChatCompletionRequest
 
 logger = get_logger(__name__)
 
@@ -27,7 +28,7 @@ class RepoNotIndexedError(ValueError):
 
 
 async def prepare_repo_index(
-    request: ChatCompletionRequest | RepoPrepareRequest,
+    request: RepoRequestBase,
 ) -> RAG:
     rag = await asyncio.to_thread(
         RAG,
