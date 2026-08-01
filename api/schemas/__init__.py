@@ -1,5 +1,5 @@
 from api.schemas.auth import AuthorizationConfig
-from api.schemas.chat import ChatCompletionRequest
+from api.schemas.chat import ChatCompletionRequest, ChatMessage
 from api.schemas.codemap import (
     CodeMap,
     CodeMapCitation,
@@ -35,6 +35,7 @@ from api.schemas.wiki import (
 __all__ = [
     "AuthorizationConfig",
     "ChatCompletionRequest",
+    "ChatMessage",
     "CodeMap",
     "CodeMapCitation",
     "CodeMapRequest",

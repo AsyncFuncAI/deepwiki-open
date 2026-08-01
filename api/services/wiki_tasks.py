@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, computed_field, ConfigDict
 
 from api.utils import deepwiki_root
 from api.schemas import (
+    ChatMessage,
     ChatCompletionRequest,
     WikiCacheData,
     WikiTaskRequest,
@@ -382,7 +383,12 @@ async def generate_page(task: WikiTask, page: WikiPage) -> WikiPage:
         excluded_files=r.excluded_files,
         included_dirs=r.included_dirs,
         included_files=r.included_files,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            ChatMessage(
+                role="user",
+                content=prompt,
+            )
+        ],
     )
 
     content = ""
