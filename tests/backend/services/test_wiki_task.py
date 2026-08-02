@@ -2,9 +2,9 @@ import asyncio
 
 import pytest
 
-import api.services.wiki_tasks as wt
+import api.services.wiki.tasks as wt
 from api.schemas import WikiPage, WikiStructureModel, WikiTaskRequest
-from api.services.wiki_tasks import (
+from api.services.wiki.tasks import (
     TaskRegistry,
     TaskStatus,
     WikiTask,

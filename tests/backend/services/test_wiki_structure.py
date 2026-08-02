@@ -1,6 +1,6 @@
 import pytest
 
-from api.services.wiki_structure import (
+from api.services.wiki.structure import (
     detect_default_branch,
     parse_wiki_structure,
     read_repo_file_tree,
@@ -88,7 +88,7 @@ def test_parse_no_structure_raises():
         parse_wiki_structure("no xml here", comprehensive=False)
 
 
-def test_read_repo_file_tree(tmp_path):
+def test_read_repo_file_tree(tmp_path, exclude_test_config):
     (tmp_path / "README.md").write_text("hello readme", encoding="utf-8")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "a.py").write_text("x", encoding="utf-8")

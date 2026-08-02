@@ -23,14 +23,14 @@ from api.schemas import (
 from api.repository import Repo
 from api.rag import repo_index_exist
 from api.services.research import prepare_repo_index, research_chat
-from api.services.wiki import save_wiki_cache, wiki_cache_exists
-from api.services.wiki_content import (
+from api.services.wiki import (
     RepoUrlContext,
     generate_file_url,
     post_process_wiki_content,
-)
-from api.services.wiki_prompts import build_page_prompt, build_structure_prompt
-from api.services.wiki_structure import (
+    save_wiki_cache,
+    wiki_cache_exists,
+    build_page_prompt,
+    build_structure_prompt,
     detect_default_branch,
     parse_wiki_structure,
     read_repo_file_tree,

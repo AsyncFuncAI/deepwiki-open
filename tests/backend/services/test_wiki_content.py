@@ -1,4 +1,4 @@
-from api.services.wiki_content import (
+from api.services.wiki.content import (
     RepoUrlContext,
     generate_file_url,
     post_process_wiki_content,

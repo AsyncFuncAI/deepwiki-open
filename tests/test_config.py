@@ -1,26 +1,6 @@
 import pytest
 
-from api.config import configs, iterate_files
-
-
-@pytest.fixture
-def patched_config(monkeypatch):
-    monkeypatch.setitem(configs, "code_extensions", [".py"])
-    monkeypatch.setitem(configs, "doc_extensions", [".md"])
-    monkeypatch.setitem(
-        configs,
-        name="file_filters",
-        value={
-            "excluded_dirs": [
-                "./.venv/",
-                "./venv/",
-            ],
-            "excluded_files": [
-                "yarn.lock",
-                ".env",
-            ]
-        }
-    )
+from api.config import iterate_files
 
 
 def make_repo(root):
@@ -40,7 +20,7 @@ def make_repo(root):
 
 
 
-def test_iterate_files_default_exclusive_mode(patched_config, tmp_path):
+def test_iterate_files_default_exclusive_mode(exclude_test_config, tmp_path):
     make_repo(tmp_path)
 
     files = set(iterate_files(root_dir=str(tmp_path)))
@@ -57,13 +37,13 @@ def test_iterate_files_default_exclusive_mode(patched_config, tmp_path):
         ["./folder"],
     ]
 )
-def test_iterate_files_included_dirs(patched_config, tmp_path, included_dirs):
+def test_iterate_files_included_dirs(exclude_test_config, tmp_path, included_dirs):
     make_repo(tmp_path)
     files = set(iterate_files(root_dir=str(tmp_path), included_dirs=included_dirs))
     assert files == {"folder/code.py"}
 
 
-def test_iterate_files_included_files(patched_config, tmp_path):
+def test_iterate_files_included_files(exclude_test_config, tmp_path):
     make_repo(tmp_path)
     files = set(iterate_files(root_dir=str(tmp_path), included_files=["README.md"]))
     assert files == {"README.md"}
@@ -76,7 +56,7 @@ def test_iterate_files_included_files(patched_config, tmp_path):
         ["./folder"],
     ]
 )
-def test_iterate_files_excluded_dirs(patched_config, tmp_path, excluded_dirs):
+def test_iterate_files_excluded_dirs(exclude_test_config, tmp_path, excluded_dirs):
     make_repo(tmp_path)
     files = set(iterate_files(root_dir=str(tmp_path), excluded_dirs=excluded_dirs))
     assert files == {"README.md", "CHANGELOG.md"}

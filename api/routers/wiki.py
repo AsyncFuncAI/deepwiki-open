@@ -16,6 +16,7 @@ from api.schemas import (
     WikiTaskRequest,
     WikiTaskSubmitResult,
     WikiTaskStatus,
+    TaskStatus,
 )
 from api.services.wiki import (
     delete_wiki_cache,
@@ -25,9 +26,7 @@ from api.services.wiki import (
     read_wiki_cache,
 )
 
-from api.services.wiki_tasks import generate_repo_wiki, WikiTask
-
-from api.services.wiki_tasks import registry, TaskStatus
+from api.services.wiki import generate_repo_wiki, WikiTask, registry
 
 logger = get_logger(__name__)
 

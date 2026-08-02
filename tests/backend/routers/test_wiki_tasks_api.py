@@ -3,7 +3,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-import api.services.wiki_tasks as wt
+import api.services.wiki.tasks as wt
 from api.schemas import WikiPage, WikiStructureModel
 
 
