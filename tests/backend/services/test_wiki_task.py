@@ -69,8 +69,8 @@ async def test_submit_creates_and_completes(monkeypatch):
     async def fake_save(task, pages):
         saved["pages"] = pages
 
-    monkeypatch.setattr(wt, "determine_structure", fake_determine)
-    monkeypatch.setattr(wt, "generate_page", fake_generate)
+    monkeypatch.setattr(wt, "_determine_structure", fake_determine)
+    monkeypatch.setattr(wt, "_generate_page", fake_generate)
     monkeypatch.setattr(wt, "_save", fake_save)
 
     res = await reg.submit(_req(), async_func=generate_repo_wiki)
@@ -137,8 +137,8 @@ async def test_page_failure_yields_placeholder_but_completes(monkeypatch):
     async def fake_save(task, pages):
         saved.update(pages)
 
-    monkeypatch.setattr(wt, "determine_structure", fake_determine)
-    monkeypatch.setattr(wt, "generate_page", failing_generate)
+    monkeypatch.setattr(wt, "_determine_structure", fake_determine)
+    monkeypatch.setattr(wt, "_generate_page", failing_generate)
     monkeypatch.setattr(wt, "_save", fake_save)
 
     task = _req()
@@ -154,7 +154,7 @@ async def test_determine_structure_failure_fails_task(monkeypatch):
     async def boom(task):
         raise RuntimeError("no structure")
 
-    monkeypatch.setattr(wt, "determine_structure", boom)
+    monkeypatch.setattr(wt, "_determine_structure", boom)
 
     task = _req()
     await generate_repo_wiki(task)
@@ -185,7 +185,7 @@ async def test_generate_page_strips_fences_and_resolves_citations(monkeypatch):
         importance="high",
         relatedPages=[],
     )
-    out = await wt.generate_page(_req(), page)
+    out = await wt._generate_page(_req(), page)
 
     # leading ```markdown fence stripped
     assert "```markdown" not in out.content

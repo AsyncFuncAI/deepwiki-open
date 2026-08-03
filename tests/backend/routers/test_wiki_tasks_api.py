@@ -46,8 +46,8 @@ def _patch_stubs(monkeypatch):
     async def fake_save(task, pages):
         pass
 
-    monkeypatch.setattr(wt, "determine_structure", fake_determine)
-    monkeypatch.setattr(wt, "generate_page", fake_generate)
+    monkeypatch.setattr(wt, "_determine_structure", fake_determine)
+    monkeypatch.setattr(wt, "_generate_page", fake_generate)
     monkeypatch.setattr(wt, "_save", fake_save)
 
 
@@ -95,7 +95,7 @@ def test_submit_twice_joins(monkeypatch):
             await asyncio.sleep(0.02)
         return page.model_copy(update={"content": "ok"})
 
-    monkeypatch.setattr(wt, "generate_page", slow_generate)
+    monkeypatch.setattr(wt, "_generate_page", slow_generate)
     from api.main import app
 
     with TestClient(app) as client:
@@ -129,7 +129,7 @@ def test_list_summary_omits_wiki_structure(monkeypatch):
             await asyncio.sleep(0.02)
         return page.model_copy(update={"content": "ok"})
 
-    monkeypatch.setattr(wt, "generate_page", slow_generate)
+    monkeypatch.setattr(wt, "_generate_page", slow_generate)
     from api.main import app
 
     with TestClient(app) as client:

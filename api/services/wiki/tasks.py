@@ -24,17 +24,26 @@ from api.repository import Repo
 from api.rag import repo_index_exist
 from api.services.research import prepare_repo_index, research_chat
 from api.services.wiki import (
+    save_wiki_cache,
+    wiki_cache_exists,
+)
+from api.services.wiki.content import (
     RepoUrlContext,
     generate_file_url,
     post_process_wiki_content,
-    save_wiki_cache,
-    wiki_cache_exists,
+)
+
+from api.services.wiki.structure import (
+    detect_default_branch,
+    read_repo_file_tree,
+    parse_wiki_structure,
+)
+
+from api.services.wiki.prompts import (
     build_page_prompt,
     build_structure_prompt,
-    detect_default_branch,
-    parse_wiki_structure,
-    read_repo_file_tree,
 )
+
 from api.logger import get_logger
 
 logger = get_logger(__name__)
@@ -215,7 +224,7 @@ async def generate_repo_wiki(task: WikiTask) -> None:
         # Req 1.2 + no-persistence: index present -> (re)generate the whole wiki.
         task.status = TaskStatus.DETERMINING_STRUCTURE
         logger.info("Determining structure for %s", task.repo_key)
-        structure = await determine_structure(task)
+        structure = await _determine_structure(task)
         task.wiki_structure = structure
 
         task.status = TaskStatus.GENERATING
@@ -260,7 +269,7 @@ async def _generate_page_with_retry(task: WikiTask, page: WikiPage) -> WikiPage:
     last_error: Exception | None = None
     for attempt in range(WIKI_PAGE_RETRIES + 1):
         try:
-            return await generate_page(task, page)
+            return await _generate_page(task, page)
         except Exception as e:  # noqa: BLE001 - transient vs permanent handled by retry budget
             last_error = e
             logger.warning(
@@ -303,7 +312,7 @@ async def _generate_pages(
     return pages
 
 
-async def determine_structure(task: WikiTask) -> WikiStructureModel:
+async def _determine_structure(task: WikiTask) -> WikiStructureModel:
     """Determine the wiki structure (port of determineWikiStructure).
 
     Reads the file tree + README from the local clone (already present after
@@ -339,7 +348,7 @@ async def determine_structure(task: WikiTask) -> WikiStructureModel:
         excluded_files=r.excluded_files,
         included_dirs=r.included_dirs,
         included_files=r.included_files,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[ChatMessage(role="user", content=prompt)],
     )
 
     text = ""
@@ -357,7 +366,7 @@ def _strip_markdown_fences(content: str) -> str:
     return content
 
 
-async def generate_page(task: WikiTask, page: WikiPage) -> WikiPage:
+async def _generate_page(task: WikiTask, page: WikiPage) -> WikiPage:
     """Generate one wiki page: build the prompt, stream from the LLM (reusing the
     RAG chat pipeline), strip fences, and resolve citations.
 
@@ -383,12 +392,7 @@ async def generate_page(task: WikiTask, page: WikiPage) -> WikiPage:
         excluded_files=r.excluded_files,
         included_dirs=r.included_dirs,
         included_files=r.included_files,
-        messages=[
-            ChatMessage(
-                role="user",
-                content=prompt,
-            )
-        ],
+        messages=[ChatMessage(role="user", content=prompt)],
     )
 
     content = ""
