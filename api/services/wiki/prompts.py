@@ -1,7 +1,7 @@
 """Prompt builders for backend wiki generation.
 
 Ported verbatim from the frontend page.tsx prompts (page + structure), so the
-backend produces the same output. See SPEC.md §12.
+backend produces the same output.
 """
 
 LANGUAGE_NAMES: dict[str, str] = {

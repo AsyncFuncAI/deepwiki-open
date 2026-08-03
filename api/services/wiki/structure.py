@@ -2,7 +2,7 @@
 its default branch, and parse the LLM's XML wiki-structure response.
 
 Ported from the frontend fetchRepositoryStructure + determineWikiStructure
-(clone-walk instead of provider REST APIs; see SPEC.md §12).
+(clone-walk instead of provider REST APIs).
 """
 
 import os

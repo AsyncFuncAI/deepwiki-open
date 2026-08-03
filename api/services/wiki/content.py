@@ -5,7 +5,6 @@ page.tsx). Turns the various empty-parenthesis citation forms the model emits
 into real repository links, and normalizes the "Relevant source files"
 <details> block. Pure functions — unit-tested in test_wiki_content.py.
 
-See SPEC.md §12 for the porting rationale.
 """
 
 import re
