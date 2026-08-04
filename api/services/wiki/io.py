@@ -99,7 +99,7 @@ async def list_wiki_cache() -> list[WikiTaskSummary]:
     logger.info(f"Scanning for project cache files in: {WIKI_CACHE_DIR}")
     entries = []
     for filename in await asyncio.to_thread(os.listdir, WIKI_CACHE_DIR):
-        if not filename.startswith(WIKI_PREFIX) and filename.endswith(".json"):
+        if not (filename.startswith(WIKI_PREFIX) and filename.endswith(".json")):
             continue
         file_path = os.path.join(WIKI_CACHE_DIR, filename)
         try:

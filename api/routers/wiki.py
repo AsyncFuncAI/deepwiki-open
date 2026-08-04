@@ -278,7 +278,7 @@ async def stream_wiki_task(task_id: str):
         while True:
             task = registry.get(task_id)
             if task is None:
-                yield "event: error\ndata: {'error': 'task no longer available'}\n\n"
+                yield 'event: error\ndata: {"error": "task no longer available"}\n\n'
                 return
 
             # we use wiki task status, so that frontend could show the current processing pages.
