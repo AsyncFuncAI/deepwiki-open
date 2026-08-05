@@ -16,7 +16,7 @@ CLONE_REPO_ROOT = os.path.join(deepwiki_root(), "repo")
 
 
 def _exception_cleanup(func: Callable) -> Callable:
-    @wraps
+    @wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
@@ -67,11 +67,12 @@ def _clone_from_github(
 ) -> GitRepo:
     if access_token:
         parsed = urlparse(remote_url)
+        access_token = quote(access_token, safe="")
 
         remote_url = urlunparse(
             (
                 parsed.scheme,
-                f"{quote(access_token, safe="")}@{parsed.netloc}",
+                f"{access_token}@{parsed.netloc}",
                 parsed.path,
                 "",
                 "",
@@ -100,11 +101,12 @@ def _clone_from_bitbucket(
             if access_token.startswith("ATCTT")
             else "x-token-auth"
         )
+        access_token = quote(access_token, safe="")
 
         remote_url = urlunparse(
             (
                 parsed.scheme,
-                f"{auth_scheme}:{quote(access_token, safe="")}@{parsed.netloc}",
+                f"{auth_scheme}:{access_token}@{parsed.netloc}",
                 parsed.path,
                 "",
                 "",
