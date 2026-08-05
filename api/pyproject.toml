@@ -29,6 +29,7 @@ websockets = ">=11.0.3"
 azure-identity = ">=1.12.0"
 azure-core = ">=1.24.0"
 anthropic = "^0.117.1"
+gitpython = "^3.1.58"
 
 
 [build-system]
