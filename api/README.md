@@ -153,8 +153,7 @@ Streams an AI-generated response about a GitHub repository.
       "role": "user",
       "content": "What does this repository do?"
     }
-  ],
-  "filePath": "optional/path/to/file.py"  // Optional
+  ]
 }
 ```
 
