@@ -4,7 +4,7 @@ from functools import wraps
 from collections.abc import Callable
 from urllib.parse import quote, urlparse, urlunparse
 
-from git import Repo as GitRepo, GIT_OK
+from git import Repo as GitRepo, GIT_OK, GitCommandError
 
 from api.logger import get_logger
 from api.utils import deepwiki_root
@@ -20,8 +20,10 @@ def _exception_cleanup(func: Callable) -> Callable:
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except subprocess.CalledProcessError as e:
-            err_msg = e.stderr.decode("utf-8")
+        except (subprocess.CalledProcessError, GitCommandError) as e:
+            err_msg: str | bytes = e.stderr
+            if isinstance(err_msg, bytes):
+                err_msg = err_msg.decode("utf-8")
             token = kwargs.get("access_token", None)
             if token:
                 token_mask = "***TOKEN***"
