@@ -27,7 +27,7 @@ def _exception_cleanup(func: Callable) -> Callable:
             token = kwargs.get("access_token", None)
             if token:
                 token_mask = "***TOKEN***"
-                err_msg.replace(token, token_mask)
+                err_msg = err_msg.replace(token, token_mask)
                 encoded_token = quote(token, safe="")
                 err_msg = err_msg.replace(encoded_token, token_mask)
             raise ValueError(err_msg)
