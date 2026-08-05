@@ -39,6 +39,7 @@ def _clone_from_gitlab(
     local_path: str,
     *,
     access_token: str | None = None,
+    **kwargs,
 ) -> GitRepo:
     if access_token:
         parsed = urlparse(remote_url)
@@ -53,8 +54,7 @@ def _clone_from_gitlab(
                 "",
             )
         )
-
-    return GitRepo.clone_from(url=remote_url, to_path=local_path)
+    return GitRepo.clone_from(url=remote_url, to_path=local_path, **kwargs)
 
 
 @_exception_cleanup
@@ -63,6 +63,7 @@ def _clone_from_github(
     local_path: str,
     *,
     access_token: str | None = None,
+    **kwargs,
 ) -> GitRepo:
     if access_token:
         parsed = urlparse(remote_url)
@@ -77,8 +78,7 @@ def _clone_from_github(
                 "",
             )
         )
-
-    return GitRepo.clone_from(url=remote_url, to_path=local_path)
+    return GitRepo.clone_from(url=remote_url, to_path=local_path, **kwargs)
 
 
 @_exception_cleanup
@@ -87,6 +87,7 @@ def _clone_from_bitbucket(
     local_path: str,
     *,
     access_token: str | None = None,
+    **kwargs,
 ) -> GitRepo:
     if access_token:
         parsed = urlparse(remote_url)
@@ -110,7 +111,7 @@ def _clone_from_bitbucket(
                 "",
             )
         )
-    return GitRepo.clone_from(url=remote_url, to_path=local_path)
+    return GitRepo.clone_from(url=remote_url, to_path=local_path, **kwargs)
 
 
 def _path_is_url(path: str) -> bool:
@@ -190,26 +191,21 @@ class Repo:
             if not GIT_OK:
                 raise RuntimeError("Missing `git` in current environment")
 
+            kwargs = {
+                "remote_url": self.repo_url,
+                "local_path": self.save_path,
+                "access_token": self.access_token,
+                "multi_options": ["--depth=1", "--single-branch"],
+            }
+
             if self.repo_type == "github":
-                _clone_from_github(
-                    remote_url=self.repo_url,
-                    local_path=self.save_path,
-                    access_token=self.access_token,
-                )
+                _clone_from_github(**kwargs)
 
             elif self.repo_type == "gitlab":
-                _clone_from_gitlab(
-                    remote_url=self.repo_url,
-                    local_path=self.save_path,
-                    access_token=self.access_token,
-                )
+                _clone_from_gitlab(**kwargs)
 
             elif self.repo_type == "bitbucket":
-                _clone_from_bitbucket(
-                    remote_url=self.repo_url,
-                    local_path=self.save_path,
-                    access_token=self.access_token,
-                )
+                _clone_from_bitbucket(**kwargs)
             else:
                 raise NotImplementedError(f"Unknown repo type: {self.repo_type}")
 
