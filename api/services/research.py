@@ -146,7 +146,6 @@ async def research_chat(
 
     if not input_too_large:
         try:
-            # If filePath exists, modify the query for RAG to focus on the file
             rag_query = query
             # Try to perform RAG retrieval
             try:
