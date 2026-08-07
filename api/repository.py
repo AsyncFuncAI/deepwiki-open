@@ -45,11 +45,12 @@ def _clone_from_gitlab(
 ) -> GitRepo:
     if access_token:
         parsed = urlparse(remote_url)
+        access_token = quote(access_token, safe="")
 
         remote_url = urlunparse(
             (
                 parsed.scheme,
-                f"oauth2:{quote(access_token, safe="")}@{parsed.netloc}",
+                f"oauth2:{access_token}@{parsed.netloc}",
                 parsed.path,
                 "",
                 "",
@@ -69,7 +70,6 @@ def _clone_from_github(
 ) -> GitRepo:
     if access_token:
         parsed = urlparse(remote_url)
-        access_token = quote(access_token, safe="")
 
         remote_url = urlunparse(
             (
@@ -224,3 +224,6 @@ class Repo:
     @property
     def downloaded(self) -> bool:
         return os.path.exists(self.save_path) and bool(os.listdir(self.save_path))
+
+    def __repr__(self) -> str:
+        return f"{self.repo_type}: {self.name}"
