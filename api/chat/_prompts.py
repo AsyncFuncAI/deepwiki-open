@@ -7,8 +7,6 @@ def prompt_builder(
     system_prompt: str,
     query: str,
     conversation_history: str | None = None,
-    file_path: str | None = None,
-    file_content: str | None = None,
     context: str = "",
     simplify: bool = False,
 ) -> str:
@@ -17,9 +15,6 @@ def prompt_builder(
         prompt += (
             f"<conversation_history>\n{conversation_history}</conversation_history>\n\n"
         )
-
-    if file_path and file_content:
-        prompt += f'<currentFileContent path="{file_path}">\n{file_content}\n</currentFileContent>\n\n'
 
     if not simplify:
         if context.strip():

@@ -18,10 +18,6 @@ class ChatCompletionRequest(RepoRequestBase):
     """
 
     messages: list[ChatMessage] = Field(..., description="List of chat messages")
-    filePath: str | None = Field(
-        None,
-        description="Optional path to a file in the repository to include in the prompt",
-    )
     research_iteration: int = Field(
         default=1,
         ge=1,

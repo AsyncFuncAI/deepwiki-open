@@ -12,7 +12,7 @@ from api.prompts import (
     SIMPLE_CHAT_SYSTEM_PROMPT,
 )
 from api.rag import RAG, count_tokens, repo_index_exist
-from api.repository import Repo, get_repo_content
+from api.repository import Repo
 from api.schemas.base import RepoRequestBase
 from api.schemas import ChatCompletionRequest
 
@@ -146,13 +146,7 @@ async def research_chat(
 
     if not input_too_large:
         try:
-            # If filePath exists, modify the query for RAG to focus on the file
             rag_query = query
-            if request.filePath:
-                # Use the file path to get relevant context about the file
-                rag_query = f"Contexts related to {request.filePath}"
-                logger.info(f"Modified RAG query to focus on file: {request.filePath}")
-
             # Try to perform RAG retrieval
             try:
                 # This will use the actual RAG implementation
@@ -254,22 +248,6 @@ async def research_chat(
             language_name=language_name,
         )
 
-    # Fetch file content if provided
-    file_content = ""
-    if request.filePath:
-        try:
-            file_content = await asyncio.to_thread(
-                get_repo_content,
-                repo_url=request.repo_url,
-                file_path=request.filePath,
-                repo_type=request.type,
-                access_token=request.token,
-            )
-            logger.info(f"Successfully retrieved content for file: {request.filePath}")
-        except Exception as e:
-            logger.error(f"Error retrieving file content: {str(e)}")
-            # Continue without file content if there's an error
-
     # Format conversation history
     conversation_history = ""
     for turn_id, turn in rag.memory().items():
@@ -320,8 +298,6 @@ async def research_chat(
         "system_prompt": system_prompt,
         "query": query,
         "conversation_history": conversation_history,
-        "file_path": request.filePath,
-        "file_content": file_content,
         "context": context_text,
     }
 
