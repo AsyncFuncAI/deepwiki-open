@@ -139,6 +139,43 @@ def _parse_sections(root: ET.Element) -> tuple[list[WikiSection], list[str]]:
     return sections, root_sections
 
 
+def _first_group(pattern: str, text: str) -> str:
+    """First capture group of `pattern` in `text`, or '' if no match."""
+    m = re.search(pattern, text)
+    return m.group(1).strip() if m else ""
+
+
+def _sections_via_regex(xml_text: str) -> tuple[list[WikiSection], list[str]]:
+    """Recover complete <section>...</section> blocks when strict XML parsing
+    fails (e.g. a truncated response). Mirrors _parse_sections."""
+    sections: list[WikiSection] = []
+    referenced: set[str] = set()
+    for i, block in enumerate(re.findall(r"<section\b[\s\S]*?</section>", xml_text)):
+        sid = re.search(r'<section\s+id="([^"]+)"', block)
+        title = re.search(r"<title>([\s\S]*?)</title>", block)
+        page_refs = [
+            m.strip()
+            for m in re.findall(r"<page_ref>([\s\S]*?)</page_ref>", block)
+            if m.strip()
+        ]
+        subs = [
+            m.strip()
+            for m in re.findall(r"<section_ref>([\s\S]*?)</section_ref>", block)
+            if m.strip()
+        ]
+        sections.append(
+            WikiSection(
+                id=sid.group(1) if sid else f"section-{i + 1}",
+                title=title.group(1).strip() if title else "",
+                pages=page_refs,
+                subsections=subs or None,
+            )
+        )
+        referenced.update(subs)
+    root_sections = [s.id for s in sections if s.id not in referenced]
+    return sections, root_sections
+
+
 def parse_wiki_structure(text: str, comprehensive: bool) -> WikiStructureModel:
     """Parse the LLM's XML response into a WikiStructureModel.
 
@@ -151,9 +188,21 @@ def parse_wiki_structure(text: str, comprehensive: bool) -> WikiStructureModel:
     text = re.sub(r"```\s*$", "", text)
 
     match = re.search(r"<wiki_structure>[\s\S]*?</wiki_structure>", text)
-    if not match:
-        raise ValueError("No valid <wiki_structure> XML found in response")
-    xml_text = match.group(0)
+    if match:
+        xml_text = match.group(0)
+    else:
+        # Truncated response: the model hit its output-token limit before
+        # emitting </wiki_structure>. Salvage from the opening tag to end-of-text
+        # (plus a synthetic close) so the regex fallbacks below can still recover
+        # the complete <section>/<page> blocks instead of failing the whole task.
+        open_match = re.search(r"<wiki_structure>[\s\S]*", text)
+        if not open_match:
+            raise ValueError("No valid <wiki_structure> XML found in response")
+        logger.warning(
+            "Response appears truncated (missing </wiki_structure>); "
+            "salvaging complete blocks."
+        )
+        xml_text = f"{open_match.group(0)}\n</wiki_structure>"
 
     # Strip control chars, then escape bare '&' that are not valid XML entities.
     xml_text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", xml_text)
@@ -167,22 +216,29 @@ def parse_wiki_structure(text: str, comprehensive: bool) -> WikiStructureModel:
     except ET.ParseError as e:
         logger.warning("Strict XML parse failed, using regex fallback: %s", e)
 
-    title = (root.findtext("title") if root is not None else None) or ""
-    description = (root.findtext("description") if root is not None else None) or ""
+    if root is not None:
+        title = root.findtext("title") or ""
+        description = root.findtext("description") or ""
+        pages = [_page_from_element(el, i) for i, el in enumerate(root.iter("page"))]
+    else:
+        # Strict parse failed (malformed / truncated): recover the header via
+        # regex. The wiki-level <title>/<description> are emitted first, so the
+        # first match is the right one (page-level ones come later).
+        title = _first_group(r"<title>([\s\S]*?)</title>", xml_text)
+        description = _first_group(r"<description>([\s\S]*?)</description>", xml_text)
+        pages = []
 
-    pages = (
-        [_page_from_element(el, i) for i, el in enumerate(root.iter("page"))]
-        if root is not None
-        else []
-    )
     if not pages:
         logger.warning("XML parsing yielded no pages; using regex fallback")
         pages = _pages_via_regex(xml_text)
 
     sections: list[WikiSection] = []
     root_sections: list[str] = []
-    if comprehensive and root is not None:
-        sections, root_sections = _parse_sections(root)
+    if comprehensive:
+        if root is not None:
+            sections, root_sections = _parse_sections(root)
+        else:
+            sections, root_sections = _sections_via_regex(xml_text)
 
     return WikiStructureModel(
         id="wiki",
