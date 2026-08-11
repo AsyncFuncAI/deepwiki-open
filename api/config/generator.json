@@ -113,6 +113,34 @@
         }
       }
     },
+    "orcarouter": {
+      "default_model": "openai/gpt-5.5",
+      "supportsCustomModel": true,
+      "models": {
+        "openai/gpt-5.5": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "openai/gpt-5-nano": {
+          "temperature": 1.0
+        },
+        "openai/gpt-5-mini": {
+          "temperature": 1.0
+        },
+        "openai/gpt-4o": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "openai/gpt-4.1": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "anthropic/claude-sonnet-4.5": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        }
+      }
+    },
     "ollama": {
       "default_model": "qwen3:1.7b",
       "supportsCustomModel": true,
