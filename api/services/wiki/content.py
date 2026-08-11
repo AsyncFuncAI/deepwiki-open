@@ -9,7 +9,6 @@ into real repository links, and normalizes the "Relevant source files"
 
 import re
 from dataclasses import dataclass
-from urllib.parse import urlparse
 
 
 @dataclass
@@ -24,19 +23,15 @@ class RepoUrlContext:
 def generate_file_url(file_path: str, ctx: RepoUrlContext) -> str:
     """Build a host-specific web URL for a repository-relative file path.
 
-    Returns the bare path unchanged for local repos or unresolved hosts.
+    Returns the bare path unchanged for local repos, a missing repo url, or an unknown repo type.
     """
     if ctx.type == "local" or not ctx.repo_url:
         return file_path
-    try:
-        hostname = (urlparse(ctx.repo_url).hostname or "").lower()
-    except ValueError:
-        return file_path
-    if "github" in hostname:
+    if ctx.type == "github":
         return f"{ctx.repo_url}/blob/{ctx.default_branch}/{file_path}"
-    if "gitlab" in hostname:
+    if ctx.type == "gitlab":
         return f"{ctx.repo_url}/-/blob/{ctx.default_branch}/{file_path}"
-    if "bitbucket" in hostname:
+    if ctx.type == "bitbucket":
         return f"{ctx.repo_url}/src/{ctx.default_branch}/{file_path}"
     return file_path
 
@@ -46,19 +41,15 @@ def _escape_label(s: str) -> str:
     return re.sub(r"([\[\]])", r"\\\1", s)
 
 
-def _line_anchor(url: str, start: str | None, end: str | None) -> str:
+def _line_anchor(repo_type: str, start: str | None, end: str | None) -> str:
     """Host-specific line anchor for an already-resolved file URL."""
     if not start:
         return ""
-    try:
-        hostname = (urlparse(url).hostname or "").lower()
-    except ValueError:
-        hostname = ""
-    if "github" in hostname:
+    if repo_type == "github":
         return f"#L{start}-L{end}" if end else f"#L{start}"
-    if "gitlab" in hostname:
+    if repo_type == "gitlab":
         return f"#L{start}-{end}" if end else f"#L{start}"
-    if "bitbucket" in hostname:
+    if repo_type == "bitbucket":
         return f"#lines-{start}:{end}" if end else f"#lines-{start}"
     return ""
 
@@ -71,7 +62,7 @@ def _citation_link(
     if url == path:  # local repo / unresolved host -> no web URL
         return None
     line_part = (f":{start}-{end}" if end else f":{start}") if start else ""
-    anchor = _line_anchor(url, start, end)
+    anchor = _line_anchor(ctx.type, start, end)
     return f"[{_escape_label(path)}{line_part}]({url}{anchor})"
 
 
