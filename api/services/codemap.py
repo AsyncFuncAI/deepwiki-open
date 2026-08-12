@@ -22,6 +22,7 @@ from api.logger import get_logger
 from api.prompts import CODEMAP_ENRICH_PROMPT, CODEMAP_SKELETON_PROMPT
 from api.rag import RAG
 from api.schemas import CodeMap, CodeMapRequest
+from api.repository import Repo
 
 logger = get_logger(__name__)
 
@@ -148,24 +149,9 @@ def _format_context(documents: list) -> str:
     return "\n\n" + ("-" * 10) + "\n\n".join(context_parts)
 
 
-def local_repo_dir(repo_url: str, repo_type: str | None) -> str:
-    """Resolve the on-disk directory of a cloned/local repository."""
-    from adalflow.utils import get_adalflow_default_root_path
-
-    repo_url = repo_url.strip()
-    if repo_url.startswith("http://") or repo_url.startswith("https://"):
-        parts = repo_url.rstrip("/").split("/")
-        if repo_type in ("github", "gitlab", "bitbucket") and len(parts) >= 5:
-            name = f"{parts[-2]}_{parts[-1].replace('.git', '')}"
-        else:
-            name = parts[-1].replace(".git", "")
-        return os.path.join(get_adalflow_default_root_path(), "repos", name)
-    return repo_url  # already a local path
-
-
 def read_repo_file(repo_url: str, repo_type: str | None, file_path: str) -> str:
     """Read a file from the cloned/local repository, guarding against traversal."""
-    repo_dir = os.path.realpath(local_repo_dir(repo_url, repo_type))
+    repo_dir = os.path.realpath(Repo(repo_url=repo_url, repo_type=repo_type).save_path)
     target = os.path.realpath(os.path.join(repo_dir, file_path))
     if os.path.commonpath([repo_dir, target]) != repo_dir:
         raise ValueError("Resolved path escapes the repository directory")
