@@ -252,7 +252,7 @@ deepwiki/
 
 ## ⭐ 星标历史
 
-[![星标历史图表](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
+[![星标历史图表](https://star-history.dera.page/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.dera.page/#AsyncFuncAI/deepwiki-open&Date)
 
 ## 🤖 基于提供者的模型选择系统
 

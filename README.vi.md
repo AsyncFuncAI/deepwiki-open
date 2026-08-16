@@ -423,4 +423,4 @@ Dự án này được cấp phép theo Giấy phép MIT - xem file [LICENSE](LI
 
 ## ⭐ Lịch sử
 
-[![Biểu đồ lịch sử](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
+[![Biểu đồ lịch sử](https://star-history.dera.page/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.dera.page/#AsyncFuncAI/deepwiki-open&Date)
