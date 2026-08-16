@@ -447,4 +447,4 @@ _DeepWiki の動作を見る！_
 
 ## ⭐ スター履歴
 
-[![スター履歴チャート](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
+[![スター履歴チャート](https://star-history.dera.page/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.dera.page/#AsyncFuncAI/deepwiki-open&Date)

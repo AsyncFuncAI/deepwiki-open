@@ -605,4 +605,4 @@ DeepWiki 支援多個 AI 模型提供商：
 
 ## ⭐ Star 歷史
 
-[![Star 歷史圖表](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
+[![Star 歷史圖表](https://star-history.dera.page/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.dera.page/#AsyncFuncAI/deepwiki-open&Date)

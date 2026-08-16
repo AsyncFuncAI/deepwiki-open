@@ -510,4 +510,4 @@ docker build --build-arg CUSTOM_CERT_DIR=certs .
 
 ## ⭐ История звёзд
 
-[![График звёзд](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
+[![График звёзд](https://star-history.dera.page/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.dera.page/#AsyncFuncAI/deepwiki-open&Date)

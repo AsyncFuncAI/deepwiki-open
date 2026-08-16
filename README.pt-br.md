@@ -511,4 +511,4 @@ Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICE
 
 ## ⭐ Histórico de Estrelas
 
-[![Gráfico de Histórico de Estrelas](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
+[![Gráfico de Histórico de Estrelas](https://star-history.dera.page/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.dera.page/#AsyncFuncAI/deepwiki-open&Date)
