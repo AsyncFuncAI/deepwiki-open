@@ -786,11 +786,11 @@ class DatabaseManager:
                     if "." in host or host == "localhost":
                         path_parts = path_parts[1:]
 
-            if len(path_parts) >= 2:
+            if path_parts:
                 path_parts[-1] = strip_git_suffix(path_parts[-1])
                 repo_name = "_".join(path_parts)
             else:
-                repo_name = strip_git_suffix(path_parts[-1]) if path_parts else ""
+                repo_name = ""
         else:
             url_parts = repo_url_or_path.split('/')
             repo_name = strip_git_suffix(url_parts[-1])
@@ -832,7 +832,7 @@ class DatabaseManager:
                 else:
                     logger.info(f"Repository already exists at {save_repo_dir}. Using existing repository.")
             else:  # local path
-                repo_name = os.path.basename(repo_url_or_path)
+                repo_name = self._extract_repo_name_from_url(repo_url_or_path, repo_type)
                 save_repo_dir = repo_url_or_path
 
             save_db_file = os.path.join(root_path, "databases", f"{repo_name}.pkl")
