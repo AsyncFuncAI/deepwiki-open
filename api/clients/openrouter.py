@@ -145,7 +145,16 @@ class OpenRouterClient(ModelClient):
                 log.info(
                     f"Making async OpenRouter API call to {self.async_client['base_url']}/chat/completions"
                 )
-                log.info(f"Request body: {api_kwargs}")
+                # Do not log the full request body: it carries repository
+                # source and conversation content. Log only sizing/model
+                # metadata, which is all that's needed to debug call shape.
+                messages = api_kwargs.get("messages", [])
+                log.info(
+                    "Request: model=%s messages=%d chars=%d",
+                    api_kwargs.get("model"),
+                    len(messages),
+                    sum(len(str(m.get("content", ""))) for m in messages),
+                )
 
                 async with aiohttp.ClientSession() as session:
                     try:
@@ -169,7 +178,17 @@ class OpenRouterClient(ModelClient):
 
                             # Get the full response
                             data = await response.json()
-                            log.info(f"Received response from OpenRouter: {data}")
+                            # Do not log the full response: it carries the
+                            # generated content (which may echo repository
+                            # source). Log only status/size/usage metadata.
+                            usage = data.get("usage", {})
+                            log.info(
+                                "Response: status=%s choices=%d prompt_tokens=%s completion_tokens=%s",
+                                response.status,
+                                len(data.get("choices", [])),
+                                usage.get("prompt_tokens"),
+                                usage.get("completion_tokens"),
+                            )
 
                             # Create a generator that yields the content
                             async def content_generator():
