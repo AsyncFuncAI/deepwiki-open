@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "dompurify": "^3.3.3",
     "mermaid": "^11.4.1",
     "next": "^15.5.22",
     "next-intl": "^4.1.0",
@@ -27,6 +28,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^0.1.0",
     "@tailwindcss/postcss": "^4",
+    "@types/dompurify": "^3.2.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

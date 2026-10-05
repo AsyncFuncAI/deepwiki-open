@@ -3,6 +3,7 @@
 import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import DOMPurify from 'dompurify';
 import { FaArrowLeft, FaSync, FaDownload, FaArrowRight, FaArrowUp, FaTimes } from 'react-icons/fa';
 import ThemeToggle from '@/components/theme-toggle';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -431,7 +432,10 @@ Give me the numbered list with brief descriptions for each slide. Be creative bu
       let slideCounter = 1;
 
       for (const slideMatch of slideMatches) {
-        const slideTitle = slideMatch[1].split(':')[0].trim();
+        // Plain-text title: strip all tags rather than only sanitizing, since
+        // this is interpolated into an <h1> with no further escaping and is
+        // derived from the model's (repository-influenced) planning output.
+        const slideTitle = DOMPurify.sanitize(slideMatch[1].split(':')[0].trim(), { ALLOWED_TAGS: [] });
         const slideDescription = slideMatch[1].includes(':') ? slideMatch[1].split(':')[1].trim() : '';
 
         setLoadingMessage(`Generating slide ${slideCounter} of ${slideMatches.length}: ${slideTitle}`);
@@ -678,6 +682,15 @@ Please return ONLY the HTML with no markdown formatting or code blocks. Just the
           console.log("Using raw content as HTML");
           slideHtml = slideContent;
         }
+
+        // Sanitize before this model-derived content ever reaches
+        // dangerouslySetInnerHTML. Repository content can steer what the
+        // model outputs here, so it must be treated as untrusted: strip
+        // <script> tags, inline event-handler attributes (onerror, onclick,
+        // ...), and javascript: URIs. This runs before the default-styling
+        // wrapper below so the wrapper's OWN trusted script (mermaid/Chart.js
+        // init, added by this file, not the model) is unaffected.
+        slideHtml = DOMPurify.sanitize(slideHtml);
 
         // Add default styling if not present
         if (!slideHtml.includes('<style>') && !slideHtml.includes('<link rel="stylesheet"')) {
