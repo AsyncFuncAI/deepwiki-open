@@ -34,6 +34,12 @@ def _get_rag_semaphore() -> asyncio.Semaphore:
     return _RAG_PREPARE_SEMAPHORE
 
 
+def _with_default_tag(model_name: str) -> str:
+    """Ollama lists an untagged model as '<name>:latest', so 'nomic-embed-text' and
+    'nomic-embed-text:latest' are the same model. A ':' before the last '/' is a registry port."""
+    return model_name if ":" in model_name.rsplit("/", 1)[-1] else f"{model_name}:latest"
+
+
 def check_ollama_model_exists(model_name: str, ollama_host: str | None = None) -> bool:
     """
     Check if an Ollama model exists before attempting to use it.
@@ -54,7 +60,8 @@ def check_ollama_model_exists(model_name: str, ollama_host: str | None = None) -
         # Remove /api prefix if present and add it back
         ollama_host = ollama_host.removesuffix("/api")
         ret: ollama.ListResponse = ollama.Client(host=ollama_host, timeout=5).list()
-        is_available = any(model_name == model.model for model in ret.models)
+        wanted = _with_default_tag(model_name)
+        is_available = any(wanted == _with_default_tag(model.model) for model in ret.models)
         if is_available:
             logger.info("Ollama model '%s' is available", model_name)
         else:
