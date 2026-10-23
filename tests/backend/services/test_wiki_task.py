@@ -5,6 +5,7 @@ import pytest
 import api.services.wiki.tasks as wt
 from api.schemas import WikiPage, WikiStructureModel, WikiTaskRequest
 from api.services.wiki.tasks import (
+    TaskQueueFullError,
     TaskRegistry,
     TaskStatus,
     WikiTask,
@@ -264,3 +265,49 @@ async def test_public_dict_hides_token():
     assert "token" not in d
     assert "SECRET" not in str(d)
     assert d["name"] == "o/r" and d["status"] == "pending"
+
+
+# --------------------------------------------------------------------------- #
+# admission cap (unbounded-task-admission DoS regression)
+# --------------------------------------------------------------------------- #
+async def test_submit_rejects_once_max_pending_reached(monkeypatch):
+    """Regression: varying repo_url used to admit an unbounded number of
+    pending tasks into the registry before any semaphore applied. A small
+    max_pending must cap distinct non-terminal tasks, not just concurrent
+    execution."""
+    monkeypatch.setattr(wt, "wiki_cache_exists", lambda *p, **kwargs: False)
+
+    async def never_finishes(task):
+        await asyncio.sleep(10)
+        return True
+
+    registry = TaskRegistry(max_concurrent=5, max_pending=2)
+
+    await registry.submit(_req(owner="o", repo="r1"), async_func=never_finishes)
+    await registry.submit(_req(owner="o", repo="r2"), async_func=never_finishes)
+
+    with pytest.raises(TaskQueueFullError):
+        await registry.submit(_req(owner="o", repo="r3"), async_func=never_finishes)
+
+    for task in list(registry._tasks.values()):
+        task.task.cancel()
+
+
+async def test_submit_joining_an_existing_task_does_not_count_against_cap():
+    """Re-submitting the SAME repo_key (join) must not be blocked by the cap
+    even when it is already at max_pending, since it does not add a new
+    registry entry."""
+    registry = TaskRegistry(max_concurrent=5, max_pending=1)
+
+    async def never_finishes(task):
+        await asyncio.sleep(10)
+        return True
+
+    first = await registry.submit(_req(owner="o", repo="r1"), async_func=never_finishes)
+    assert first.created is True
+
+    joined = await registry.submit(_req(owner="o", repo="r1"), async_func=never_finishes)
+    assert joined.joined is True
+
+    for task in list(registry._tasks.values()):
+        task.task.cancel()

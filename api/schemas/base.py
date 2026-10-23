@@ -29,6 +29,10 @@ class RepoRequestBase(BaseModel):
         default_factory=list,
         description="List or newline-separated string of file patterns to include exclusively",
     )
+    authorization_code: str | None = Field(
+        None,
+        description="Authorization code, required on every request when WIKI_AUTH_MODE is enabled",
+    )
 
     @field_validator(
         "excluded_dirs",
