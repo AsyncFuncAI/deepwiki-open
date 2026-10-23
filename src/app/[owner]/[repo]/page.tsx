@@ -107,8 +107,13 @@ export default function RepoWikiPage() {
   const owner = params.owner as string;
   const repo = params.repo as string;
 
-  // Extract tokens from search params
-  const token = searchParams.get('token') || '';
+  // Extract the access token from search params once, on first render only
+  // (via useRef), then scrub it from the visible URL below. The token must
+  // survive that scrub for the rest of this page's lifetime, so later code
+  // reads this captured copy rather than re-reading searchParams, which
+  // would otherwise lose it the moment the URL is scrubbed.
+  const tokenRef = useRef(searchParams.get('token') || '');
+  const token = tokenRef.current;
   const localPath = searchParams.get('local_path') ? decodeURIComponent(searchParams.get('local_path') || '') : undefined;
   const repoUrl = searchParams.get('repo_url') ? decodeURIComponent(searchParams.get('repo_url') || '') : undefined;
   const providerParam = searchParams.get('provider') || '';
@@ -215,6 +220,18 @@ export default function RepoWikiPage() {
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
   // Memoize repo info to avoid triggering updates in callbacks
+
+  // Scrub the access token from the visible URL on mount. It was only ever
+  // needed to get here (see tokenRef above); leaving it in the URL exposes
+  // it via browser history, shared links, and same-origin script access.
+  useEffect(() => {
+    if (searchParams.get('token')) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('token');
+      window.history.replaceState({}, '', url.toString());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Add useEffect to handle scroll reset
   useEffect(() => {
@@ -1169,7 +1186,6 @@ export default function RepoWikiPage() {
                   isOpen={codeViewerOpen}
                   repoUrl={getRepoUrl(effectiveRepoInfo)}
                   repoType={effectiveRepoInfo.type}
-                  token={effectiveRepoInfo.token ?? undefined}
                   files={codeViewerFiles}
                   target={codeViewerTarget}
                   onSelectFile={(f) =>
