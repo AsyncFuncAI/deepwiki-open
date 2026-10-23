@@ -60,3 +60,52 @@ def test_iterate_files_excluded_dirs(exclude_test_config, tmp_path, excluded_dir
     make_repo(tmp_path)
     files = set(iterate_files(root_dir=str(tmp_path), excluded_dirs=excluded_dirs))
     assert files == {"README.md", "CHANGELOG.md"}
+
+
+@pytest.mark.parametrize(
+    "directory",
+    ["test/reference_data", "./test/reference_data/", r"test\reference_data"],
+)
+def test_iterate_files_excludes_nested_directory(exclude_test_config, tmp_path, directory):
+    for relative_path in [
+        "test/reference_data/sample.py",
+        "test/reference_data/deep/nested.py",
+        "test/reference_data_backup/keep.py",
+        "other/reference_data/keep.py",
+        "test/keep.py",
+    ]:
+        path = tmp_path / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# fixture\n", encoding="utf-8")
+
+    files = set(iterate_files(str(tmp_path), excluded_dirs=[directory]))
+
+    assert files == {
+        "test/reference_data_backup/keep.py",
+        "other/reference_data/keep.py",
+        "test/keep.py",
+    }
+
+
+@pytest.mark.parametrize(
+    "directory",
+    ["test/reference_data", "./test/reference_data/", r"test\reference_data"],
+)
+def test_iterate_files_includes_nested_directory(exclude_test_config, tmp_path, directory):
+    for relative_path in [
+        "test/reference_data/sample.py",
+        "test/reference_data/deep/nested.py",
+        "test/reference_data_backup/keep.py",
+        "other/reference_data/keep.py",
+        "test/keep.py",
+    ]:
+        path = tmp_path / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# fixture\n", encoding="utf-8")
+
+    files = set(iterate_files(str(tmp_path), included_dirs=[directory]))
+
+    assert files == {
+        "test/reference_data/sample.py",
+        "test/reference_data/deep/nested.py",
+    }

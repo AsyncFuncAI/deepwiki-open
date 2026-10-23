@@ -431,13 +431,16 @@ def _should_process_file(
         file_path = Path(file_path)
     file_path_parts = file_path.resolve().parts
     file_name = file_path_parts[-1]
+    directory_path = "/" + "/".join(file_path_parts[:-1]) + "/"
 
     if use_inclusion:
         is_included = False
         if included_dirs:
             for included in included_dirs:
-                clean_included = included.removeprefix("./").rstrip("/")
-                if clean_included in file_path_parts:
+                clean_included = (
+                    included.replace("\\", "/").removeprefix("./").rstrip("/")
+                )
+                if clean_included and f"/{clean_included}/" in directory_path:
                     is_included = True
                     break
         if not is_included and included_files:
@@ -452,8 +455,8 @@ def _should_process_file(
     is_excluded = False
     if excluded_dirs:
         for excluded in excluded_dirs:
-            clean_excluded = excluded.removeprefix("./").rstrip("/")
-            if clean_excluded in file_path_parts:
+            clean_excluded = excluded.replace("\\", "/").removeprefix("./").rstrip("/")
+            if clean_excluded and f"/{clean_excluded}/" in directory_path:
                 is_excluded = True
                 break
     if not is_excluded and excluded_files:
