@@ -10,6 +10,7 @@ from adalflow.core.types import Document, List
 from api.config import (
     configs,
     get_embedder,
+    load_json_config,
     iterate_files,
 )
 from api.logger import get_logger
@@ -231,7 +232,8 @@ def prepare_data_pipeline(embedder_type: str = None, is_ollama_embedder: bool = 
     if embedder_type is None:
         embedder_type = get_embedder_type()
 
-    splitter = LineTrackingTextSplitter(**configs["text_splitter"])
+    splitter = _prepare_text_splitter(configs["text_splitter"])
+
     embedder_config = get_embedder_config()
 
     embedder = get_embedder(embedder_type=embedder_type)
@@ -243,6 +245,30 @@ def prepare_data_pipeline(embedder_type: str = None, is_ollama_embedder: bool = 
         splitter, embedder_transformer
     )  # sequential will chain together splitter and embedder
     return data_transformer
+
+
+def _prepare_text_splitter(splitter_config):
+    ast_enabled = os.environ.get("DEEPWIKI_AST_CHUNKING", "").lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if ast_enabled and splitter_config.get("split_by") != "ast":
+        ast_config = load_json_config("embedder.ast.json")
+        ast_splitter_config = ast_config.get("text_splitter")
+        if not ast_splitter_config:
+            raise ValueError(
+                "AST chunking is enabled but config/embedder.ast.json has no text_splitter"
+            )
+        splitter_config = ast_splitter_config
+
+    if splitter_config.get("split_by") == "ast":
+        from api.ast_integration import ASTTextSplitter
+
+        logger.info("Using AST-based document chunking")
+        return ASTTextSplitter(**splitter_config)
+    return LineTrackingTextSplitter(**splitter_config)
 
 
 def transform_documents_and_save_to_db(

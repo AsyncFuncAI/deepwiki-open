@@ -2,7 +2,6 @@
 
 # Build argument for custom certificates directory
 ARG CUSTOM_CERT_DIR="certs"
-
 FROM node:20-alpine3.22 AS node_base
 
 FROM node_base AS node_deps
@@ -35,6 +34,8 @@ RUN python -m pip install poetry==2.0.1 --no-cache-dir && \
 
 # Use Python 3.11 as final image
 FROM python:3.11-slim
+ARG AST_CHUNKING=false
+ENV DEEPWIKI_AST_CHUNKING=${AST_CHUNKING}
 
 # Set working directory
 WORKDIR /app
