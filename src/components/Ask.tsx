@@ -9,6 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import RepoInfo from '@/types/repoinfo';
 import getRepoUrl from '@/utils/getRepoUrl';
 import ModelSelectionModal from './ModelSelectionModal';
+import { createResearchSession } from '@/utils/researchSession';
 import {
   createChatWebSocket,
   closeWebSocket,
@@ -122,6 +123,13 @@ const Ask: React.FC<AskProps> = ({
   const [response, setResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [deepResearch, setDeepResearch] = useState(false);
+  const researchSessionRef = useRef<ReturnType<typeof createResearchSession> | null>(null);
+  if (!researchSessionRef.current) researchSessionRef.current = createResearchSession();
+  const [searchProvider, setSearchProvider] = useState<'default' | 'parallel' | 'disabled'>('default');
+  useEffect(() => {
+    const saved = localStorage.getItem('deepwiki.searchProvider');
+    if (saved === 'parallel' || saved === 'disabled') setSearchProvider(saved);
+  }, []);
 
   // Codemap state (a parallel flow to the normal/deep-research chat).
   const [codemapMode, setCodemapMode] = useState(false);
@@ -233,6 +241,7 @@ const Ask: React.FC<AskProps> = ({
   }, [provider, model]);
 
   const clearConversation = () => {
+    researchSessionRef.current?.reset();
     setQuestion('');
     setResponse('');
     setConversationHistory([]);
@@ -437,6 +446,8 @@ const Ask: React.FC<AskProps> = ({
         provider: selectedProvider,
         model: isCustomSelectedModel ? customSelectedModel : selectedModel,
         language: language,
+        search_session_id: researchSessionRef.current?.getId(),
+        search_provider: searchProvider === 'default' ? undefined : searchProvider,
         research_iteration: newIteration
       };
 
@@ -845,6 +856,8 @@ const Ask: React.FC<AskProps> = ({
         provider: selectedProvider,
         model: isCustomSelectedModel ? customSelectedModel : selectedModel,
         language: language,
+        search_session_id: deepResearch ? researchSessionRef.current?.getId() : undefined,
+        search_provider: searchProvider === 'default' ? undefined : searchProvider,
         research_iteration: deepResearch ? 1 : undefined
       };
 
@@ -1328,6 +1341,28 @@ const Ask: React.FC<AskProps> = ({
               )}
             </button>
           </div>
+
+          {deepResearch && (
+            <label className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+              Web documentation
+              <select
+                aria-label="Web documentation provider"
+                value={searchProvider}
+                disabled={isLoading}
+                onChange={event => {
+                  const value = event.target.value as 'default' | 'parallel' | 'disabled';
+                  setSearchProvider(value);
+                  localStorage.setItem('deepwiki.searchProvider', value);
+                }}
+                className="rounded border border-[var(--border-color)] bg-[var(--input-bg)] p-1"
+              >
+                <option value="default">Server default</option>
+                <option value="parallel">Parallel</option>
+                <option value="disabled">Disabled</option>
+              </select>
+              <span>Your question is sent to Parallel when enabled.</span>
+            </label>
+          )}
 
           {/* Chat mode selector (Fast / Deep Research / Codemap) */}
           <div className="mt-2 flex items-center gap-2">

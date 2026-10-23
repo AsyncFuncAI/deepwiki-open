@@ -196,3 +196,48 @@ All data is stored locally on your machine:
 - Generated wiki cache: `~/.adalflow/wikicache/`
 
 No cloud storage is used - everything runs on your computer!
+
+## Deep Research web documentation
+
+Deep Research supplements repository code with current package and API documentation
+from [Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp).
+Search uses Fast mode without an account or API key. The API sends the research
+question (up to 500 characters) to Parallel, then adds up to three source excerpts
+with URLs to the model's context. It fetches one result page only when search
+excerpts are empty. Repository retrieval remains the source for code behavior;
+normal chat, Codemap and wiki generation do not use this provider.
+
+In Ask's **Deep Research** mode, **Web documentation** selects the server default,
+Parallel, or Disabled. The choice is saved in this browser. Unconfigured servers
+use Parallel; set `DEEPWIKI_SEARCH_PROVIDER=disabled` to default to repository-only
+research. A request's explicit `search_provider` overrides this default.
+Set `DEEPWIKI_WEB_SEARCH_ALLOWED=false` to prevent all outbound documentation
+search, including explicit client selections. Keep web documentation disabled
+when the question contains information you do not want to send to that service.
+Repository access tokens, source files and conversation transcripts are not
+included in the search request.
+
+An optional `PARALLEL_API_KEY` supplies Bearer authentication for higher limits.
+Without it, the free anonymous endpoint is used. Calls have a 15-second total
+deadline and bounded response/context sizes. On failure, the response explicitly
+reports unavailable documentation and continues with repository evidence; it does
+not select another search provider.
+
+HTTP and WebSocket chat requests accept:
+
+```json
+{
+  "repo_url": "https://github.com/example/project",
+  "messages": [
+    {"role": "user", "content": "How does asyncio cancellation work here?", "mode": "deep_research"}
+  ],
+  "search_provider": "parallel",
+  "search_session_id": "e224162c-049f-4c85-a2c2-fbfb3ea6ac83"
+}
+```
+
+`search_provider` may be omitted to use the server default. `search_session_id`
+belongs to one conversation: generate a random UUID once and reuse it for
+follow-up requests, research iterations and retries. Start a new UUID on reset
+or a new conversation. Ask manages this automatically, including HTTP fallback.
+API requests omitting the ID are treated as separate standalone research runs.
