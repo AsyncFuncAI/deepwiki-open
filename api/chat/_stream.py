@@ -165,6 +165,8 @@ class _OpenAICompatStreamer(ChatStreamer):
         )
 
         async for chunk in response:
+            if getattr(chunk,"usage",None) is not None:
+                self.usage=chunk.usage.model_dump()
             if (
                 chunk.choices
                 and chunk.choices[0].delta is not None
@@ -190,6 +192,20 @@ class OpenAIChatStreamer(_OpenAICompatStreamer):
         from api.clients import OpenAIClient
 
         return OpenAIClient()
+
+
+class ClineChatStreamer(_OpenAICompatStreamer):
+    provider = "cline"
+    error_hint = "Check CLINE_API_KEY and CLINE_MODEL in .env."
+
+    def __init__(self, *, model: str, model_config: MODEL_CFG):
+        super().__init__(model=model,model_config=model_config)
+        self.model_kwargs["stream_options"]={"include_usage":True}
+
+    def _build_client(self):
+        from api.clients import ClineClient
+
+        return ClineClient()
 
 
 class AzureChatStreamer(_OpenAICompatStreamer):

@@ -1,6 +1,8 @@
 """Google AI Embeddings ModelClient integration."""
 
 import os
+import threading
+import time
 from typing import Any, Dict, Optional, Sequence
 
 import backoff
@@ -20,6 +22,24 @@ from google import generativeai as genai
 from api.logger import get_logger
 
 log = get_logger(__name__)
+_request_lock = threading.Lock()
+_last_request_at = 0.0
+
+
+def pace_embedding_request():
+    """Share request pacing across clients and saved index parts."""
+    global _last_request_at
+    interval = float(os.getenv("GOOGLE_EMBEDDING_MIN_INTERVAL_SECONDS", "0"))
+    if interval < 0:
+        raise ValueError("GOOGLE_EMBEDDING_MIN_INTERVAL_SECONDS must be nonnegative")
+    if not interval:
+        return
+    with _request_lock:
+        wait = max(0, _last_request_at + interval - time.monotonic())
+        if wait:
+            time.sleep(wait)
+        _last_request_at = time.monotonic()
+
 
 
 class GoogleEmbedderClient(ModelClient):
@@ -215,7 +235,8 @@ class GoogleEmbedderClient(ModelClient):
     @backoff.on_exception(
         backoff.expo,
         (Exception,),  # Google AI may raise various exceptions
-        max_time=5,
+        max_time=300,
+        max_value=60,
     )
     def call(self, api_kwargs: Dict = {}, model_type: ModelType = ModelType.UNDEFINED):
         """Call Google AI embedding API.
@@ -246,6 +267,7 @@ class GoogleEmbedderClient(ModelClient):
         log.info("Google AI Embeddings call kwargs (sanitized): %s", safe_log_kwargs)
 
         try:
+            pace_embedding_request()
             # Use embed_content for single text or batch embedding
             if "content" in api_kwargs:
                 # Single embedding

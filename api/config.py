@@ -1,4 +1,5 @@
 import json
+import fnmatch
 import os
 import re
 from pathlib import Path
@@ -12,6 +13,7 @@ from api.clients import (
     GoogleEmbedderClient,
     GoogleGenAIClient,
     LiteLLMClient,
+    ClineClient,
     OllamaClient,
     OpenAIClient,
     OpenRouterClient,
@@ -73,6 +75,7 @@ CLIENT_CLASSES = {
     GoogleEmbedderClient.__name__: GoogleEmbedderClient,
     OpenAIClient.__name__: OpenAIClient,
     LiteLLMClient.__name__: LiteLLMClient,
+    ClineClient.__name__: ClineClient,
     OpenRouterClient.__name__: OpenRouterClient,
     OllamaClient.__name__: OllamaClient,
     BedrockClient.__name__: BedrockClient,
@@ -86,6 +89,7 @@ _DEFAULT_PROVIDER_MAP = {
     "google": GoogleGenAIClient,
     "openai": OpenAIClient,
     "litellm": LiteLLMClient,
+    "cline": ClineClient,
     "openrouter": OpenRouterClient,
     "ollama": OllamaClient,
     "bedrock": BedrockClient,
@@ -157,6 +161,16 @@ def load_json_config(filename):
 def load_generator_config():
     generator_config = load_json_config("generator.json")
 
+    # Cline model IDs are selected in .env rather than hardcoded in JSON.
+    cline_model = os.getenv("CLINE_MODEL", "").strip()
+    generator_config.setdefault("providers", {})["cline"] = {
+        "default_model": cline_model,
+        "supportsCustomModel": True,
+        "models": {cline_model: {"temperature": 0.7}},
+    }
+    if provider := os.getenv("DEEPWIKI_PROVIDER", "").strip():
+        generator_config["default_provider"] = provider
+
     # Add client classes to each provider
     if "providers" in generator_config:
         for provider_id, provider_config in generator_config["providers"].items():
@@ -177,6 +191,11 @@ def load_generator_config():
 # Load embedder configuration
 def load_embedder_config():
     embedder_config = load_json_config("embedder.json")
+
+    # Google embedding model can be selected without editing tracked JSON.
+    google_model = os.getenv("GOOGLE_EMBEDDING_MODEL", "").strip()
+    if google_model and "embedder_google" in embedder_config:
+        embedder_config["embedder_google"].setdefault("model_kwargs", {})["model"] = google_model
 
     # Process client classes
     for key in ["embedder", "embedder_ollama", "embedder_google", "embedder_bedrock"]:
@@ -286,7 +305,21 @@ def get_embedder_type():
 
 # Load repository and file filters configuration
 def load_repo_config():
-    return load_json_config("repo.json")
+    config = load_json_config("repo.json")
+    for env_name, config_name in (("DEEPWIKI_SCAN_EXTENSIONS", "scan_extensions"),
+                                  ("DEEPWIKI_SCAN_FILENAMES", "scan_filenames"),
+                                  ("DEEPWIKI_EXTRA_CODE_EXTENSIONS", "extra_code_extensions"),
+                                  ("DEEPWIKI_CODE_FILENAMES", "code_filenames")):
+        if raw := os.getenv(env_name):
+            value = json.loads(raw)
+            if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+                raise ValueError(f"{env_name} must be a JSON list of strings")
+            if config_name == "scan_extensions":
+                if any(not item.startswith(".") or "/" in item or "*" in item for item in value):
+                    raise ValueError("DEEPWIKI_SCAN_EXTENSIONS must contain literal dotted extensions")
+                value = [item.lower() for item in value]
+            config[config_name] = value
+    return config
 
 
 # Load language configuration
@@ -352,7 +385,7 @@ if embedder_config:
 
 # Update repository configuration
 if repo_config:
-    for key in ["file_filters", "repository", "code_extensions", "doc_extensions"]:
+    for key in ["file_filters", "repository", "code_extensions", "doc_extensions", "extra_code_extensions", "code_filenames", "scan_extensions", "scan_filenames"]:
         if key in repo_config:
             configs[key] = repo_config[key]
 
@@ -361,7 +394,7 @@ if lang_config:
     configs["lang_config"] = lang_config
 
 
-def get_model_config(provider="google", model=None):
+def get_model_config(provider=None, model=None):
     """
     Get configuration for the specified provider and model
 
@@ -372,6 +405,7 @@ def get_model_config(provider="google", model=None):
     Returns:
         dict: Configuration containing model_client, model and other parameters
     """
+    provider = provider or os.getenv("DEEPWIKI_PROVIDER") or "google"
     # Get provider configuration
     if "providers" not in configs:
         raise ValueError("Provider configuration not loaded")
@@ -388,7 +422,7 @@ def get_model_config(provider="google", model=None):
     if not model:
         model = provider_config.get("default_model")
         if not model:
-            raise ValueError(f"No default model specified for provider '{provider}'")
+            raise ValueError(f"Set CLINE_MODEL in .env" if provider == "cline" else f"No default model specified for provider '{provider}'")
 
     # Get model parameters (if present)
     model_params = {}
@@ -501,18 +535,35 @@ def iterate_files(
 
     extensions = tuple(
         configs.get("code_extensions", []) + configs.get("doc_extensions", [])
+        + configs.get("extra_code_extensions", [])
     )
-
+    strict_types = "scan_extensions" in configs or "scan_filenames" in configs
+    if strict_types:
+        extensions = tuple(configs.get("scan_extensions", []))
+        filenames = configs.get("scan_filenames", [])
+    else:
+        filenames = configs.get("code_filenames", [])
     results: list[str] = []
-    for p in Path(root_dir).rglob("*"):
-        if not p.is_file():
-            continue
-        if extensions and p.suffix.lower() not in extensions:
-            continue
-        if _should_process_file(
-            p, use_inclusion, inc_dirs, inc_files, exc_dirs, exc_files
-        ):
-            results.append(os.path.relpath(p, root_dir).replace(os.sep, "/"))
+    # Prune metadata/build exclusions before traversing large installed trees.
+    def walk_error(error):
+        logger.warning("Skipping inaccessible directory: %s", error.filename)
+
+    for parent, dirs, files in os.walk(root_dir, followlinks=False, onerror=walk_error):
+        if not use_inclusion:
+            excluded_names = {name.removeprefix("./").rstrip("/") for name in exc_dirs}
+            dirs[:] = [name for name in dirs if name not in excluded_names]
+        for name in files:
+            p = Path(parent) / name
+            try:
+                matches_name = any(fnmatch.fnmatchcase(name, pattern) for pattern in filenames)
+                if (extensions or strict_types) and p.suffix.lower() not in extensions and not matches_name:
+                    continue
+                if not p.is_file():
+                    continue
+                if _should_process_file(p, use_inclusion, inc_dirs, inc_files, exc_dirs, exc_files):
+                    results.append(os.path.relpath(p, root_dir).replace(os.sep, "/"))
+            except OSError:
+                logger.warning("Skipping inaccessible file: %s", p)
     return results
 
 

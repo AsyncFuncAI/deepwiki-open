@@ -78,6 +78,8 @@ def read_all_documents(
     excluded_files: list[str] | None = None,
     included_dirs: list[str] | None = None,
     included_files: list[str] | None = None,
+    file_paths: list[str] | None = None,
+    full_source: bool = False,
 ):
     """
     Recursively reads all documents in a directory and its subdirectories.
@@ -107,23 +109,29 @@ def read_all_documents(
     code_extensions = configs.get("code_extensions", [])
 
     logger.info(f"Reading documents from {path}")
+    scan_root = Path(path).resolve()
 
     # Single source of truth for which files to process (see config.iterate_files).
-    for relative_path in iterate_files(
+    selected_paths = file_paths if file_paths is not None else iterate_files(
         path,
         excluded_dirs=excluded_dirs,
         excluded_files=excluded_files,
         included_dirs=included_dirs,
         included_files=included_files,
-    ):
+    )
+    for relative_path in selected_paths:
         file_path = Path(path) / relative_path
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            # A symlinked file must not expand an explicitly selected scan root.
+            if not file_path.resolve().is_relative_to(scan_root):
+                logger.warning("Skipping file outside scan root: %s", relative_path)
+                continue
+            with open(file_path, "r", encoding="utf-8", errors="replace" if full_source else "strict") as f:
                 content = f.read()
 
             # Check token count
             token_count = count_tokens(content, embedder_type)
-            if token_count > MAX_EMBEDDING_TOKENS * 10:
+            if not full_source and token_count > MAX_EMBEDDING_TOKENS * 10:
                 logger.warning(
                     f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit"
                 )
@@ -208,7 +216,7 @@ class LineTrackingTextSplitter(TextSplitter):
         return split_docs
 
 
-def prepare_data_pipeline(embedder_type: str = None, is_ollama_embedder: bool = None):
+def prepare_data_pipeline(embedder_type: str = None, is_ollama_embedder: bool = None, chunk_strategy: str = "token"):
     """
     Creates and returns the data transformation pipeline.
 
@@ -231,7 +239,13 @@ def prepare_data_pipeline(embedder_type: str = None, is_ollama_embedder: bool = 
     if embedder_type is None:
         embedder_type = get_embedder_type()
 
-    splitter = LineTrackingTextSplitter(**configs["text_splitter"])
+    if chunk_strategy == "syntax-v1":
+        from api.syntax_chunks import SyntaxTextSplitter
+        splitter = SyntaxTextSplitter(**configs["text_splitter"])
+    elif chunk_strategy == "token":
+        splitter = LineTrackingTextSplitter(**configs["text_splitter"])
+    else:
+        raise ValueError("Unknown document chunk strategy")
     embedder_config = get_embedder_config()
 
     embedder = get_embedder(embedder_type=embedder_type)
@@ -263,7 +277,10 @@ def transform_documents_and_save_to_db(
                                            If None, will be determined from configuration.
     """
     # Get the data transformer
-    data_transformer = prepare_data_pipeline(embedder_type, is_ollama_embedder)
+    strategies={(doc.meta_data or {}).get("chunk_strategy", "token") for doc in documents}
+    if len(strategies)>1:raise ValueError("Mixed document chunk strategies are not supported")
+    strategy=next(iter(strategies), "token")
+    data_transformer = prepare_data_pipeline(embedder_type, is_ollama_embedder) if strategy=="token" else prepare_data_pipeline(embedder_type, is_ollama_embedder, chunk_strategy=strategy)
 
     # Save the documents to a local database
     db = LocalDB()
@@ -280,7 +297,9 @@ class DatabaseManager:
     Manages the creation, loading, transformation, and persistence of LocalDB instances.
     """
 
-    def __init__(self):
+    def __init__(self, root_path: str | None = None):
+        # Headless projects can isolate their caches; API callers keep defaults.
+        self.root_path = root_path
         self.db = None
         self.repo_url_or_path = None
         self.repo_paths = None
@@ -361,6 +380,7 @@ class DatabaseManager:
                 repo_url=repo_url_or_path,
                 repo_type=repo_type,
                 access_token=access_token,
+                **({"root_path": self.root_path} if self.root_path is not None else {}),
             )
             logger.info(f"Extracted repo name: {repo.name}")
             if not repo.downloaded:

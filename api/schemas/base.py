@@ -1,3 +1,4 @@
+import os
 from typing import Literal
 from urllib.parse import unquote
 
@@ -10,7 +11,7 @@ class RepoRequestBase(BaseModel):
     repo_url: str = Field(..., description="URL or local path of the repository")
     type: RepoType = Field("github", description="Repository type")
     token: str | None = Field(None, description="PAT for private repositories")
-    provider: str = Field("google", description="Model provider")
+    provider: str = Field(default_factory=lambda: os.getenv("DEEPWIKI_PROVIDER") or "google", description="Model provider")
     model: str | None = Field(None, description="Model name for the provider")
     language: str = Field("en", description="Language for content generation")
     excluded_dirs: list[str] = Field(

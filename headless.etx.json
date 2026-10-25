@@ -1,0 +1,16 @@
+{
+  "repositories": [
+    {
+      "id": "etx_makebuild",
+      "path": "/home/ofer_g/projects/ETX_VSC/etxa_devops/etx_makebuild"
+    },
+    {
+      "id": "etx_dnfv_mng_plane",
+      "path": "/home/ofer_g/projects/ETX_VSC/etxa_devops/etx_dnfv/etx_dnfv_mng_plane"
+    },
+    {
+      "id": "etx_unitedbuild",
+      "path": "/home/ofer_g/projects/ETX_VSC/etxa_devops/etx_unitedbuild"
+    }
+  ]
+}
