@@ -37,25 +37,32 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         return 'en'; // Default to English if browser language is not available
       }
 
-      // Extract the language code (first 2 characters)
-      const langCode = browserLang.split('-')[0].toLowerCase();
+      // Normalise to lowercase full locale (e.g. 'zh-tw') and extract the base code (e.g. 'zh')
+      const normalizedLang = browserLang.toLowerCase();
+      const langCode = normalizedLang.split('-')[0];
       console.log('Extracted language code:', langCode);
+
+      // Special case for Chinese variants: distinguish Traditional from Simplified.
+      // Must run BEFORE the generic locales check, otherwise 'zh' would match first
+      // and Traditional Chinese users would always be served Simplified Chinese.
+      if (langCode === 'zh') {
+        const isTraditional =
+          normalizedLang.includes('tw') || // Taiwan
+          normalizedLang.includes('hk') || // Hong Kong
+          normalizedLang.includes('mo') || // Macau
+          normalizedLang.includes('hant'); // explicit Traditional script tag
+        if (isTraditional) {
+          console.log('Traditional Chinese variant detected, using: zh-tw');
+          return 'zh-tw';
+        }
+        console.log('Simplified Chinese detected, using: zh');
+        return 'zh';
+      }
 
       // Check if the detected language is supported
       if (locales.includes(langCode as any)) {
         console.log('Language supported, using:', langCode);
         return langCode;
-      }
-
-      // Special case for Chinese variants
-      if (langCode === 'zh') {
-        console.log('Chinese language detected');
-        // Check for traditional Chinese variants
-        if (browserLang.includes('TW') || browserLang.includes('HK')) {
-          console.log('Traditional Chinese variant detected');
-          return 'zh'; // Use Mandarin for traditional Chinese
-        }
-        return 'zh'; // Use Mandarin for simplified Chinese
       }
 
       console.log('Language not supported, defaulting to English');
@@ -106,12 +113,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
           let storedLanguage;
           if (typeof window !== 'undefined') {
             storedLanguage = localStorage.getItem('language');
-    
+
             // If no language is stored, detect browser language
             if (!storedLanguage) {
               console.log('No language in localStorage, detecting browser language');
               storedLanguage = detectBrowserLanguage();
-    
+
               // Store the detected language
               localStorage.setItem('language', storedLanguage);
             }
@@ -119,17 +126,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
             console.log('Running on server-side, using default language');
             storedLanguage = 'en';
           }
-    
+
           console.log('Supported languages loaded, validating language:', storedLanguage);
           const validLanguage = Object.keys(supportedLanguages).includes(storedLanguage as any) ? storedLanguage : defaultLanguage;
           console.log('Valid language determined:', validLanguage);
-    
+
           // Load messages for the language
           const langMessages = (await import(`../messages/${validLanguage}.json`)).default;
-    
+
           setLanguageState(validLanguage);
           setMessages(langMessages);
-    
+
           // Update HTML lang attribute (only in browser)
           if (typeof document !== 'undefined') {
             document.documentElement.lang = validLanguage;
@@ -144,7 +151,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
           setIsLoading(false);
         }
       };
-      
+
       loadLanguage();
     }
   }, [supportedLanguages, defaultLanguage]);

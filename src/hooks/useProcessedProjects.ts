@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { listWikiTasks } from '@/utils/wikiTask';
 
 interface ProcessedProject {
   id: string;
@@ -8,6 +9,7 @@ interface ProcessedProject {
   repo_type: string;
   submittedAt: number;
   language: string;
+  status?: string;
 }
 
 export function useProcessedProjects() {
@@ -20,15 +22,20 @@ export function useProcessedProjects() {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/wiki/projects');
-        if (!response.ok) {
-          throw new Error(`Failed to fetch projects: ${response.statusText}`);
-        }
-        const data = await response.json();
-        if (data.error) {
-          throw new Error(data.error);
-        }
-        setProjects(data as ProcessedProject[]);
+        // Merged list: completed wikis first, then queued/in-progress tasks last.
+        const data = await listWikiTasks();
+        setProjects(
+          data.map(task => ({
+            id: task.id,
+            owner: task.owner,
+            repo: task.repo,
+            name: task.name,
+            repo_type: task.repo_type,
+            language: task.language,
+            submittedAt: task.submitted_at,
+            status: task.status,
+          })),
+        );
       } catch (e: unknown) {
         console.error("Failed to load projects from API:", e);
         const message = e instanceof Error ? e.message : "An unknown error occurred.";

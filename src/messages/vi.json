@@ -13,6 +13,7 @@
   "loading": {
     "initializing": "Đang khởi tạo wiki...",
     "fetchingStructure": "Đang lấy cấu trúc repository...",
+    "preparingIndex": "Đang chuẩn bị chỉ mục repository...",
     "determiningStructure": "Đang xác định cấu trúc wiki...",
     "clearingCache": "Đang xóa bộ nhớ đệm máy chủ...",
     "preparingDownload": "Đang tải! Vui lòng chờ..."
@@ -123,6 +124,7 @@
     "noProjects": "Không tìm thấy dự án nào trong bộ nhớ đệm máy chủ. Bộ nhớ đệm có thể trống hoặc máy chủ gặp sự cố.",
     "noSearchResults": "Không có dự án nào phù hợp với tiêu chí tìm kiếm của bạn.",
     "processedOn": "Xử lý vào:",
+    "inProgress": "Đang xử lý",
     "loadingProjects": "Đang tải dự án...",
     "errorLoading": "Lỗi khi tải dự án:",
     "backToHome": "Về trang chủ",

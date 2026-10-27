@@ -13,6 +13,7 @@
   "loading": {
     "initializing": "Inicializando geração da wiki...",
     "fetchingStructure": "Obtendo estrutura do repositório...",
+    "preparingIndex": "Preparando o índice do repositório...",
     "determiningStructure": "Determinando estrutura da wiki...",
     "clearingCache": "Limpando cache do servidor...",
     "preparingDownload": "Aguarde enquanto preparamos seu download..."
@@ -132,6 +133,7 @@
     "noProjects": "Nenhum projeto encontrado no cache do servidor. O cache pode estar vazio ou o servidor encontrou um problema.",
     "noSearchResults": "Nenhum projeto corresponde aos seus critérios de pesquisa.",
     "processedOn": "Processado em:",
+    "inProgress": "Em andamento",
     "loadingProjects": "Carregando projetos...",
     "errorLoading": "Erro ao carregar projetos:",
     "backToHome": "Voltar ao Início",

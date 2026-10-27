@@ -8,6 +8,7 @@
 2. Generará documentación completa
 3. Creará diagramas visuales para explicar cómo funciona todo
 4. Organizará todo en una wiki fácil de navegar
+5. Generará un mapa de código (codemap) para recorridos guiados centrados en el código
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 
@@ -289,6 +290,9 @@ Para usar Investigación Profunda, simplemente activa el interruptor "Investigac
 ![Función de Investigación Profunda](screenshots/DeepResearch.png)
 *Investigación Profunda realiza investigaciones de múltiples turnos para temas complejos*
 
+![Codemap](screenshots/Codemap.png)
+*Codemap*
+
 ### Video de Demostración
 
 [![Video de Demostración de DeepWiki](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)
@@ -331,4 +335,3 @@ Este proyecto está licenciado bajo la Licencia MIT - consulta el archivo [LICEN
 ## ⭐ Historial de Estrellas
 
 [![Gráfico de Historial de Estrellas](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
-

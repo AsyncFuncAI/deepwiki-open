@@ -8,6 +8,7 @@
 2. 產生全面的文件
 3. 建立視覺化圖表解釋一切如何運作
 4. 將所有內容整理成易於導覽的 Wiki
+5. 產生程式碼地圖，提供以程式碼為中心的引導式導覽
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 [![Tip in Crypto](https://tip.md/badge.svg)](https://tip.md/sng-asyncfunc)
@@ -304,7 +305,7 @@ docker-compose up
 
 | 變數             | 說明                                                  | 必需 | 備註                                                                                                     |
 |----------------------|--------------------------------------------------------------|----------|----------------------------------------------------------------------------------------------------------|
-| `GOOGLE_API_KEY`     | Google Gemini API 金鑰，用於 AI 產生                      | 否 | 只有在您想使用 Google Gemini 模型時才需要                                                    
+| `GOOGLE_API_KEY`     | Google Gemini API 金鑰，用於 AI 產生                      | 否 | 只有在您想使用 Google Gemini 模型時才需要  
 | `OPENAI_API_KEY`     | OpenAI API 金鑰，用於嵌入                                | 是 | 備註：即使您不使用 OpenAI 模型，這個也是必需的，因為它用於嵌入              |
 | `OPENROUTER_API_KEY` | OpenRouter API 金鑰，用於替代模型                    | 否 | 只有在您想使用 OpenRouter 模型時才需要                                                       |
 | `OLLAMA_HOST`        | Ollama 主機（預設：http://localhost:11434）                | 否 | 只有在您想使用外部 Ollama 伺服器時才需要                                                  |
@@ -466,16 +467,16 @@ OpenRouter 特別適用於以下情況：
 ## 📱 螢幕截圖
 
 ### 主頁面
-![主頁面](screenshots/home.png)
+![主頁面](./screenshots/Interface.png)
 
 ### Wiki 頁面
-![Wiki 頁面](screenshots/wiki-page.png)
-
-### 提問功能
-![提問功能](screenshots/ask.png)
+![Wiki 頁面](screenshots/Deepwiki.png)
 
 ### 深度研究
-![深度研究](screenshots/deep-research.png)
+![深度研究](screenshots/DeepResearch.png)
+
+### Codemap
+![Codemap](screenshots/Codemap.png)
 
 ### 展示影片
 

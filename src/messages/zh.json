@@ -13,6 +13,7 @@
   "loading": {
     "initializing": "初始化Wiki生成...",
     "fetchingStructure": "获取仓库结构...",
+    "preparingIndex": "准备仓库索引...",
     "determiningStructure": "验证Wiki结构...",
     "clearingCache": "清除服务器缓存...",
     "preparingDownload": "请等待，我们正在准备您的下载..."
@@ -123,6 +124,7 @@
     "noProjects": "服务器缓存中未找到项目。缓存可能为空或服务器遇到问题。",
     "noSearchResults": "没有项目符合您的搜索条件。",
     "processedOn": "处理时间:",
+    "inProgress": "处理中",
     "loadingProjects": "正在加载项目...",
     "errorLoading": "加载项目时出错:",
     "backToHome": "返回首页",

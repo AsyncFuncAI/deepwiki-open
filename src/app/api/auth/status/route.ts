@@ -11,14 +11,14 @@ export async function GET() {
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       return NextResponse.json(
         { error: `Backend server returned ${response.status}` },
         { status: response.status }
       );
     }
-    
+
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
