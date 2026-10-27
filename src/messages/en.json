@@ -13,6 +13,7 @@
   "loading": {
     "initializing": "Initializing wiki generation...",
     "fetchingStructure": "Fetching repository structure...",
+    "preparingIndex": "Preparing repository index...",
     "determiningStructure": "Determining wiki structure...",
     "clearingCache": "Clearing server cache...",
     "preparingDownload": "Please wait while we prepare your download..."
@@ -132,6 +133,7 @@
     "noProjects": "No projects found in the server cache. The cache might be empty or the server encountered an issue.",
     "noSearchResults": "No projects match your search criteria.",
     "processedOn": "Processed on:",
+    "inProgress": "In progress",
     "loadingProjects": "Loading projects...",
     "errorLoading": "Error loading projects:",
     "backToHome": "Back to Home",

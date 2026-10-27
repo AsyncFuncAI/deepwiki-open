@@ -131,7 +131,7 @@ IMPORTANT:You MUST respond in {language_name} language.
 - Your response MUST build on previous research iterations - do not repeat information already covered
 - Identify gaps or areas that need further exploration related to this specific topic
 - Focus on one specific aspect that needs deeper investigation in this iteration
-- Start your response with "## Research Update {{research_iteration}}"
+- Start your response with "## Research Update {research_iteration}"
 - Clearly explain what you're investigating in this iteration
 - Provide new insights that weren't covered in previous iterations
 - If this is iteration 3, prepare for a final conclusion in the next iteration
@@ -189,3 +189,77 @@ This file contains...
 - When showing code, include line numbers and file paths when relevant
 - Use markdown formatting to improve readability
 </style>"""
+
+
+# Codemap generation — phase 1: analyze the code and produce the codemap skeleton.
+CODEMAP_SKELETON_PROMPT = """<role>
+You are an expert code analyst building a "codemap" for the {repo_type} repository: {repo_url} ({repo_name}).
+A codemap is a structured, step-by-step guide that answers a usage/how-to question, where every
+step is grounded in REAL source code from the repository.
+IMPORTANT: All human-readable text (titles, labels, summary) MUST be written in {language_name} language.
+</role>
+
+<task>
+Using ONLY the code provided in <START_OF_CONTEXT>...<END_OF_CONTEXT>, produce a codemap that
+answers the user's question. Organise the answer as numbered sections (1, 2, 3...), each containing
+ordered sub-steps (1a, 1b, 1c...). Every sub-step must reference the real source it comes from.
+</task>
+
+<grounding_rules>
+- You may ONLY cite files that appear in the context as a "## File Path: <path>" header. Never invent a path.
+- Each chunk in the context is prefixed with a "[lines A-B]" marker. Use those numbers to fill start_line/end_line.
+- The "snippet" field MUST be copied VERBATIM from the context (an exact substring). Do not paraphrase it.
+- The "code" field is a short example snippet illustrating the step; keep it minimal and runnable-looking.
+- If the context does not contain enough to answer, produce fewer sections rather than fabricating.
+</grounding_rules>
+
+<output_format>
+Output ONLY a single JSON object, no markdown fences, no commentary before or after. Shape:
+{{
+  "title": "<short title of the guide>",
+  "summary": "<1-3 sentence intro; you may reference steps like [1a] [2a]>",
+  "sections": [
+    {{
+      "id": "1",
+      "title": "<section title>",
+      "guide": "",
+      "diagram": "",
+      "steps": [
+        {{
+          "id": "1a",
+          "label": "<short step title>",
+          "code": "<example code>",
+          "citation": {{
+            "file_path": "<path from a ## File Path header>",
+            "start_line": <int>,
+            "end_line": <int>,
+            "snippet": "<verbatim substring from that file's context>"
+          }}
+        }}
+      ]
+    }}
+  ]
+}}
+Leave every "guide" and "diagram" field as an empty string "" in this phase.
+</output_format>"""
+
+
+# Codemap generation — phase 2: fill in prose guides and mermaid diagrams.
+CODEMAP_ENRICH_PROMPT = """<role>
+You are enriching an existing codemap skeleton for the {repo_type} repository: {repo_url} ({repo_name}).
+IMPORTANT: All prose MUST be written in {language_name} language.
+</role>
+
+<task>
+You are given a codemap JSON skeleton (in <SKELETON>) and the original source context.
+For EACH section, write:
+- "guide": a concise prose explanation (2-4 sentences) of what the section accomplishes.
+- "diagram": a valid Mermaid diagram source string (e.g. a "graph LR" or "flowchart TD") that
+  illustrates the flow of that section. Use only Mermaid syntax; do NOT wrap it in ```mermaid fences.
+Keep every other field (title, summary, steps, citations, ids) EXACTLY as given. Do not add or remove steps.
+</task>
+
+<output_format>
+Output ONLY the complete updated JSON object with the same shape as the skeleton, now with
+"guide" and "diagram" filled for each section. No markdown fences, no commentary.
+</output_format>"""

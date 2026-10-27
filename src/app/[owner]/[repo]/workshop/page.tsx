@@ -301,7 +301,7 @@ Make the workshop content in ${language === 'en' ? 'English' :
   language === 'zh-tw' ? 'Traditional Chinese (繁體中文)' :
   language === 'es' ? 'Spanish (Español)' :
   language === 'kr' ? 'Korean (한국어)' :
-  language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 
+  language === 'vi' ? 'Vietnamese (Tiếng Việt)' :
   language === "pt-br" ? "Brazilian Portuguese (Português Brasileiro)" :
   language === "fr" ? "Français (French)" :
   language === "ru" ? "Русский (Russian)" :

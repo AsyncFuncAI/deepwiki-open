@@ -8,6 +8,7 @@
 2. Генерацию полноценной документации
 3. Построение визуальных диаграмм, объясняющих работу системы
 4. Организацию всего в удобную и структурированную вики
+5. Создание карты кода (codemap) для пошаговых экскурсий по коду
 
 [!["Купить мне кофе"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)  
 [![Поддержать в криптовалюте](https://tip.md/badge.svg)](https://tip.md/sng-asyncfunc)  
@@ -460,6 +461,9 @@ docker build --build-arg CUSTOM_CERT_DIR=certs .
 
 ![DeepResearch](screenshots/DeepResearch.png)  
 *DeepResearch анализирует сложные темы*
+
+![Codemap](screenshots/Codemap.png)
+*Codemap*
 
 ### Видео-демо
 

@@ -8,6 +8,7 @@
 2. Gerar documentação abrangente
 3. Criar diagramas visuais para explicar como tudo funciona
 4. Organizar tudo em uma wiki fácil de navegar
+5. Gerar um codemap para tours guiados centrados no código
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 [![Tip in Crypto](https://tip.md/badge.svg)](https://tip.md/sng-asyncfunc)
@@ -297,7 +298,7 @@ docker-compose up
 
 | Variável             | Descrição                                                  | Obrigatória | Observação                                                                                                     |
 |----------------------|--------------------------------------------------------------|----------|----------------------------------------------------------------------------------------------------------|
-| `GOOGLE_API_KEY`     | Chave API Google Gemini para geração com IA                      | Não | Necessária apenas se você quiser usar modelos Google Gemini                                                    
+| `GOOGLE_API_KEY`     | Chave API Google Gemini para geração com IA                      | Não | Necessária apenas se você quiser usar modelos Google Gemini  
 | `OPENAI_API_KEY`     | Chave API OpenAI para embeddings                                | Sim | Nota: Isso é necessário mesmo se você não estiver usando modelos OpenAI, pois é usado para embeddings.              |
 | `OPENROUTER_API_KEY` | Chave API OpenRouter para modelos alternativos                    | Não | Necessária apenas se você quiser usar modelos OpenRouter                                                       |
 | `OLLAMA_HOST`        | Host Ollama (padrão: http://localhost:11434)                | Não | Necessária apenas se você quiser usar servidor Ollama externo                                                  |
@@ -465,6 +466,9 @@ Para usar o DeepResearch, simplesmente alterne o interruptor "Pesquisa Aprofunda
 
 ![Recurso DeepResearch](screenshots/DeepResearch.png)
 *DeepResearch conduz investigações em várias etapas para tópicos complexos*
+
+![Codemap](screenshots/Codemap.png)
+*Codemap*
 
 ### Vídeo de Demonstração
 

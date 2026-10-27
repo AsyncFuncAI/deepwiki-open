@@ -27,7 +27,7 @@ export async function GET() {
     const modelConfig = await backendResponse.json();
     return NextResponse.json(modelConfig);
   } catch (error) {
-    console.error('Error fetching model configurations:', error);    
+    console.error('Error fetching model configurations:', error);
     return new NextResponse(JSON.stringify({ error: error }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },

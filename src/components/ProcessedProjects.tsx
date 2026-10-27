@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { FaTimes, FaTh, FaList } from 'react-icons/fa';
+import { listWikiTasks } from '@/utils/wikiTask';
 
 // Interface should match the structure from the API
 interface ProcessedProject {
@@ -13,6 +14,9 @@ interface ProcessedProject {
   repo_type: string;
   submittedAt: number;
   language: string;
+  // Present for the merged tasks list: 'completed' for cached wikis, otherwise
+  // a queued/in-progress task (pending | indexing | determining_structure | generating).
+  status?: string;
 }
 
 interface ProcessedProjectsProps {
@@ -22,11 +26,11 @@ interface ProcessedProjectsProps {
   messages?: Record<string, Record<string, string>>; // Translation messages with proper typing
 }
 
-export default function ProcessedProjects({ 
-  showHeader = true, 
-  maxItems, 
+export default function ProcessedProjects({
+  showHeader = true,
+  maxItems,
   className = "",
-  messages 
+  messages
 }: ProcessedProjectsProps) {
   const [projects, setProjects] = useState<ProcessedProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +45,7 @@ export default function ProcessedProjects({
     noProjects: 'No projects found in the server cache. The cache might be empty or the server encountered an issue.',
     noSearchResults: 'No projects match your search criteria.',
     processedOn: 'Processed on:',
+    inProgress: 'In progress',
     loadingProjects: 'Loading projects...',
     errorLoading: 'Error loading projects:',
     backToHome: 'Back to Home'
@@ -58,15 +63,20 @@ export default function ProcessedProjects({
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/wiki/projects');
-        if (!response.ok) {
-          throw new Error(`Failed to fetch projects: ${response.statusText}`);
-        }
-        const data = await response.json();
-        if (data.error) {
-          throw new Error(data.error);
-        }
-        setProjects(data as ProcessedProject[]);
+        // Merged list: completed wikis first, then queued/in-progress tasks last.
+        const data = await listWikiTasks();
+        setProjects(
+          data.map(task => ({
+            id: task.id,
+            owner: task.owner,
+            repo: task.repo,
+            name: task.name,
+            repo_type: task.repo_type,
+            language: task.language,
+            submittedAt: task.submitted_at,
+            status: task.status,
+          })),
+        );
       } catch (e: unknown) {
         console.error("Failed to load projects from API:", e);
         const message = e instanceof Error ? e.message : "An unknown error occurred.";
@@ -87,7 +97,7 @@ export default function ProcessedProjects({
     }
 
     const query = searchQuery.toLowerCase();
-    const filtered = projects.filter(project => 
+    const filtered = projects.filter(project =>
       project.name.toLowerCase().includes(query) ||
       project.owner.toLowerCase().includes(query) ||
       project.repo.toLowerCase().includes(query) ||
@@ -196,14 +206,16 @@ export default function ProcessedProjects({
             {filteredProjects.map((project) => (
             viewMode === 'card' ? (
               <div key={project.id} className="relative p-4 border border-[var(--border-color)] rounded-lg bg-[var(--card-bg)] shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02]">
-                <button
-                  type="button"
-                  onClick={() => handleDelete(project)}
-                  className="absolute top-2 right-2 text-[var(--muted)] hover:text-[var(--foreground)]"
-                  title="Delete project"
-                >
-                  <FaTimes className="h-4 w-4" />
-                </button>
+                {(!project.status || project.status === 'completed') && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(project)}
+                    className="absolute top-2 right-2 text-[var(--muted)] hover:text-[var(--foreground)]"
+                    title="Delete project"
+                  >
+                    <FaTimes className="h-4 w-4" />
+                  </button>
+                )}
                 <Link
                   href={`/${project.owner}/${project.repo}?type=${project.repo_type}&language=${project.language}`}
                   className="block"
@@ -218,6 +230,11 @@ export default function ProcessedProjects({
                     <span className="px-2 py-1 text-xs bg-[var(--background)] text-[var(--muted)] rounded-full border border-[var(--border-color)]">
                       {project.language}
                     </span>
+                    {project.status && project.status !== 'completed' && (
+                      <span className="px-2 py-1 text-xs bg-[var(--highlight)]/10 text-[var(--highlight)] rounded-full border border-[var(--highlight)]/30 animate-pulse">
+                        {t('inProgress')}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-[var(--muted)]">
                     {t('processedOn')} {new Date(project.submittedAt).toLocaleDateString()}

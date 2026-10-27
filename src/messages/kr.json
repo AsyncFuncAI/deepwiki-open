@@ -13,6 +13,7 @@
     "loading": {
       "initializing": "위키 생성을 초기화하는 중...",
       "fetchingStructure": "저장소 구조를 가져오는 중...",
+      "preparingIndex": "저장소 인덱스를 준비하는 중...",
       "determiningStructure": "위키 구조를 결정하는 중...",
       "clearingCache": "서버 캐시를 지우는 중...",
       "preparingDownload": "다운로드를 준비 중입니다. 잠시만 기다려 주세요..."
@@ -123,6 +124,7 @@
       "noProjects": "서버 캐시에서 프로젝트를 찾을 수 없습니다. 캐시가 비어있거나 서버에 문제가 발생했을 수 있습니다.",
       "noSearchResults": "검색 조건에 맞는 프로젝트가 없습니다.",
       "processedOn": "처리 날짜:",
+      "inProgress": "진행 중",
       "loadingProjects": "프로젝트 로딩 중...",
       "errorLoading": "프로젝트 로딩 오류:",
       "backToHome": "홈으로 돌아가기",
