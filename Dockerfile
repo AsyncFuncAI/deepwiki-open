@@ -20,6 +20,8 @@ COPY public/ ./public/
 # Increase Node.js memory limit for build and disable telemetry
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 ENV NEXT_TELEMETRY_DISABLED=1
+# `next build` inject `SERVER_BASE_URL` into bundle.js for client, once code is builded, bundle can't be modify by .env or ENV parameters.
+ENV SERVER_BASE_URL="http://localhost:${PORT:-8001}"
 RUN NODE_ENV=production npm run build
 
 FROM python:3.11-slim AS py_deps
