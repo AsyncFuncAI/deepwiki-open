@@ -14,6 +14,10 @@ from api.prompts import (
 from api.rag import RAG, count_tokens, repo_index_exist
 from api.repository import Repo
 from api.schemas.base import RepoRequestBase
+from api.services.deep_research import (
+    is_continue_research_prompt,
+    latest_research_topic,
+)
 from api.schemas import ChatCompletionRequest
 
 logger = get_logger(__name__)
@@ -120,23 +124,13 @@ async def research_chat(
             "Deep Research request detected - iteration %d", request.research_iteration
         )
 
-        # Check if this is a continuation request
-        if (
-            "continue" in last_message.content.lower()
-            and "research" in last_message.content.lower()
-        ):
-            # Find the original topic from the first user message
-            original_topic = None
-            for msg in request.messages:
-                if msg.role == "user" and "continue" not in msg.content.lower():
-                    original_topic = msg.content.strip()
-                    logger.info(f"Found original research topic: {original_topic}")
-                    break
-
+        # The client uses this exact prompt for automatic continuation. Resolve
+        # it to the latest research question, not the first user turn in the chat.
+        if is_continue_research_prompt(last_message.content):
+            original_topic = latest_research_topic(request.messages)
             if original_topic:
-                # Replace the continuation message with the original topic
                 last_message.content = original_topic
-                logger.info(f"Using original topic for research: {original_topic}")
+                logger.info(f"Using current research topic: {original_topic}")
 
     # Get the query from the last message
     query = last_message.content
