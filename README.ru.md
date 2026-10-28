@@ -49,7 +49,7 @@ echo "AZURE_OPENAI_API_KEY=ваш_azure_api_key" >> .env
 echo "AZURE_OPENAI_ENDPOINT=ваш_azure_endpoint" >> .env
 echo "AZURE_OPENAI_VERSION=ваша_azure_version" >> .env
 # Запуск через Docker Compose
-docker-compose up
+docker compose up
 ```
 
 Подробную инструкцию по работе с Ollama и Docker см. в [Ollama Instructions](Ollama-instruction.md).
@@ -276,7 +276,7 @@ python -m api.main
 
 Или через Docker Compose:
 ```bash
-LOG_LEVEL=DEBUG LOG_FILE_PATH=./debug.log docker-compose up
+LOG_LEVEL=DEBUG LOG_FILE_PATH=api/logs/debug.log docker compose up
 ```
 
 Для постоянства логов при перезапуске контейнера `api/logs` монтируется в `./api/logs`.
@@ -291,7 +291,7 @@ LOG_FILE_PATH=./debug.log
 И просто выполнить:
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 **Безопасность логов:** в продакшене важно настроить права доступа к `api/logs`, чтобы исключить несанкционированный доступ или запись.
@@ -358,7 +358,7 @@ docker run -p 8001:8001 -p 3000:3000 \
 
 ```bash
 # Убедитесь, что .env заполнен
-docker-compose up
+docker compose up
 ```
 
 #### Использование .env
