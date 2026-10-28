@@ -124,3 +124,17 @@ For API tests, ensure the FastAPI server is running on the expected port:
 cd api
 python main.py
 ```
+
+## Deep Research documentation provider
+
+Run `python -m pytest tests/backend/services/test_research_web_search.py` for the
+request-to-prompt/stream tests. They use a local deterministic MCP HTTP server
+and scripted model output; they do not require model or Parallel credentials.
+Coverage includes JSON/SSE discovery/search/fetch, User-Agent and destination,
+provider/permission controls, conversation identity, errors, limits, timeout and
+cancellation. Repository indexing and model inference are substituted at their
+existing boundaries.
+
+After installing frontend development dependencies, run
+`node tests/unit/test_research_session.cjs` for the browser conversation identity
+owner's creation, follow-up, interleaving and reset behavior.

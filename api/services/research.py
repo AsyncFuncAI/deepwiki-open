@@ -19,6 +19,7 @@ from api.services.deep_research import (
     latest_research_topic,
 )
 from api.schemas import ChatCompletionRequest
+from api.services.web_search import documentation_context
 
 logger = get_logger(__name__)
 
@@ -192,6 +193,9 @@ async def research_chat(
             logger.error(f"Error retrieving documents: {str(e)}")
             context_text = ""
 
+    documentation = await documentation_context(request, query)
+    context_text += documentation.text
+
     # Get repository information
     repo_url = request.repo_url
     repo_name = repo_url.split("/")[-1] if "/" in repo_url else repo_url
@@ -257,6 +261,8 @@ async def research_chat(
         prompt_func: Callable[[], str],
         simplified_prompt_func: Callable[[], str],
     ) -> AsyncIterator[str]:
+        if documentation.warning:
+            yield documentation.warning + "\n\n"
         try:
             async for chunk in streamer.respond_stream(prompt_func()):
                 yield chunk
