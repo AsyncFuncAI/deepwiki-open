@@ -27,6 +27,12 @@ https://github.com/user-attachments/assets/48d1e60a-eb91-4c05-a5a8-3624ffb79fb1
 
 
 
+## ☁️ One-Click Deploy
+
+[![Deploy on RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/DeepWiki/)
+
+
+
 ## 🤝 Contributing
 
 Contributions are welcome! Feel free to:
