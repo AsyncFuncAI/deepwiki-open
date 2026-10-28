@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from api.config import WIKI_AUTH_CODE, WIKI_AUTH_MODE, configs
 from api.logger import get_logger
+from api.utils import deepwiki_root
 from api.schemas import (
     ProcessedProjectEntry,
     WikiCacheData,
@@ -32,6 +33,34 @@ from api.services.wiki import (
 logger = get_logger(__name__)
 
 router = APIRouter(tags=["wiki"])
+
+
+def _allowed_local_roots() -> list[str]:
+    """Base directories under which local-repository paths are permitted.
+
+    Defaults to the deepwiki data/clone root. Operators who legitimately keep
+    local repositories elsewhere can add roots via DEEPWIKI_ALLOWED_LOCAL_ROOTS
+    (os.pathsep-separated). This is the allowlist for the otherwise-unauthenticated
+    local-repository endpoints, which must not be able to read arbitrary paths on
+    the server's filesystem.
+    """
+    roots = [deepwiki_root()]
+    extra = os.environ.get("DEEPWIKI_ALLOWED_LOCAL_ROOTS", "")
+    roots.extend(p for p in extra.split(os.pathsep) if p.strip())
+    return [os.path.realpath(r) for r in roots]
+
+
+def _resolve_allowed_local_path(path: str) -> str | None:
+    """Resolve *path* and return it only if it stays within an allowed root.
+
+    Returns the symlink-resolved path when permitted, else None. Blocks
+    absolute paths outside the allowlist and `..`/symlink traversal out of it.
+    """
+    resolved = os.path.realpath(path)
+    for root in _allowed_local_roots():
+        if resolved == root or resolved.startswith(root + os.sep):
+            return resolved
+    return None
 
 
 @router.post("/export/wiki")
@@ -90,6 +119,18 @@ async def get_local_repo_structure(
                 "error": "No path provided. Please provide a 'path' query parameter."
             },
         )
+
+    resolved = _resolve_allowed_local_path(path)
+    if resolved is None:
+        logger.warning("Rejected out-of-root local repository path: %s", path)
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "Path is not within an allowed local repository root. "
+                "Set DEEPWIKI_ALLOWED_LOCAL_ROOTS to permit additional locations."
+            },
+        )
+    path = resolved
 
     if not os.path.isdir(path):
         return JSONResponse(
