@@ -165,13 +165,21 @@ class _OpenAICompatStreamer(ChatStreamer):
         )
 
         async for chunk in response:
-            if (
-                chunk.choices
-                and chunk.choices[0].delta is not None
-                and chunk.choices[0].delta.content is not None
-            ):
-                yield chunk.choices[0].delta.content
+            # Responses API event shape
+            if getattr(chunk, "type", "") == "response.output_text.delta":
+                delta = getattr(chunk, "delta", None)
+                if delta:
+                    yield delta
+                continue
 
+            # Chat Completions chunk shape
+            choices = getattr(chunk, "choices", None)
+            if (
+                choices
+                and choices[0].delta is not None
+                and choices[0].delta.content is not None
+            ):
+                yield choices[0].delta.content
 
 class OpenAIChatStreamer(_OpenAICompatStreamer):
     provider = "openai"
