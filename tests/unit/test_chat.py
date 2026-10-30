@@ -11,6 +11,7 @@ from api.chat._stream import (
     OllamaChatStreamer,
     OpenAIChatStreamer,
     OpenRouterChatStreamer,
+    RequestyChatStreamer,
 )
 
 
@@ -19,6 +20,7 @@ from api.chat._stream import (
     [
         ("ollama", OllamaChatStreamer),
         ("openrouter", OpenRouterChatStreamer),
+        ("requesty", RequestyChatStreamer),
         ("openai", OpenAIChatStreamer),
         ("azure", AzureChatStreamer),
         ("bedrock", BedrockChatStreamer),
@@ -37,6 +39,7 @@ def test_every_provider_is_registered(provider, expected):
     [
         ("ollama", OllamaChatStreamer),
         ("openrouter", OpenRouterChatStreamer),
+        ("requesty", RequestyChatStreamer),
         ("openai", OpenAIChatStreamer),
         ("azure", AzureChatStreamer),
         ("bedrock", BedrockChatStreamer),

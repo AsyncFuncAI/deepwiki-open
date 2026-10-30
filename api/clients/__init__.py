@@ -15,6 +15,7 @@ from .google_embedder import GoogleEmbedderClient
 from .litellm import LiteLLMClient
 from .ollama import OllamaClient
 from .openrouter import OpenRouterClient
+from .requesty import RequestyClient
 
 __all__ = [
     "AnthropicBedrockClient",
@@ -27,4 +28,5 @@ __all__ = [
     "OllamaClient",
     "OpenAIClient",
     "OpenRouterClient",
+    "RequestyClient",
 ]
