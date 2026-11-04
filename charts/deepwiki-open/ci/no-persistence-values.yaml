@@ -1,0 +1,14 @@
+persistence:
+  enabled: false
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 4Gi
+config:
+  LOG_LEVEL: DEBUG
+  DEEPWIKI_AUTH_MODE: "true"
+secret:
+  values:
+    DEEPWIKI_AUTH_CODE: ci-only-code

@@ -1,0 +1,90 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.versionBadge" . }}{{ template "chart.typeBadge" . }}{{ template "chart.appVersionBadge" . }}
+
+{{ template "chart.description" . }}
+
+The chart runs the image published by this repository (`ghcr.io/asyncfuncai/deepwiki-open`), which starts the Python API on port 8001 and the Next.js frontend on port 3000 in the same container. It runs as a single replica: cloned repositories, embeddings and the wiki cache live in `~/.adalflow`, kept on a PersistentVolumeClaim.
+
+The image has no `USER`, so the chart runs it as UID 1000 with a read-only root filesystem, sets `HOME` to a writable volume and mounts emptyDirs where the app writes (logs, Next.js cache, `/tmp`).
+
+## Install
+
+```console
+kubectl create namespace deepwiki
+kubectl -n deepwiki create secret generic deepwiki-keys \
+  --from-literal=GOOGLE_API_KEY=... \
+  --from-literal=OPENAI_API_KEY=...
+
+git clone https://github.com/AsyncFuncAI/deepwiki-open.git
+helm upgrade --install deepwiki ./deepwiki-open/charts/deepwiki-open \
+  --namespace deepwiki \
+  --set secret.existingSecret=deepwiki-keys
+```
+
+Every key of the Secret becomes an environment variable, so any variable from the main README works there (`OPENROUTER_API_KEY`, `AWS_ACCESS_KEY_ID`, `DASHSCOPE_API_KEY`, `DEEPWIKI_AUTH_CODE`...). Non-secret settings go in `config`:
+
+```yaml
+config:
+  DEEPWIKI_EMBEDDER_TYPE: ollama
+  OLLAMA_HOST: http://ollama.ollama:11434
+  DEEPWIKI_AUTH_MODE: "true"
+```
+
+Then forward both ports and open http://localhost:3000:
+
+```console
+kubectl -n deepwiki port-forward svc/deepwiki-deepwiki-open 3000:3000 8001:8001
+```
+
+The image tag defaults to `latest`. Pin `image.tag` to a `sha-<commit>` tag (or set `image.digest`) to control upgrades.
+
+## Exposing it
+
+The frontend builds the chat WebSocket URL in the browser as `<page host>:8001`, because `NEXT_PUBLIC_*` variables are fixed when the image is built. With the published image the browser must reach the API on port 8001 of the same hostname as the frontend. Options:
+
+- `service.type: LoadBalancer`, which exposes 3000 and 8001 like `docker run` does.
+- Gateway API with a second listener on port 8001: the chart renders one HTTPRoute for the frontend and, when `httpRoute.api.parentRefs` is set, another one for the API.
+
+  ```yaml
+  httpRoute:
+    enabled: true
+    parentRefs:
+      - name: public
+        namespace: gateway-system
+        sectionName: https
+    hostnames: [deepwiki.example.com]
+    api:
+      parentRefs:
+        - name: public
+          namespace: gateway-system
+          sectionName: api   # listener on port 8001
+  ```
+
+- An image built with `NEXT_PUBLIC_WS_BASE_URL=https://deepwiki.example.com`. The browser then uses the same host and port, and `ingress.apiPaths` (or `httpRoute.apiPaths`) sends `/ws` and `/codemap` to the API:
+
+  ```yaml
+  image:
+    repository: registry.example.com/deepwiki-open
+    tag: my-build
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: deepwiki.example.com
+        paths:
+          - path: /
+    apiPaths: [/ws, /codemap]
+  ```
+
+## Tests
+
+```console
+helm lint charts/deepwiki-open
+helm unittest charts/deepwiki-open
+helm test deepwiki -n deepwiki   # after install: calls /health and the frontend proxy
+```
+
+{{ template "chart.requirementsSection" . }}
+
+{{ template "chart.valuesSection" . }}

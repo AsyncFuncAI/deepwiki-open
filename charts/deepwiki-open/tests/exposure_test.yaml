@@ -1,0 +1,98 @@
+suite: exposure and storage
+templates:
+  - service.yaml
+  - ingress.yaml
+  - httproute.yaml
+  - pvc.yaml
+tests:
+  - it: exposes both ports on the Service
+    template: service.yaml
+    asserts:
+      - equal:
+          path: spec.ports[0]
+          value:
+            name: http
+            port: 3000
+            targetPort: http
+            protocol: TCP
+      - equal:
+          path: spec.ports[1].port
+          value: 8001
+  - it: routes the frontend through the Ingress
+    template: ingress.yaml
+    set:
+      ingress.enabled: true
+      ingress.className: nginx
+    asserts:
+      - equal:
+          path: spec.ingressClassName
+          value: nginx
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.name
+          value: http
+  - it: sends apiPaths to the API port before the frontend catch-all
+    template: ingress.yaml
+    set:
+      ingress.enabled: true
+      ingress.apiPaths: [/ws, /codemap]
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: /ws
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.name
+          value: api
+      - equal:
+          path: spec.rules[0].http.paths[2].backend.service.port.name
+          value: http
+  - it: renders only the frontend HTTPRoute by default
+    template: httproute.yaml
+    set:
+      httpRoute.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 3000
+  - it: adds an API HTTPRoute for a dedicated listener
+    template: httproute.yaml
+    set:
+      httpRoute.enabled: true
+      httpRoute.api.parentRefs:
+        - name: gateway
+          sectionName: api
+    asserts:
+      - hasDocuments:
+          count: 2
+      - documentIndex: 1
+        equal:
+          path: metadata.name
+          value: RELEASE-NAME-deepwiki-open-api
+      - documentIndex: 1
+        equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 8001
+  - it: creates a PVC by default
+    template: pvc.yaml
+    asserts:
+      - equal:
+          path: spec.resources.requests.storage
+          value: 10Gi
+      - notExists:
+          path: spec.storageClassName
+  - it: skips the PVC with an existing claim
+    template: pvc.yaml
+    set:
+      persistence.existingClaim: my-data
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: requires parentRefs for the HTTPRoute
+    template: httproute.yaml
+    set:
+      httpRoute.enabled: true
+      httpRoute.parentRefs: null
+    asserts:
+      - failedTemplate:
+          errorMessage: "httpRoute.enabled requires at least one entry in httpRoute.parentRefs"
