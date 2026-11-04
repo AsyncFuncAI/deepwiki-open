@@ -108,264 +108,6 @@ class OpenRouterClient(ModelClient):
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
-    def call(self, api_kwargs: Dict = None, model_type: ModelType = None) -> Any:
-        """Make a synchronous call to the OpenRouter API."""
-        if not self.sync_client:
-            self.sync_client = self.init_sync_client()
-
-        # Check if API key is set
-        if not self.sync_client.get("api_key"):
-            error_msg = "OPENROUTER_API_KEY not found in environment variables. Please set this environment variable to use OpenRouter."
-            log.error(error_msg)
-            # Instead of raising an exception, return a generator that yields the error message
-            # This allows the error to be displayed to the user in the streaming response
-            def error_generator():
-                yield error_msg
-            return error_generator()
-
-        api_kwargs = api_kwargs or {}
-
-        if model_type == ModelType.LLM:
-            # Prepare headers
-            headers = {
-                "Authorization": f"Bearer {self.sync_client['api_key']}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://github.com/AsyncFuncAI/deepwiki-open",  # Optional
-                "X-Title": "DeepWiki"  # Optional
-            }
-
-            # Always use non-streaming mode for OpenRouter
-            api_kwargs["stream"] = False
-
-            # Make the API call
-            try:
-                log.info(f"Making OpenRouter API call to {self.sync_client['base_url']}/chat/completions")
-                log.info(f"Request headers: {headers}")
-                log.info(f"Request body: {api_kwargs}")
-
-                try:
-                    response = requests.post(
-                        f"{self.sync_client['base_url']}/chat/completions",
-                        headers=headers,
-                        json=api_kwargs,
-                        stream=False,
-                        timeout=60
-                    )
-
-                    if not response.ok:
-                        error_text = "No error details available"
-                        try:
-                            error_text = response.text
-                        except:
-                            pass
-                        log.error(f"OpenRouter API error ({response.status_code}): {error_text}")
-
-                        # Return a generator that yields the error message
-                        def error_response_generator():
-                            yield f"OpenRouter API error ({response.status_code}): {error_text}"
-                        return error_response_generator()
-
-                    # Get the full response
-                    data = response.json()
-                    log.info(f"Received response from OpenRouter: {data}")
-
-                    # Create a generator that yields the content
-                    def content_generator():
-                        if "choices" in data and len(data["choices"]) > 0:
-                            choice = data["choices"][0]
-                            if "message" in choice and "content" in choice["message"]:
-                                content = choice["message"]["content"]
-                                log.info("Successfully retrieved response")
-
-                                # Check if the content is XML and ensure it's properly formatted
-                                if content.strip().startswith("<") and ">" in content:
-                                    # It's likely XML, let's make sure it's properly formatted
-                                    try:
-                                        # Extract the XML content
-                                        xml_content = content
-
-                                        # Check if it's a wiki_structure XML
-                                        if "<wiki_structure>" in xml_content:
-                                            log.info("Found wiki_structure XML, ensuring proper format")
-
-                                            # Extract just the wiki_structure XML
-                                            import re
-                                            wiki_match = re.search(r'<wiki_structure>[\s\S]*?<\/wiki_structure>', xml_content)
-                                            if wiki_match:
-                                                # Get the raw XML
-                                                raw_xml = wiki_match.group(0)
-
-                                                # Clean the XML by removing any leading/trailing whitespace
-                                                # and ensuring it's properly formatted
-                                                clean_xml = raw_xml.strip()
-
-                                                # Try to fix common XML issues
-                                                try:
-                                                    # Replace problematic characters in XML
-                                                    fixed_xml = clean_xml
-
-                                                    # Replace & with &amp; if not already part of an entity
-                                                    fixed_xml = re.sub(r'&(?!amp;|lt;|gt;|apos;|quot;)', '&amp;', fixed_xml)
-
-                                                    # Fix other common XML issues
-                                                    fixed_xml = fixed_xml.replace('</', '</').replace('  >', '>')
-
-                                                    # Try to parse the fixed XML
-                                                    from xml.dom.minidom import parseString
-                                                    dom = parseString(fixed_xml)
-
-                                                    # Get the pretty-printed XML with proper indentation
-                                                    pretty_xml = dom.toprettyxml()
-
-                                                    # Remove XML declaration
-                                                    if pretty_xml.startswith('<?xml'):
-                                                        pretty_xml = pretty_xml[pretty_xml.find('?>')+2:].strip()
-
-                                                    log.info(f"Extracted and validated XML: {pretty_xml[:100]}...")
-                                                    yield pretty_xml
-                                                except Exception as xml_parse_error:
-                                                    log.warning(f"XML validation failed: {str(xml_parse_error)}, using raw XML")
-
-                                                    # If XML validation fails, try a more aggressive approach
-                                                    try:
-                                                        # Use regex to extract just the structure without any problematic characters
-                                                        import re
-
-                                                        # Extract the basic structure
-                                                        structure_match = re.search(r'<wiki_structure>(.*?)</wiki_structure>', clean_xml, re.DOTALL)
-                                                        if structure_match:
-                                                            structure = structure_match.group(1).strip()
-
-                                                            # Rebuild a clean XML structure
-                                                            clean_structure = "<wiki_structure>\n"
-
-                                                            # Extract title
-                                                            title_match = re.search(r'<title>(.*?)</title>', structure, re.DOTALL)
-                                                            if title_match:
-                                                                title = title_match.group(1).strip()
-                                                                clean_structure += f"  <title>{title}</title>\n"
-
-                                                            # Extract description
-                                                            desc_match = re.search(r'<description>(.*?)</description>', structure, re.DOTALL)
-                                                            if desc_match:
-                                                                desc = desc_match.group(1).strip()
-                                                                clean_structure += f"  <description>{desc}</description>\n"
-
-                                                            # Add pages section
-                                                            clean_structure += "  <pages>\n"
-
-                                                            # Extract pages
-                                                            pages = re.findall(r'<page id="(.*?)">(.*?)</page>', structure, re.DOTALL)
-                                                            for page_id, page_content in pages:
-                                                                clean_structure += f'    <page id="{page_id}">\n'
-
-                                                                # Extract page title
-                                                                page_title_match = re.search(r'<title>(.*?)</title>', page_content, re.DOTALL)
-                                                                if page_title_match:
-                                                                    page_title = page_title_match.group(1).strip()
-                                                                    clean_structure += f"      <title>{page_title}</title>\n"
-
-                                                                # Extract page description
-                                                                page_desc_match = re.search(r'<description>(.*?)</description>', page_content, re.DOTALL)
-                                                                if page_desc_match:
-                                                                    page_desc = page_desc_match.group(1).strip()
-                                                                    clean_structure += f"      <description>{page_desc}</description>\n"
-
-                                                                # Extract importance
-                                                                importance_match = re.search(r'<importance>(.*?)</importance>', page_content, re.DOTALL)
-                                                                if importance_match:
-                                                                    importance = importance_match.group(1).strip()
-                                                                    clean_structure += f"      <importance>{importance}</importance>\n"
-
-                                                                # Extract relevant files
-                                                                clean_structure += "      <relevant_files>\n"
-                                                                file_paths = re.findall(r'<file_path>(.*?)</file_path>', page_content, re.DOTALL)
-                                                                for file_path in file_paths:
-                                                                    clean_structure += f"        <file_path>{file_path.strip()}</file_path>\n"
-                                                                clean_structure += "      </relevant_files>\n"
-
-                                                                # Extract related pages
-                                                                clean_structure += "      <related_pages>\n"
-                                                                related_pages = re.findall(r'<related>(.*?)</related>', page_content, re.DOTALL)
-                                                                for related in related_pages:
-                                                                    clean_structure += f"        <related>{related.strip()}</related>\n"
-                                                                clean_structure += "      </related_pages>\n"
-
-                                                                clean_structure += "    </page>\n"
-
-                                                            clean_structure += "  </pages>\n</wiki_structure>"
-
-                                                            log.info("Successfully rebuilt clean XML structure")
-                                                            yield clean_structure
-                                                        else:
-                                                            log.warning("Could not extract wiki structure, using raw XML")
-                                                            yield clean_xml
-                                                    except Exception as rebuild_error:
-                                                        log.warning(f"Failed to rebuild XML: {str(rebuild_error)}, using raw XML")
-                                                        yield clean_xml
-                                            else:
-                                                # If we can't extract it, just yield the original content
-                                                log.warning("Could not extract wiki_structure XML, yielding original content")
-                                                yield xml_content
-                                        else:
-                                            # For other XML content, just yield it as is
-                                            yield content
-                                    except Exception as xml_error:
-                                        log.error(f"Error processing XML content: {str(xml_error)}")
-                                        yield content
-                                else:
-                                    # Not XML, just yield the content
-                                    yield content
-                            else:
-                                log.error(f"Unexpected response format: {data}")
-                                yield "Error: Unexpected response format from OpenRouter API"
-                        else:
-                            log.error(f"No choices in response: {data}")
-                            yield "Error: No response content from OpenRouter API"
-
-                    return content_generator()
-
-                except requests.ConnectionError as e:
-                    log.error(f"Connection error with OpenRouter API: {str(e)}")
-
-                    # Return a generator that yields the error message
-                    def connection_error_generator():
-                        yield f"Connection error with OpenRouter API: {str(e)}. Please check your internet connection and that the OpenRouter API is accessible."
-                    return connection_error_generator()
-
-                except Timeout as e:
-                    log.error(f"Timeout error with OpenRouter API: {str(e)}")
-
-                    # Return a generator that yields the error message
-                    def timeout_error_generator():
-                        yield f"Timeout error with OpenRouter API: {str(e)}. The request took too long to complete."
-                    return timeout_error_generator()
-
-            except RequestException as e:
-                log.error(f"Error calling OpenRouter API: {str(e)}")
-
-                # Return a generator that yields the error message
-                def request_error_generator():
-                    yield f"Error calling OpenRouter API: {str(e)}"
-                return request_error_generator()
-
-            except Exception as e:
-                log.error(f"Unexpected error calling OpenRouter API: {str(e)}")
-
-                # Return a generator that yields the error message
-                def unexpected_error_generator():
-                    yield f"Unexpected error calling OpenRouter API: {str(e)}"
-                return unexpected_error_generator()
-
-        else:
-            error_msg = f"Unsupported model type: {model_type}"
-            log.error(error_msg)
-
-            # Return a generator that yields the error message
-            def model_type_error_generator():
-                yield error_msg
-            return model_type_error_generator()
-
     async def acall(self, api_kwargs: Dict = None, model_type: ModelType = None) -> Any:
         """Make an asynchronous call to the OpenRouter API."""
         if not self.async_client:
@@ -577,28 +319,28 @@ class OpenRouterClient(ModelClient):
                                     yield "Error: No response content from OpenRouter API"
 
                             return content_generator()
-                    except aiohttp.ClientError as e:
-                        log.error(f"Connection error with OpenRouter API: {str(e)}")
+                    except aiohttp.ClientError as e_client:
+                        log.error(f"Connection error with OpenRouter API: {str(e_client)}")
 
                         # Return a generator that yields the error message
                         async def connection_error_generator():
-                            yield f"Connection error with OpenRouter API: {str(e)}. Please check your internet connection and that the OpenRouter API is accessible."
+                            yield f"Connection error with OpenRouter API: {str(e_client)}. Please check your internet connection and that the OpenRouter API is accessible."
                         return connection_error_generator()
 
-            except RequestException as e:
-                log.error(f"Error calling OpenRouter API asynchronously: {str(e)}")
+            except RequestException as e_req:
+                log.error(f"Error calling OpenRouter API asynchronously: {str(e_req)}")
 
                 # Return a generator that yields the error message
                 async def request_error_generator():
-                    yield f"Error calling OpenRouter API: {str(e)}"
+                    yield f"Error calling OpenRouter API: {str(e_req)}"
                 return request_error_generator()
 
-            except Exception as e:
-                log.error(f"Unexpected error calling OpenRouter API asynchronously: {str(e)}")
+            except Exception as e_unexp:
+                log.error(f"Unexpected error calling OpenRouter API asynchronously: {str(e_unexp)}")
 
                 # Return a generator that yields the error message
                 async def unexpected_error_generator():
-                    yield f"Unexpected error calling OpenRouter API: {str(e)}"
+                    yield f"Unexpected error calling OpenRouter API: {str(e_unexp)}"
                 return unexpected_error_generator()
 
         else:
@@ -642,8 +384,8 @@ class OpenRouterClient(ModelClient):
                 raw_response=data
             )
 
-        except Exception as e:
-            log.error(f"Error processing OpenRouter completion response: {str(e)}")
+        except Exception as e_proc:
+            log.error(f"Error processing OpenRouter completion response: {str(e_proc)}")
             raise
 
     def _process_streaming_response(self, response):
@@ -703,12 +445,12 @@ class OpenRouterClient(ModelClient):
                             except json.JSONDecodeError:
                                 log.warning(f"Failed to parse SSE data: {data}")
                                 continue
-                except Exception as e:
-                    log.error(f"Error processing streaming chunk: {str(e)}")
-                    yield f"Error processing response chunk: {str(e)}"
-        except Exception as e:
-            log.error(f"Error in streaming response: {str(e)}")
-            yield f"Error in streaming response: {str(e)}"
+                except Exception as e_chunk:
+                    log.error(f"Error processing streaming chunk: {str(e_chunk)}")
+                    yield f"Error processing response chunk: {str(e_chunk)}"
+        except Exception as e_stream:
+            log.error(f"Error in streaming response: {str(e_stream)}")
+            yield f"Error in streaming response: {str(e_stream)}"
 
     async def _process_async_streaming_response(self, response):
         """Process an asynchronous streaming response from OpenRouter."""
@@ -771,9 +513,9 @@ class OpenRouterClient(ModelClient):
                             except json.JSONDecodeError:
                                 log.warning(f"Failed to parse SSE data: {data}")
                                 continue
-                except Exception as e:
-                    log.error(f"Error processing streaming chunk: {str(e)}")
-                    yield f"Error processing response chunk: {str(e)}"
-        except Exception as e:
-            log.error(f"Error in async streaming response: {str(e)}")
-            yield f"Error in streaming response: {str(e)}"
+                except Exception as e_chunk:
+                    log.error(f"Error processing streaming chunk: {str(e_chunk)}")
+                    yield f"Error processing response chunk: {str(e_chunk)}"
+        except Exception as e_stream:
+            log.error(f"Error in async streaming response: {str(e_stream)}")
+            yield f"Error in streaming response: {str(e_stream)}"

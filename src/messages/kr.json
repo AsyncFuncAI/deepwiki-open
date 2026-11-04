@@ -1,0 +1,75 @@
+{
+    "common": {
+      "appName": "DeepWiki-Open",
+      "tagline": "AI 기반 문서화",
+      "generateWiki": "위키 생성",
+      "processing": "처리 중...",
+      "error": "오류",
+      "submit": "제출",
+      "cancel": "취소",
+      "close": "닫기",
+      "loading": "로딩 중..."
+    },
+    "loading": {
+      "initializing": "위키 생성을 초기화하는 중...",
+      "fetchingStructure": "저장소 구조를 가져오는 중...",
+      "determiningStructure": "위키 구조를 결정하는 중...",
+      "preparingDownload": "다운로드를 준비 중입니다. 잠시만 기다려 주세요..."
+    },
+    "home": {
+      "welcome": "DeepWiki-Open에 오신 것을 환영합니다",
+      "welcomeTagline": "코드 저장소를 위한 AI 기반 문서화",
+      "description": "GitHub, GitLab 또는 Bitbucket 저장소에서 클릭 한 번으로 종합 문서를 생성하세요.",
+      "quickStart": "빠른 시작",
+      "enterRepoUrl": "다음 형식 중 하나로 저장소 URL을 입력하세요:",
+      "advancedVisualization": "Mermaid 다이어그램을 활용한 고급 시각화",
+      "diagramDescription": "DeepWiki는 코드 구조와 관계를 이해하는 데 도움이 되는 대화형 다이어그램을 자동 생성합니다:",
+      "flowDiagram": "흐름도",
+      "sequenceDiagram": "시퀀스 다이어그램"
+    },
+    "form": {
+      "repoPlaceholder": "owner/repo 또는 GitHub/GitLab/Bitbucket URL",
+      "wikiLanguage": "위키 언어",
+      "modelOptions": "모델 옵션",
+      "localOllama": "로컬 Ollama 모델",
+      "experimental": "실험적 기능",
+      "useOpenRouter": "OpenRouter API 사용",
+      "openRouterModel": "OpenRouter 모델",
+      "addTokens": "+ 비공개 저장소 액세스 토큰 추가",
+      "hideTokens": "- 액세스 토큰 숨기기",
+      "accessToken": "비공개 저장소용 액세스 토큰",
+      "selectPlatform": "플랫폼 선택",
+      "personalAccessToken": "{platform} 개인 액세스 토큰",
+      "tokenPlaceholder": "{platform} 토큰을 입력하세요",
+      "tokenSecurityNote": "토큰은 메모리에만 저장되며, 영구적으로 보존되지 않습니다."
+    },
+    "footer": {
+      "copyright": "DeepWiki - 코드 저장소를 위한 AI 기반 문서화"
+    },
+    "ask": {
+      "placeholder": "이 저장소에 대해 질문해 보세요...",
+      "askButton": "질문하기",
+      "deepResearch": "심층 분석",
+      "researchInProgress": "심층 분석 진행 중...",
+      "continueResearch": "분석 계속하기",
+      "viewPlan": "계획 보기",
+      "viewUpdates": "업데이트 보기",
+      "viewConclusion": "결론 보기"
+    },
+    "repoPage": {
+      "refreshWiki": "Refresh Wiki",
+      "home": "Home",
+      "errorTitle": "Error",
+      "errorMessageDefault": "Please check that your repository exists and is public. Valid formats are \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", or local folder paths like \"C:\\\\path\\\\to\\\\folder\" or \"/path/to/folder\".",
+      "backToHome": "Back to Home",
+      "exportWiki": "Export Wiki",
+      "exportAsMarkdown": "Export as Markdown",
+      "exportAsJson": "Export as JSON",
+      "pages": "Pages",
+      "relatedFiles": "Related Files:",
+      "relatedPages": "Related Pages:",
+      "selectPagePrompt": "Select a page from the navigation to view its content",
+      "askAboutRepo": "Ask questions about this repository"
+    }
+  }
+   

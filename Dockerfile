@@ -1,4 +1,26 @@
-# Use Python 3.11 as base image
+# syntax=docker/dockerfile:1-labs
+
+FROM node:20-alpine AS node_base
+
+FROM node_base AS node_deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps
+
+FROM node_base AS node_builder
+WORKDIR /app
+COPY --from=node_deps /app/node_modules ./node_modules
+COPY --exclude=./api . .
+RUN NODE_ENV=production npm run build
+
+FROM python:3.11-slim AS py_deps
+WORKDIR /app
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+COPY api/requirements.txt ./api/
+RUN pip install --no-cache -r api/requirements.txt
+
+# Use Python 3.11 as final image
 FROM python:3.11-slim
 
 # Set working directory
@@ -17,19 +39,16 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python requirements and install dependencies
-COPY api/requirements.txt ./api/
-RUN pip install --no-cache-dir -r api/requirements.txt
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy package.json and install Node.js dependencies
-COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps
+# Copy Python dependencies
+COPY --from=py_deps /opt/venv /opt/venv
+COPY api/ ./api/
 
-# Copy the rest of the application
-COPY . .
-
-# Build the Next.js application
-RUN NODE_ENV=production npm run build
+# Copy Node app
+COPY --from=node_builder /app/public ./public
+COPY --from=node_builder /app/.next/standalone ./
+COPY --from=node_builder /app/.next/static ./.next/static
 
 # Expose the port the app runs on
 EXPOSE ${PORT:-8001} 3000
@@ -50,10 +69,9 @@ fi\n\
 \n\
 # Start the API server in the background with the configured port\n\
 python -m api.main --port ${PORT:-8001} &\n\
-\n\
-# Start the Next.js app on port 3000 explicitly\n\
-npm run start -- -p 3000\n\
-' > /app/start.sh && chmod +x /app/start.sh
+PORT=3000 HOSTNAME=0.0.0.0 node server.js &\n\
+wait -n\n\
+exit $?' > /app/start.sh && chmod +x /app/start.sh
 
 # Set environment variables
 ENV PORT=8001

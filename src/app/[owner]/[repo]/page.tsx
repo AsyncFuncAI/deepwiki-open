@@ -3,11 +3,12 @@
 
 import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome } from 'react-icons/fa';
+import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync } from 'react-icons/fa';
 import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
 import Ask from '@/components/Ask';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // Wiki Interfaces
 interface WikiPage {
@@ -28,19 +29,54 @@ interface WikiStructure {
 
 const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
 
-// Add CSS styles for wiki
+// Add CSS styles for wiki with Japanese aesthetic
 const wikiStyles = `
   .prose code {
-    @apply bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded font-mono text-xs;
+    @apply bg-[var(--background)]/70 px-1.5 py-0.5 rounded font-mono text-xs border border-[var(--border-color)];
   }
 
   .prose pre {
-    @apply bg-gray-900 text-gray-100 rounded-md p-4 overflow-x-auto;
+    @apply bg-[var(--background)]/80 text-[var(--foreground)] rounded-md p-4 overflow-x-auto border border-[var(--border-color)] shadow-sm;
+  }
+
+  .prose h1, .prose h2, .prose h3, .prose h4 {
+    @apply font-serif text-[var(--foreground)];
+  }
+
+  .prose p {
+    @apply text-[var(--foreground)] leading-relaxed;
+  }
+
+  .prose a {
+    @apply text-[var(--accent-primary)] hover:text-[var(--highlight)] transition-colors no-underline border-b border-[var(--border-color)] hover:border-[var(--accent-primary)];
+  }
+
+  .prose blockquote {
+    @apply border-l-4 border-[var(--accent-primary)]/30 bg-[var(--background)]/30 pl-4 py-1 italic;
+  }
+
+  .prose ul, .prose ol {
+    @apply text-[var(--foreground)];
+  }
+
+  .prose table {
+    @apply border-collapse border border-[var(--border-color)];
+  }
+
+  .prose th {
+    @apply bg-[var(--background)]/70 text-[var(--foreground)] p-2 border border-[var(--border-color)];
+  }
+
+  .prose td {
+    @apply p-2 border border-[var(--border-color)];
   }
 `;
 
 // Helper functions for token handling and API requests
-const getRepoUrl = (owner: string, repo: string, repoType: string): string => {
+const getRepoUrl = (owner: string, repo: string, repoType: string, localPath?: string): string => {
+  if (repoType === 'local' && localPath) {
+    return localPath;
+  }
   return repoType === 'github'
     ? `https://github.com/${owner}/${repo}`
     : repoType === 'gitlab'
@@ -48,6 +84,10 @@ const getRepoUrl = (owner: string, repo: string, repoType: string): string => {
     : `https://bitbucket.org/${owner}/${repo}`;
 };
 
+// Helper function to generate cache key for localStorage
+const getCacheKey = (owner: string, repo: string, repoType: string, language: string): string => {
+  return `deepwiki_cache_${repoType}_${owner}_${repo}_${language}`;
+};
 
 const addTokensToRequestBody = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,6 +99,7 @@ const addTokensToRequestBody = (
   localOllama: boolean = false,
   useOpenRouter: boolean = false,
   openRouterModel: string = 'openai/gpt-4o',
+  language: string = 'en',
 ): void => {
   if (githubToken && repoType === 'github') {
     requestBody.github_token = githubToken;
@@ -74,6 +115,7 @@ const addTokensToRequestBody = (
   if (useOpenRouter) {
     requestBody.openrouter_model = openRouterModel;
   }
+  requestBody.language = language;
 };
 
 const createGithubHeaders = (githubToken: string): HeadersInit => {
@@ -127,20 +169,28 @@ export default function RepoWikiPage() {
   const gitlabToken = searchParams.get('gitlab_token') || '';
   const bitbucketToken = searchParams.get('bitbucket_token') || '';
   const repoType = searchParams.get('type') || 'github';
+  const localPath = searchParams.get('local_path') ? decodeURIComponent(searchParams.get('local_path') || '') : undefined;
   const localOllama = searchParams.get('local_ollama') === 'true';
   const useOpenRouter = searchParams.get('use_openrouter') === 'true';
   const openRouterModel = searchParams.get('openrouter_model') || 'openai/gpt-4o';
+  const language = searchParams.get('language') || 'en';
+
+  // Import language context for translations
+  const { messages } = useLanguage();
 
   // Initialize repo info
   const repoInfo = useMemo(() => ({
     owner,
     repo,
-    type: repoType
-  }), [owner, repo, repoType]);
+    type: repoType,
+    localPath
+  }), [owner, repo, repoType, localPath]);
 
   // State variables
   const [isLoading, setIsLoading] = useState(true);
-  const [loadingMessage, setLoadingMessage] = useState<string | undefined>('Initializing wiki generation...');
+  const [loadingMessage, setLoadingMessage] = useState<string | undefined>(
+    messages.loading?.initializing || 'Initializing wiki generation...'
+  );
   const [error, setError] = useState<string | null>(null);
   const [wikiStructure, setWikiStructure] = useState<WikiStructure | undefined>();
   const [currentPageId, setCurrentPageId] = useState<string | undefined>();
@@ -156,6 +206,8 @@ export default function RepoWikiPage() {
   // but in React's single-threaded model, this is safe as long as we set the flag before any async operations
   const activeContentRequests = useRef(new Map<string, boolean>()).current;
   const [structureRequestInProgress, setStructureRequestInProgress] = useState(false);
+  // Create a flag to track if data was loaded from cache to prevent immediate re-save
+  const cacheLoadedSuccessfully = useRef(false);
 
   // Create a flag to ensure the effect only runs once
   const effectRan = React.useRef(false);
@@ -215,7 +267,7 @@ export default function RepoWikiPage() {
         console.log(`Starting content generation for page: ${page.title}`);
 
         // Get repository URL
-        const repoUrl = getRepoUrl(owner, repo, repoInfo.type);
+        const repoUrl = getRepoUrl(owner, repo, repoInfo.type, repoInfo.localPath);
 
         // Create the prompt content - simplified to avoid message dialogs
         const promptContent =
@@ -223,6 +275,13 @@ export default function RepoWikiPage() {
 
 This page should focus on the following files:
 ${filePaths.map(path => `- ${path}`).join('\n')}
+
+IMPORTANT: Generate the content in ${language === 'en' ? 'English' :
+            language === 'ja' ? 'Japanese (日本語)' :
+            language === 'zh' ? 'Mandarin Chinese (中文)' :
+            language === 'es' ? 'Spanish (Español)' : 
+            language === 'kr' ? 'Korean (한국어)' : 
+            language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'} language.
 
 Include:
 - Clear introduction explaining what "${page.title}" is
@@ -282,7 +341,7 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
         };
 
         // Add tokens if available
-        addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, openRouterModel);
+        addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, openRouterModel, language);
 
         const response = await fetch(`${SERVER_BASE_URL}/chat/completions/stream`, {
           method: 'POST',
@@ -358,7 +417,7 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [generatedPages, githubToken, gitlabToken, bitbucketToken, repoInfo.type]);
+  }, [generatedPages, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, openRouterModel, language, activeContentRequests]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -376,10 +435,10 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
 
     try {
       setStructureRequestInProgress(true);
-      setLoadingMessage('Determining wiki structure...');
+      setLoadingMessage(messages.loading?.determiningStructure || 'Determining wiki structure...');
 
       // Get repository URL
-      const repoUrl = getRepoUrl(owner, repo, repoInfo.type);
+      const repoUrl = getRepoUrl(owner, repo, repoInfo.type, repoInfo.localPath);
 
       // Prepare request body
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -400,6 +459,13 @@ ${readme}
 </readme>
 
 I want to create a wiki for this repository. Determine the most logical structure for a wiki based on the repository's content.
+
+IMPORTANT: The wiki content will be generated in ${language === 'en' ? 'English' :
+            language === 'ja' ? 'Japanese (日本語)' :
+            language === 'zh' ? 'Mandarin Chinese (中文)' :
+            language === 'es' ? 'Spanish (Español)' : 
+            language === 'kr' ? 'Korean (한국어)' : 
+            language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'} language.
 
 When designing the wiki structure, include pages that would benefit from visual diagrams, such as:
 - Architecture overviews
@@ -448,7 +514,7 @@ IMPORTANT:
       };
 
       // Add tokens if available
-      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, openRouterModel);
+      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, openRouterModel, language);
 
       const response = await fetch(`${SERVER_BASE_URL}/chat/completions/stream`, {
         method: 'POST',
@@ -558,7 +624,7 @@ IMPORTANT:
         console.log(`Starting generation for ${pages.length} pages with controlled concurrency`);
 
         // Maximum concurrent requests
-        const MAX_CONCURRENT = 3;
+        const MAX_CONCURRENT = 1;
 
         // Create a queue of pages
         const queue = [...pages];
@@ -625,7 +691,7 @@ IMPORTANT:
     } finally {
       setStructureRequestInProgress(false);
     }
-  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, pagesInProgress.size, structureRequestInProgress, localOllama, useOpenRouter, openRouterModel]);
+  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, pagesInProgress.size, structureRequestInProgress, localOllama, useOpenRouter, openRouterModel, language, messages.loading]);
 
   // Fetch repository structure using GitHub or GitLab API
   const fetchRepositoryStructure = useCallback(async () => {
@@ -648,12 +714,27 @@ IMPORTANT:
 
       // Update loading state
       setIsLoading(true);
-      setLoadingMessage('Fetching repository structure...');
+      setLoadingMessage(messages.loading?.fetchingStructure || 'Fetching repository structure...');
 
       let fileTreeData = '';
       let readmeContent = '';
 
-      if (repoInfo.type === 'github') {
+      if (repoInfo.type === 'local' && repoInfo.localPath) {
+        try {
+          const response = await fetch(`${SERVER_BASE_URL}/local_repo/structure?path=${encodeURIComponent(repoInfo.localPath)}`);
+
+          if (!response.ok) {
+            const errorData = await response.text();
+            throw new Error(`Local repository API error (${response.status}): ${errorData}`);
+          }
+
+          const data = await response.json();
+          fileTreeData = data.file_tree;
+          readmeContent = data.readme;
+        } catch (err) {
+          throw err;
+        }
+      } else if (repoInfo.type === 'github') {
         // GitHub API approach
         // Try to get the tree data for common branch names
         let treeData = null;
@@ -892,7 +973,7 @@ IMPORTANT:
       // Reset the request in progress flag
       setRequestInProgress(false);
     }
-  }, [owner, repo, determineWikiStructure, githubToken, gitlabToken, bitbucketToken, repoInfo.type, requestInProgress]);
+  }, [owner, repo, determineWikiStructure, githubToken, gitlabToken, bitbucketToken, repoInfo.type, requestInProgress, messages.loading]);
 
   // Function to export wiki content
   const exportWiki = useCallback(async (format: 'markdown' | 'json') => {
@@ -904,7 +985,7 @@ IMPORTANT:
     try {
       setIsExporting(true);
       setExportError(null);
-      setLoadingMessage(`Exporting wiki as ${format}...`);
+      setLoadingMessage(`${language === 'ja' ? 'Wikiを' : 'Exporting wiki as '} ${format} ${language === 'ja' ? 'としてエクスポート中...' : '...'}`);
 
       // Prepare the pages for export
       const pagesToExport = wikiStructure.pages.map(page => {
@@ -917,7 +998,7 @@ IMPORTANT:
       });
 
       // Get repository URL
-      const repoUrl = getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type);
+      const repoUrl = getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type, repoInfo.localPath);
 
       // Make API call to export wiki
       const response = await fetch(`${SERVER_BASE_URL}/export/wiki`, {
@@ -967,14 +1048,73 @@ IMPORTANT:
       setIsExporting(false);
       setLoadingMessage(undefined);
     }
-  }, [wikiStructure, generatedPages, repoInfo]);
+  }, [wikiStructure, generatedPages, repoInfo, language]);
+
+  // Function to refresh wiki and clear cache
+  const handleRefreshWiki = useCallback(() => {
+    // Clear the cache for this repository
+    const cacheKey = getCacheKey(repoInfo.owner, repoInfo.repo, repoInfo.type, language);
+    localStorage.removeItem(cacheKey);
+    
+    // Reset cache loaded flag
+    cacheLoadedSuccessfully.current = false;
+    
+    // Reset all state
+    setWikiStructure(undefined);
+    setCurrentPageId(undefined);
+    setGeneratedPages({});
+    setPagesInProgress(new Set());
+    setError(null);
+    
+    // Clear any in-progress requests
+    activeContentRequests.clear();
+    setStructureRequestInProgress(false);
+    setRequestInProgress(false);
+    
+    // Start fresh fetch
+    fetchRepositoryStructure();
+  }, [fetchRepositoryStructure, repoInfo.owner, repoInfo.repo, repoInfo.type, language]);
 
   // Start wiki generation when component mounts
   useEffect(() => {
-    console.log('Initial repository fetch triggered');
 
     if (effectRan.current === false) {
-      console.log('Fetching repository structure - first execution');
+      
+      // Try loading from cache first
+      const cacheKey = getCacheKey(repoInfo.owner, repoInfo.repo, repoInfo.type, language);
+      try {
+        const cachedData = localStorage.getItem(cacheKey);
+        
+        if (cachedData) {
+          const parsedData = JSON.parse(cachedData);
+          
+          // Verify the cache has the required structure and pages
+          if (parsedData.wikiStructure && 
+              parsedData.generatedPages && 
+              Object.keys(parsedData.generatedPages).length > 0) {
+            
+            console.log('Using cached wiki data');
+            setWikiStructure(parsedData.wikiStructure);
+            setGeneratedPages(parsedData.generatedPages);
+            setCurrentPageId(parsedData.wikiStructure.pages.length > 0 ? parsedData.wikiStructure.pages[0].id : undefined);
+            setIsLoading(false);
+            setLoadingMessage(undefined);
+            cacheLoadedSuccessfully.current = true;
+            effectRan.current = true;
+            return;
+          } else {
+            // Invalid cache, clear it
+            console.log('Invalid cache data, clearing');
+            localStorage.removeItem(cacheKey);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading from cache:', error);
+        // Clear the cache if there was an error parsing
+        localStorage.removeItem(cacheKey);
+      }
+      
+      // If we reached here, either there was no cache or it was invalid
       fetchRepositoryStructure();
       effectRan.current = true;
     } else {
@@ -986,21 +1126,58 @@ IMPORTANT:
       console.log('Repository page unmounting');
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);  // Empty dependency array to ensure it only runs once on mount
+  }, [repoInfo, fetchRepositoryStructure]);  // Only rerun if repo info changes
+
+  // Save wiki to cache when generation is complete
+  useEffect(() => {
+    // Only save when wiki generation is fully complete and successful
+    if (!isLoading && 
+        !error && 
+        wikiStructure && 
+        Object.keys(generatedPages).length > 0 &&
+        Object.keys(generatedPages).length >= wikiStructure.pages.length &&
+        !cacheLoadedSuccessfully.current) {
+      
+      // Check that all pages have content
+      const allPagesHaveContent = wikiStructure.pages.every(page => 
+        generatedPages[page.id] && generatedPages[page.id].content);
+      
+      if (allPagesHaveContent) {
+        console.log('Saving wiki data to cache');
+        const cacheKey = getCacheKey(repoInfo.owner, repoInfo.repo, repoInfo.type, language);
+        
+        try {
+          const dataToCache = {
+            wikiStructure,
+            generatedPages
+          };
+          
+          localStorage.setItem(cacheKey, JSON.stringify(dataToCache));
+        } catch (error) {
+          // Handle potential localStorage errors (quota exceeded, etc.)
+          console.error('Error saving to cache:', error);
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, error, wikiStructure, generatedPages]);
 
   return (
-    <div className="h-screen bg-gray-100 dark:bg-gray-900 p-4 md:p-8 flex flex-col">
+    <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
       <style>{wikiStyles}</style>
 
       <header className="max-w-6xl mx-auto mb-8 h-fit w-full">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-purple-600 hover:text-purple-800 flex items-center gap-1">
-              <FaHome /> Home
+            <Link href="/" className="text-[var(--accent-primary)] hover:text-[var(--highlight)] flex items-center gap-1.5 transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)] pb-0.5">
+              <FaHome /> {messages.repoPage?.home || 'Home'}
             </Link>
             <div className="flex items-center">
-              <FaWikipediaW className="mr-2 text-3xl text-purple-500" />
-              <h1 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-200">DeepWiki</h1>
+              <div className="relative">
+                <div className="absolute -inset-1 bg-[var(--accent-primary)]/20 rounded-full blur-md"></div>
+                <FaWikipediaW className="mr-3 text-3xl text-[var(--accent-primary)] relative z-10" />
+              </div>
+              <h1 className="text-xl md:text-2xl font-bold text-[var(--foreground)] font-serif">DeepWiki</h1>
             </div>
           </div>
         </div>
@@ -1008,39 +1185,60 @@ IMPORTANT:
 
       <main className="flex-1 max-w-6xl mx-auto overflow-y-auto">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mb-4"></div>
-            <p className="text-gray-800 dark:text-gray-200 text-center mb-2">
-              {loadingMessage || 'Loading...'}
-              {isExporting && ' Please wait while we prepare your download...'}
+          <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
+            <div className="relative mb-6">
+              <div className="absolute -inset-4 bg-[var(--accent-primary)]/10 rounded-full blur-md animate-pulse"></div>
+              <div className="relative flex items-center justify-center">
+                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse"></div>
+                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-75 mx-2"></div>
+                <div className="w-3 h-3 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-150"></div>
+              </div>
+            </div>
+            <p className="text-[var(--foreground)] text-center mb-3 font-serif">
+              {loadingMessage || messages.common?.loading || 'Loading...'}
+              {isExporting && (messages.loading?.preparingDownload || ' Please wait while we prepare your download...')}
             </p>
 
             {/* Progress bar for page generation */}
             {wikiStructure && (
-              <div className="w-full max-w-md mt-2">
-                <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-2">
+              <div className="w-full max-w-md mt-3">
+                <div className="bg-[var(--background)]/50 rounded-full h-2 mb-3 overflow-hidden border border-[var(--border-color)]">
                   <div
-                    className="bg-purple-600 h-2.5 rounded-full transition-all duration-300 ease-in-out"
+                    className="bg-[var(--accent-primary)] h-2 rounded-full transition-all duration-300 ease-in-out"
                     style={{
                       width: `${Math.max(5, 100 * (wikiStructure.pages.length - pagesInProgress.size) / wikiStructure.pages.length)}%`
                     }}
                   />
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                  {wikiStructure.pages.length - pagesInProgress.size} of {wikiStructure.pages.length} pages completed
+                <p className="text-xs text-[var(--muted)] text-center">
+                  {language === 'ja'
+                    ? `${wikiStructure.pages.length}ページ中${wikiStructure.pages.length - pagesInProgress.size}ページ完了`
+                    : messages.repoPage?.pagesCompleted
+                        ? messages.repoPage.pagesCompleted
+                            .replace('{completed}', (wikiStructure.pages.length - pagesInProgress.size).toString())
+                            .replace('{total}', wikiStructure.pages.length.toString())
+                        : `${wikiStructure.pages.length - pagesInProgress.size} of ${wikiStructure.pages.length} pages completed`}
                 </p>
 
                 {/* Show list of in-progress pages */}
                 {pagesInProgress.size > 0 && (
                   <div className="mt-4 text-xs">
-                    <p className="text-gray-500 dark:text-gray-400 mb-1">Currently processing:</p>
-                    <ul className="text-gray-600 dark:text-gray-300">
+                    <p className="text-[var(--muted)] mb-2">
+                      {messages.repoPage?.currentlyProcessing || 'Currently processing:'}
+                    </p>
+                    <ul className="text-[var(--foreground)] space-y-1">
                       {Array.from(pagesInProgress).slice(0, 3).map(pageId => {
                         const page = wikiStructure.pages.find(p => p.id === pageId);
-                        return page ? <li key={pageId} className="truncate">{page.title}</li> : null;
+                        return page ? <li key={pageId} className="truncate border-l-2 border-[var(--accent-primary)]/30 pl-2">{page.title}</li> : null;
                       })}
                       {pagesInProgress.size > 3 && (
-                        <li>...and {pagesInProgress.size - 3} more</li>
+                        <li className="text-[var(--muted)]">
+                          {language === 'ja'
+                            ? `...他に${pagesInProgress.size - 3}ページ`
+                            : messages.repoPage?.andMorePages
+                                ? messages.repoPage.andMorePages.replace('{count}', (pagesInProgress.size - 3).toString())
+                                : `...and ${pagesInProgress.size - 3} more`}
+                        </li>
                       )}
                     </ul>
                   </div>
@@ -1049,93 +1247,119 @@ IMPORTANT:
             )}
           </div>
         ) : error ? (
-          <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-500/30 rounded-lg p-4 mb-4">
-            <div className="flex items-center text-red-800 dark:text-red-400 mb-2">
+          <div className="bg-[var(--highlight)]/5 border border-[var(--highlight)]/30 rounded-lg p-5 mb-4 shadow-sm">
+            <div className="flex items-center text-[var(--highlight)] mb-3">
               <FaExclamationTriangle className="mr-2" />
-              <span className="font-bold">Error</span>
+              <span className="font-bold font-serif">{messages.repoPage?.errorTitle || messages.common?.error || 'Error'}</span>
             </div>
-            <p className="text-red-800 dark:text-red-300 text-sm mb-2">{error}</p>
-            <p className="text-red-700 dark:text-red-300 text-xs">
-              Please check that your repository exists and is public. Valid formats are &ldquo;owner/repo&rdquo;, &ldquo;https://github.com/owner/repo&rdquo;, &ldquo;https://gitlab.com/owner/repo&rdquo;, or &ldquo;https://bitbucket.org/owner/repo&rdquo;.
+            <p className="text-[var(--foreground)] text-sm mb-3">{error}</p>
+            <p className="text-[var(--muted)] text-xs">
+              {messages.repoPage?.errorMessageDefault || 'Please check that your repository exists and is public. Valid formats are "owner/repo", "https://github.com/owner/repo", "https://gitlab.com/owner/repo", "https://bitbucket.org/owner/repo", or local folder paths like "C:\\path\\to\\folder" or "/path/to/folder".'}
             </p>
-            <div className="mt-4">
+            <div className="mt-5">
               <Link
                 href="/"
-                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 inline-block"
+                className="btn-japanese px-5 py-2 inline-flex items-center gap-1.5"
               >
-                Back to Home
+                <FaHome className="text-sm" />
+                {messages.repoPage?.backToHome || 'Back to Home'}
               </Link>
             </div>
           </div>
         ) : wikiStructure ? (
-          <div className="h-full overflow-y-auto flex flex-col lg:flex-row gap-4 w-full overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+          <div className="h-full overflow-y-auto flex flex-col lg:flex-row gap-4 w-full overflow-hidden bg-[var(--card-bg)] rounded-lg shadow-custom card-japanese">
             {/* Wiki Navigation */}
-            <div className="h-full w-full lg:w-80 flex-shrink-0 bg-gray-100 dark:bg-gray-800/50 rounded-lg rounded-r-none p-4 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-700/20 overflow-y-auto">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">{wikiStructure.title}</h3>
-              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">{wikiStructure.description}</p>
+            <div className="h-full w-full lg:w-80 flex-shrink-0 bg-[var(--background)]/50 rounded-lg rounded-r-none p-5 border-b lg:border-b-0 lg:border-r border-[var(--border-color)] overflow-y-auto">
+              <h3 className="text-lg font-bold text-[var(--foreground)] mb-3 font-serif">{wikiStructure.title}</h3>
+              <p className="text-[var(--muted)] text-sm mb-5 leading-relaxed">{wikiStructure.description}</p>
 
               {/* Display repository info */}
-              <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex items-center">
-                {repoInfo.type === 'github' ? (
-                  <FaGithub className="mr-1" />
-                ) : repoInfo.type === 'gitlab' ? (
-                  <FaGitlab className="mr-1" />
+              <div className="text-xs text-[var(--muted)] mb-5 flex items-center">
+                {repoInfo.type === 'local' ? (
+                  <div className="flex items-center">
+                    <FaFolder className="mr-2" />
+                    <span className="break-all">{repoInfo.localPath}</span>
+                  </div>
                 ) : (
-                  <FaBitbucket className="mr-1" />
+                  <>
+                    {repoInfo.type === 'github' ? (
+                      <FaGithub className="mr-2" />
+                    ) : repoInfo.type === 'gitlab' ? (
+                      <FaGitlab className="mr-2" />
+                    ) : (
+                      <FaBitbucket className="mr-2" />
+                    )}
+                    <a
+                      href={repoInfo.type === 'github'
+                        ? `https://github.com/${repoInfo.owner}/${repoInfo.repo}`
+                        : repoInfo.type === 'gitlab'
+                        ? `https://gitlab.com/${repoInfo.owner}/${repoInfo.repo}`
+                        : `https://bitbucket.org/${repoInfo.owner}/${repoInfo.repo}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-[var(--accent-primary)] transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)]"
+                    >
+                      {repoInfo.owner}/{repoInfo.repo}
+                    </a>
+                  </>
                 )}
-                <a
-                  href={repoInfo.type === 'github'
-                    ? `https://github.com/${repoInfo.owner}/${repoInfo.repo}`
-                    : repoInfo.type === 'gitlab'
-                    ? `https://gitlab.com/${repoInfo.owner}/${repoInfo.repo}`
-                    : `https://bitbucket.org/${repoInfo.owner}/${repoInfo.repo}`
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-purple-500 transition-colors"
+              </div>
+
+              {/* Refresh Wiki button */}
+              <div className="mb-5">
+                <button
+                  onClick={handleRefreshWiki}
+                  disabled={isLoading}
+                  className="flex items-center w-full text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors hover:cursor-pointer"
                 >
-                  {repoInfo.owner}/{repoInfo.repo}
-                </a>
+                  <FaSync className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                  {messages.repoPage?.refreshWiki || 'Refresh Wiki'}
+                </button>
               </div>
 
               {/* Export buttons */}
               {Object.keys(generatedPages).length > 0 && (
-                <div className="mb-4">
-                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Export Wiki</h4>
+                <div className="mb-5">
+                  <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3 font-serif">
+                    {messages.repoPage?.exportWiki || 'Export Wiki'}
+                  </h4>
                   <div className="flex flex-col gap-2">
                     <button
                       onClick={() => exportWiki('markdown')}
                       disabled={isExporting}
-                      className="flex items-center text-xs px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn-japanese flex items-center text-xs px-3 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <FaDownload className="mr-2" />
-                      Export as Markdown
+                      {messages.repoPage?.exportAsMarkdown || 'Export as Markdown'}
                     </button>
                     <button
                       onClick={() => exportWiki('json')}
                       disabled={isExporting}
-                      className="flex items-center text-xs px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center text-xs px-3 py-2 bg-[var(--background)] text-[var(--foreground)] rounded-md hover:bg-[var(--background)]/80 disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border-color)] transition-colors"
                     >
                       <FaFileExport className="mr-2" />
-                      Export as JSON
+                      {messages.repoPage?.exportAsJson || 'Export as JSON'}
                     </button>
                   </div>
                   {exportError && (
-                    <div className="mt-2 text-xs text-red-500">
+                    <div className="mt-2 text-xs text-[var(--highlight)]">
                       {exportError}
                     </div>
                   )}
                 </div>
               )}
 
-              <h4 className="text-md font-semibold text-gray-800 dark:text-gray-300 mb-2">Pages</h4>
+              <h4 className="text-md font-semibold text-[var(--foreground)] mb-3 font-serif">
+                {messages.repoPage?.pages || 'Pages'}
+              </h4>
               <ul className="space-y-2">
                 {wikiStructure.pages.map(page => (
                   <li key={page.id}>
                     <button
                       className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${currentPageId === page.id
-                          ? 'bg-purple-700/50 text-white'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-purple-700/30'
+                          ? 'bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30'
+                          : 'text-[var(--foreground)] hover:bg-[var(--background)] border border-transparent'
                         }`}
                       onClick={() => {
                         if (currentPageId != page.id) {
@@ -1144,9 +1368,13 @@ IMPORTANT:
                       }}
                     >
                       <div className="flex items-center">
-                        <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${page.importance === 'high' ? 'bg-green-500' :
-                            page.importance === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'
-                          }`}></div>
+                        <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
+                          page.importance === 'high'
+                            ? 'bg-[#9b7cb9]'
+                            : page.importance === 'medium'
+                              ? 'bg-[#d7c4bb]'
+                              : 'bg-[#e8927c]'
+                        }`}></div>
                         <span className="truncate">{page.title}</span>
                       </div>
                     </button>
@@ -1156,19 +1384,21 @@ IMPORTANT:
             </div>
 
             {/* Wiki Content */}
-            <div id="wiki-content" className="w-full flex-grow p-4 overflow-y-auto">
+            <div id="wiki-content" className="w-full flex-grow p-6 overflow-y-auto">
               {currentPageId && generatedPages[currentPageId] ? (
                 <div>
-                  <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2 break-words">
+                  <h3 className="text-xl font-bold text-[var(--foreground)] mb-4 break-words font-serif">
                     {generatedPages[currentPageId].title}
                   </h3>
 
                   {generatedPages[currentPageId].filePaths.length > 0 && (
-                    <div className="mb-4">
-                      <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">Related Files:</h4>
+                    <div className="mb-5">
+                      <h4 className="text-sm font-semibold text-[var(--muted)] mb-2">
+                        {messages.repoPage?.relatedFiles || 'Related Files:'}
+                      </h4>
                       <div className="flex flex-wrap gap-2">
                         {generatedPages[currentPageId].filePaths.map(path => (
-                          <span key={path} className="bg-gray-200 dark:bg-gray-700 text-xs text-gray-800 dark:text-gray-300 px-2 py-1 rounded-md truncate max-w-full">
+                          <span key={path} className="bg-[var(--background)]/70 text-xs text-[var(--foreground)] px-3 py-1.5 rounded-md truncate max-w-full border border-[var(--border-color)]">
                             {path}
                           </span>
                         ))}
@@ -1176,22 +1406,24 @@ IMPORTANT:
                     </div>
                   )}
 
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <div className="prose prose-sm max-w-none">
                     <Markdown
                       content={generatedPages[currentPageId].content}
                     />
                   </div>
 
                   {generatedPages[currentPageId].relatedPages.length > 0 && (
-                    <div className="mt-6">
-                      <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">Related Pages:</h4>
+                    <div className="mt-8 pt-4 border-t border-[var(--border-color)]">
+                      <h4 className="text-sm font-semibold text-[var(--muted)] mb-3">
+                        {messages.repoPage?.relatedPages || 'Related Pages:'}
+                      </h4>
                       <div className="flex flex-wrap gap-2">
                         {generatedPages[currentPageId].relatedPages.map(relatedId => {
                           const relatedPage = wikiStructure.pages.find(p => p.id === relatedId);
                           return relatedPage ? (
                             <button
                               key={relatedId}
-                              className="bg-purple-100 dark:bg-purple-700/30 hover:bg-purple-200 dark:hover:bg-purple-700/50 text-xs text-purple-800 dark:text-purple-200 px-3 py-1 rounded-md transition-colors truncate max-w-full"
+                              className="bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-xs text-[var(--accent-primary)] px-3 py-1.5 rounded-md transition-colors truncate max-w-full border border-[var(--accent-primary)]/20"
                               onClick={() => setCurrentPageId(relatedId)}
                             >
                               {relatedPage.title}
@@ -1203,9 +1435,14 @@ IMPORTANT:
                   )}
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center p-8 text-gray-400 h-full">
-                  <FaBookOpen className="text-4xl mb-4" />
-                  <p>Select a page from the navigation to view its content</p>
+                <div className="flex flex-col items-center justify-center p-8 text-[var(--muted)] h-full">
+                  <div className="relative mb-4">
+                    <div className="absolute -inset-2 bg-[var(--accent-primary)]/5 rounded-full blur-md"></div>
+                    <FaBookOpen className="text-4xl relative z-10" />
+                  </div>
+                  <p className="font-serif">
+                    {messages.repoPage?.selectPagePrompt || 'Select a page from the navigation to view its content'}
+                  </p>
                 </div>
               )}
             </div>
@@ -1216,13 +1453,13 @@ IMPORTANT:
       <footer className="max-w-6xl mx-auto mt-8 flex flex-col gap-4 w-full">
         {/* Only show Ask component when wiki is successfully generated */}
         {wikiStructure && Object.keys(generatedPages).length > 0 && !isLoading && (
-          <div className="w-full bg-white dark:bg-gray-800/80 rounded-lg p-4 mb-4 text-black dark:text-white">
-            <div className="text-center mb-2 text-sm">
-              Ask questions about this repository
+          <div className="w-full bg-[var(--card-bg)] rounded-lg p-5 mb-4 shadow-custom card-japanese">
+            <div className="text-center mb-3 text-sm font-serif text-[var(--foreground)]">
+              {messages.repoPage?.askAboutRepo || 'Ask questions about this repository'}
             </div>
             <Ask
               repoUrl={repoInfo.owner && repoInfo.repo
-                ? getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type)
+                ? getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type, repoInfo.localPath)
                 : "https://github.com/AsyncFuncAI/deepwiki-open"
               }
               githubToken={githubToken}
@@ -1231,11 +1468,14 @@ IMPORTANT:
               localOllama={localOllama}
               useOpenRouter={useOpenRouter}
               openRouterModel={openRouterModel}
+              language={language}
             />
           </div>
         )}
-        <div className="flex justify-between items-center gap-4 text-center text-gray-500 dark:text-gray-400 text-sm h-fit w-full">
-          <p className="flex-1">DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories</p>
+        <div className="flex justify-between items-center gap-4 text-center text-[var(--muted)] text-sm h-fit w-full bg-[var(--card-bg)] rounded-lg p-3 shadow-sm border border-[var(--border-color)]">
+          <p className="flex-1 font-serif">
+            {messages.footer?.copyright || 'DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories'}
+          </p>
           <ThemeToggle />
         </div>
       </footer>

@@ -2,7 +2,6 @@ from adalflow import GoogleGenAIClient, OllamaClient
 from adalflow.components.model_client.openai_client import OpenAIClient
 import os
 
-# Import the local OpenRouterClient
 from api.openrouter_client import OpenRouterClient
 
 # Configuration for the isolated API
@@ -22,9 +21,10 @@ configs = {
     "generator": {
         "model_client": GoogleGenAIClient,
         "model_kwargs": {
-            "model": "gemini-2.5-flash-preview-04-17",
+            "model": "gemini-2.0-flash",
             "temperature": 0.7,
             "top_p": 0.8,
+            "top_k": 40
         },
     },
     "embedder_ollama": {

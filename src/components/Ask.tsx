@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaArrowRight, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Markdown from './Markdown';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -24,18 +25,22 @@ interface AskProps {
   localOllama?: boolean;
   useOpenRouter?: boolean;
   openRouterModel?: string;
+  language?: string;
 }
 
 
 const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
 
-const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketToken, localOllama = false, useOpenRouter = false, openRouterModel = 'openai/gpt-4o' }) => {
+const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketToken, localOllama = false, useOpenRouter = false, openRouterModel = 'openai/gpt-4o', language = 'en' }) => {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [deepResearch, setDeepResearch] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [hasResponse, setHasResponse] = useState(false);
+
+  // Get language context for translations
+  const { messages } = useLanguage();
 
   // Research navigation state
   const [researchStages, setResearchStages] = useState<ResearchStage[]>([]);
@@ -214,7 +219,8 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
         repo_url: repoUrl,
         messages: newHistory,
         local_ollama: localOllama,
-        use_openrouter: useOpenRouter
+        use_openrouter: useOpenRouter,
+        language: language
       };
 
       // Add OpenRouter model if using OpenRouter
@@ -396,7 +402,8 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
         repo_url: repoUrl,
         messages: newHistory,
         local_ollama: localOllama,
-        use_openrouter: useOpenRouter
+        use_openrouter: useOpenRouter,
+        language: language
       };
 
       // Add OpenRouter model if using OpenRouter
@@ -491,7 +498,7 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
               type="text"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Ask about this repository..."
+              placeholder={messages?.ask?.placeholder || "Ask about this repository..."}
               className="w-full p-3 pr-12 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
               disabled={isLoading}
             />

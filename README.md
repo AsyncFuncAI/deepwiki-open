@@ -23,6 +23,7 @@
 - **Easy Navigation**: Simple, intuitive interface to explore the wiki
 - **Ask Feature**: Chat with your repository using RAG-powered AI to get accurate answers
 - **DeepResearch**: Multi-turn research process that thoroughly investigates complex topics
+- **Multiple Model Providers**: Support for Google Gemini, OpenAI, OpenRouter, and local Ollama models
 
 ## 🚀 Quick Start (Super Easy!)
 
@@ -36,6 +37,8 @@ cd deepwiki-open
 # Create a .env file with your API keys
 echo "GOOGLE_API_KEY=your_google_api_key" > .env
 echo "OPENAI_API_KEY=your_openai_api_key" >> .env
+# Optional: Add OpenRouter API key if you want to use OpenRouter models
+echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 
 # Run with Docker Compose
 docker-compose up
@@ -54,6 +57,8 @@ Create a `.env` file in the project root with these keys:
 ```
 GOOGLE_API_KEY=your_google_api_key
 OPENAI_API_KEY=your_openai_api_key
+# Optional: Add this if you want to use OpenRouter models
+OPENROUTER_API_KEY=your_openrouter_api_key
 ```
 
 #### Step 2: Start the Backend
@@ -93,7 +98,7 @@ DeepWiki uses AI to:
 
 1. Clone and analyze the GitHub, GitLab, or Bitbucket repository (including private repos with token authentication)
 2. Create embeddings of the code for smart retrieval
-3. Generate documentation with context-aware AI
+3. Generate documentation with context-aware AI (using Google Gemini, OpenAI, OpenRouter, or local Ollama models)
 4. Create visual diagrams to explain code relationships
 5. Organize everything into a structured wiki
 6. Enable intelligent Q&A with the repository through the Ask feature
@@ -107,7 +112,18 @@ graph TD
     AB --> B
     B --> C[Analyze Code Structure]
     C --> D[Create Code Embeddings]
-    D --> E[Generate Documentation]
+
+    D --> M{Select Model Provider}
+    M -->|Google Gemini| E1[Generate with Gemini]
+    M -->|OpenAI| E2[Generate with OpenAI]
+    M -->|OpenRouter| E3[Generate with OpenRouter]
+    M -->|Local Ollama| E4[Generate with Ollama]
+
+    E1 --> E[Generate Documentation]
+    E2 --> E
+    E3 --> E
+    E4 --> E
+
     D --> F[Create Visual Diagrams]
     E --> G[Organize as Wiki]
     F --> G
@@ -119,8 +135,8 @@ graph TD
     classDef decision stroke-width:2px;
 
     class A,D data;
-    class AA decision;
-    class B,C,E,F,G,AB process;
+    class AA,M decision;
+    class B,C,E,F,G,AB,E1,E2,E3,E4 process;
     class H result;
 ```
 
@@ -154,6 +170,7 @@ deepwiki/
 |----------|-------------|----------|------|
 | `GOOGLE_API_KEY` | Google Gemini API key for AI generation | Yes |
 | `OPENAI_API_KEY` | OpenAI API key for embeddings | Yes |
+| `OPENROUTER_API_KEY` | OpenRouter API key for alternative models | No | Required only if you want to use OpenRouter models |
 | `PORT` | Port for the API server (default: 8001) | No | If you host API and frontend on the same machine, make sure change port of `NEXT_PUBLIC_SERVER_BASE_URL` accordingly |
 | `NEXT_PUBLIC_SERVER_BASE_URL` | Base URL for the API server (default: http://localhost:8001) | No |
 
@@ -169,6 +186,7 @@ docker pull ghcr.io/asyncfuncai/deepwiki-open:latest
 docker run -p 8001:8001 -p 3000:3000 \
   -e GOOGLE_API_KEY=your_google_api_key \
   -e OPENAI_API_KEY=your_openai_api_key \
+  -e OPENROUTER_API_KEY=your_openrouter_api_key \
   -v ~/.adalflow:/root/.adalflow \
   ghcr.io/asyncfuncai/deepwiki-open:latest
 ```
@@ -188,6 +206,7 @@ You can also mount a .env file to the container:
 # Create a .env file with your API keys
 echo "GOOGLE_API_KEY=your_google_api_key" > .env
 echo "OPENAI_API_KEY=your_openai_api_key" >> .env
+echo "OPENROUTER_API_KEY=your_openrouter_api_key" >> .env
 
 # Run the container with the .env file mounted
 docker run -p 8001:8001 -p 3000:3000 \
@@ -212,6 +231,7 @@ docker build -t deepwiki-open .
 docker run -p 8001:8001 -p 3000:3000 \
   -e GOOGLE_API_KEY=your_google_api_key \
   -e OPENAI_API_KEY=your_openai_api_key \
+  -e OPENROUTER_API_KEY=your_openrouter_api_key \
   deepwiki-open
 ```
 
@@ -223,6 +243,28 @@ The API server provides:
 - Streaming chat completions
 
 For more details, see the [API README](./api/README.md).
+
+## 🔌 OpenRouter Integration
+
+DeepWiki now supports [OpenRouter](https://openrouter.ai/) as a model provider, giving you access to hundreds of AI models through a single API:
+
+- **Multiple Model Options**: Access models from OpenAI, Anthropic, Google, Meta, Mistral, and more
+- **Simple Configuration**: Just add your OpenRouter API key and select the model you want to use
+- **Cost Efficiency**: Choose models that fit your budget and performance needs
+- **Easy Switching**: Toggle between different models without changing your code
+
+### How to Use OpenRouter with DeepWiki
+
+1. **Get an API Key**: Sign up at [OpenRouter](https://openrouter.ai/) and get your API key
+2. **Add to Environment**: Add `OPENROUTER_API_KEY=your_key` to your `.env` file
+3. **Enable in UI**: Check the "Use OpenRouter API" option on the homepage
+4. **Select Model**: Choose from popular models like GPT-4o, Claude 3.5 Sonnet, Gemini 2.0, and more
+
+OpenRouter is particularly useful if you want to:
+- Try different models without signing up for multiple services
+- Access models that might be restricted in your region
+- Compare performance across different model providers
+- Optimize for cost vs. performance based on your needs
 
 ## 🤖 Ask & DeepResearch Features
 
@@ -269,8 +311,9 @@ To use DeepResearch, simply toggle the "Deep Research" switch in the Ask interfa
 ## ❓ Troubleshooting
 
 ### API Key Issues
-- **"Missing environment variables"**: Make sure your `.env` file is in the project root and contains both API keys
+- **"Missing environment variables"**: Make sure your `.env` file is in the project root and contains the required API keys
 - **"API key not valid"**: Check that you've copied the full key correctly with no extra spaces
+- **"OpenRouter API error"**: Verify your OpenRouter API key is valid and has sufficient credits
 
 ### Connection Problems
 - **"Cannot connect to API server"**: Make sure the API server is running on port 8001
