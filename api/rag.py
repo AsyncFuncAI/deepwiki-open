@@ -1,14 +1,38 @@
-from typing import Any, List, Tuple, Optional, Dict
+from typing import Any, List, Tuple, Dict
 from uuid import uuid4
 import logging
 import re
 import adalflow as adal
-from adalflow.core.types import (
-    Conversation,
-    DialogTurn,
-    UserQuery,
-    AssistantResponse,
-)
+from dataclasses import dataclass, field
+
+# Create our own implementation of the conversation classes
+@dataclass
+class UserQuery:
+    query_str: str
+
+@dataclass
+class AssistantResponse:
+    response_str: str
+
+@dataclass
+class DialogTurn:
+    id: str
+    user_query: UserQuery
+    assistant_response: AssistantResponse
+
+class CustomConversation:
+    """Custom implementation of Conversation to fix the list assignment index out of range error"""
+
+    def __init__(self):
+        self.dialog_turns = []
+
+    def append_dialog_turn(self, dialog_turn):
+        """Safely append a dialog turn to the conversation"""
+        if not hasattr(self, 'dialog_turns'):
+            self.dialog_turns = []
+        self.dialog_turns.append(dialog_turn)
+
+# Import other adalflow components
 from adalflow.components.retriever.faiss_retriever import FAISSRetriever
 from api.config import configs
 from api.data_pipeline import DatabaseManager
@@ -28,27 +52,92 @@ class Memory(adal.core.component.DataComponent):
 
     def __init__(self):
         super().__init__()
-        self.current_conversation = Conversation()
+        # Use our custom implementation instead of the original Conversation class
+        self.current_conversation = CustomConversation()
 
     def call(self) -> Dict:
         """Return the conversation history as a dictionary."""
         all_dialog_turns = {}
-        logger.info(f"Memory content: {self.current_conversation.dialog_turns}")
-        for turn in self.current_conversation.dialog_turns:
-            if hasattr(turn, 'id') and turn.id is not None:
-                all_dialog_turns[turn.id] = turn
+        try:
+            # Check if dialog_turns exists and is a list
+            if hasattr(self.current_conversation, 'dialog_turns'):
+                if self.current_conversation.dialog_turns:
+                    logger.info(f"Memory content: {len(self.current_conversation.dialog_turns)} turns")
+                    for i, turn in enumerate(self.current_conversation.dialog_turns):
+                        if hasattr(turn, 'id') and turn.id is not None:
+                            all_dialog_turns[turn.id] = turn
+                            logger.info(f"Added turn {i+1} with ID {turn.id} to memory")
+                        else:
+                            logger.warning(f"Skipping invalid turn object in memory: {turn}")
+                else:
+                    logger.info("Dialog turns list exists but is empty")
             else:
-                logger.warning(f"Skipping invalid turn object in memory: {turn}")
+                logger.info("No dialog_turns attribute in current_conversation")
+                # Try to initialize it
+                self.current_conversation.dialog_turns = []
+        except Exception as e:
+            logger.error(f"Error accessing dialog turns: {str(e)}")
+            # Try to recover
+            try:
+                self.current_conversation = CustomConversation()
+                logger.info("Recovered by creating new conversation")
+            except Exception as e2:
+                logger.error(f"Failed to recover: {str(e2)}")
+
+        logger.info(f"Returning {len(all_dialog_turns)} dialog turns from memory")
         return all_dialog_turns
 
-    def add_dialog_turn(self, user_query: str, assistant_response: str):
-        """Add a dialog turn to the conversation history."""
-        dialog_turn = DialogTurn(
-            id=str(uuid4()),
-            user_query=UserQuery(query_str=user_query),
-            assistant_response=AssistantResponse(response_str=assistant_response),
-        )
-        self.current_conversation.append_dialog_turn(dialog_turn)
+    def add_dialog_turn(self, user_query: str, assistant_response: str) -> bool:
+        """
+        Add a dialog turn to the conversation history.
+
+        Args:
+            user_query: The user's query
+            assistant_response: The assistant's response
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Create a new dialog turn using our custom implementation
+            dialog_turn = DialogTurn(
+                id=str(uuid4()),
+                user_query=UserQuery(query_str=user_query),
+                assistant_response=AssistantResponse(response_str=assistant_response),
+            )
+
+            # Make sure the current_conversation has the append_dialog_turn method
+            if not hasattr(self.current_conversation, 'append_dialog_turn'):
+                logger.warning("current_conversation does not have append_dialog_turn method, creating new one")
+                # Initialize a new conversation if needed
+                self.current_conversation = CustomConversation()
+
+            # Ensure dialog_turns exists
+            if not hasattr(self.current_conversation, 'dialog_turns'):
+                logger.warning("dialog_turns not found, initializing empty list")
+                self.current_conversation.dialog_turns = []
+
+            # Safely append the dialog turn
+            self.current_conversation.dialog_turns.append(dialog_turn)
+            logger.info(f"Successfully added dialog turn, now have {len(self.current_conversation.dialog_turns)} turns")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error adding dialog turn: {str(e)}")
+            # Try to recover by creating a new conversation
+            try:
+                self.current_conversation = CustomConversation()
+                dialog_turn = DialogTurn(
+                    id=str(uuid4()),
+                    user_query=UserQuery(query_str=user_query),
+                    assistant_response=AssistantResponse(response_str=assistant_response),
+                )
+                self.current_conversation.dialog_turns.append(dialog_turn)
+                logger.info("Recovered from error by creating new conversation")
+                return True
+            except Exception as e2:
+                logger.error(f"Failed to recover from error: {str(e2)}")
+                return False
 
 system_prompt = r"""
 You are a code assistant which answers user questions on a Github Repo.
@@ -117,7 +206,7 @@ class RAG(adal.Component):
     """RAG with one repo.
     If you want to load a new repos, call prepare_retriever(repo_url_or_path) first."""
 
-    def __init__(self, use_s3: bool = False):
+    def __init__(self, use_s3: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
         """
         Initialize the RAG component.
 
@@ -164,9 +253,6 @@ IMPORTANT FORMATTING RULES:
             model_kwargs=configs["generator"]["model_kwargs"],
             output_processors=data_parser,
         )
-
-        # Maximum concurrent requests
-        self.max_concurrent = configs.get("generator", {}).get("max_concurrent", 3)
 
     def initialize_db_manager(self):
         """Initialize the database manager with local storage"""
@@ -251,35 +337,3 @@ IMPORTANT FORMATTING RULES:
                 answer=f"I apologize, but I encountered an error while processing your question. Please try again or rephrase your question."
             )
             return error_response, []
-
-    async def batch_call(self, queries: List[str]) -> List[Tuple[Any, List]]:
-        """
-        Process multiple queries in parallel using RAG.
-
-        Args:
-            queries: List of user queries
-
-        Returns:
-            List of tuples, each containing (RAGAnswer, retrieved_documents)
-        """
-        import asyncio
-        from concurrent.futures import ThreadPoolExecutor
-
-        logger.info(f"Processing batch of {len(queries)} queries with max concurrency of {self.max_concurrent}")
-
-        # Create a thread pool with limited concurrency
-        executor = ThreadPoolExecutor(max_workers=self.max_concurrent)
-        loop = asyncio.get_event_loop()
-
-        # Process queries in parallel with limited concurrency
-        async def process_query(query):
-            return await loop.run_in_executor(executor, self.call, query)
-
-        # Create tasks for all queries
-        tasks = [process_query(query) for query in queries]
-
-        # Wait for all tasks to complete
-        results = await asyncio.gather(*tasks)
-
-        logger.info(f"Completed batch processing of {len(queries)} queries")
-        return results

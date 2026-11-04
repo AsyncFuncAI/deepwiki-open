@@ -31,7 +31,7 @@ configs = {
     },
     "file_filters": {
         "excluded_dirs": [
-            "./.venv/", "./venv/", "./env/", "./virtualenv/",
+            "./.venv/", "./venv/", "./env/", "./virtualenv/", 
             "./node_modules/", "./bower_components/", "./jspm_packages/",
             "./.git/", "./.svn/", "./.hg/", "./.bzr/",
             "./__pycache__/", "./.pytest_cache/", "./.mypy_cache/", "./.ruff_cache/", "./.coverage/",

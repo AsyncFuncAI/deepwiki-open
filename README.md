@@ -21,6 +21,8 @@
 - **Smart Analysis**: AI-powered understanding of code structure and relationships
 - **Beautiful Diagrams**: Automatic Mermaid diagrams to visualize architecture and data flow
 - **Easy Navigation**: Simple, intuitive interface to explore the wiki
+- **Ask Feature**: Chat with your repository using RAG-powered AI to get accurate answers
+- **DeepResearch**: Multi-turn research process that thoroughly investigates complex topics
 
 ## 🚀 Quick Start (Super Easy!)
 
@@ -94,6 +96,8 @@ DeepWiki uses AI to:
 3. Generate documentation with context-aware AI
 4. Create visual diagrams to explain code relationships
 5. Organize everything into a structured wiki
+6. Enable intelligent Q&A with the repository through the Ask feature
+7. Provide in-depth research capabilities with DeepResearch
 
 ```mermaid
 graph TD
@@ -219,6 +223,31 @@ The API server provides:
 
 For more details, see the [API README](./api/README.md).
 
+## 🤖 Ask & DeepResearch Features
+
+### Ask Feature
+
+The Ask feature allows you to chat with your repository using Retrieval Augmented Generation (RAG):
+
+- **Context-Aware Responses**: Get accurate answers based on the actual code in your repository
+- **RAG-Powered**: The system retrieves relevant code snippets to provide grounded responses
+- **Real-Time Streaming**: See responses as they're generated for a more interactive experience
+- **Conversation History**: The system maintains context between questions for more coherent interactions
+
+### DeepResearch Feature
+
+DeepResearch takes repository analysis to the next level with a multi-turn research process:
+
+- **In-Depth Investigation**: Thoroughly explores complex topics through multiple research iterations
+- **Structured Process**: Follows a clear research plan with updates and a comprehensive conclusion
+- **Automatic Continuation**: The AI automatically continues research until reaching a conclusion (up to 5 iterations)
+- **Research Stages**:
+  1. **Research Plan**: Outlines the approach and initial findings
+  2. **Research Updates**: Builds on previous iterations with new insights
+  3. **Final Conclusion**: Provides a comprehensive answer based on all iterations
+
+To use DeepResearch, simply toggle the "Deep Research" switch in the Ask interface before submitting your question.
+
 ## 📱 Screenshots
 
 ![DeepWiki Main Interface](screenshots/Interface.png)
@@ -226,6 +255,9 @@ For more details, see the [API README](./api/README.md).
 
 ![Private Repository Support](screenshots/privaterepo.png)
 *Access private repositories with personal access tokens*
+
+![DeepResearch Feature](screenshots/DeepResearch.png)
+*DeepResearch conducts multi-turn investigations for complex topics*
 
 ### Demo Video
 

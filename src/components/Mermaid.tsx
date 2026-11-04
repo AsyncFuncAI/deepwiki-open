@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
+// We'll use dynamic import for svg-pan-zoom
 
 // Initialize mermaid with defaults
 mermaid.initialize({
@@ -9,6 +10,14 @@ mermaid.initialize({
   suppressErrorRendering: true,
   logLevel: 'error',
   maxTextSize: 100000, // Increase text size limit
+  htmlLabels: true,
+  flowchart: {
+    htmlLabels: true,
+    curve: 'basis',
+    nodeSpacing: 50,
+    rankSpacing: 50,
+    padding: 15,
+  },
   themeCSS: `
     /* General styles for all diagrams */
     .node rect, .node circle, .node ellipse, .node polygon, .node path {
@@ -22,7 +31,10 @@ mermaid.initialize({
     }
     .edgeLabel {
       background-color: transparent;
-      color: #fff;
+      color: #000;
+      p {
+        background-color: transparent !important;
+      }
     }
     .label {
       color: #fff;
@@ -124,8 +136,24 @@ mermaid.initialize({
 
     /* Force all text elements to be white */
     text[text-anchor][dominant-baseline],
-    text[text-anchor][alignment-baseline] {
+    text[text-anchor][alignment-baseline],
+    .nodeLabel,
+    .edgeLabel,
+    .label,
+    text {
       fill: #fff !important;
+    }
+
+    /* Add clickable element styles */
+    .clickable {
+      transition: transform 0.2s ease;
+    }
+    .clickable:hover {
+      transform: scale(1.05);
+      cursor: pointer;
+    }
+    .clickable:hover > * {
+      filter: brightness(0.85);
     }
   `,
   fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -136,6 +164,7 @@ interface MermaidProps {
   chart: string;
   className?: string;
   onMermaidError?: (errorMessage: string, originalChart: string) => void;
+  zoomingEnabled?: boolean;
 }
 
 // Full screen modal component for the diagram
@@ -266,12 +295,13 @@ const FullScreenModal: React.FC<{
   );
 };
 
-const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError }) => {
+const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError, zoomingEnabled = false }) => {
   const [svg, setSvg] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [retryAttempted, setRetryAttempted] = useState(false);
+  const [isRenderingFallback, setIsRenderingFallback] = useState(false);
   const mermaidRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(`mermaid-${Math.random().toString(36).substring(2, 9)}`);
   const isDarkModeRef = useRef(
     typeof window !== 'undefined' &&
@@ -279,16 +309,42 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
     window.matchMedia('(prefers-color-scheme: dark)').matches
   );
 
-  // Track if we've already attempted to fix this chart
-  const chartRef = useRef(chart);
-
-  // Reset retry attempt state when chart content changes
+  // Initialize pan-zoom functionality when SVG is rendered
   useEffect(() => {
-    if (chartRef.current !== chart) {
-      setRetryAttempted(false);
-      chartRef.current = chart;
+    if (svg && zoomingEnabled && containerRef.current) {
+      const initializePanZoom = async () => {
+        const svgElement = containerRef.current?.querySelector("svg");
+        if (svgElement) {
+          // Remove any max-width constraints
+          svgElement.style.maxWidth = "none";
+          svgElement.style.width = "100%";
+          svgElement.style.height = "100%";
+
+          try {
+            // Dynamically import svg-pan-zoom only when needed in the browser
+            const svgPanZoom = (await import("svg-pan-zoom")).default;
+
+            svgPanZoom(svgElement, {
+              zoomEnabled: true,
+              controlIconsEnabled: true,
+              fit: true,
+              center: true,
+              minZoom: 0.1,
+              maxZoom: 10,
+              zoomScaleSensitivity: 0.3,
+            });
+          } catch (error) {
+            console.error("Failed to load svg-pan-zoom:", error);
+          }
+        }
+      };
+
+      // Wait for the SVG to be rendered
+      setTimeout(() => {
+        void initializePanZoom();
+      }, 100);
     }
-  }, [chart]);
+  }, [svg, zoomingEnabled]);
 
   useEffect(() => {
     if (!chart) return;
@@ -301,6 +357,7 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
       try {
         setError(null);
         setSvg('');
+        setIsRenderingFallback(false);
 
         const processedChart = preprocessMermaidChart(chart);
 
@@ -314,23 +371,22 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
         }
 
         setSvg(processedSvg);
+
+        // Call mermaid.contentLoaded to ensure proper initialization
+        setTimeout(() => {
+          mermaid.contentLoaded();
+        }, 50);
       } catch (err) {
         console.error('Mermaid rendering error:', err);
 
         const errorMessage = err instanceof Error ? err.message : String(err);
 
-        // Only attempt to fix once per chart (max 1 attempt)
-        if (isMounted && !retryAttempted && onMermaidError) {
-          console.log('Attempting to auto-fix Mermaid diagram via API (one-time attempt)...');
-          setRetryAttempted(true);
-          onMermaidError(errorMessage, chart);
-          return;
-        }
-
-        if (isMounted) {
+        if (isMounted && !isRenderingFallback) {
           try {
+            // Only try fallback if error is not already from fallback rendering
             const fallbackChart = createEmergencyFallbackChart(chart);
             console.log('Attempting emergency fallback rendering with:', fallbackChart);
+            setIsRenderingFallback(true);
 
             const { svg: fallbackSvg } = await mermaid.render(`${idRef.current}-fallback`, fallbackChart);
 
@@ -357,6 +413,17 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
               }
             }
           }
+        } else {
+          if (isMounted) {
+            setError(`Failed to render diagram: ${errorMessage}`);
+            
+            if (mermaidRef.current) {
+              mermaidRef.current.innerHTML = `
+                <div class="text-red-500 dark:text-red-400 text-xs mb-1">Syntax error in diagram</div>
+                <pre class="text-xs overflow-auto p-2 bg-gray-100 dark:bg-gray-800 rounded">${chart}</pre>
+              `;
+            }
+          }
         }
       }
     };
@@ -366,11 +433,17 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
     return () => {
       isMounted = false;
     };
-  }, [chart, onMermaidError, retryAttempted]);
+  }, [chart, isRenderingFallback]);
 
   const handleDiagramClick = () => {
     if (!error && svg) {
       setIsFullscreen(true);
+    }
+  };
+
+  const handleRepairClick = () => {
+    if (onMermaidError) {
+      onMermaidError("Manual repair requested", chart);
     }
   };
 
@@ -384,25 +457,20 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
             </svg>
             Diagram rendering error
           </div>
-          {onMermaidError && !retryAttempted && (
+          {onMermaidError && (
             <button
-              onClick={() => {
-                if (onMermaidError) {
-                  setRetryAttempted(true);
-                  onMermaidError("Manual retry requested", chart);
-                }
-              }}
-              className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1 rounded hover:bg-red-200 dark:hover:bg-red-800/30"
+              onClick={handleRepairClick}
+              className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800/30"
             >
-              Try to fix
+              Repair diagram
             </button>
           )}
         </div>
         <div ref={mermaidRef} className="text-xs overflow-auto"></div>
         <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          {retryAttempted ?
-            "The diagram couldn't be fixed automatically. Please check the syntax." :
-            "The diagram contains syntax errors. You can try to fix it or view the simplified version."}
+          {isRenderingFallback ?
+            "The diagram contains syntax errors. A simplified version is shown." :
+            "The diagram contains syntax errors. Click the repair button to attempt fixing it."}
         </div>
       </div>
     );
@@ -418,31 +486,42 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
 
   return (
     <>
-      <div className="relative group">
+      <div
+        ref={containerRef}
+        className={`w-full max-w-full ${zoomingEnabled ? "h-[600px] p-4" : ""}`}
+      >
         <div
-          className={`flex justify-center overflow-auto text-center my-2 cursor-pointer hover:shadow-md transition-shadow duration-200 rounded-md ${className}`}
-          dangerouslySetInnerHTML={{ __html: svg }}
-          onClick={handleDiagramClick}
-          title="Click to view fullscreen"
-        />
+          className={`relative group ${zoomingEnabled ? "h-full rounded-lg border-2 border-black" : ""}`}
+        >
+          <div
+            className={`flex justify-center overflow-auto text-center my-2 cursor-pointer hover:shadow-md transition-shadow duration-200 rounded-md ${className} ${zoomingEnabled ? "h-full" : ""}`}
+            dangerouslySetInnerHTML={{ __html: svg }}
+            onClick={zoomingEnabled ? undefined : handleDiagramClick}
+            title={zoomingEnabled ? undefined : "Click to view fullscreen"}
+          />
 
-        <div className="absolute top-2 right-2 bg-gray-700/70 dark:bg-gray-900/70 text-white p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1.5 text-xs shadow-md pointer-events-none">
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            <line x1="11" y1="8" x2="11" y2="14"></line>
-            <line x1="8" y1="11" x2="14" y2="11"></line>
-          </svg>
-          <span>Click to zoom</span>
+          {!zoomingEnabled && (
+            <div className="absolute top-2 right-2 bg-gray-700/70 dark:bg-gray-900/70 text-white p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1.5 text-xs shadow-md pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                <line x1="11" y1="8" x2="11" y2="14"></line>
+                <line x1="8" y1="11" x2="14" y2="11"></line>
+              </svg>
+              <span>Click to zoom</span>
+            </div>
+          )}
         </div>
       </div>
 
-      <FullScreenModal
-        isOpen={isFullscreen}
-        onClose={() => setIsFullscreen(false)}
-      >
-        <div dangerouslySetInnerHTML={{ __html: svg }} />
-      </FullScreenModal>
+      {!zoomingEnabled && (
+        <FullScreenModal
+          isOpen={isFullscreen}
+          onClose={() => setIsFullscreen(false)}
+        >
+          <div dangerouslySetInnerHTML={{ __html: svg }} />
+        </FullScreenModal>
+      )}
     </>
   );
 };
