@@ -27,6 +27,21 @@ https://github.com/user-attachments/assets/48d1e60a-eb91-4c05-a5a8-3624ffb79fb1
 
 
 
+## ☸️ Kubernetes (Helm)
+
+A Helm chart lives in [`charts/deepwiki-open`](charts/deepwiki-open). It runs the published `ghcr.io/asyncfuncai/deepwiki-open` image, reads provider keys from a Secret and keeps `~/.adalflow` on a PersistentVolumeClaim:
+
+```bash
+kubectl create namespace deepwiki
+kubectl -n deepwiki create secret generic deepwiki-keys \
+  --from-literal=GOOGLE_API_KEY=... --from-literal=OPENAI_API_KEY=...
+helm upgrade --install deepwiki ./charts/deepwiki-open -n deepwiki \
+  --set secret.existingSecret=deepwiki-keys
+kubectl -n deepwiki port-forward svc/deepwiki-deepwiki-open 3000:3000 8001:8001
+```
+
+See the [chart README](charts/deepwiki-open/README.md) for Ingress, Gateway API and all values.
+
 ## 🤝 Contributing
 
 Contributions are welcome! Feel free to:

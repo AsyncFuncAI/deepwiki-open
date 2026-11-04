@@ -1,0 +1,188 @@
+suite: deployment
+templates:
+  - deployment.yaml
+  - configmap.yaml
+  - secret.yaml
+tests:
+  - it: runs the published image as non-root with a read-only root filesystem
+    template: deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/asyncfuncai/deepwiki-open:latest
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          value: [ALL]
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+      - notExists:
+          path: spec.template.spec.containers[0].imagePullPolicy
+  - it: exposes the frontend and the API ports
+    template: deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports
+          value:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+            - name: api
+              containerPort: 8001
+              protocol: TCP
+  - it: probes the API health endpoint and the frontend proxy
+    template: deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet
+          value:
+            path: /health
+            port: api
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.path
+          value: /health
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet
+          value:
+            path: /api/auth/status
+            port: http
+  - it: can disable a probe
+    template: deployment.yaml
+    set:
+      probes.startup.enabled: false
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].startupProbe
+  - it: keeps ~/.adalflow on the PVC and HOME on a writable volume
+    template: deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HOME
+            value: /home/deepwiki
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /home/deepwiki/.adalflow
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: scratch
+            mountPath: /app/api/logs
+            subPath: logs
+      - equal:
+          path: spec.template.spec.volumes[1].persistentVolumeClaim.claimName
+          value: RELEASE-NAME-deepwiki-open
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+  - it: uses an existing claim
+    template: deployment.yaml
+    set:
+      persistence.existingClaim: my-data
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[1].persistentVolumeClaim.claimName
+          value: my-data
+  - it: falls back to emptyDir without persistence
+    template: deployment.yaml
+    set:
+      persistence.enabled: false
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[1]
+          value:
+            name: data
+            emptyDir: {}
+  - it: loads provider keys from an existing Secret
+    template: deployment.yaml
+    set:
+      secret.existingSecret: deepwiki-keys
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            secretRef:
+              name: deepwiki-keys
+      - notExists:
+          path: spec.template.metadata.annotations["checksum/secret"]
+  - it: does not reference any Secret by default
+    template: deployment.yaml
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].envFrom
+          any: true
+          content:
+            secretRef: {}
+  - it: renders no Secret by default
+    template: secret.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: renders inline secret values and rolls the pod when they change
+    set:
+      secret.values:
+        GOOGLE_API_KEY: abc
+    asserts:
+      - template: secret.yaml
+        equal:
+          path: stringData.GOOGLE_API_KEY
+          value: abc
+      - template: deployment.yaml
+        exists:
+          path: spec.template.metadata.annotations["checksum/secret"]
+  - it: refuses existingSecret and inline values together
+    template: deployment.yaml
+    set:
+      secret.existingSecret: deepwiki-keys
+      secret.values:
+        GOOGLE_API_KEY: abc
+    asserts:
+      - failedTemplate:
+          errorMessage: "secret: set either existingSecret or values, not both"
+  - it: renders config as strings
+    template: configmap.yaml
+    set:
+      config:
+        DEEPWIKI_AUTH_MODE: true
+        OLLAMA_HOST: http://ollama:11434
+    asserts:
+      - equal:
+          path: data.DEEPWIKI_AUTH_MODE
+          value: "true"
+      - equal:
+          path: data.OLLAMA_HOST
+          value: http://ollama:11434
+  - it: pins the image by digest
+    template: deployment.yaml
+    set:
+      image.digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: "@sha256:0{64}$"
+  - it: passes scheduling constraints through
+    template: deployment.yaml
+    set:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: deepwiki
+          effect: NoSchedule
+    asserts:
+      - equal:
+          path: spec.template.spec.nodeSelector["kubernetes.io/arch"]
+          value: arm64
+      - equal:
+          path: spec.template.spec.tolerations[0].key
+          value: dedicated

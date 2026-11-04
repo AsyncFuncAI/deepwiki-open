@@ -1,0 +1,23 @@
+{{ include "deepwiki-open.fullname" . }} ({{ include "deepwiki-open.image" . }}) deployed to {{ .Release.Namespace }}.
+
+{{- if not (or .Values.secret.existingSecret .Values.secret.values) }}
+
+No provider keys configured. Create a Secret and point the release at it:
+  kubectl -n {{ .Release.Namespace }} create secret generic deepwiki-keys \
+    --from-literal=GOOGLE_API_KEY=... --from-literal=OPENAI_API_KEY=...
+  helm upgrade {{ .Release.Name }} <chart> --reuse-values --set secret.existingSecret=deepwiki-keys
+{{- end }}
+
+{{- if .Values.httpRoute.enabled }}
+
+Frontend exposed through the Gateway API on: {{ join ", " .Values.httpRoute.hostnames }}
+{{- else if .Values.ingress.enabled }}
+
+Frontend exposed through the Ingress on: {{ range .Values.ingress.hosts }}{{ .host }} {{ end }}
+{{- end }}
+{{- if not (or .Values.httpRoute.api.parentRefs .Values.ingress.apiPaths .Values.httpRoute.apiPaths (eq .Values.service.type "LoadBalancer")) }}
+
+To try it locally, forward both ports (the chat opens a WebSocket on port 8001 of the page host):
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "deepwiki-open.fullname" . }} 3000:{{ .Values.service.ports.http }} 8001:{{ .Values.service.ports.api }}
+Then open http://localhost:3000
+{{- end }}

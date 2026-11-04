@@ -1,0 +1,18 @@
+apiVersion: v2
+name: deepwiki-open
+description: DeepWiki-Open generates interactive wikis for GitHub, GitLab and Bitbucket repositories.
+type: application
+version: 0.1.0
+appVersion: "latest"
+kubeVersion: ">=1.25.0-0"
+keywords:
+  - deepwiki
+  - documentation
+  - llm
+  - rag
+home: https://github.com/AsyncFuncAI/deepwiki-open
+sources:
+  - https://github.com/AsyncFuncAI/deepwiki-open
+  - https://github.com/AsyncFuncAI/deepwiki-open/tree/main/charts/deepwiki-open
+annotations:
+  artifacthub.io/license: MIT

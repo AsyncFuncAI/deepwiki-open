@@ -1,0 +1,196 @@
+# -- Overrides the chart name used in resource names and labels.
+nameOverride: ""
+# -- Overrides the fully qualified resource name.
+fullnameOverride: ""
+
+image:
+  # -- Image published by this repository's Docker workflow. It runs the Python API (port 8001) and the Next.js frontend (port 3000) in one container.
+  repository: ghcr.io/asyncfuncai/deepwiki-open
+  # -- Image tag. Defaults to the chart appVersion. Pin a `sha-<commit>` tag or a digest for reproducible installs.
+  tag: ""
+  # -- Image digest. When set it takes precedence over the tag.
+  digest: ""
+  # -- Image pull policy. Left empty, Kubernetes uses Always for `latest` and IfNotPresent otherwise.
+  pullPolicy: ""
+
+# -- Secrets used to pull the image.
+imagePullSecrets: []
+
+# -- Revisions kept for rollback.
+revisionHistoryLimit: 3
+
+# -- Deployment strategy. Recreate is the default because the data volume is ReadWriteOnce and the app keeps local state, so it runs as a single replica.
+strategy:
+  type: Recreate
+
+# -- Extra labels added to every resource.
+commonLabels: {}
+# -- Extra annotations added to the pod.
+podAnnotations: {}
+# -- Extra labels added to the pod.
+podLabels: {}
+
+serviceAccount:
+  # -- Create a dedicated ServiceAccount.
+  create: true
+  # -- Name of the ServiceAccount. Generated when empty.
+  name: ""
+  # -- ServiceAccount annotations, for example eks.amazonaws.com/role-arn to reach Bedrock with IRSA.
+  annotations: {}
+  # -- The app does not talk to the Kubernetes API, so the token is not mounted.
+  automountServiceAccountToken: false
+
+# -- Pod security context. The image has no USER, so the chart runs it as an arbitrary non-root UID and points HOME at a writable volume.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container security context. Paths the app writes to (HOME, data, logs, Next.js cache, /tmp) are mounted as volumes, so the root filesystem can stay read-only.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  # -- Service type. LoadBalancer exposes both ports the same way `docker run -p 3000:3000 -p 8001:8001` does.
+  type: ClusterIP
+  ports:
+    # -- Port for the Next.js frontend.
+    http: 3000
+    # -- Port for the Python API. The published frontend opens its chat WebSocket on `<page host>:8001`, so keep 8001 when the browser reaches the API directly.
+    api: 8001
+  # -- Service annotations.
+  annotations: {}
+
+ingress:
+  # -- Create an Ingress for the frontend.
+  enabled: false
+  # -- IngressClass name.
+  className: ""
+  # -- Ingress annotations.
+  annotations: {}
+  # -- Hosts and paths routed to the frontend.
+  hosts:
+    - host: deepwiki.local
+      paths:
+        - path: /
+          pathType: Prefix
+  # -- Path prefixes routed to the API on every host, for example `[/ws, /codemap]` with an image built with `NEXT_PUBLIC_WS_BASE_URL` set to the public URL.
+  apiPaths: []
+  # -- TLS configuration.
+  tls: []
+
+httpRoute:
+  # -- Create a Gateway API HTTPRoute for the frontend.
+  enabled: false
+  # -- HTTPRoute annotations.
+  annotations: {}
+  # -- Gateways (and listeners) the route attaches to.
+  parentRefs:
+    - name: gateway
+      sectionName: http
+  # -- Hostnames matched by the route.
+  hostnames:
+    - deepwiki.local
+  # -- Path prefixes sent to the API instead of the frontend, same as `ingress.apiPaths`.
+  apiPaths: []
+  api:
+    # -- Gateway listeners for a second HTTPRoute that sends everything to the API, for example a listener on port 8001 for the same hostname. This is what the published image needs for chat over WebSocket.
+    parentRefs: []
+
+secret:
+  # -- Existing Secret whose keys are loaded as environment variables, for example OPENAI_API_KEY, GOOGLE_API_KEY, OPENROUTER_API_KEY, AWS_ACCESS_KEY_ID or DEEPWIKI_AUTH_CODE. Preferred over `secret.values`.
+  existingSecret: ""
+  # -- Key/value pairs rendered into a Secret managed by the chart. Empty by default; use it only when the values file is not committed anywhere.
+  values: {}
+
+# -- Non-secret settings rendered into a ConfigMap and loaded as environment variables, for example DEEPWIKI_EMBEDDER_TYPE, OLLAMA_HOST, OPENAI_BASE_URL, AWS_REGION or DEEPWIKI_AUTH_MODE.
+config:
+  LOG_LEVEL: INFO
+
+# -- Extra environment variables.
+env: []
+# -- Extra envFrom sources.
+envFrom: []
+
+persistence:
+  # -- Persist `~/.adalflow` (cloned repositories, embeddings and the wiki cache). When disabled an emptyDir is used and the data is lost on restart.
+  enabled: true
+  # -- Use an existing PersistentVolumeClaim instead of creating one.
+  existingClaim: ""
+  # -- StorageClass of the created claim. Empty uses the cluster default.
+  storageClass: ""
+  # -- Access modes of the created claim.
+  accessModes:
+    - ReadWriteOnce
+  # -- Size of the created claim.
+  size: 10Gi
+  # -- Annotations of the created claim, for example helm.sh/resource-policy: keep.
+  annotations: {}
+
+# -- Size limit of the emptyDir volumes used for HOME, logs, the Next.js cache and /tmp.
+scratchSizeLimit: 1Gi
+
+# -- CPU and memory. The memory values follow docker-compose.yml (2g reserved, 6g limit); embedding large repositories needs the headroom.
+resources:
+  requests:
+    cpu: 250m
+    memory: 2Gi
+  limits:
+    memory: 6Gi
+
+probes:
+  # -- Startup probe on the API health endpoint.
+  startup:
+    enabled: true
+    httpGet:
+      path: /health
+      port: api
+    periodSeconds: 5
+    failureThreshold: 60
+  # -- Liveness probe on the API health endpoint.
+  liveness:
+    enabled: true
+    httpGet:
+      path: /health
+      port: api
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  # -- Readiness probe through the frontend. Next.js proxies this path to the API, so both processes have to be up.
+  readiness:
+    enabled: true
+    httpGet:
+      path: /api/auth/status
+      port: http
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# -- Seconds Kubernetes waits after SIGTERM before killing the pod.
+terminationGracePeriodSeconds: 30
+
+# -- Priority class of the pod.
+priorityClassName: ""
+# -- Node selector.
+nodeSelector: {}
+# -- Tolerations.
+tolerations: []
+# -- Affinity rules.
+affinity: {}
+
+# -- Extra volumes, for example a custom CA bundle.
+extraVolumes: []
+# -- Extra volume mounts.
+extraVolumeMounts: []
+
+tests:
+  # -- Image of the `helm test` pod that calls the API health endpoint.
+  image: busybox:1.37

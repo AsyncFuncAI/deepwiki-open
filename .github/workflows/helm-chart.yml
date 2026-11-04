@@ -1,0 +1,48 @@
+name: Helm chart
+
+on:
+  pull_request:
+    paths:
+      - "charts/**"
+      - ".github/ct.yaml"
+      - ".github/workflows/helm-chart.yml"
+  push:
+    branches: [main]
+    paths:
+      - "charts/**"
+      - ".github/ct.yaml"
+      - ".github/workflows/helm-chart.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: helm/chart-testing-action@v2.8.0
+
+      - name: Lint
+        run: ct lint --config .github/ct.yaml --all
+
+      - name: Unit tests
+        run: |
+          helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.1.2
+          helm unittest charts/deepwiki-open
+
+      - uses: helm/kind-action@v1
+
+      - name: Install on kind
+        run: ct install --config .github/ct.yaml --all
