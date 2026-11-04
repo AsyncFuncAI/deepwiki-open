@@ -1,21 +1,37 @@
 import os
 import logging
-from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import Response
 from typing import List, Optional, Dict, Any, Literal
 import json
 from datetime import datetime
 from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any, Literal
+from starlette.responses import StreamingResponse
+import json
+from datetime import datetime
 import google.generativeai as genai
-import asyncio
+
+from api.rag import RAG
+from api.data_pipeline import count_tokens, get_file_content
+from api.batch_processing import router as batch_router
 
 # Configure logging
-from api.logging_config import setup_logging
-
-setup_logging()
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
+# Get API keys from environment variables
+google_api_key = os.environ.get('GOOGLE_API_KEY')
+
+# Configure Google Generative AI
+if google_api_key:
+    genai.configure(api_key=google_api_key)
+else:
+    logger.warning("GOOGLE_API_KEY not found in environment variables")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -32,11 +48,24 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Helper function to get adalflow root path
-def get_adalflow_default_root_path():
-    return os.path.expanduser(os.path.join("~", ".adalflow"))
+# Include batch processing router
+app.include_router(batch_router, prefix="/batch", tags=["Batch Processing"])
 
-# --- Pydantic Models ---
+# Models for the API
+class ChatMessage(BaseModel):
+    role: str  # 'user' or 'assistant'
+    content: str
+
+class ChatCompletionRequest(BaseModel):
+    """
+    Model for requesting a chat completion.
+    """
+    repo_url: str = Field(..., description="URL of the repository to query")
+    messages: List[ChatMessage] = Field(..., description="List of chat messages")
+    filePath: Optional[str] = Field(None, description="Optional path to a file in the repository to include in the prompt")
+    github_token: Optional[str] = Field(None, description="GitHub personal access token for private repositories")
+    gitlab_token: Optional[str] = Field(None, description="GitLab personal access token for private repositories")
+
 class WikiPage(BaseModel):
     """
     Model for a wiki page.
@@ -45,69 +74,8 @@ class WikiPage(BaseModel):
     title: str
     content: str
     filePaths: List[str]
-    importance: str # Should ideally be Literal['high', 'medium', 'low']
+    importance: str
     relatedPages: List[str]
-
-class ProcessedProjectEntry(BaseModel):
-    id: str  # Filename
-    owner: str
-    repo: str
-    name: str  # owner/repo
-    repo_type: str # Renamed from type to repo_type for clarity with existing models
-    submittedAt: int # Timestamp
-    language: str # Extracted from filename
-
-class RepoInfo(BaseModel):
-    owner: str
-    repo: str
-    type: str
-    token: Optional[str] = None
-    localPath: Optional[str] = None
-    repoUrl: Optional[str] = None
-
-
-class WikiSection(BaseModel):
-    """
-    Model for the wiki sections.
-    """
-    id: str
-    title: str
-    pages: List[str]
-    subsections: Optional[List[str]] = None
-
-
-class WikiStructureModel(BaseModel):
-    """
-    Model for the overall wiki structure.
-    """
-    id: str
-    title: str
-    description: str
-    pages: List[WikiPage]
-    sections: Optional[List[WikiSection]] = None
-    rootSections: Optional[List[str]] = None
-
-class WikiCacheData(BaseModel):
-    """
-    Model for the data to be stored in the wiki cache.
-    """
-    wiki_structure: WikiStructureModel
-    generated_pages: Dict[str, WikiPage]
-    repo_url: Optional[str] = None  #compatible for old cache
-    repo: Optional[RepoInfo] = None
-    provider: Optional[str] = None
-    model: Optional[str] = None
-
-class WikiCacheRequest(BaseModel):
-    """
-    Model for the request body when saving wiki cache.
-    """
-    repo: RepoInfo
-    language: str
-    wiki_structure: WikiStructureModel
-    generated_pages: Dict[str, WikiPage]
-    provider: str
-    model: str
 
 class WikiExportRequest(BaseModel):
     """
@@ -116,113 +84,6 @@ class WikiExportRequest(BaseModel):
     repo_url: str = Field(..., description="URL of the repository")
     pages: List[WikiPage] = Field(..., description="List of wiki pages to export")
     format: Literal["markdown", "json"] = Field(..., description="Export format (markdown or json)")
-
-# --- Model Configuration Models ---
-class Model(BaseModel):
-    """
-    Model for LLM model configuration
-    """
-    id: str = Field(..., description="Model identifier")
-    name: str = Field(..., description="Display name for the model")
-
-class Provider(BaseModel):
-    """
-    Model for LLM provider configuration
-    """
-    id: str = Field(..., description="Provider identifier")
-    name: str = Field(..., description="Display name for the provider")
-    models: List[Model] = Field(..., description="List of available models for this provider")
-    supportsCustomModel: Optional[bool] = Field(False, description="Whether this provider supports custom models")
-
-class ModelConfig(BaseModel):
-    """
-    Model for the entire model configuration
-    """
-    providers: List[Provider] = Field(..., description="List of available model providers")
-    defaultProvider: str = Field(..., description="ID of the default provider")
-
-class AuthorizationConfig(BaseModel):
-    code: str = Field(..., description="Authorization code")
-
-from api.config import configs, WIKI_AUTH_MODE, WIKI_AUTH_CODE
-
-@app.get("/lang/config")
-async def get_lang_config():
-    return configs["lang_config"]
-
-@app.get("/auth/status")
-async def get_auth_status():
-    """
-    Check if authentication is required for the wiki.
-    """
-    return {"auth_required": WIKI_AUTH_MODE}
-
-@app.post("/auth/validate")
-async def validate_auth_code(request: AuthorizationConfig):
-    """
-    Check authorization code.
-    """
-    return {"success": WIKI_AUTH_CODE == request.code}
-
-@app.get("/models/config", response_model=ModelConfig)
-async def get_model_config():
-    """
-    Get available model providers and their models.
-
-    This endpoint returns the configuration of available model providers and their
-    respective models that can be used throughout the application.
-
-    Returns:
-        ModelConfig: A configuration object containing providers and their models
-    """
-    try:
-        logger.info("Fetching model configurations")
-
-        # Create providers from the config file
-        providers = []
-        default_provider = configs.get("default_provider", "google")
-
-        # Add provider configuration based on config.py
-        for provider_id, provider_config in configs["providers"].items():
-            models = []
-            # Add models from config
-            for model_id in provider_config["models"].keys():
-                # Get a more user-friendly display name if possible
-                models.append(Model(id=model_id, name=model_id))
-
-            # Add provider with its models
-            providers.append(
-                Provider(
-                    id=provider_id,
-                    name=f"{provider_id.capitalize()}",
-                    supportsCustomModel=provider_config.get("supportsCustomModel", False),
-                    models=models
-                )
-            )
-
-        # Create and return the full configuration
-        config = ModelConfig(
-            providers=providers,
-            defaultProvider=default_provider
-        )
-        return config
-
-    except Exception as e:
-        logger.error(f"Error creating model configuration: {str(e)}")
-        # Return some default configuration in case of error
-        return ModelConfig(
-            providers=[
-                Provider(
-                    id="google",
-                    name="Google",
-                    supportsCustomModel=True,
-                    models=[
-                        Model(id="gemini-2.0-flash", name="Gemini 2.0 Flash")
-                    ]
-                )
-            ],
-            defaultProvider="google"
-        )
 
 @app.post("/export/wiki")
 async def export_wiki(request: WikiExportRequest):
@@ -272,52 +133,32 @@ async def export_wiki(request: WikiExportRequest):
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
 
-@app.get("/local_repo/structure")
-async def get_local_repo_structure(path: str = Query(None, description="Path to local repository")):
-    """Return the file tree and README content for a local repository."""
-    if not path:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "No path provided. Please provide a 'path' query parameter."}
-        )
+def clean_markdown_code_blocks(text: str) -> str:
+    """
+    Clean up markdown code blocks by trimming whitespace before and after triple backticks.
+    This prevents issues with code block rendering in the frontend.
+    """
+    import re
 
-    if not os.path.isdir(path):
-        return JSONResponse(
-            status_code=404,
-            content={"error": f"Directory not found: {path}"}
-        )
+    # Use regex to replace any whitespace followed by triple backticks with just triple backticks
+    # This handles all possible whitespace variations in one go
+    cleaned_text = re.sub(r'\n\s+```', '\n```', text)
 
-    try:
-        logger.info(f"Processing local repository at: {path}")
-        file_tree_lines = []
-        readme_content = ""
+    # Handle the case where a code block starts with spaces at the beginning of the text
+    cleaned_text = re.sub(r'^\s+```', '```', cleaned_text)
 
-        for root, dirs, files in os.walk(path):
-            # Exclude hidden dirs/files and virtual envs
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__' and d != 'node_modules' and d != '.venv']
-            for file in files:
-                if file.startswith('.') or file == '__init__.py' or file == '.DS_Store':
-                    continue
-                rel_dir = os.path.relpath(root, path)
-                rel_file = os.path.join(rel_dir, file) if rel_dir != '.' else file
-                file_tree_lines.append(rel_file)
-                # Find README.md (case-insensitive)
-                if file.lower() == 'readme.md' and not readme_content:
-                    try:
-                        with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
-                            readme_content = f.read()
-                    except Exception as e:
-                        logger.warning(f"Could not read README.md: {str(e)}")
-                        readme_content = ""
+    # Also clean up any spaces before language specifiers in code blocks
+    # For example: ```  python -> ```python
+    cleaned_text = re.sub(r'```\s+(\w+)', r'```\1', cleaned_text)
 
-        file_tree_str = '\n'.join(sorted(file_tree_lines))
-        return {"file_tree": file_tree_str, "readme": readme_content}
-    except Exception as e:
-        logger.error(f"Error processing local repository: {str(e)}")
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"Error processing local repository: {str(e)}"}
-        )
+    # Clean up spaces after closing triple backticks
+    # For example: ```   \n -> ```\n
+    cleaned_text = re.sub(r'```\s+\n', '```\n', cleaned_text)
+
+    # Handle the case where there are spaces after the final triple backticks at the end of the text
+    cleaned_text = re.sub(r'```\s+$', '```', cleaned_text)
+
+    return cleaned_text
 
 def generate_markdown_export(repo_url: str, pages: List[WikiPage]) -> str:
     """
@@ -345,7 +186,12 @@ def generate_markdown_export(repo_url: str, pages: List[WikiPage]) -> str:
         markdown += f"<a id='{page.id}'></a>\n\n"
         markdown += f"## {page.title}\n\n"
 
-
+        # Add related files
+        if page.filePaths and len(page.filePaths) > 0:
+            markdown += "### Related Files\n\n"
+            for file_path in page.filePaths:
+                markdown += f"- `{file_path}`\n"
+            markdown += "\n"
 
         # Add related pages
         if page.relatedPages and len(page.relatedPages) > 0:
@@ -360,8 +206,9 @@ def generate_markdown_export(repo_url: str, pages: List[WikiPage]) -> str:
             if related_titles:
                 markdown += "Related topics: " + ", ".join(related_titles) + "\n\n"
 
-        # Add page content
-        markdown += f"{page.content}\n\n"
+        # Clean up and add page content
+        cleaned_content = clean_markdown_code_blocks(page.content)
+        markdown += f"{cleaned_content}\n\n"
         markdown += "---\n\n"
 
     return markdown
@@ -390,245 +237,293 @@ def generate_json_export(repo_url: str, pages: List[WikiPage]) -> str:
     # Convert to JSON string with pretty formatting
     return json.dumps(export_data, indent=2)
 
-# Import the simplified chat implementation
-from api.simple_chat import chat_completions_stream
-from api.websocket_wiki import handle_websocket_chat
-
-# Add the chat_completions_stream endpoint to the main app
-app.add_api_route("/chat/completions/stream", chat_completions_stream, methods=["POST"])
-
-# Add the WebSocket endpoint
-app.add_websocket_route("/ws/chat", handle_websocket_chat)
-
-# --- Wiki Cache Helper Functions ---
-
-WIKI_CACHE_DIR = os.path.join(get_adalflow_default_root_path(), "wikicache")
-os.makedirs(WIKI_CACHE_DIR, exist_ok=True)
-
-def get_wiki_cache_path(owner: str, repo: str, repo_type: str, language: str) -> str:
-    """Generates the file path for a given wiki cache."""
-    filename = f"deepwiki_cache_{repo_type}_{owner}_{repo}_{language}.json"
-    return os.path.join(WIKI_CACHE_DIR, filename)
-
-async def read_wiki_cache(owner: str, repo: str, repo_type: str, language: str) -> Optional[WikiCacheData]:
-    """Reads wiki cache data from the file system."""
-    cache_path = get_wiki_cache_path(owner, repo, repo_type, language)
-    if os.path.exists(cache_path):
-        try:
-            with open(cache_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                return WikiCacheData(**data)
-        except Exception as e:
-            logger.error(f"Error reading wiki cache from {cache_path}: {e}")
-            return None
-    return None
-
-async def save_wiki_cache(data: WikiCacheRequest) -> bool:
-    """Saves wiki cache data to the file system."""
-    cache_path = get_wiki_cache_path(data.repo.owner, data.repo.repo, data.repo.type, data.language)
-    logger.info(f"Attempting to save wiki cache. Path: {cache_path}")
+@app.post("/chat/completions/stream")
+async def chat_completions_stream(request: ChatCompletionRequest):
+    """Stream a chat completion response directly using Google Generative AI"""
     try:
-        payload = WikiCacheData(
-            wiki_structure=data.wiki_structure,
-            generated_pages=data.generated_pages,
-            repo=data.repo,
-            provider=data.provider,
-            model=data.model
-        )
-        # Log size of data to be cached for debugging (avoid logging full content if large)
+        # Check if request contains very large input
+        input_too_large = False
+        if request.messages and len(request.messages) > 0:
+            last_message = request.messages[-1]
+            if hasattr(last_message, 'content') and last_message.content:
+                tokens = count_tokens(last_message.content)
+                logger.info(f"Request size: {tokens} tokens")
+                if tokens > 8000:
+                    logger.warning(f"Request exceeds recommended token limit ({tokens} > 7500)")
+                    input_too_large = True
+
+        # Create a new RAG instance for this request
         try:
-            payload_json = payload.model_dump_json()
-            payload_size = len(payload_json.encode('utf-8'))
-            logger.info(f"Payload prepared for caching. Size: {payload_size} bytes.")
-        except Exception as ser_e:
-            logger.warning(f"Could not serialize payload for size logging: {ser_e}")
+            request_rag = RAG()
 
+            # Determine which access token to use based on the repository URL
+            access_token = None
+            if "github.com" in request.repo_url and request.github_token:
+                access_token = request.github_token
+                logger.info("Using GitHub token for authentication")
+            elif "gitlab.com" in request.repo_url and request.gitlab_token:
+                access_token = request.gitlab_token
+                logger.info("Using GitLab token for authentication")
 
-        logger.info(f"Writing cache file to: {cache_path}")
-        with open(cache_path, 'w', encoding='utf-8') as f:
-            json.dump(payload.model_dump(), f, indent=2)
-        logger.info(f"Wiki cache successfully saved to {cache_path}")
-        return True
-    except IOError as e:
-        logger.error(f"IOError saving wiki cache to {cache_path}: {e.strerror} (errno: {e.errno})", exc_info=True)
-        return False
-    except Exception as e:
-        logger.error(f"Unexpected error saving wiki cache to {cache_path}: {e}", exc_info=True)
-        return False
-
-# --- Wiki Cache API Endpoints ---
-
-@app.get("/api/wiki_cache", response_model=Optional[WikiCacheData])
-async def get_cached_wiki(
-    owner: str = Query(..., description="Repository owner"),
-    repo: str = Query(..., description="Repository name"),
-    repo_type: str = Query(..., description="Repository type (e.g., github, gitlab)"),
-    language: str = Query(..., description="Language of the wiki content")
-):
-    """
-    Retrieves cached wiki data (structure and generated pages) for a repository.
-    """
-    # Language validation
-    supported_langs = configs["lang_config"]["supported_languages"]
-    if not supported_langs.__contains__(language):
-        language = configs["lang_config"]["default"]
-
-    logger.info(f"Attempting to retrieve wiki cache for {owner}/{repo} ({repo_type}), lang: {language}")
-    cached_data = await read_wiki_cache(owner, repo, repo_type, language)
-    if cached_data:
-        return cached_data
-    else:
-        # Return 200 with null body if not found, as frontend expects this behavior
-        # Or, raise HTTPException(status_code=404, detail="Wiki cache not found") if preferred
-        logger.info(f"Wiki cache not found for {owner}/{repo} ({repo_type}), lang: {language}")
-        return None
-
-@app.post("/api/wiki_cache")
-async def store_wiki_cache(request_data: WikiCacheRequest):
-    """
-    Stores generated wiki data (structure and pages) to the server-side cache.
-    """
-    # Language validation
-    supported_langs = configs["lang_config"]["supported_languages"]
-
-    if not supported_langs.__contains__(request_data.language):
-        request_data.language = configs["lang_config"]["default"]
-
-    logger.info(f"Attempting to save wiki cache for {request_data.repo.owner}/{request_data.repo.repo} ({request_data.repo.type}), lang: {request_data.language}")
-    success = await save_wiki_cache(request_data)
-    if success:
-        return {"message": "Wiki cache saved successfully"}
-    else:
-        raise HTTPException(status_code=500, detail="Failed to save wiki cache")
-
-@app.delete("/api/wiki_cache")
-async def delete_wiki_cache(
-    owner: str = Query(..., description="Repository owner"),
-    repo: str = Query(..., description="Repository name"),
-    repo_type: str = Query(..., description="Repository type (e.g., github, gitlab)"),
-    language: str = Query(..., description="Language of the wiki content"),
-    authorization_code: Optional[str] = Query(None, description="Authorization code")
-):
-    """
-    Deletes a specific wiki cache from the file system.
-    """
-    # Language validation
-    supported_langs = configs["lang_config"]["supported_languages"]
-    if not supported_langs.__contains__(language):
-        raise HTTPException(status_code=400, detail="Language is not supported")
-
-    if WIKI_AUTH_MODE:
-        logger.info("check the authorization code")
-        if WIKI_AUTH_CODE != authorization_code:
-            raise HTTPException(status_code=401, detail="Authorization code is invalid")
-
-    logger.info(f"Attempting to delete wiki cache for {owner}/{repo} ({repo_type}), lang: {language}")
-    cache_path = get_wiki_cache_path(owner, repo, repo_type, language)
-
-    if os.path.exists(cache_path):
-        try:
-            os.remove(cache_path)
-            logger.info(f"Successfully deleted wiki cache: {cache_path}")
-            return {"message": f"Wiki cache for {owner}/{repo} ({language}) deleted successfully"}
+            request_rag.prepare_retriever(request.repo_url, access_token)
+            logger.info(f"Retriever prepared for {request.repo_url}")
         except Exception as e:
-            logger.error(f"Error deleting wiki cache {cache_path}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to delete wiki cache: {str(e)}")
-    else:
-        logger.warning(f"Wiki cache not found, cannot delete: {cache_path}")
-        raise HTTPException(status_code=404, detail="Wiki cache not found")
+            logger.error(f"Error preparing retriever: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error preparing retriever: {str(e)}")
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint for Docker and monitoring"""
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "service": "deepwiki-api"
-    }
+        # Get the last user message
+        if not request.messages or len(request.messages) == 0:
+            raise HTTPException(status_code=400, detail="No messages provided")
+
+        last_message = request.messages[-1]
+        if last_message.role != "user":
+            raise HTTPException(status_code=400, detail="Last message must be from the user")
+
+        # Process previous messages to build conversation history
+        for i in range(0, len(request.messages) - 1, 2):
+            if i + 1 < len(request.messages):
+                user_msg = request.messages[i]
+                assistant_msg = request.messages[i + 1]
+
+                if user_msg.role == "user" and assistant_msg.role == "assistant":
+                    request_rag.memory.add_dialog_turn(
+                        user_query=user_msg.content,
+                        assistant_response=assistant_msg.content
+                    )
+
+        # Get the query from the last message
+        query = last_message.content
+
+        # Only retrieve documents if input is not too large
+        context_text = ""
+        retrieved_documents = None
+
+        if not input_too_large:
+            try:
+                # If filePath exists, modify the query for RAG to focus on the file
+                rag_query = query
+                if request.filePath:
+                    # Use the file path to get relevant context about the file
+                    rag_query = f"Contexts related to {request.filePath}"
+                    logger.info(f"Modified RAG query to focus on file: {request.filePath}")
+
+                # Try to perform RAG retrieval
+                try:
+                    # This will use the actual RAG implementation
+                    _, retrieved_documents = request_rag(rag_query)  # Ignore the first return value
+
+                    if retrieved_documents and retrieved_documents[0].documents:
+                        # Format context for the prompt
+                        context_text = "\n\n".join([doc.text for doc in retrieved_documents[0].documents])
+                        logger.info(f"Retrieved {len(retrieved_documents[0].documents)} documents")
+                    else:
+                        logger.warning("No documents retrieved from RAG")
+                except Exception as e:
+                    logger.error(f"Error in RAG retrieval: {str(e)}")
+                    # Continue without RAG if there's an error
+
+            except Exception as e:
+                logger.error(f"Error retrieving documents: {str(e)}")
+                context_text = ""
+
+        # Create system prompt with repository information
+        repo_url = request.repo_url
+        repo_name = repo_url.split("/")[-1] if "/" in repo_url else repo_url
+
+        # Determine repository type
+        repo_type = "GitHub"
+        if "gitlab.com" in repo_url:
+            repo_type = "GitLab"
+
+        system_prompt = f"""<role>
+You are an expert code analyst examining the {repo_type} repository: {repo_url} ({repo_name}).
+You provide direct, concise, and accurate information about code repositories.
+You NEVER start responses with markdown headers or code fences.
+</role>
+
+<guidelines>
+- Answer the user's question directly without ANY preamble or filler phrases
+- DO NOT start with preambles like "Okay, here's a breakdown" or "Here's an explanation"
+- DO NOT start with markdown headers like "## Analysis of..." or any file path references
+- DO NOT start with ```markdown code fences
+- DO NOT end your response with ``` closing fences
+- DO NOT start by repeating or acknowledging the question
+- JUST START with the direct answer to the question
+
+<example_of_what_not_to_do>
+```markdown
+## Analysis of `adalflow/adalflow/datasets/gsm8k.py`
+
+This file contains...
+```
+</example_of_what_not_to_do>
+
+- Format your response with proper markdown including headings, lists, and code blocks WITHIN your answer
+- For code analysis, organize your response with clear sections
+- Think step by step and structure your answer logically
+- Start with the most relevant information that directly addresses the user's query
+- Be precise and technical when discussing code
+</guidelines>
+
+<style>
+- Use concise, direct language
+- Prioritize accuracy over verbosity
+- When showing code, include line numbers and file paths when relevant
+- Use markdown formatting to improve readability
+</style>
+"""
+
+        # Format conversation history
+        conversation_history = ""
+        for turn_id, turn in request_rag.memory().items():
+            if not isinstance(turn_id, int) and hasattr(turn, 'user_query') and hasattr(turn, 'assistant_response'):
+                conversation_history += f"<turn>\n<user>{turn.user_query.query_str}</user>\n<assistant>{turn.assistant_response.response_str}</assistant>\n</turn>\n"
+
+        # Create the prompt with context
+        prompt = f"{system_prompt}\n\n"
+
+        if conversation_history:
+            prompt += f"<conversation_history>\n{conversation_history}</conversation_history>\n\n"
+
+        # Check if filePath is provided and fetch file content if it exists
+        file_content = ""
+        if request.filePath:
+            try:
+                # Determine which access token to use based on the repository URL
+                access_token = None
+                if "github.com" in request.repo_url and request.github_token:
+                    access_token = request.github_token
+                elif "gitlab.com" in request.repo_url and request.gitlab_token:
+                    access_token = request.gitlab_token
+
+                file_content = get_file_content(request.repo_url, request.filePath, access_token)
+                logger.info(f"Successfully retrieved content for file: {request.filePath}")
+                # Add file content to the prompt after conversation history
+                prompt += f"<currentFileContent path=\"{request.filePath}\">\n{file_content}\n</currentFileContent>\n\n"
+            except Exception as e:
+                logger.error(f"Error retrieving file content: {str(e)}")
+                # Continue without file content if there's an error
+
+        # Only include context if it's not empty
+        if context_text.strip():
+            prompt += f"<context>\n{context_text}\n</context>\n\n"
+        else:
+            # Add a note that we're skipping RAG due to size constraints or because it's the isolated API
+            logger.info("No context available from RAG")
+            prompt += "<note>Answering without retrieval augmentation.</note>\n\n"
+
+        prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
+
+        # Initialize Google Generative AI model
+        model = genai.GenerativeModel(
+            model_name="gemini-2.0-flash", # Using the preferred model
+            generation_config={
+                "temperature": 0.3,
+                "top_p": 0.8,
+                "top_k": 40
+            }
+        )
+
+        # Use the global clean_markdown_code_blocks function defined above
+
+        # Create a streaming response
+        async def response_stream():
+            try:
+                # Generate streaming response
+                response = model.generate_content(prompt, stream=True)
+
+                # Stream the response
+                for chunk in response:
+                    if hasattr(chunk, 'text'):
+                        # Clean up markdown code blocks before sending
+                        cleaned_chunk = clean_markdown_code_blocks(chunk.text)
+
+                        # Log if we made any changes to help with debugging
+                        if cleaned_chunk != chunk.text:
+                            logger.debug("Cleaned up markdown code blocks in response chunk")
+
+                        yield cleaned_chunk
+
+                # Make sure to resolve the response to avoid gRPC warnings
+                # try:
+                #     response.resolve()
+                # except Exception as e:
+                #     logger.warning(f"Could not resolve response: {e}")
+
+            except Exception as e:
+                logger.error(f"Error in streaming response: {str(e)}")
+                error_message = str(e)
+
+                # Check for token limit errors
+                if "maximum context length" in error_message or "token limit" in error_message or "too many tokens" in error_message:
+                    # If we hit a token limit error, try again without context
+                    logger.warning("Token limit exceeded, retrying without context")
+                    try:
+                        # Create a simplified prompt without context
+                        simplified_prompt = f"{system_prompt}\n\n"
+                        if conversation_history:
+                            simplified_prompt += f"<conversation_history>\n{conversation_history}</conversation_history>\n\n"
+
+                        # Include file content in the fallback prompt if it was retrieved
+                        if request.filePath and file_content:
+                            simplified_prompt += f"<currentFileContent path=\"{request.filePath}\">\n{file_content}\n</currentFileContent>\n\n"
+
+                        simplified_prompt += "<note>Answering without retrieval augmentation due to input size constraints.</note>\n\n"
+                        simplified_prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
+
+                        # Try again with simplified prompt
+                        fallback_response = model.generate_content(simplified_prompt, stream=True)
+
+                        # Stream the fallback response
+                        for chunk in fallback_response:
+                            if hasattr(chunk, 'text'):
+                                # Clean up markdown code blocks before sending
+                                cleaned_chunk = clean_markdown_code_blocks(chunk.text)
+
+                                # Log if we made any changes to help with debugging
+                                if cleaned_chunk != chunk.text:
+                                    logger.debug("Cleaned up markdown code blocks in fallback response chunk")
+
+                                yield cleaned_chunk
+
+                        # Resolve the fallback response
+                        # try:
+                        #     fallback_response.resolve()
+                        # except Exception as e2:
+                        #     logger.warning(f"Could not resolve fallback response: {e2}")
+
+                    except Exception as e2:
+                        logger.error(f"Error in fallback streaming response: {str(e2)}")
+                        yield f"\nI apologize, but your request is too large for me to process. Please try a shorter query or break it into smaller parts."
+                else:
+                    # For other errors, return the error message
+                    yield f"\nError: {error_message}"
+
+        # Return streaming response
+        return StreamingResponse(response_stream(), media_type="text/event-stream")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = f"Error in streaming chat completion: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
 
 @app.get("/")
 async def root():
-    """Root endpoint to check if the API is running and list available endpoints dynamically."""
-    # Collect routes dynamically from the FastAPI app
-    endpoints = {}
-    for route in app.routes:
-        if hasattr(route, "methods") and hasattr(route, "path"):
-            # Skip docs and static routes
-            if route.path in ["/openapi.json", "/docs", "/redoc", "/favicon.ico"]:
-                continue
-            # Group endpoints by first path segment
-            path_parts = route.path.strip("/").split("/")
-            group = path_parts[0].capitalize() if path_parts[0] else "Root"
-            method_list = list(route.methods - {"HEAD", "OPTIONS"})
-            for method in method_list:
-                endpoints.setdefault(group, []).append(f"{method} {route.path}")
-
-    # Optionally, sort endpoints for readability
-    for group in endpoints:
-        endpoints[group].sort()
-
+    """Root endpoint to check if the API is running"""
     return {
         "message": "Welcome to Streaming API",
         "version": "1.0.0",
-        "endpoints": endpoints
+        "endpoints": {
+            "Chat": [
+                "POST /chat/completions/stream - Streaming chat completion",
+            ],
+            "Wiki": [
+                "POST /export/wiki - Export wiki content as Markdown or JSON",
+            ],
+            "Batch": [
+                "POST /batch/batch - Process multiple queries in parallel",
+            ]
+        }
     }
-
-# --- Processed Projects Endpoint --- (New Endpoint)
-@app.get("/api/processed_projects", response_model=List[ProcessedProjectEntry])
-async def get_processed_projects():
-    """
-    Lists all processed projects found in the wiki cache directory.
-    Projects are identified by files named like: deepwiki_cache_{repo_type}_{owner}_{repo}_{language}.json
-    """
-    project_entries: List[ProcessedProjectEntry] = []
-    # WIKI_CACHE_DIR is already defined globally in the file
-
-    try:
-        if not os.path.exists(WIKI_CACHE_DIR):
-            logger.info(f"Cache directory {WIKI_CACHE_DIR} not found. Returning empty list.")
-            return []
-
-        logger.info(f"Scanning for project cache files in: {WIKI_CACHE_DIR}")
-        filenames = await asyncio.to_thread(os.listdir, WIKI_CACHE_DIR) # Use asyncio.to_thread for os.listdir
-
-        for filename in filenames:
-            if filename.startswith("deepwiki_cache_") and filename.endswith(".json"):
-                file_path = os.path.join(WIKI_CACHE_DIR, filename)
-                try:
-                    stats = await asyncio.to_thread(os.stat, file_path) # Use asyncio.to_thread for os.stat
-                    parts = filename.replace("deepwiki_cache_", "").replace(".json", "").split('_')
-
-                    # Expecting repo_type_owner_repo_language
-                    # Example: deepwiki_cache_github_AsyncFuncAI_deepwiki-open_en.json
-                    # parts = [github, AsyncFuncAI, deepwiki-open, en]
-                    if len(parts) >= 4:
-                        repo_type = parts[0]
-                        owner = parts[1]
-                        language = parts[-1] # language is the last part
-                        repo = "_".join(parts[2:-1]) # repo can contain underscores
-
-                        project_entries.append(
-                            ProcessedProjectEntry(
-                                id=filename,
-                                owner=owner,
-                                repo=repo,
-                                name=f"{owner}/{repo}",
-                                repo_type=repo_type,
-                                submittedAt=int(stats.st_mtime * 1000), # Convert to milliseconds
-                                language=language
-                            )
-                        )
-                    else:
-                        logger.warning(f"Could not parse project details from filename: {filename}")
-                except Exception as e:
-                    logger.error(f"Error processing file {file_path}: {e}")
-                    continue # Skip this file on error
-
-        # Sort by most recent first
-        project_entries.sort(key=lambda p: p.submittedAt, reverse=True)
-        logger.info(f"Found {len(project_entries)} processed project entries.")
-        return project_entries
-
-    except Exception as e:
-        logger.error(f"Error listing processed projects from {WIKI_CACHE_DIR}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to list processed projects from server cache.")

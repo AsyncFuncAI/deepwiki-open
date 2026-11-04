@@ -21,7 +21,6 @@ develop-eggs/
 dist/
 downloads/
 eggs/
-api/logs/
 .eggs/
 lib/
 lib64/
@@ -32,7 +31,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-*.venv
+
 # testing
 /coverage
 
@@ -62,8 +61,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-.idea/
-
-# ignore adding self-signed certs
-certs/

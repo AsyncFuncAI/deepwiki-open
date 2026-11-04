@@ -13,7 +13,7 @@ yarn-error.log
 .next
 out
 
-# Python cache files (but keep api/ directory)
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -34,9 +34,6 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
-# Keep api/ directory but exclude cache
-api/__pycache__/
-api/*.pyc
 
 # Environment variables
 # .env is now allowed to be included in the build
