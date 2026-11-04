@@ -118,8 +118,12 @@ def read_all_documents(
     ):
         file_path = Path(path) / relative_path
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+            except UnicodeDecodeError:
+                with open(file_path, "r", encoding="gbk", errors="replace") as f:
+                    content = f.read()
 
             # Check token count
             token_count = count_tokens(content, embedder_type)

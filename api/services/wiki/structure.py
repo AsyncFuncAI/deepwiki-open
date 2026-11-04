@@ -41,6 +41,9 @@ def read_repo_file_tree(
             try:
                 with open(os.path.join(path, file), encoding="utf-8") as f:
                     readme = f.read()
+            except UnicodeDecodeError:
+                with open(os.path.join(path, file), encoding="gbk", errors="replace") as f:
+                    readme = f.read()
             except OSError as e:
                 logger.warning("Could not read README.md: %s", e)
                 readme = ""
