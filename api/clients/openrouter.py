@@ -1,6 +1,7 @@
 """OpenRouter ModelClient integration."""
 
 import json
+import os
 from typing import Any, Dict
 
 import aiohttp
@@ -52,7 +53,7 @@ class OpenRouterClient(ModelClient):
             log.warning("OPENROUTER_API_KEY not configured")
 
         # OpenRouter doesn't have a dedicated client library, so we'll use requests directly
-        return {"api_key": api_key, "base_url": "https://openrouter.ai/api/v1"}
+        return {"api_key": api_key, "base_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")}
 
     def init_async_client(self):
         """Initialize the asynchronous OpenRouter client."""
@@ -63,7 +64,7 @@ class OpenRouterClient(ModelClient):
             log.warning("OPENROUTER_API_KEY not configured")
 
         # For async, we'll use aiohttp
-        return {"api_key": api_key, "base_url": "https://openrouter.ai/api/v1"}
+        return {"api_key": api_key, "base_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")}
 
     def convert_inputs_to_api_kwargs(
         self, input: Any, model_kwargs: Dict = None, model_type: ModelType = None
@@ -153,7 +154,7 @@ class OpenRouterClient(ModelClient):
                             f"{self.async_client['base_url']}/chat/completions",
                             headers=headers,
                             json=api_kwargs,
-                            timeout=60,
+                            timeout=900,
                         ) as response:
                             if response.status != 200:
                                 error_text = await response.text()
