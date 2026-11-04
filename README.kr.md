@@ -171,8 +171,8 @@ deepwiki/
 | `GOOGLE_API_KEY` | AI 생성용 Google Gemini API 키 | 예 |
 | `OPENAI_API_KEY` | 임베딩용 OpenAI API 키 | 예 |
 | `OPENROUTER_API_KEY` | 대체 모델용 OpenRouter API 키 | 아니오 | OpenRouter 모델 사용 시 필요 |
-| `PORT` | API 서버 포트 (기본값: 8001) | 아니오 | API와 프론트엔드를 같은 머신에서 호스팅 시 `NEXT_PUBLIC_SERVER_BASE_URL`의 포트도 변경 필요 |
-| `NEXT_PUBLIC_SERVER_BASE_URL` | API 서버 기본 URL (기본값: http://localhost:8001) | 아니오 |
+| `PORT` | API 서버 포트 (기본값: 8001) | 아니오 | API와 프론트엔드를 같은 머신에서 호스팅 시 `SERVER_BASE_URL`의 포트도 변경 필요 |
+| `SERVER_BASE_URL` | API 서버 기본 URL (기본값: http://localhost:8001) | 아니오 |
  
 ### Docker 설정
  
@@ -191,12 +191,21 @@ docker run -p 8001:8001 -p 3000:3000 \
   ghcr.io/asyncfuncai/deepwiki-open:latest
 ```
  
+이 명령어는 또한 호스트의 `~/.adalflow`를 컨테이너의 `/root/.adalflow`에 마운트합니다. 이 경로는 다음을 저장하는 데 사용됩니다:
+- 복제된 저장소 (`~/.adalflow/repos/`)
+- 해당 저장소의 임베딩 및 인덱스 (`~/.adalflow/databases/`)
+- 생성된 위키의 캐시 (`~/.adalflow/wikicache/`)
+
+이를 통해 컨테이너가 중지되거나 제거되어도 데이터가 유지됩니다.
+ 
 또는 제공된 `docker-compose.yml` 파일을 사용하세요:
  
 ```bash
 # API 키가 포함된 .env 파일을 먼저 편집
 docker-compose up
 ```
+ 
+(`docker-compose.yml` 파일은 위의 `docker run` 명령어와 유사하게 데이터 지속성을 위해 `~/.adalflow`를 마운트하도록 미리 구성되어 있습니다.)
  
 #### Docker에서 .env 파일 사용하기
  
@@ -214,6 +223,13 @@ docker run -p 8001:8001 -p 3000:3000 \
   -v ~/.adalflow:/root/.adalflow \
   ghcr.io/asyncfuncai/deepwiki-open:latest
 ```
+ 
+이 명령어는 또한 호스트의 `~/.adalflow`를 컨테이너의 `/root/.adalflow`에 마운트합니다. 이 경로는 다음을 저장하는 데 사용됩니다:
+- 복제된 저장소 (`~/.adalflow/repos/`)
+- 해당 저장소의 임베딩 및 인덱스 (`~/.adalflow/databases/`)
+- 생성된 위키의 캐시 (`~/.adalflow/wikicache/`)
+
+이를 통해 컨테이너가 중지되거나 제거되어도 데이터가 유지됩니다.
  
 #### 로컬에서 Docker 이미지 빌드하기
  

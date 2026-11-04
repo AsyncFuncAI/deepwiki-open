@@ -3,7 +3,7 @@
 
 import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync } from 'react-icons/fa';
+import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome, FaFolder, FaSync, FaChevronUp, FaChevronDown } from 'react-icons/fa';
 import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
@@ -26,8 +26,6 @@ interface WikiStructure {
   description: string;
   pages: WikiPage[];
 }
-
-const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
 
 // Add CSS styles for wiki with Japanese aesthetic
 const wikiStyles = `
@@ -98,7 +96,9 @@ const addTokensToRequestBody = (
   repoType: string,
   localOllama: boolean = false,
   useOpenRouter: boolean = false,
+  useOpenai: boolean = false,
   openRouterModel: string = 'openai/gpt-4o',
+  openaiModel: string = 'gpt-4o',
   language: string = 'en',
 ): void => {
   if (githubToken && repoType === 'github') {
@@ -112,8 +112,12 @@ const addTokensToRequestBody = (
   }
   requestBody.local_ollama = localOllama;
   requestBody.use_openrouter = useOpenRouter;
+  requestBody.use_openai = useOpenai;
   if (useOpenRouter) {
     requestBody.openrouter_model = openRouterModel;
+  }
+  if (useOpenai) {
+    requestBody.openai_model = openaiModel;
   }
   requestBody.language = language;
 };
@@ -172,7 +176,9 @@ export default function RepoWikiPage() {
   const localPath = searchParams.get('local_path') ? decodeURIComponent(searchParams.get('local_path') || '') : undefined;
   const localOllama = searchParams.get('local_ollama') === 'true';
   const useOpenRouter = searchParams.get('use_openrouter') === 'true';
+  const useOpenai = searchParams.get('use_openai') === 'true';
   const openRouterModel = searchParams.get('openrouter_model') || 'openai/gpt-4o';
+  const openaiModel = searchParams.get('openai_model') || 'gpt-4o';
   const language = searchParams.get('language') || 'en';
 
   // Import language context for translations
@@ -211,6 +217,9 @@ export default function RepoWikiPage() {
 
   // Create a flag to ensure the effect only runs once
   const effectRan = React.useRef(false);
+
+  // State for Ask section visibility
+  const [isAskSectionVisible, setIsAskSectionVisible] = useState(true);
 
   // Memoize repo info to avoid triggering updates in callbacks
 
@@ -279,8 +288,8 @@ ${filePaths.map(path => `- ${path}`).join('\n')}
 IMPORTANT: Generate the content in ${language === 'en' ? 'English' :
             language === 'ja' ? 'Japanese (日本語)' :
             language === 'zh' ? 'Mandarin Chinese (中文)' :
-            language === 'es' ? 'Spanish (Español)' : 
-            language === 'kr' ? 'Korean (한국어)' : 
+            language === 'es' ? 'Spanish (Español)' :
+            language === 'kr' ? 'Korean (한국어)' :
             language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'} language.
 
 Include:
@@ -341,9 +350,9 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
         };
 
         // Add tokens if available
-        addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, openRouterModel, language);
+        addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language);
 
-        const response = await fetch(`${SERVER_BASE_URL}/chat/completions/stream`, {
+        const response = await fetch(`/api/chat/stream`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -416,8 +425,7 @@ Use proper markdown formatting for code blocks and include a vertical Mermaid di
         setLoadingMessage(undefined); // Clear specific loading message
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [generatedPages, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, openRouterModel, language, activeContentRequests]);
+  }, [generatedPages, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language, activeContentRequests]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -463,8 +471,8 @@ I want to create a wiki for this repository. Determine the most logical structur
 IMPORTANT: The wiki content will be generated in ${language === 'en' ? 'English' :
             language === 'ja' ? 'Japanese (日本語)' :
             language === 'zh' ? 'Mandarin Chinese (中文)' :
-            language === 'es' ? 'Spanish (Español)' : 
-            language === 'kr' ? 'Korean (한국어)' : 
+            language === 'es' ? 'Spanish (Español)' :
+            language === 'kr' ? 'Korean (한국어)' :
             language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'} language.
 
 When designing the wiki structure, include pages that would benefit from visual diagrams, such as:
@@ -514,9 +522,9 @@ IMPORTANT:
       };
 
       // Add tokens if available
-      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, openRouterModel, language);
+      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language);
 
-      const response = await fetch(`${SERVER_BASE_URL}/chat/completions/stream`, {
+      const response = await fetch(`/api/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -552,26 +560,45 @@ IMPORTANT:
         throw new Error('No valid XML found in response');
       }
 
-      const xmlText = xmlMatch[0];
+      let xmlText = xmlMatch[0];
+      xmlText = xmlText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+      // Try parsing with DOMParser
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xmlText, "text/xml");
 
       // Check for parsing errors
       const parseError = xmlDoc.querySelector('parsererror');
       if (parseError) {
-        throw new Error('Failed to parse XML response');
+        // Log the first few elements to see what was parsed
+        const elements = xmlDoc.querySelectorAll('*');
+        if (elements.length > 0) {
+          console.log('First 5 element names:',
+            Array.from(elements).slice(0, 5).map(el => el.nodeName).join(', '));
+        }
+
+        // We'll continue anyway since the XML might still be usable
       }
 
       // Extract wiki structure
+      let title = '';
+      let description = '';
+      let pages: WikiPage[] = [];
+
+      // Try using DOM parsing first
       const titleEl = xmlDoc.querySelector('title');
       const descriptionEl = xmlDoc.querySelector('description');
       const pagesEls = xmlDoc.querySelectorAll('page');
 
-      const title = titleEl ? titleEl.textContent || '' : '';
-      const description = descriptionEl ? descriptionEl.textContent || '' : '';
+      title = titleEl ? titleEl.textContent || '' : '';
+      description = descriptionEl ? descriptionEl.textContent || '' : '';
 
-      // Parse pages
-      const pages: WikiPage[] = [];
+      // Parse pages using DOM
+      pages = [];
+
+      if (parseError && (!pagesEls || pagesEls.length === 0)) {
+        console.warn('DOM parsing failed, trying regex fallback');
+      }
+
       pagesEls.forEach(pageEl => {
         const id = pageEl.getAttribute('id') || `page-${pages.length + 1}`;
         const titleEl = pageEl.querySelector('title');
@@ -691,7 +718,7 @@ IMPORTANT:
     } finally {
       setStructureRequestInProgress(false);
     }
-  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, pagesInProgress.size, structureRequestInProgress, localOllama, useOpenRouter, openRouterModel, language, messages.loading]);
+  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, pagesInProgress.size, structureRequestInProgress, localOllama, useOpenRouter, useOpenai, openRouterModel, openaiModel, language, messages.loading]);
 
   // Fetch repository structure using GitHub or GitLab API
   const fetchRepositoryStructure = useCallback(async () => {
@@ -721,7 +748,7 @@ IMPORTANT:
 
       if (repoInfo.type === 'local' && repoInfo.localPath) {
         try {
-          const response = await fetch(`${SERVER_BASE_URL}/local_repo/structure?path=${encodeURIComponent(repoInfo.localPath)}`);
+          const response = await fetch(`/local_repo/structure?path=${encodeURIComponent(repoInfo.localPath)}`);
 
           if (!response.ok) {
             const errorData = await response.text();
@@ -973,7 +1000,7 @@ IMPORTANT:
       // Reset the request in progress flag
       setRequestInProgress(false);
     }
-  }, [owner, repo, determineWikiStructure, githubToken, gitlabToken, bitbucketToken, repoInfo.type, requestInProgress, messages.loading]);
+  }, [owner, repo, determineWikiStructure, githubToken, gitlabToken, bitbucketToken, repoInfo.type, repoInfo.localPath, requestInProgress, messages.loading]);
 
   // Function to export wiki content
   const exportWiki = useCallback(async (format: 'markdown' | 'json') => {
@@ -1001,7 +1028,7 @@ IMPORTANT:
       const repoUrl = getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type, repoInfo.localPath);
 
       // Make API call to export wiki
-      const response = await fetch(`${SERVER_BASE_URL}/export/wiki`, {
+      const response = await fetch(`/export/wiki`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1051,116 +1078,181 @@ IMPORTANT:
   }, [wikiStructure, generatedPages, repoInfo, language]);
 
   // Function to refresh wiki and clear cache
-  const handleRefreshWiki = useCallback(() => {
-    // Clear the cache for this repository
-    const cacheKey = getCacheKey(repoInfo.owner, repoInfo.repo, repoInfo.type, language);
-    localStorage.removeItem(cacheKey);
-    
+  const handleRefreshWiki = useCallback(async () => {
+    setLoadingMessage(messages.loading?.clearingCache || 'Clearing server cache...');
+    setIsLoading(true); // Show loading indicator immediately
+
+    try {
+      const params = new URLSearchParams({
+        owner: repoInfo.owner,
+        repo: repoInfo.repo,
+        repo_type: repoInfo.type,
+        language: language,
+      });
+      const response = await fetch(`/api/wiki_cache?${params.toString()}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        console.log('Server-side wiki cache cleared successfully.');
+        // Optionally, show a success message for cache clearing if desired
+        // setLoadingMessage('Cache cleared. Refreshing wiki...');
+      } else {
+        const errorText = await response.text();
+        console.warn(`Failed to clear server-side wiki cache (status: ${response.status}): ${errorText}. Proceeding with refresh anyway.`);
+        // Optionally, inform the user about the cache clear failure but that refresh will still attempt
+        // setError(\`Cache clear failed: ${errorText}. Trying to refresh...\`);
+      }
+    } catch (err) {
+      console.warn('Error calling DELETE /api/wiki_cache:', err);
+      // Optionally, inform the user about the cache clear error
+      // setError(\`Error clearing cache: ${err instanceof Error ? err.message : String(err)}. Trying to refresh...\`);
+    }
+
+    // Proceed with the rest of the refresh logic
+    console.log('Refreshing wiki. Server cache will be overwritten upon new generation if not cleared.');
+
+    // Clear the localStorage cache (if any remnants or if it was used before this change)
+    const localStorageCacheKey = getCacheKey(repoInfo.owner, repoInfo.repo, repoInfo.type, language);
+    localStorage.removeItem(localStorageCacheKey);
+
     // Reset cache loaded flag
     cacheLoadedSuccessfully.current = false;
-    
+    effectRan.current = false; // Allow the main data loading useEffect to run again
+
     // Reset all state
     setWikiStructure(undefined);
     setCurrentPageId(undefined);
     setGeneratedPages({});
     setPagesInProgress(new Set());
     setError(null);
-    
-    // Clear any in-progress requests
+    setIsLoading(true); // Set loading state for refresh
+    setLoadingMessage(messages.loading?.initializing || 'Initializing wiki generation...');
+
+    // Clear any in-progress requests for page content
     activeContentRequests.clear();
-    setStructureRequestInProgress(false);
-    setRequestInProgress(false);
-    
-    // Start fresh fetch
-    fetchRepositoryStructure();
-  }, [fetchRepositoryStructure, repoInfo.owner, repoInfo.repo, repoInfo.type, language]);
+    // Reset flags related to request processing if they are component-wide
+    setStructureRequestInProgress(false); // Assuming this flag should be reset
+    setRequestInProgress(false); // Assuming this flag should be reset
+
+    // Explicitly trigger the data loading process again by re-invoking what the main useEffect does.
+    // This will first attempt to load from (now hopefully non-existent or soon-to-be-overwritten) server cache,
+    // then proceed to fetchRepositoryStructure if needed.
+    // To ensure fetchRepositoryStructure is called if cache is somehow still there or to force a full refresh:
+    // One option is to directly call fetchRepositoryStructure() if force refresh means bypassing cache check.
+    // For now, we rely on the standard loadData flow initiated by resetting effectRan and dependencies.
+    // This will re-trigger the main data loading useEffect.
+    // No direct call to fetchRepositoryStructure here, let the useEffect handle it based on effectRan.current = false.
+  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, messages.loading, activeContentRequests]);
 
   // Start wiki generation when component mounts
   useEffect(() => {
-
     if (effectRan.current === false) {
-      
-      // Try loading from cache first
-      const cacheKey = getCacheKey(repoInfo.owner, repoInfo.repo, repoInfo.type, language);
-      try {
-        const cachedData = localStorage.getItem(cacheKey);
-        
-        if (cachedData) {
-          const parsedData = JSON.parse(cachedData);
-          
-          // Verify the cache has the required structure and pages
-          if (parsedData.wikiStructure && 
-              parsedData.generatedPages && 
-              Object.keys(parsedData.generatedPages).length > 0) {
-            
-            console.log('Using cached wiki data');
-            setWikiStructure(parsedData.wikiStructure);
-            setGeneratedPages(parsedData.generatedPages);
-            setCurrentPageId(parsedData.wikiStructure.pages.length > 0 ? parsedData.wikiStructure.pages[0].id : undefined);
-            setIsLoading(false);
-            setLoadingMessage(undefined);
-            cacheLoadedSuccessfully.current = true;
-            effectRan.current = true;
-            return;
+      effectRan.current = true; // Set to true immediately to prevent re-entry due to StrictMode
+
+      const loadData = async () => {
+        // Try loading from server-side cache first
+        setLoadingMessage(messages.loading?.fetchingCache || 'Checking for cached wiki...');
+        try {
+          const params = new URLSearchParams({
+            owner: repoInfo.owner,
+            repo: repoInfo.repo,
+            repo_type: repoInfo.type,
+            language: language,
+          });
+          const response = await fetch(`/api/wiki_cache?${params.toString()}`);
+
+          if (response.ok) {
+            const cachedData = await response.json(); // Returns null if no cache
+            if (cachedData && cachedData.wiki_structure && cachedData.generated_pages && Object.keys(cachedData.generated_pages).length > 0) {
+              console.log('Using server-cached wiki data');
+              setWikiStructure(cachedData.wiki_structure);
+              setGeneratedPages(cachedData.generated_pages);
+              setCurrentPageId(cachedData.wiki_structure.pages.length > 0 ? cachedData.wiki_structure.pages[0].id : undefined);
+              setIsLoading(false);
+              setLoadingMessage(undefined);
+              cacheLoadedSuccessfully.current = true;
+              return; // Exit if cache is successfully loaded
+            } else {
+              console.log('No valid wiki data in server cache or cache is empty.');
+            }
           } else {
-            // Invalid cache, clear it
-            console.log('Invalid cache data, clearing');
-            localStorage.removeItem(cacheKey);
+            // Log error but proceed to fetch structure, as cache is optional
+            console.error('Error fetching wiki cache from server:', response.status, await response.text());
+          }
+        } catch (error) {
+          console.error('Error loading from server cache:', error);
+          // Proceed to fetch structure if cache loading fails
+        }
+
+        // If we reached here, either there was no cache, it was invalid, or an error occurred
+        // Proceed to fetch repository structure
+        fetchRepositoryStructure();
+      };
+
+      loadData();
+
+    } else {
+      console.log('Skipping duplicate repository fetch/cache check');
+    }
+
+    // Clean up function for this effect is not strictly necessary for loadData,
+    // but keeping the main unmount cleanup in the other useEffect
+  }, [repoInfo.owner, repoInfo.repo, repoInfo.type, language, fetchRepositoryStructure, messages.loading?.fetchingCache]);
+
+  // Save wiki to server-side cache when generation is complete
+  useEffect(() => {
+    const saveCache = async () => {
+      if (!isLoading &&
+          !error &&
+          wikiStructure &&
+          Object.keys(generatedPages).length > 0 &&
+          Object.keys(generatedPages).length >= wikiStructure.pages.length &&
+          !cacheLoadedSuccessfully.current) {
+
+        const allPagesHaveContent = wikiStructure.pages.every(page =>
+          generatedPages[page.id] && generatedPages[page.id].content && generatedPages[page.id].content !== 'Loading...');
+
+        if (allPagesHaveContent) {
+          console.log('Attempting to save wiki data to server cache via Next.js proxy');
+
+          try {
+            const dataToCache = {
+              owner: repoInfo.owner,
+              repo: repoInfo.repo,
+              repo_type: repoInfo.type,
+              language: language,
+              wiki_structure: wikiStructure,
+              generated_pages: generatedPages
+            };
+            const response = await fetch(`/api/wiki_cache`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(dataToCache),
+            });
+
+            if (response.ok) {
+              console.log('Wiki data successfully saved to server cache');
+            } else {
+              console.error('Error saving wiki data to server cache:', response.status, await response.text());
+            }
+          } catch (error) {
+            console.error('Error saving to server cache:', error);
           }
         }
-      } catch (error) {
-        console.error('Error loading from cache:', error);
-        // Clear the cache if there was an error parsing
-        localStorage.removeItem(cacheKey);
       }
-      
-      // If we reached here, either there was no cache or it was invalid
-      fetchRepositoryStructure();
-      effectRan.current = true;
-    } else {
-      console.log('Skipping duplicate repository fetch');
-    }
-
-    // Clean up function
-    return () => {
-      console.log('Repository page unmounting');
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repoInfo, fetchRepositoryStructure]);  // Only rerun if repo info changes
 
-  // Save wiki to cache when generation is complete
-  useEffect(() => {
-    // Only save when wiki generation is fully complete and successful
-    if (!isLoading && 
-        !error && 
-        wikiStructure && 
-        Object.keys(generatedPages).length > 0 &&
-        Object.keys(generatedPages).length >= wikiStructure.pages.length &&
-        !cacheLoadedSuccessfully.current) {
-      
-      // Check that all pages have content
-      const allPagesHaveContent = wikiStructure.pages.every(page => 
-        generatedPages[page.id] && generatedPages[page.id].content);
-      
-      if (allPagesHaveContent) {
-        console.log('Saving wiki data to cache');
-        const cacheKey = getCacheKey(repoInfo.owner, repoInfo.repo, repoInfo.type, language);
-        
-        try {
-          const dataToCache = {
-            wikiStructure,
-            generatedPages
-          };
-          
-          localStorage.setItem(cacheKey, JSON.stringify(dataToCache));
-        } catch (error) {
-          // Handle potential localStorage errors (quota exceeded, etc.)
-          console.error('Error saving to cache:', error);
-        }
-      }
+    saveCache();
+  }, [isLoading, error, wikiStructure, generatedPages, repoInfo.owner, repoInfo.repo, repoInfo.type, language]);
+
+  const handlePageSelect = (pageId: string) => {
+    if (currentPageId != pageId) {
+      setCurrentPageId(pageId)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, error, wikiStructure, generatedPages]);
+  };
 
   return (
     <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
@@ -1361,11 +1453,7 @@ IMPORTANT:
                           ? 'bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30'
                           : 'text-[var(--foreground)] hover:bg-[var(--background)] border border-transparent'
                         }`}
-                      onClick={() => {
-                        if (currentPageId != page.id) {
-                          setCurrentPageId(page.id)
-                        }
-                      }}
+                      onClick={() => handlePageSelect(page.id)}
                     >
                       <div className="flex items-center">
                         <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
@@ -1424,7 +1512,7 @@ IMPORTANT:
                             <button
                               key={relatedId}
                               className="bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-xs text-[var(--accent-primary)] px-3 py-1.5 rounded-md transition-colors truncate max-w-full border border-[var(--accent-primary)]/20"
-                              onClick={() => setCurrentPageId(relatedId)}
+                              onClick={() => handlePageSelect(relatedId)}
                             >
                               {relatedPage.title}
                             </button>
@@ -1454,22 +1542,33 @@ IMPORTANT:
         {/* Only show Ask component when wiki is successfully generated */}
         {wikiStructure && Object.keys(generatedPages).length > 0 && !isLoading && (
           <div className="w-full bg-[var(--card-bg)] rounded-lg p-5 mb-4 shadow-custom card-japanese">
-            <div className="text-center mb-3 text-sm font-serif text-[var(--foreground)]">
-              {messages.repoPage?.askAboutRepo || 'Ask questions about this repository'}
-            </div>
-            <Ask
-              repoUrl={repoInfo.owner && repoInfo.repo
-                ? getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type, repoInfo.localPath)
-                : "https://github.com/AsyncFuncAI/deepwiki-open"
-              }
-              githubToken={githubToken}
-              gitlabToken={gitlabToken}
-              bitbucketToken={bitbucketToken}
-              localOllama={localOllama}
-              useOpenRouter={useOpenRouter}
-              openRouterModel={openRouterModel}
-              language={language}
-            />
+            <button
+              onClick={() => setIsAskSectionVisible(!isAskSectionVisible)}
+              className="w-full flex items-center justify-between text-left mb-3 text-sm font-serif text-[var(--foreground)] hover:text-[var(--accent-primary)] transition-colors"
+              aria-expanded={isAskSectionVisible}
+            >
+              <span>
+                {messages.repoPage?.askAboutRepo || 'Ask questions about this repository'}
+              </span>
+              {isAskSectionVisible ? <FaChevronUp /> : <FaChevronDown />}
+            </button>
+            {isAskSectionVisible && (
+              <Ask
+                repoUrl={repoInfo.owner && repoInfo.repo
+                  ? getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type, repoInfo.localPath)
+                  : "https://github.com/AsyncFuncAI/deepwiki-open"
+                }
+                githubToken={githubToken}
+                gitlabToken={gitlabToken}
+                bitbucketToken={bitbucketToken}
+                localOllama={localOllama}
+                useOpenRouter={useOpenRouter}
+                useOpenai={useOpenai}
+                openRouterModel={openRouterModel}
+                openaiModel={openaiModel}
+                language={language}
+              />
+            )}
           </div>
         )}
         <div className="flex justify-between items-center gap-4 text-center text-[var(--muted)] text-sm h-fit w-full bg-[var(--card-bg)] rounded-lg p-3 shadow-sm border border-[var(--border-color)]">

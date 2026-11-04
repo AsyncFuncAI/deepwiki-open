@@ -8,10 +8,17 @@
             "module": "uvicorn",
             "args": [
                 "api.api:app",
-                "--reload"
+                "--reload",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8001"
             ],
             "jinja": true,
-            "justMyCode": true
+            "justMyCode": true,
+            "env": {
+                "PORT": "8001"
+            }
         }
     ]
 }

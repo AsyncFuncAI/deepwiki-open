@@ -14,28 +14,47 @@
     "initializing": "Đang khởi tạo wiki...",
     "fetchingStructure": "Đang lấy cấu trúc repository...",
     "determiningStructure": "Đang xác định cấu trúc wiki...",
+    "clearingCache": "Đang xóa bộ nhớ cache của máy chủ...",
     "preparingDownload": "Đang tải!! Vui lòng chờ ..."
-},
+  },
   "home": {
-    "welcome": "Chào mừng đến với DeepWiki-Open (Open source version",
+    "welcome": "Chào mừng đến với DeepWiki-Open",
     "welcomeTagline": "Tài liệu hỗ trợ bởi AI cho các repositoty của bạn",
     "description": "Tạo tài liệu từ các repository GitHub, GitLab, hoặc Bitbucket chỉ với vài cú nhấp chuột.",
     "quickStart": "Bắt đầu nhanh",
-    "enterRepoUrl": "Nhập URL repository",
+    "enterRepoUrl": "Nhập URL repository với một trong các định dạng sau:",
     "advancedVisualization": "Tùy chỉnh sơ đồ trực quan với Mermaid",
     "diagramDescription": "DeepWiki tự động tạo các sơ đồ tương tác giúp bạn hiểu cấu trúc source codes và mối quan hệ giữa chúng:",
     "flowDiagram": "Sơ đồ luồng",
     "sequenceDiagram": "Sơ đồ tuần tự"
-}
-,
+  },
   "form": {
     "repoPlaceholder": "owner/repo hoặc URL GitHub/GitLab/Bitbucket",
     "wikiLanguage": "Ngôn ngữ Wiki",
+    "advancedOptions": "Tùy chọn nâng cao",
+    "advancedOptionsDescription": "Cấu hình ngôn ngữ và cài đặt mô hình AI cho việc tạo wiki của bạn",
+    "modelSelectionTitle": "Lựa chọn mô hình AI",
     "modelOptions": "Tùy chọn Mô hình",
+    "modelSelection": "Lựa chọn Mô hình",
+    "standardModels": "Mô hình tiêu chuẩn",
+    "standardModelsDescription": "Chọn từ danh sách mô hình AI được chọn lọc của chúng tôi.",
     "localOllama": "Mô hình Ollama local",
+    "localOllamaTab": "Ollama local",
+    "localOllamaDescription": "Sử dụng các mô hình chạy trên phiên bản Ollama local của bạn. Yêu cầu Ollama được cài đặt và chạy trên máy của bạn.",
+    "ollamaStatus": "Trạng thái: Đang sử dụng Ollama local",
+    "ollamaNote": "DeepWiki sẽ cố gắng kết nối với Ollama đang chạy trên localhost:11434",
     "experimental": "Thử nghiệm",
     "useOpenRouter": "Sử dụng API OpenRouter",
+    "openRouterTab": "OpenRouter",
     "openRouterModel": "Mô hình OpenRouter",
+    "openRouterDescription": "Truy cập nhiều mô hình AI khác nhau thông qua OpenRouter. Tùy chọn này cung cấp quyền truy cập vào các mô hình từ các nhà cung cấp khác nhau.",
+    "useOpenai": "Sử dụng API OpenAI",
+    "openaiTab": "OpenAI",
+    "openaiModel": "Mô hình OpenAI",
+    "openaiDescription": "Sử dụng trực tiếp các mô hình của OpenAI. Tùy chọn này cung cấp quyền truy cập vào các mô hình OpenAI mới nhất.",
+    "useCustomModel": "Sử dụng mô hình tùy chỉnh",
+    "customModelPlaceholder": "Nhập tên mô hình tùy chỉnh",
+    "apiKeyNote": "Khóa API cho OpenRouter và OpenAI có thể được thêm bên dưới nếu cần",
     "addTokens": "+ Thêm token truy cập cho private repositories",
     "hideTokens": "- Ẩn token truy cập",
     "accessToken": "Token truy cập cho private repositories",
@@ -71,5 +90,8 @@
     "relatedPages": "Trang liên quan:",
     "selectPagePrompt": "Chọn một trang từ thanh điều hướng để xem nội dung của nó",
     "askAboutRepo": "Hỏi về repository này"
+  },
+  "nav": {
+    "wikiProjects": "Danh sách dự án"
   }
 }

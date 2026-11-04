@@ -14,6 +14,7 @@
     "initializing": "初始化Wiki生成...",
     "fetchingStructure": "获取仓库结构...",
     "determiningStructure": "验证Wiki结构...",
+    "clearingCache": "清理服务器缓存...",
     "preparingDownload": "请等待，我们正在准备您的下载..."
   },
   "home": {
@@ -30,11 +31,30 @@
   "form": {
     "repoPlaceholder": "所有者/仓库或GitHub/GitLab/Bitbucket URL",
     "wikiLanguage": "Wiki语言",
+    "advancedOptions": "高级选项",
+    "advancedOptionsDescription": "配置Wiki生成的语言和AI模型设置",
+    "modelSelectionTitle": "AI模型选择",
     "modelOptions": "模型选项",
+    "modelSelection": "模型选择",
+    "standardModels": "标准模型",
+    "standardModelsDescription": "从我们精选的AI模型列表中选择。",
     "localOllama": "本地Ollama模型",
+    "localOllamaTab": "本地Ollama",
+    "localOllamaDescription": "使用在本地Ollama实例上运行的模型。需要在您的机器上安装并运行Ollama。",
+    "ollamaStatus": "状态：使用本地Ollama",
+    "ollamaNote": "DeepWiki将尝试连接到在localhost:11434上运行的Ollama",
     "experimental": "实验性",
     "useOpenRouter": "使用OpenRouter API",
+    "openRouterTab": "OpenRouter",
     "openRouterModel": "OpenRouter模型",
+    "openRouterDescription": "通过OpenRouter访问各种AI模型。此选项提供对不同提供商模型的访问。",
+    "useOpenai": "使用OpenAI API",
+    "openaiTab": "OpenAI",
+    "openaiModel": "OpenAI模型",
+    "openaiDescription": "直接使用OpenAI的模型。此选项提供对最新OpenAI模型的访问。",
+    "useCustomModel": "使用自定义模型",
+    "customModelPlaceholder": "输入自定义模型名称",
+    "apiKeyNote": "如有需要，可以在下方添加OpenRouter和OpenAI的API密钥",
     "addTokens": "+ 添加私有仓库访问令牌",
     "hideTokens": "- 隐藏访问令牌",
     "accessToken": "私有仓库访问令牌",
@@ -57,18 +77,21 @@
     "viewConclusion": "查看结论"
   },
   "repoPage": {
-    "refreshWiki": "Refresh Wiki",
-    "home": "Home",
-    "errorTitle": "Error",
-    "errorMessageDefault": "Please check that your repository exists and is public. Valid formats are \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", or local folder paths like \"C:\\\\path\\\\to\\\\folder\" or \"/path/to/folder\".",
-    "backToHome": "Back to Home",
-    "exportWiki": "Export Wiki",
-    "exportAsMarkdown": "Export as Markdown",
-    "exportAsJson": "Export as JSON",
-    "pages": "Pages",
-    "relatedFiles": "Related Files:",
-    "relatedPages": "Related Pages:",
-    "selectPagePrompt": "Select a page from the navigation to view its content",
-    "askAboutRepo": "Ask questions about this repository"
+    "refreshWiki": "刷新Wiki",
+    "home": "首页",
+    "errorTitle": "错误",
+    "errorMessageDefault": "请检查您的仓库是否存在且为公开的。有效格式为\"owner/repo\"、\"https://github.com/owner/repo\"、\"https://gitlab.com/owner/repo\"、\"https://bitbucket.org/owner/repo\"，或本地文件夹路径如\"C:\\\\path\\\\to\\\\folder\"或\"/path/to/folder\"。",
+    "backToHome": "返回首页",
+    "exportWiki": "导出Wiki",
+    "exportAsMarkdown": "导出为Markdown",
+    "exportAsJson": "导出为JSON",
+    "pages": "页面",
+    "relatedFiles": "相关文件：",
+    "relatedPages": "相关页面：",
+    "selectPagePrompt": "从导航中选择一个页面以查看其内容",
+    "askAboutRepo": "询问有关此仓库的问题"
+  },
+  "nav": {
+    "wikiProjects": "项目列表"
   }
 }

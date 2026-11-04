@@ -1,0 +1,17 @@
+{
+  "openai": {
+    "model_type": "openai",
+    "batch_size": 500,
+    "model_kwargs": {
+      "model": "text-embedding-3-small",
+      "dimensions": 256,
+      "encoding_format": "float"
+    }
+  },
+  "ollama": {
+    "model_type": "ollama",
+    "model_kwargs": {
+      "model": "nomic-embed-text"
+    }
+  }
+}

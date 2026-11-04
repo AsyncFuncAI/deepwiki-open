@@ -14,6 +14,7 @@
       "initializing": "위키 생성을 초기화하는 중...",
       "fetchingStructure": "저장소 구조를 가져오는 중...",
       "determiningStructure": "위키 구조를 결정하는 중...",
+      "clearingCache": "서버 캐시를 정리 중...",
       "preparingDownload": "다운로드를 준비 중입니다. 잠시만 기다려 주세요..."
     },
     "home": {
@@ -30,11 +31,30 @@
     "form": {
       "repoPlaceholder": "owner/repo 또는 GitHub/GitLab/Bitbucket URL",
       "wikiLanguage": "위키 언어",
+      "advancedOptions": "고급 옵션",
+      "advancedOptionsDescription": "위키 생성을 위한 언어 및 AI 모델 설정 구성",
+      "modelSelectionTitle": "AI 모델 선택",
       "modelOptions": "모델 옵션",
+      "modelSelection": "모델 선택",
+      "standardModels": "표준 모델",
+      "standardModelsDescription": "엄선된 AI 모델 목록에서 선택하세요.",
       "localOllama": "로컬 Ollama 모델",
+      "localOllamaTab": "로컬 Ollama",
+      "localOllamaDescription": "로컬 Ollama 인스턴스에서 실행 중인 모델을 사용합니다. 기기에 Ollama가 설치되어 실행 중이어야 합니다.",
+      "ollamaStatus": "상태: 로컬 Ollama 사용 중",
+      "ollamaNote": "DeepWiki는 localhost:11434에서 실행 중인 Ollama에 연결을 시도합니다",
       "experimental": "실험적 기능",
       "useOpenRouter": "OpenRouter API 사용",
+      "openRouterTab": "OpenRouter",
       "openRouterModel": "OpenRouter 모델",
+      "openRouterDescription": "OpenRouter를 통해 다양한 AI 모델에 접근합니다. 이 옵션은 다양한 제공업체의 모델에 대한 접근을 제공합니다.",
+      "useOpenai": "OpenAI API 사용",
+      "openaiTab": "OpenAI",
+      "openaiModel": "OpenAI 모델",
+      "openaiDescription": "OpenAI의 모델을 직접 사용합니다. 이 옵션은 최신 OpenAI 모델에 대한 접근을 제공합니다.",
+      "useCustomModel": "사용자 정의 모델 사용",
+      "customModelPlaceholder": "사용자 정의 모델 이름 입력",
+      "apiKeyNote": "필요한 경우 아래에 OpenRouter 및 OpenAI API 키를 추가할 수 있습니다",
       "addTokens": "+ 비공개 저장소 액세스 토큰 추가",
       "hideTokens": "- 액세스 토큰 숨기기",
       "accessToken": "비공개 저장소용 액세스 토큰",
@@ -57,19 +77,22 @@
       "viewConclusion": "결론 보기"
     },
     "repoPage": {
-      "refreshWiki": "Refresh Wiki",
-      "home": "Home",
-      "errorTitle": "Error",
-      "errorMessageDefault": "Please check that your repository exists and is public. Valid formats are \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\", or local folder paths like \"C:\\\\path\\\\to\\\\folder\" or \"/path/to/folder\".",
-      "backToHome": "Back to Home",
-      "exportWiki": "Export Wiki",
-      "exportAsMarkdown": "Export as Markdown",
-      "exportAsJson": "Export as JSON",
-      "pages": "Pages",
-      "relatedFiles": "Related Files:",
-      "relatedPages": "Related Pages:",
-      "selectPagePrompt": "Select a page from the navigation to view its content",
-      "askAboutRepo": "Ask questions about this repository"
+      "refreshWiki": "위키 새로고침",
+      "home": "홈",
+      "errorTitle": "오류",
+      "errorMessageDefault": "저장소가 존재하며 공개 상태인지 확인해 주세요. 유효한 형식은 \"owner/repo\", \"https://github.com/owner/repo\", \"https://gitlab.com/owner/repo\", \"https://bitbucket.org/owner/repo\" 또는 로컬 폴더 경로 \"C:\\\\path\\\\to\\\\folder\" 혹은 \"/path/to/folder\" 입니다.",
+      "backToHome": "홈으로 돌아가기",
+      "exportWiki": "위키 내보내기",
+      "exportAsMarkdown": "마크다운으로 내보내기",
+      "exportAsJson": "JSON으로 내보내기",
+      "pages": "페이지",
+      "relatedFiles": "관련 파일:",
+      "relatedPages": "관련 페이지:",
+      "selectPagePrompt": "목록에서 페이지를 선택하여 내용을 확인하세요",
+      "askAboutRepo": "이 저장소에 대해 질문하기"
+    },
+    "nav": {
+      "wikiProjects": "프로젝트 목록"
     }
   }
-   
+

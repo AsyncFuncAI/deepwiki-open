@@ -4,20 +4,14 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 import json
+from typing import List, Optional, Dict, Any, Literal
+import json
 from datetime import datetime
+from pydantic import BaseModel, Field
 import google.generativeai as genai
-from api.multi_repo_rag import MultiRepoRAG
-from typing import List
-from api.models import (
-    Repository, MultiRepoRequest, MultiRepoQueryRequest,
-    WikiPage, MultiRepoWikiExportRequest
-)
+import asyncio
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Get a logger for this module
 logger = logging.getLogger(__name__)
 
 # Get API keys from environment variables
@@ -28,6 +22,10 @@ if google_api_key:
     genai.configure(api_key=google_api_key)
 else:
     logger.warning("GOOGLE_API_KEY not found in environment variables")
+
+embedder_name = os.environ.get('EMBEDDER_NAME', 'default_embedder')
+generator_name = os.environ.get('GENERATOR_NAME', 'default_generator')
+logger.info(f"Using embedder: {embedder_name}, generator: {generator_name}")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -44,7 +42,65 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-from api.models import WikiPage, WikiExportRequest
+# Helper function to get adalflow root path
+def get_adalflow_default_root_path():
+    return os.path.expanduser(os.path.join("~", ".adalflow"))
+
+# --- Pydantic Models ---
+class WikiPage(BaseModel):
+    """
+    Model for a wiki page.
+    """
+    id: str
+    title: str
+    content: str
+    filePaths: List[str]
+    importance: str # Should ideally be Literal['high', 'medium', 'low']
+    relatedPages: List[str]
+
+class ProcessedProjectEntry(BaseModel):
+    id: str  # Filename
+    owner: str
+    repo: str
+    name: str  # owner/repo
+    repo_type: str # Renamed from type to repo_type for clarity with existing models
+    submittedAt: int # Timestamp
+    language: str # Extracted from filename
+
+class WikiStructureModel(BaseModel):
+    """
+    Model for the overall wiki structure.
+    """
+    id: str
+    title: str
+    description: str
+    pages: List[WikiPage]
+
+class WikiCacheData(BaseModel):
+    """
+    Model for the data to be stored in the wiki cache.
+    """
+    wiki_structure: WikiStructureModel
+    generated_pages: Dict[str, WikiPage]
+
+class WikiCacheRequest(BaseModel):
+    """
+    Model for the request body when saving wiki cache.
+    """
+    owner: str
+    repo: str
+    repo_type: str
+    language: str
+    wiki_structure: WikiStructureModel
+    generated_pages: Dict[str, WikiPage]
+
+class WikiExportRequest(BaseModel):
+    """
+    Model for requesting a wiki export.
+    """
+    repo_url: str = Field(..., description="URL of the repository")
+    pages: List[WikiPage] = Field(..., description="List of wiki pages to export")
+    format: Literal["markdown", "json"] = Field(..., description="Export format (markdown or json)")
 
 @app.post("/export/wiki")
 async def export_wiki(request: WikiExportRequest):
@@ -140,7 +196,7 @@ async def get_local_repo_structure(path: str = Query(None, description="Path to 
             status_code=500,
             content={"error": f"Error processing local repository: {str(e)}"}
         )
-
+    
 def generate_markdown_export(repo_url: str, pages: List[WikiPage]) -> str:
     """
     Generate Markdown export of wiki pages.
@@ -218,251 +274,122 @@ def generate_json_export(repo_url: str, pages: List[WikiPage]) -> str:
     return json.dumps(export_data, indent=2)
 
 # Import the simplified chat implementation
-from api.simple_chat import chat_completions_stream, multi_repo_chat_completions_stream
+from api.simple_chat import chat_completions_stream
 
 # Add the chat_completions_stream endpoint to the main app
 app.add_api_route("/chat/completions/stream", chat_completions_stream, methods=["POST"])
 
-# Add the multi-repository chat endpoint to the main app
-app.add_api_route("/multi_repo/chat/completions/stream", multi_repo_chat_completions_stream, methods=["POST"])
+# --- Wiki Cache Helper Functions ---
 
-# Models for multi-repository operations are imported from api.models
+WIKI_CACHE_DIR = os.path.join(get_adalflow_default_root_path(), "wikicache")
+os.makedirs(WIKI_CACHE_DIR, exist_ok=True)
 
-# Create a global instance of MultiRepoRAG
-multi_repo_rag_instance = None
+def get_wiki_cache_path(owner: str, repo: str, repo_type: str, language: str) -> str:
+    """Generates the file path for a given wiki cache."""
+    filename = f"deepwiki_cache_{repo_type}_{owner}_{repo}_{language}.json"
+    return os.path.join(WIKI_CACHE_DIR, filename)
 
-@app.post("/multi_repo/initialize")
-async def initialize_multi_repo(request: MultiRepoRequest):
-    """
-    Initialize the multi-repository RAG system with the specified repositories.
+async def read_wiki_cache(owner: str, repo: str, repo_type: str, language: str) -> Optional[WikiCacheData]:
+    """Reads wiki cache data from the file system."""
+    cache_path = get_wiki_cache_path(owner, repo, repo_type, language)
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return WikiCacheData(**data)
+        except Exception as e:
+            logger.error(f"Error reading wiki cache from {cache_path}: {e}")
+            return None
+    return None
 
-    Args:
-        request: The request containing the repositories to include
-
-    Returns:
-        A status message indicating success or failure
-    """
+async def save_wiki_cache(data: WikiCacheRequest) -> bool:
+    """Saves wiki cache data to the file system."""
+    cache_path = get_wiki_cache_path(data.owner, data.repo, data.repo_type, data.language)
+    logger.info(f"Attempting to save wiki cache. Path: {cache_path}")
     try:
-        global multi_repo_rag_instance
-
-        # Create a new MultiRepoRAG instance
-        multi_repo_rag_instance = MultiRepoRAG(local_ollama=request.local_ollama)
-
-        # Add each repository
-        success_count = 0
-        failures = []
-
-        for repo in request.repositories:
-            try:
-                success = multi_repo_rag_instance.add_repository(
-                    repo_url=repo.repo_url,
-                    access_token=repo.access_token,
-                    description=repo.description
-                )
-
-                if success:
-                    success_count += 1
-                else:
-                    failures.append(f"Failed to add repository: {repo.repo_url}")
-            except Exception as e:
-                failures.append(f"Error adding repository {repo.repo_url}: {str(e)}")
-
-        # Return status
-        return {
-            "status": "success" if success_count == len(request.repositories) else "partial_success",
-            "message": f"Successfully initialized {success_count} of {len(request.repositories)} repositories",
-            "failures": failures if failures else None
-        }
-
-    except Exception as e:
-        error_msg = f"Error initializing multi-repository system: {str(e)}"
-        logger.error(error_msg)
-        raise HTTPException(status_code=500, detail=error_msg)
-
-@app.post("/multi_repo/query")
-async def query_multi_repo(request: MultiRepoQueryRequest):
-    """
-    Query multiple repositories using RAG.
-
-    Args:
-        request: The request containing the repositories and query
-
-    Returns:
-        The RAG answer
-    """
-    try:
-        global multi_repo_rag_instance
-
-        # Check if multi_repo_rag_instance is initialized
-        if not multi_repo_rag_instance:
-            # Initialize it first
-            await initialize_multi_repo(MultiRepoRequest(
-                repositories=request.repositories,
-                local_ollama=request.local_ollama,
-                language=request.language
-            ))
-
-        # Query the multi-repository system
-        response, _ = multi_repo_rag_instance(request.query, language=request.language)
-
-        # Return the response
-        return {
-            "answer": response.answer,
-            "rationale": response.rationale
-        }
-
-    except Exception as e:
-        error_msg = f"Error querying multi-repository system: {str(e)}"
-        logger.error(error_msg)
-        raise HTTPException(status_code=500, detail=error_msg)
-
-@app.post("/multi_repo/export_wiki")
-async def export_multi_repo_wiki(request: MultiRepoWikiExportRequest):
-    """
-    Export wiki content for multiple repositories as Markdown or JSON.
-
-    Args:
-        request: The export request containing repositories, wiki pages, and format
-
-    Returns:
-        A downloadable file in the requested format
-    """
-    try:
-        logger.info(f"Exporting multi-repository wiki in {request.format} format")
-
-        # Extract repository names for the filename
-        repo_names = []
-        for repo in request.repositories:
-            repo_parts = repo.repo_url.rstrip('/').split('/')
-            repo_name = repo_parts[-1] if len(repo_parts) > 0 else "repo"
-            repo_names.append(repo_name)
-
-        # Join repository names (limit to first 3 to avoid very long filenames)
-        if len(repo_names) > 3:
-            filename_prefix = f"{'-'.join(repo_names[:3])}-and-{len(repo_names)-3}-more"
-        else:
-            filename_prefix = "-".join(repo_names)
-
-        # Get current timestamp for the filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        if request.format == "markdown":
-            # Generate Markdown content
-            content = generate_multi_repo_markdown_export(request.repositories, request.pages)
-            filename = f"{filename_prefix}_wiki_{timestamp}.md"
-            media_type = "text/markdown"
-        else:  # JSON format
-            # Generate JSON content
-            content = generate_multi_repo_json_export(request.repositories, request.pages)
-            filename = f"{filename_prefix}_wiki_{timestamp}.json"
-            media_type = "application/json"
-
-        # Create response with appropriate headers for file download
-        response = Response(
-            content=content,
-            media_type=media_type,
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}"
-            }
+        payload = WikiCacheData(
+            wiki_structure=data.wiki_structure,
+            generated_pages=data.generated_pages
         )
+        # Log size of data to be cached for debugging (avoid logging full content if large)
+        try:
+            payload_json = payload.model_dump_json()
+            payload_size = len(payload_json.encode('utf-8'))
+            logger.info(f"Payload prepared for caching. Size: {payload_size} bytes.")
+        except Exception as ser_e:
+            logger.warning(f"Could not serialize payload for size logging: {ser_e}")
 
-        return response
 
+        logger.info(f"Writing cache file to: {cache_path}")
+        with open(cache_path, 'w', encoding='utf-8') as f:
+            json.dump(payload.model_dump(), f, indent=2)
+        logger.info(f"Wiki cache successfully saved to {cache_path}")
+        return True
+    except IOError as e:
+        logger.error(f"IOError saving wiki cache to {cache_path}: {e.strerror} (errno: {e.errno})", exc_info=True)
+        return False
     except Exception as e:
-        error_msg = f"Error exporting multi-repository wiki: {str(e)}"
-        logger.error(error_msg)
-        raise HTTPException(status_code=500, detail=error_msg)
+        logger.error(f"Unexpected error saving wiki cache to {cache_path}: {e}", exc_info=True)
+        return False
 
-def generate_multi_repo_markdown_export(repositories: List[Repository], pages: List[WikiPage]) -> str:
+# --- Wiki Cache API Endpoints ---
+
+@app.get("/api/wiki_cache", response_model=Optional[WikiCacheData])
+async def get_cached_wiki(
+    owner: str = Query(..., description="Repository owner"),
+    repo: str = Query(..., description="Repository name"),
+    repo_type: str = Query(..., description="Repository type (e.g., github, gitlab)"),
+    language: str = Query(..., description="Language of the wiki content")
+):
     """
-    Generate Markdown export of wiki pages for multiple repositories.
-
-    Args:
-        repositories: List of repositories
-        pages: List of wiki pages
-
-    Returns:
-        Markdown content as string
+    Retrieves cached wiki data (structure and generated pages) for a repository.
     """
-    # Start with metadata
-    markdown = f"# Multi-Repository Wiki Documentation\n\n"
-    markdown += f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    logger.info(f"Attempting to retrieve wiki cache for {owner}/{repo} ({repo_type}), lang: {language}")
+    cached_data = await read_wiki_cache(owner, repo, repo_type, language)
+    if cached_data:
+        return cached_data
+    else:
+        # Return 200 with null body if not found, as frontend expects this behavior
+        # Or, raise HTTPException(status_code=404, detail="Wiki cache not found") if preferred
+        logger.info(f"Wiki cache not found for {owner}/{repo} ({repo_type}), lang: {language}")
+        return None
 
-    # Add repository information
-    markdown += "## Repositories\n\n"
-    for i, repo in enumerate(repositories):
-        markdown += f"{i+1}. [{repo.repo_url}]({repo.repo_url})"
-        if repo.description:
-            markdown += f" - {repo.description}"
-        markdown += "\n"
-    markdown += "\n"
-
-    # Add table of contents
-    markdown += "## Table of Contents\n\n"
-    for page in pages:
-        markdown += f"- [{page.title}](#{page.id})\n"
-    markdown += "\n"
-
-    # Add each page
-    for page in pages:
-        markdown += f"<a id='{page.id}'></a>\n\n"
-        markdown += f"## {page.title}\n\n"
-
-        # Add related files
-        if page.filePaths and len(page.filePaths) > 0:
-            markdown += "### Related Files\n\n"
-            for file_path in page.filePaths:
-                markdown += f"- `{file_path}`\n"
-            markdown += "\n"
-
-        # Add related pages
-        if page.relatedPages and len(page.relatedPages) > 0:
-            markdown += "### Related Pages\n\n"
-            related_titles = []
-            for related_id in page.relatedPages:
-                # Find the title of the related page
-                related_page = next((p for p in pages if p.id == related_id), None)
-                if related_page:
-                    related_titles.append(f"[{related_page.title}](#{related_id})")
-
-            if related_titles:
-                markdown += "Related topics: " + ", ".join(related_titles) + "\n\n"
-
-        # Add page content
-        markdown += f"{page.content}\n\n"
-        markdown += "---\n\n"
-
-    return markdown
-
-def generate_multi_repo_json_export(repositories: List[Repository], pages: List[WikiPage]) -> str:
+@app.post("/api/wiki_cache")
+async def store_wiki_cache(request_data: WikiCacheRequest):
     """
-    Generate JSON export of wiki pages for multiple repositories.
-
-    Args:
-        repositories: List of repositories
-        pages: List of wiki pages
-
-    Returns:
-        JSON content as string
+    Stores generated wiki data (structure and pages) to the server-side cache.
     """
-    # Create a dictionary with metadata and pages
-    export_data = {
-        "metadata": {
-            "repositories": [repo.repo_url for repo in repositories],
-            "generated_at": datetime.now().isoformat(),
-            "page_count": len(pages)
-        },
-        "repositories": [
-            {
-                "repo_url": repo.repo_url,
-                "description": repo.description
-            } for repo in repositories
-        ],
-        "pages": [page.model_dump() for page in pages]
-    }
+    logger.info(f"Attempting to save wiki cache for {request_data.owner}/{request_data.repo} ({request_data.repo_type}), lang: {request_data.language}")
+    success = await save_wiki_cache(request_data)
+    if success:
+        return {"message": "Wiki cache saved successfully"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to save wiki cache")
 
-    # Convert to JSON string with pretty formatting
-    return json.dumps(export_data, indent=2)
+@app.delete("/api/wiki_cache")
+async def delete_wiki_cache(
+    owner: str = Query(..., description="Repository owner"),
+    repo: str = Query(..., description="Repository name"),
+    repo_type: str = Query(..., description="Repository type (e.g., github, gitlab)"),
+    language: str = Query(..., description="Language of the wiki content")
+):
+    """
+    Deletes a specific wiki cache from the file system.
+    """
+    logger.info(f"Attempting to delete wiki cache for {owner}/{repo} ({repo_type}), lang: {language}")
+    cache_path = get_wiki_cache_path(owner, repo, repo_type, language)
+
+    if os.path.exists(cache_path):
+        try:
+            os.remove(cache_path)
+            logger.info(f"Successfully deleted wiki cache: {cache_path}")
+            return {"message": f"Wiki cache for {owner}/{repo} ({language}) deleted successfully"}
+        except Exception as e:
+            logger.error(f"Error deleting wiki cache {cache_path}: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete wiki cache: {str(e)}")
+    else:
+        logger.warning(f"Wiki cache not found, cannot delete: {cache_path}")
+        raise HTTPException(status_code=404, detail="Wiki cache not found")
 
 @app.get("/")
 async def root():
@@ -476,14 +403,114 @@ async def root():
             ],
             "Wiki": [
                 "POST /export/wiki - Export wiki content as Markdown or JSON",
+                "GET /api/wiki_cache - Retrieve cached wiki data",
+                "POST /api/wiki_cache - Store wiki data to cache"
             ],
-            "Repository": [
+            "LocalRepo": [
                 "GET /local_repo/structure - Get structure of a local repository (with path parameter)",
             ],
-            "Multi-Repository": [
-                "POST /multi_repo/initialize - Initialize the multi-repository system",
-                "POST /multi_repo/query - Query multiple repositories",
-                "POST /multi_repo/export_wiki - Export wiki content for multiple repositories",
+            "Config": [
+                "GET /config/generators - Get available generator models",
             ]
         }
     }
+
+# --- Processed Projects Endpoint --- (New Endpoint)
+@app.get("/api/processed_projects", response_model=List[ProcessedProjectEntry])
+async def get_processed_projects():
+    """
+    Lists all processed projects found in the wiki cache directory.
+    Projects are identified by files named like: deepwiki_cache_{repo_type}_{owner}_{repo}_{language}.json
+    """
+    project_entries: List[ProcessedProjectEntry] = []
+    # WIKI_CACHE_DIR is already defined globally in the file
+
+    try:
+        if not os.path.exists(WIKI_CACHE_DIR):
+            logger.info(f"Cache directory {WIKI_CACHE_DIR} not found. Returning empty list.")
+            return []
+        
+        logger.info(f"Scanning for project cache files in: {WIKI_CACHE_DIR}")
+        filenames = await asyncio.to_thread(os.listdir, WIKI_CACHE_DIR) # Use asyncio.to_thread for os.listdir
+
+        for filename in filenames:
+            if filename.startswith("deepwiki_cache_") and filename.endswith(".json"):
+                file_path = os.path.join(WIKI_CACHE_DIR, filename)
+                try:
+                    stats = await asyncio.to_thread(os.stat, file_path) # Use asyncio.to_thread for os.stat
+                    parts = filename.replace("deepwiki_cache_", "").replace(".json", "").split('_')
+                    
+                    # Expecting repo_type_owner_repo_language
+                    # Example: deepwiki_cache_github_AsyncFuncAI_deepwiki-open_en.json
+                    # parts = [github, AsyncFuncAI, deepwiki-open, en]
+                    if len(parts) >= 4:
+                        repo_type = parts[0]
+                        owner = parts[1]
+                        language = parts[-1] # language is the last part
+                        repo = "_".join(parts[2:-1]) # repo can contain underscores
+
+                        project_entries.append(
+                            ProcessedProjectEntry(
+                                id=filename,
+                                owner=owner,
+                                repo=repo,
+                                name=f"{owner}/{repo}",
+                                repo_type=repo_type,
+                                submittedAt=int(stats.st_mtime * 1000), # Convert to milliseconds
+                                language=language
+                            )
+                        )
+                    else:
+                        logger.warning(f"Could not parse project details from filename: {filename}")
+                except Exception as e:
+                    logger.error(f"Error processing file {file_path}: {e}")
+                    continue # Skip this file on error
+
+        # Sort by most recent first
+        project_entries.sort(key=lambda p: p.submittedAt, reverse=True)
+        logger.info(f"Found {len(project_entries)} processed project entries.")
+        return project_entries
+
+    except Exception as e:
+        logger.error(f"Error listing processed projects from {WIKI_CACHE_DIR}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to list processed projects from server cache.")
+
+@app.get("/config/generators")
+async def get_generators():
+    """Get the list of available generator models."""
+    try:
+        # Get the list of available generator models
+        import json
+        from pathlib import Path
+        
+        logger.info(f"Get available generators")
+        # Read the generators.json file
+        config_dir = Path(__file__).parent / "config"
+        file_path = config_dir / "generators.json"
+        
+        with open(file_path, 'r') as f:
+            generators = json.load(f)
+        
+        # Process data, add display name
+        result = {}
+        
+        for name, config in generators.items():
+            # Extract model information
+            model_name = config["model_kwargs"]["model"]
+            
+            result[name] = {
+                "name": name,
+                "model_type": config["model_type"],
+                "model": model_name,
+                "display_name": f"{name.capitalize()} - {model_name}"
+            }
+        
+        logger.info(f"Available generators: {json.dumps(result, indent=2)}")
+        return JSONResponse(content=result)
+    except Exception as error:
+        logger.error(f"Error fetching generators: {str(error)}")
+        return JSONResponse(
+            content={"error": "Failed to fetch generator models"},
+            status_code=500
+        )
+

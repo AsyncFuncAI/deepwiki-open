@@ -171,8 +171,8 @@ deepwiki/
 | `GOOGLE_API_KEY` | Google Gemini API key  | Có |
 | `OPENAI_API_KEY` | OpenAI API key   | có |
 | `OPENROUTER_API_KEY` | OpenRouter API key   | không| Yêu cầu nếu bạn muốn dùng OpenRouter models |
-| `PORT` | Port của API server (mặc định: 8001) | không | Nếu bạn muốn chạy API và frontend trên cùng 1 máy, hãy điều chỉnh Port `NEXT_PUBLIC_SERVER_BASE_URL` |
-| `NEXT_PUBLIC_SERVER_BASE_URL` | Đường dẫnn mặt định của API server (mặc định: http://localhost:8001) | không |
+| `PORT` | Port của API server (mặc định: 8001) | không | Nếu bạn muốn chạy API và frontend trên cùng 1 máy, hãy điều chỉnh Port `SERVER_BASE_URL` |
+| `SERVER_BASE_URL` | Đường dẫnn mặt định của API server (mặc định: http://localhost:8001) | không |
 
 ### Cài Đặt với Docker 
 

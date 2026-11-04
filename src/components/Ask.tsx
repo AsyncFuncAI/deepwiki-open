@@ -24,14 +24,26 @@ interface AskProps {
   bitbucketToken?: string;
   localOllama?: boolean;
   useOpenRouter?: boolean;
+  useOpenai?: boolean;
   openRouterModel?: string;
+  openaiModel?: string;
   language?: string;
 }
 
+// const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
 
-const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
-
-const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketToken, localOllama = false, useOpenRouter = false, openRouterModel = 'openai/gpt-4o', language = 'en' }) => {
+const Ask: React.FC<AskProps> = ({
+  repoUrl,
+  githubToken,
+  gitlabToken,
+  bitbucketToken,
+  localOllama = false,
+  useOpenRouter = false,
+  useOpenai = false,
+  openRouterModel = 'openai/gpt-4o',
+  openaiModel = 'gpt-4o',
+  language = 'en'
+}) => {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -218,14 +230,18 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
       const requestBody: Record<string, unknown> = {
         repo_url: repoUrl,
         messages: newHistory,
+        language: language,
         local_ollama: localOllama,
         use_openrouter: useOpenRouter,
-        language: language
+        use_openai: useOpenai
       };
 
-      // Add OpenRouter model if using OpenRouter
+      // Add model names if using specific providers
       if (useOpenRouter) {
         requestBody.openrouter_model = openRouterModel;
+      }
+      if (useOpenai) {
+        requestBody.openai_model = openaiModel;
       }
 
       // Add tokens if available
@@ -240,7 +256,7 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
       }
 
       // Make the API call
-      const apiResponse = await fetch(`${SERVER_BASE_URL}/chat/completions/stream`, {
+      const apiResponse = await fetch(`/api/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -401,14 +417,18 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
       const requestBody: Record<string, unknown> = {
         repo_url: repoUrl,
         messages: newHistory,
+        language: language,
         local_ollama: localOllama,
         use_openrouter: useOpenRouter,
-        language: language
+        use_openai: useOpenai
       };
 
-      // Add OpenRouter model if using OpenRouter
+      // Add model names if using specific providers
       if (useOpenRouter) {
         requestBody.openrouter_model = openRouterModel;
+      }
+      if (useOpenai) {
+        requestBody.openai_model = openaiModel;
       }
 
       // Add tokens if available
@@ -422,7 +442,7 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
         requestBody.bitbucket_token = bitbucketToken;
       }
 
-      const apiResponse = await fetch(`${SERVER_BASE_URL}/chat/completions/stream`, {
+      const apiResponse = await fetch(`/api/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -444,6 +464,8 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
 
       // Read the stream
       let fullResponse = '';
+      setHasResponse(true);
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -554,7 +576,7 @@ const Ask: React.FC<AskProps> = ({ repoUrl, githubToken, gitlabToken, bitbucketT
 
         {/* Response area */}
         {response && (
-          <div className="border-t border-gray-200 dark:border-gray-700">
+          <div className="border-t border-gray-200 dark:border-gray-700 mt-4">
             <div
               ref={responseRef}
               className="p-4 max-h-[500px] overflow-y-auto"

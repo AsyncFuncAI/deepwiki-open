@@ -14,6 +14,7 @@
     "initializing": "Initializing wiki generation...",
     "fetchingStructure": "Fetching repository structure...",
     "determiningStructure": "Determining wiki structure...",
+    "clearingCache": "Clearing server cache...",
     "preparingDownload": "Please wait while we prepare your download..."
   },
   "home": {
@@ -30,11 +31,30 @@
   "form": {
     "repoPlaceholder": "owner/repo or GitHub/GitLab/Bitbucket URL",
     "wikiLanguage": "Wiki Language",
+    "advancedOptions": "Advanced Options",
+    "advancedOptionsDescription": "Configure language and AI model settings for your wiki generation",
+    "modelSelectionTitle": "AI Model Selection",
     "modelOptions": "Model Options",
+    "modelSelection": "Model Selection",
+    "standardModels": "Standard Models",
+    "standardModelsDescription": "Select from our curated list of AI models.",
     "localOllama": "Local Ollama Model",
+    "localOllamaTab": "Local Ollama",
+    "localOllamaDescription": "Use models running on your local Ollama instance. Requires Ollama to be installed and running on your machine.",
+    "ollamaStatus": "Status: Using local Ollama",
+    "ollamaNote": "DeepWiki will attempt to connect to Ollama running on localhost:11434",
     "experimental": "Experimental",
     "useOpenRouter": "Use OpenRouter API",
+    "openRouterTab": "OpenRouter",
     "openRouterModel": "OpenRouter Model",
+    "openRouterDescription": "Access a variety of AI models through OpenRouter. This option provides access to models from different providers.",
+    "useOpenai": "Use OpenAI API",
+    "openaiTab": "OpenAI",
+    "openaiModel": "OpenAI Model",
+    "openaiDescription": "Use OpenAI's models directly. This option provides access to the latest OpenAI models.",
+    "useCustomModel": "Use custom model name",
+    "customModelPlaceholder": "Enter custom model name",
+    "apiKeyNote": "API keys for OpenRouter and OpenAI can be added below if needed",
     "addTokens": "+ Add access tokens for private repositories",
     "hideTokens": "- Hide access tokens",
     "accessToken": "Access Token for Private Repositories",
@@ -70,5 +90,8 @@
     "relatedPages": "Related Pages:",
     "selectPagePrompt": "Select a page from the navigation to view its content",
     "askAboutRepo": "Ask questions about this repository"
+  },
+  "nav": {
+    "wikiProjects": "Wiki Projects"
   }
 }

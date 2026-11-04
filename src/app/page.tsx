@@ -2,12 +2,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaCoffee, FaTwitter, FaLink, FaBook } from 'react-icons/fa';
+import Link from 'next/link';
+import { FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaCoffee, FaTwitter} from 'react-icons/fa';
 import ThemeToggle from '@/components/theme-toggle';
 import Mermaid from '../components/Mermaid';
-import Link from 'next/link';
 
 import { useLanguage } from '@/contexts/LanguageContext';
+
+const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
+
+// Define model interface
+interface GeneratorModel {
+  display_name: string;
+  // Add other fields if needed
+}
 
 // Define the demo mermaid charts outside the component
 const DEMO_FLOW_CHART = `graph TD
@@ -37,6 +45,8 @@ const DEMO_SEQUENCE_CHART = `sequenceDiagram
 
   %% Add a note to make text more visible
   Note over User,GitHub: DeepWiki supports sequence diagrams for visualizing interactions`;
+
+
 
 export default function Home() {
   const router = useRouter();
@@ -72,9 +82,17 @@ export default function Home() {
 
   const [repositoryInput, setRepositoryInput] = useState('https://github.com/AsyncFuncAI/deepwiki-open');
   const [showTokenInputs, setShowTokenInputs] = useState(false);
+  // Original model selection
+  const [generatorModelName, setGeneratorModelName] = useState<string>('google');
+  const [availableModels, setAvailableModels] = useState<{[key: string]: GeneratorModel}>({});
+  // New model selection options
   const [localOllama, setLocalOllama] = useState(false);
   const [useOpenRouter, setUseOpenRouter] = useState(false);
+  const [useOpenai, setUseOpenai] = useState(false);
   const [openRouterModel, setOpenRouterModel] = useState('openai/gpt-4o');
+  const [openaiModel, setOpenaiModel] = useState('gpt-4o');
+  const [isCustomOpenaiModel, setIsCustomOpenaiModel] = useState(false);
+  const [customOpenaiModel, setCustomOpenaiModel] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState<'github' | 'gitlab' | 'bitbucket'>('github');
   const [accessToken, setAccessToken] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +103,37 @@ export default function Home() {
   useEffect(() => {
     setLanguage(selectedLanguage);
   }, [selectedLanguage, setLanguage]);
+
+  // Fetch available generator models
+  useEffect(() => {
+    const fetchGenerators = async () => {
+      try {
+        console.log('Fetching available generators...');
+        const response = await fetch(`${SERVER_BASE_URL}/config/generators`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Response:', data);
+          setAvailableModels(data);
+          // If model list is not empty and current selected model is not in the list, select default model
+          if (Object.keys(data).length > 0 && !data[generatorModelName]) {
+            console.log('Selected model in fetch:', Object.keys(data)[0]);
+            setGeneratorModelName(Object.keys(data)[0]);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching generators:', error);
+      }
+    };
+
+    fetchGenerators();
+  }, [generatorModelName]);
+
+
 
   // Parse repository URL/input and extract owner and repo
   const parseRepositoryInput = (input: string): { owner: string, repo: string, type: string, fullPath?: string, localPath?: string } | null => {
@@ -199,11 +248,19 @@ export default function Home() {
     if (localPath) {
       params.append('local_path', encodeURIComponent(localPath));
     }
-    // Add model parameters
+    // Add both original and new model parameters for backward compatibility
+    // Original model parameter
+    params.append('generator_model_name', generatorModelName);
+
+    // New model parameters
     params.append('local_ollama', localOllama.toString());
     params.append('use_openrouter', useOpenRouter.toString());
+    params.append('use_openai', useOpenai.toString());
     if (useOpenRouter) {
       params.append('openrouter_model', openRouterModel);
+    }
+    if (useOpenai) {
+      params.append('openai_model', isCustomOpenaiModel ? customOpenaiModel : openaiModel);
     }
 
     // Add language parameter
@@ -225,9 +282,16 @@ export default function Home() {
             <div className="bg-[var(--accent-primary)] p-2 rounded-lg mr-3">
               <FaWikipediaW className="text-2xl text-white" />
             </div>
-            <div>
+            <div className="mr-6">
               <h1 className="text-xl md:text-2xl font-bold text-[var(--accent-primary)]">{t('common.appName')}</h1>
-              <p className="text-xs text-[var(--muted)]">{t('common.tagline')}</p>
+              <div className="flex flex-wrap items-baseline gap-x-2 md:gap-x-3 mt-0.5">
+                <p className="text-xs text-[var(--muted)] whitespace-nowrap">{t('common.tagline')}</p>
+                <div className="hidden md:inline-block">
+                  <Link href="/wiki/projects" className="text-xs font-medium text-[var(--accent-primary)] hover:text-[var(--highlight)] hover:underline whitespace-nowrap">
+                    {t('nav.wikiProjects')}
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -258,95 +322,267 @@ export default function Home() {
             </div>
 
             {/* Advanced options section with improved layout */}
-            <div className="flex flex-wrap gap-4 items-start bg-[var(--card-bg)]/80 p-4 rounded-lg border border-[var(--border-color)] shadow-sm">
-              {/* Language selection */}
-              <div className="min-w-[140px]">
-                <label htmlFor="language-select" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
-                  {t('form.wikiLanguage')}
-                </label>
-                <select
-                  id="language-select"
-                  value={selectedLanguage}
-                  onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
-                >
-                  <option value="en">English</option>
-                  <option value="ja">Japanese (日本語)</option>
-                  <option value="zh">Mandarin (中文)</option>
-                  <option value="es">Spanish (Español)</option>
-                  <option value="kr">Korean (한국어)</option>
-                  <option value="vi">Vietnamese (Tiếng Việt)</option>
-                </select>
+            <div className="flex flex-col gap-4 bg-[var(--card-bg)]/80 p-4 rounded-lg border border-[var(--border-color)] shadow-sm">
+              {/* Header with explanation */}
+              <div className="border-b border-[var(--border-color)] pb-2 mb-2">
+                <h3 className="text-sm font-medium text-[var(--foreground)]">{t('form.advancedOptions') || "Advanced Options"}</h3>
+                <p className="text-xs text-[var(--muted)] mt-1">{t('form.advancedOptionsDescription') || "Configure language and AI model settings for your wiki generation"}</p>
               </div>
 
-              {/* Model options */}
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
-                  {t('form.modelOptions')}
-                </label>
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <input
-                      id="local-ollama"
-                      type="checkbox"
-                      checked={localOllama}
-                      onChange={(e) => {
-                        setLocalOllama(e.target.checked);
-                        if (e.target.checked) {
-                          setUseOpenRouter(false);
-                        }
-                      }}
-                      className="h-4 w-4 rounded border-[var(--border-color)] text-[var(--accent-primary)] focus:ring-[var(--accent-primary)]"
-                    />
-                    <label htmlFor="local-ollama" className="ml-2 text-sm text-[var(--foreground)]">
-                      {t('form.localOllama')} <span className="text-xs text-[var(--muted)]">({t('form.experimental')})</span>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center">
-                    <input
-                      id="use-openrouter"
-                      type="checkbox"
-                      checked={useOpenRouter}
-                      onChange={(e) => {
-                        setUseOpenRouter(e.target.checked);
-                        if (e.target.checked) {
-                          setLocalOllama(false);
-                        }
-                      }}
-                      className="h-4 w-4 rounded border-[var(--border-color)] text-[var(--accent-primary)] focus:ring-[var(--accent-primary)]"
-                    />
-                    <label htmlFor="use-openrouter" className="ml-2 text-sm text-[var(--foreground)]">
-                      {t('form.useOpenRouter')}
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* OpenRouter model selection - only shown when OpenRouter is selected */}
-              {useOpenRouter && (
-                <div className="w-full">
-                  <label htmlFor="openrouter-model" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
-                    {t('form.openRouterModel')}
+              <div className="flex flex-wrap gap-4 items-start">
+                {/* Language selection */}
+                <div className="min-w-[140px] flex-1">
+                  <label htmlFor="language-select" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
+                    {t('form.wikiLanguage')}
                   </label>
                   <select
-                    id="openrouter-model"
-                    value={openRouterModel}
-                    onChange={(e) => setOpenRouterModel(e.target.value)}
+                    id="language-select"
+                    value={selectedLanguage}
+                    onChange={(e) => setSelectedLanguage(e.target.value)}
                     className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
                   >
-                    <option value="openai/gpt-4o">OpenAI GPT-4.0</option>
-                    <option value="openai/gpt-4.1">OpenAI GPT-4.1</option>
-                    <option value="openai/o1">OpenAI o1</option>
-                    <option value="openai/o1-mini">OpenAI o1-mini</option>
-                    <option value="anthropic/claude-3-5-sonnet">Anthropic Claude 3.5 Sonnet</option>
-                    <option value="anthropic/claude-3-7-sonnet">Anthropic Claude 3.7 Sonnet</option>
-                    <option value="google/gemini-2.0-flash-001">Google Gemini 2.0 Flash</option>
-                    <option value="meta-llama/llama-3-70b-instruct">Meta Llama 3 70B Instruct</option>
-                    <option value="mistralai/mixtral-8x22b-instruct">Mistral Mixtral 8x22B Instruct</option>
+                    <option value="en">English</option>
+                    <option value="ja">Japanese (日本語)</option>
+                    <option value="zh">Mandarin (中文)</option>
+                    <option value="es">Spanish (Español)</option>
+                    <option value="kr">Korean (한국어)</option>
+                    <option value="vi">Vietnamese (Tiếng Việt)</option>
                   </select>
                 </div>
-              )}
+              </div>
+
+              {/* Model selection section with tabs */}
+              <div className="mt-2">
+                <div className="border-b border-[var(--border-color)]">
+                  <h3 className="text-sm font-medium text-[var(--foreground)] mb-2">{t('form.modelSelectionTitle') || "AI Model Selection"}</h3>
+                  <div className="flex">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocalOllama(false);
+                        setUseOpenRouter(false);
+                        setUseOpenai(false);
+                      }}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors ${
+                        !localOllama && !useOpenRouter && !useOpenai
+                          ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border-b-2 border-[var(--accent-primary)]'
+                          : 'text-[var(--muted)] hover:text-[var(--foreground)] border-b border-[var(--border-color)]'
+                      }`}
+                    >
+                      {t('form.standardModels') || "Standard Models"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocalOllama(true);
+                        setUseOpenRouter(false);
+                        setUseOpenai(false);
+                      }}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors ${
+                        localOllama
+                          ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border-b-2 border-[var(--accent-primary)]'
+                          : 'text-[var(--muted)] hover:text-[var(--foreground)] border-b border-[var(--border-color)]'
+                      }`}
+                    >
+                      {t('form.localOllamaTab') || "Local Ollama"} <span className="text-xs opacity-70">({t('form.experimental')})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocalOllama(false);
+                        setUseOpenRouter(true);
+                        setUseOpenai(false);
+                      }}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors ${
+                        useOpenRouter
+                          ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border-b-2 border-[var(--accent-primary)]'
+                          : 'text-[var(--muted)] hover:text-[var(--foreground)] border-b border-[var(--border-color)]'
+                      }`}
+                    >
+                      {t('form.openRouterTab') || "OpenRouter"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocalOllama(false);
+                        setUseOpenRouter(false);
+                        setUseOpenai(true);
+                      }}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors ${
+                        useOpenai
+                          ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border-b-2 border-[var(--accent-primary)]'
+                          : 'text-[var(--muted)] hover:text-[var(--foreground)] border-b border-[var(--border-color)]'
+                      }`}
+                    >
+                      {t('form.openaiTab') || "OpenAI"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 p-3 bg-[var(--background)]/50 rounded-md border border-[var(--border-color)]">
+                  {/* Standard models tab content */}
+                  {!localOllama && !useOpenRouter && !useOpenai && (
+                    <div>
+                      <p className="text-xs text-[var(--muted)] mb-3">
+                        {t('form.standardModelsDescription') || "Select from our curated list of AI models. These models are hosted on our servers and require no additional setup."}
+                      </p>
+                      <div className="flex-1">
+                        <label htmlFor="generator-model" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
+                          {t('form.modelSelection')}
+                        </label>
+                        <select
+                          id="generator-model"
+                          value={generatorModelName}
+                          onChange={(e) => {
+                            console.log('Selected model:', e.target.value);
+                            setGeneratorModelName(e.target.value)
+                          }}
+                          className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+                        >
+                          {Object.entries(availableModels).map(([key, model]) => (
+                            <option key={key} value={key}>
+                              {model.display_name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Local Ollama tab content */}
+                  {localOllama && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="bg-amber-500/20 text-amber-600 dark:text-amber-400 p-1 rounded-md">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        </div>
+                        <p className="text-xs text-[var(--muted)]">
+                          {t('form.localOllamaDescription') || "Use models running on your local Ollama instance. Requires Ollama to be installed and running on your machine."}
+                        </p>
+                      </div>
+                      <p className="text-xs font-medium text-[var(--foreground)] mb-1">
+                        {t('form.ollamaStatus') || "Status: Using local Ollama"}
+                      </p>
+                      <p className="text-xs text-[var(--muted)]">
+                        {t('form.ollamaNote') || "DeepWiki will attempt to connect to Ollama running on localhost:11434"}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* OpenRouter tab content */}
+                  {useOpenRouter && (
+                    <div>
+                      <p className="text-xs text-[var(--muted)] mb-3">
+                        {t('form.openRouterDescription') || "Access a variety of AI models through OpenRouter. This option provides access to models from different providers."}
+                      </p>
+                      <div>
+                        <label htmlFor="openrouter-model" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
+                          {t('form.openRouterModel')}
+                        </label>
+                        <select
+                          id="openrouter-model"
+                          value={openRouterModel}
+                          onChange={(e) => setOpenRouterModel(e.target.value)}
+                          className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+                        >
+                          <option value="openai/gpt-4o">OpenAI GPT-4.0</option>
+                          <option value="openai/gpt-4.1">OpenAI GPT-4.1</option>
+                          <option value="openai/o1">OpenAI o1</option>
+                          <option value="openai/o1-mini">OpenAI o1-mini</option>
+                          <option value="anthropic/claude-3.5-sonnet">Anthropic Claude 3.5 Sonnet</option>
+                          <option value="anthropic/claude-3.7-sonnet">Anthropic Claude 3.7 Sonnet</option>
+                          <option value="google/gemini-2.0-flash-001">Google Gemini 2.0 Flash</option>
+                          <option value="meta-llama/llama-3-70b-instruct">Meta Llama 3 70B Instruct</option>
+                          <option value="mistralai/mixtral-8x22b-instruct">Mistral Mixtral 8x22B Instruct</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* OpenAI tab content */}
+                  {useOpenai && (
+                    <div>
+                      <p className="text-xs text-[var(--muted)] mb-3">
+                        {t('form.openaiDescription') || "Use OpenAI's models directly. This option provides access to the latest OpenAI models."}
+                      </p>
+                      <div>
+                        <label htmlFor="openai-model" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
+                          {t('form.openaiModel')}
+                        </label>
+
+                        <div className="space-y-2">
+                          {/* Standard model selection */}
+                          {!isCustomOpenaiModel && (
+                            <select
+                              id="openai-model"
+                              value={openaiModel}
+                              onChange={(e) => setOpenaiModel(e.target.value)}
+                              className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+                            >
+                              <option value="gpt-4o">OpenAI GPT-4o</option>
+                              <option value="gpt-4.1">OpenAI GPT-4.1</option>
+                              <option value="o1">OpenAI o1</option>
+                              <option value="o3">OpenAI o3</option>
+                              <option value="o4-mini">OpenAI o4-mini</option>
+                              <option value="deepseek-reasoner">Deepseek R1</option>
+                              <option value="deepseek-chat">Deepseek v3</option>
+                              <option value="qwen3-235b-a22b">Qwen3 235b</option>
+                              <option value="qwen-max">Qwen Max</option>
+                              <option value="qwq-plus">qwq plus</option>
+                            </select>
+                          )}
+
+                          {/* Custom model input */}
+                          {isCustomOpenaiModel && (
+                            <input
+                              type="text"
+                              id="custom-openai-model"
+                              value={customOpenaiModel}
+                              onChange={(e) => {
+                                setCustomOpenaiModel(e.target.value);
+                                setOpenaiModel(e.target.value);
+                              }}
+                              placeholder={t('form.customModelPlaceholder') || "Enter custom model name"}
+                              className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+                            />
+                          )}
+
+                          {/* Toggle between predefined and custom */}
+                          <div className="flex items-center">
+                            <input
+                              id="use-custom-model"
+                              type="checkbox"
+                              checked={isCustomOpenaiModel}
+                              onChange={(e) => {
+                                setIsCustomOpenaiModel(e.target.checked);
+                                if (e.target.checked) {
+                                  setCustomOpenaiModel(openaiModel);
+                                }
+                              }}
+                              className="h-4 w-4 rounded border-[var(--border-color)] text-[var(--accent-primary)] focus:ring-[var(--accent-primary)]"
+                            />
+                            <label htmlFor="use-custom-model" className="ml-2 text-xs text-[var(--muted)]">
+                              {t('form.useCustomModel') || "Use custom model name"}
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* API key note */}
+                <div className="mt-2 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-xs text-[var(--muted)]">
+                    {t('form.apiKeyNote') || "API keys for OpenRouter and OpenAI can be added below if needed"}
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Access tokens button */}
@@ -446,6 +682,7 @@ export default function Home() {
               )}
             </div>
           </form>
+
         </div>
       </header>
 
@@ -487,25 +724,6 @@ export default function Home() {
               >AsyncFuncAI/deepwiki-open</div>
               <div className="bg-[var(--background)]/70 p-3 rounded border border-[var(--border-color)] font-mono overflow-x-hidden whitespace-nowrap"
               >https://bitbucket.org/atlassian/atlaskit</div>
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-[var(--accent-primary)]/20">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Link
-                  href="/multi"
-                  className="flex items-center justify-center gap-2 w-full p-3 bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] rounded-md transition-colors border border-[var(--accent-primary)]/30"
-                >
-                  <FaLink className="text-sm" />
-                  <span className="text-sm font-medium">Multi-Repo Chat</span>
-                </Link>
-                <Link
-                  href="/multi?mode=wiki"
-                  className="flex items-center justify-center gap-2 w-full p-3 bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] rounded-md transition-colors border border-[var(--accent-primary)]/30"
-                >
-                  <FaBook className="text-sm" />
-                  <span className="text-sm font-medium">Multi-Repo Wiki</span>
-                </Link>
-              </div>
             </div>
           </div>
 

@@ -21,6 +21,7 @@ develop-eggs/
 dist/
 downloads/
 eggs/
+api/logs/
 .eggs/
 lib/
 lib64/
@@ -61,3 +62,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.idea/
