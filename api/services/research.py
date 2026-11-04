@@ -31,9 +31,26 @@ class RepoNotIndexedError(ValueError):
     """Raised when a chat request arrives before the repo has been indexed."""
 
 
+_RAG_CACHE = {}
+
+
 async def prepare_repo_index(
     request: RepoRequestBase,
 ) -> RAG:
+    _ck = (
+        request.repo_url,
+        request.type,
+        request.token,
+        request.provider,
+        request.model,
+        tuple(sorted(request.excluded_dirs or [])),
+        tuple(sorted(request.excluded_files or [])),
+        tuple(sorted(request.included_dirs or [])),
+        tuple(sorted(request.included_files or [])),
+    )
+    if _ck in _RAG_CACHE:
+        logger.info("Reusing cached RAG retriever for %s", request.repo_url)
+        return _RAG_CACHE[_ck]
     rag = await asyncio.to_thread(
         RAG,
         provider=request.provider,
@@ -58,6 +75,7 @@ async def prepare_repo_index(
         included_files=request.included_files,
         included_dirs=request.included_dirs,
     )
+    _RAG_CACHE[_ck] = rag
     return rag
 
 
