@@ -1,0 +1,2084 @@
+# Comprehensive Wiki Documentation for the Crush LLM Agent System
+
+## Overview
+
+The Crush system is an innovative interactive command-line interface (CLI) tool designed as an **autonomous software engineering assistant**. At its core, Crush operates on the fundamental principle of augmenting Large Language Models (LLMs) with the ability to interact directly with a user's development environment. It achieves this by "wiring" the LLM's inherent reasoning capabilities into a robust set of tools and predefined workflows.
+
+From a first principles perspective, Crush addresses the challenge of automating complex software development tasks by breaking them down into their most basic components:
+
+1.  **Perception and Understanding**: The agent must first comprehend the problem, analyze the existing codebase, and gather relevant context, much like a human developer reads an issue and explores a project.
+2.  **Planning**: Based on its understanding, the agent formulates a step-by-step plan, decomposing the complex problem into manageable, actionable sub-tasks.
+3.  **Action and Execution**: The agent then executes these planned steps by invoking specialized "tools" that interact with the file system, run shell commands, or query external services. These tools are the agent's "hands" and "eyes" in the digital environment.
+4.  **Reflection and Learning**: After each action, the agent observes the outcome, debugs any issues, and refines its understanding and plan. This iterative feedback loop is crucial for autonomous problem-solving.
+5.  **Memory and State Management**: To maintain continuity and learn over time, the agent needs a persistent memory. This includes conversation history, user preferences, and knowledge about the codebase, allowing it to pick up where it left off and adapt to individual user styles.
+6.  **Safety and Control**: Given its ability to modify the local environment, a fundamental requirement is to ensure that the agent operates safely and under explicit user control, preventing unintended or malicious actions.
+
+By meticulously orchestrating these fundamental elements, Crush transforms an LLM into a powerful, interactive, and extensible coding "bestie" that operates directly within the terminal, streamlining software engineering workflows.
+
+## Table of Contents
+
+1.  [What is Crush?](#what-is-crush)
+    *   [Purpose and Identity](#purpose-and-identity)
+    *   [Core Philosophy](#core-philosophy)
+    *   [Configuration Overview](#configuration-overview)
+2.  [LLM Agent Core Logic](#llm-agent-core-logic)
+    *   [Core Execution Loop](#core-execution-loop)
+    *   [Parsing LLM Responses and Tool Selection](#parsing-llm-responses-and-tool-selection)
+    *   [LLM Agent Standard Tools and Their Purposes](#llm-agent-standard-tools-and-their-purposes)
+    *   [Conversation History and Context Management](#conversation-history-and-context-management)
+3.  [LLM Provider Abstraction Layer](#llm-provider-abstraction-layer)
+    *   [Common Provider Interface (Configuration Structure)](#common-provider-interface-configuration-structure)
+    *   [Handling Provider-Specific Request/Response Formats](#handling-provider-specific-requestresponse-formats)
+    *   [Steps to Add a New LLM Provider](#steps-to-add-a-new-llm-provider)
+    *   [How the Configuration System Selects and Instantiates the Active Provider](#how-the-configuration-system-selects-and-instantiates-the-active-provider)
+4.  [Agent Tooling System](#agent-tooling-system)
+    *   [Common Interface for Tools](#common-interface-for-tools)
+    *   [Tool Registration and Availability](#tool-registration-and-availability)
+    *   [Safety Mechanisms for File System and Shell Interaction](#safety-mechanisms-for-file-system-and-shell-interaction)
+    *   [Creating, Implementing, and Registering a New Tool](#creating-implementing-and-registering-a-new-tool)
+5.  [Secure File System Operations](#secure-file-system-operations)
+    *   [How the Agent Reads, Writes, and Edits Files on the User's Machine](#how-the-agent-reads-writes-and-edits-files-on-the-users-machine)
+    *   [User Confirmation Prompts Before Destructive File Operations](#user-confirmation-prompts-before-destructive-file-operations)
+    *   [Limitations or Sandboxing Mechanisms on File Access](#limitations-or-sandboxing-mechanisms-on-file-access)
+6.  [Language Server Protocol (LSP) Integration](#language-server-protocol-lsp-integration)
+    *   [Application's Role: LSP Client or Server?](#applications-role-lsp-client-or-server)
+    *   [LSP Connection Management](#lsp-connection-management)
+    *   [Specific LSP Features Used](#specific-lsp-features-used)
+    *   [Enhanced Code Intelligence for the Agent](#enhanced-code-intelligence-for-the-agent)
+7.  [Sourcegraph API Integration](#sourcegraph-api-integration)
+    *   [Functionality Provided to the Agent](#functionality-provided-to-the-agent)
+    *   [Specific Sourcegraph APIs Utilized](#specific-sourcegraph-apis-utilized)
+    *   [Authentication with the Sourcegraph Instance](#authentication-with-the-sourcegraph-instance)
+    *   [Configuration Necessary for Integration](#configuration-necessary-for-integration)
+8.  [Application Configuration Management](#application-configuration-management)
+    *   [Available Configuration Options and Their Default Values](#available-configuration-options-and-their-default-values)
+    *   [Configuration Source Loading and Merging Order](#configuration-source-loading-and-merging-order)
+    *   [Environment Variable Mapping](#environment-variable-mapping)
+    *   [Configuration Validation](#configuration-validation)
+9.  [Database Schema and Persistence Layer](#database-schema-and-persistence-layer)
+    *   [Database Schema and Table Purposes](#database-schema-and-table-purposes)
+    *   [Kind of Data Being Persisted](#kind-of-data-being-persisted)
+    *   [`sqlc` Configuration in `sqlc.yaml`](#sqlc-configuration-in-sqlc-yaml)
+    *   [Application Interaction with Generated Go Code](#application-interaction-with-generated-go-code)
+10. [Terminal User Interface (TUI) Architecture](#terminal-user-interface-tui-architecture)
+    *   [Go Library Used for the TUI](#go-library-used-for-the-tui)
+    *   [Major Reusable Components and Composition](#major-reusable-components-and-composition)
+    *   [User Input Handling and Backend Interaction](#user-input-handling-and-backend-interaction)
+    *   [State Management and Synchronization](#state-management-and-synchronization)
+11. [Dynamic Prompt Engineering Strategy](#dynamic-prompt-engineering-strategy)
+    *   [How are the `.md` files in the prompt directory used as templates?](#how-are-the-md-files-in-the-prompt-directory-used-as-templates)
+    *   [How are prompts dynamically populated with context, history, and tool definitions?](#how-are-prompts-dynamically-populated-with-context-history-and-tool-definitions)
+    *   [Are there different prompt strategies for different tasks (e.g., coding vs. summarizing)?](#are-there-different-prompt-strategies-for-different-tasks-eg-coding-vs-summarizing)
+    *   [How are prompts adapted to the specific requirements of different LLM providers like OpenAI, Anthropic, and Gemini?](#how-are-prompts-adapted-to-the-specific-requirements-of-different-llm-providers-like-openai-anthropic-and-gemini)
+12. [Testing Strategy and Golden Files](#testing-strategy-and-golden-files)
+    *   [Purpose and Mechanism of Golden Files](#purpose-and-mechanism-of-golden-files)
+    *   [Application Areas for Golden File Testing](#application-areas-for-golden-file-testing)
+    *   [Process for Updating Golden Files](#process-for-updating-golden-files)
+    *   [Other Types of Tests](#other-types-of-tests)
+13. [Developer Onboarding and Build Process](#developer-onboarding-and-build-process)
+    *   [System Prerequisites](#system-prerequisites)
+    *   [Using `Taskfile.yaml` for Common Development Tasks](#using-taskfileyaml-for-common-development-tasks)
+    *   [Fetching Dependencies and Running the Application Locally](#fetching-dependencies-and-running-the-application-locally)
+    *   [Environment Variables Required for Local Development](#environment-variables-required-for-local-development)
+14. [Conclusion](#conclusion)
+
+---
+
+## 1. What is Crush?
+
+### Purpose and Identity
+
+Crush is an interactive command-line interface (CLI) tool that embodies an **autonomous software engineering agent**. Its fundamental purpose is to empower users by providing an intelligent, AI-driven assistant directly within their terminal environment. Crush aims to streamline software development workflows by acting as a "coding bestie," integrating user's existing tools, code, and preferred workflows with a chosen Large Language Model (LLM). It is designed to tackle a wide array of software engineering tasks, from fixing bugs and adding features to refactoring and explaining code. The name "Crush" itself refers to this interactive CLI agent and does not appear to be an acronym.
+
+### Core Philosophy
+
+The core philosophy of Crush is to leverage the reasoning capabilities of LLMs as the central orchestrator for development tasks. Instead of the LLM merely generating text, Crush's architecture allows the LLM to perceive the environment (codebase, user input), plan actions, and execute those actions through a defined set of tools. This turns the LLM into an active participant in the development process, capable of iterative problem-solving, debugging, and learning from its interactions. A key aspect of this philosophy is maintaining user control and safety, ensuring that the agent's powerful capabilities are always aligned with user intent.
+
+### Configuration Overview
+
+Crush's behavior and capabilities are highly configurable, primarily through JSON files and environment variables. This externalization of configuration is a fundamental design choice, allowing the system to adapt to different LLM providers, integrate custom tools, and adhere to user preferences without requiring code changes.
+
+The primary configuration file is `crush.json`, which can exist at different hierarchical levels:
+*   `./.crush.json` (highest priority, project-specific override)
+*   `./crush.json` (medium priority, project-specific)
+*   `$HOME/.config/crush/crush.json` (lowest priority, global user configuration)
+
+These files define settings for:
+*   **Language Server Protocols (LSPs)**: To enhance code understanding.
+*   **Model Context Protocol (MCP) servers**: To extend Crush's capabilities with external tools.
+*   **Tool Whitelisting**: To pre-approve certain actions for a smoother workflow.
+*   **Custom LLM Providers**: To integrate various AI models.
+*   **Logging Options**: To control debug output.
+
+Additionally, a special file, `CRUSH.md`, serves as a dynamic memory and context source for the LLM agent, storing frequently used commands, user code style preferences, and codebase structure information. This allows the agent to learn and adapt to specific project and user contexts over time.
+
+## 2. LLM Agent Core Logic
+
+The LLM agent, internally referred to as "Crush," is engineered as an autonomous software engineering assistant. Its core logic is built upon a structured, iterative workflow, proactive problem-solving, and meticulous state management, which are fundamental for ensuring robust task completion.
+
+### Core Execution Loop
+
+While the explicit `agent.go` file detailing a strict execution loop was not provided, the extensive prompt documentation implies a cyclical decision-making and action-taking process. The agent is explicitly instructed to "MUST iterate and keep going until the problem is solved" and "Do not end your turn until you have completed all steps in the todo list and verified that everything is working correctly." This iterative process forms the fundamental "thought process" of the agent.
+
+The implied core execution loop follows these steps:
+
+1.  **Understand the Context**: Analyze filenames, directory structure, and existing codebase patterns. This is the initial perception phase.
+2.  **Fetch URLs**: Utilize the `fetch` tool for external information and follow relevant links, expanding the agent's knowledge base.
+3.  **Deep Problem Understanding**: Critically read the issue to determine requirements, refining the agent's goal.
+4.  **Codebase Investigation**: Explore relevant files, search for functions, and gather context. This often involves search tools like `grep` and `glob`, or the `Agent tool` for large repositories.
+5.  **Research**: If necessary, use tools like `sourcegraph` for code examples or `fetch` for documentation, to acquire missing knowledge.
+6.  **Plan Development**: Outline a specific, step-by-step plan, including a markdown todo list. The agent is instructed to "plan extensively before each function call." This is the core reasoning and decomposition phase.
+7.  **Incremental Implementation**: Make small, testable code changes using tools like `edit` or `multiedit`. This is the action phase.
+8.  **Debug and Test**: Use the `bash` tool to run commands, debug, and test frequently. This includes verifying changes with project-specific linting and type-checking commands. This is the reflection and feedback phase.
+9.  **Iterate**: Continue this process (steps 6-8) until the root cause is fixed and all tests pass. This highlights the cyclical nature of problem-solving.
+10. **Comprehensive Validation**: Reflect and validate thoroughly, ensuring all todo items are checked off, tests pass, linting/type checking are clear, and no regressions are introduced. This is the final verification of the solution.
+
+The agent is also designed to be proactive, fulfilling user requests thoroughly while avoiding surprising actions. It is explicitly told to "ACTUALLY make the tool call, instead of ending your turn" when it states it will, reinforcing its commitment to action.
+
+### LLM Agent 'Crush' Core Execution Loop
+This flowchart illustrates the iterative workflow of the LLM agent from understanding the problem to comprehensive validation, emphasizing its cyclical nature and proactive approach.
+
+```mermaid
+graph TD
+    Start_Node((Start))
+    Understand_Context[Understand Context]
+    Fetch_URLs[Fetch URLs]
+    Deep_Problem[Deep Problem]
+    Codebase_Invest[Codebase Invest]
+    Research_Step[Research]
+    Plan_Develop[Plan Develop]
+    Impl_Inc[Impl. Incremental]
+    Debug_Test[Debug & Test]
+    Iterate_Process[Iterate]
+    Validate_Comp[Validate Comp.]
+    Problem_Solved{Problem Solved?}
+    Make_Tool_Call[Make Tool Call]
+    End_Node((End))
+
+    Start_Node --> Understand_Context
+    Understand_Context --> Fetch_URLs
+    Fetch_URLs --> Deep_Problem
+    Deep_Problem --> Codebase_Invest
+    Codebase_Invest --> Research_Step
+    Research_Step --> Plan_Develop
+    Plan_Develop --> Impl_Inc
+    Impl_Inc --> Debug_Test
+    Debug_Test --> Iterate_Process
+    Iterate_Process --> Validate_Comp
+    Validate_Comp --> Problem_Solved
+
+    Problem_Solved --> |Yes| End_Node
+    Problem_Solved --> |No| Make_Tool_Call
+    Make_Tool_Call --> Plan_Develop
+```
+
+### Parsing LLM Responses and Tool Selection
+
+The fundamental mechanism for the LLM agent to interact with the environment is through structured tool calls. The provided prompt files define the expected format for LLM-generated tool calls, which the agent's internal logic then parses. This parsing mechanism is crucial for translating the LLM's natural language intent into executable actions.
+
+Examples from `internal/llm/prompt/gemini.md` show the format:
+*   `[tool_call: ls for path '.']`
+*   `[tool_call: bash for 'node server.js &' because it must run in the background]`
+*   `[tool_call: glob for pattern 'tests/test_auth.py']`
+*   `[tool_call: view for absolute_path '/path/to/tests/test_auth.py']`
+*   `[tool_call: edit to apply the refactoring to 'src/auth.py']`
+
+This implies a parsing mechanism that recognizes the `[tool_call: ...]` syntax and extracts the tool name and its parameters. The agent is instructed to "Always tell the user what you are going to do before making a tool call with a single concise sentence," indicating that the LLM's natural language output precedes the structured tool call, providing transparency to the user.
+
+The agent's decision to use a tool is governed by its internal "Core Principles" and "Workflow," which guide it to select appropriate tools for tasks like file search ([Agent Tooling System](#agent-tooling-system)), file modification ([Secure File System Operations](#secure-file-system-operations)), command execution, and research.
+
+A critical safety gate for tool execution is the `PermissionService` (demonstrated in `internal/permission/permission_test.go`). This service requires explicit permission requests (`CreatePermissionRequest` with `ToolName`, `Action`, `Path`, `Description`, `Params`) before a tool can be executed. This service can grant temporary or persistent permissions, influencing future tool selection by auto-approving previously granted persistent requests. This ensures that the agent's actions are always authorized, a fundamental aspect of secure operation.
+
+### LLM Agent Tool Execution with Permission Service
+This sequence diagram depicts the sequence of interactions when the LLM agent decides to make a tool call, involving parsing the LLM response, requesting permission, and finally executing the tool.
+
+```mermaid
+sequenceDiagram
+    participant LLMAgent as LLM_Agent
+    participant User as User
+    participant PermissionService as Perm_Service
+    participant Tool as Tool
+
+    LLM_Agent->>LLM_Agent: Parse Output
+    note over LLM_Agent: LLM output format: [tool_call: ...]
+
+    LLM_Agent->>User: Tell User Action
+    note over LLM_Agent,User: "Always tell the user what you are going to do before making a tool call"
+
+    LLM_Agent->>Perm_Service: Req Permission
+    note over LLM_Agent,Perm_Service: CreatePermissionRequest(ToolName, Action, Path, Description, Params)
+
+    Perm_Service->>Perm_Service: Check AutoApprove
+    note over Perm_Service: Auto-approve persistent requests
+
+    Perm_Service-->>LLM_Agent: Perm Response
+
+    alt Permission Approved
+        LLM_Agent->>Tool: Exec Tool
+        Tool-->>LLM_Agent: Tool Result
+        LLM_Agent->>User: Show Result
+    else Permission Denied
+        LLM_Agent->>User: Tell Denied
+    end
+```
+
+### Permission Service Request Parameters
+This table outlines the specific parameters required when creating a permission request to the `PermissionService` for tool execution.
+
+| Parameter Name | Description | Example Value / Type |
+|----------------|-------------|----------------------|
+| ToolName | The unique identifier or name of the tool for which permission is being requested. | string (e.g., "file_manager") |
+| Action | The specific action intended to be performed with the tool (e.g., read, write, execute). | string (e.g., "read") |
+| Path | The target resource or path on which the action is to be performed. | string (e.g., "/tmp/data.txt") |
+| Description | A human-readable explanation or justification for why this permission is required. | string (e.g., "To read system configuration") |
+| Params | Additional, specific parameters or arguments relevant to the requested action and tool. | object/map (e.g., {"mode": "binary"}) |
+
+### LLM Agent Standard Tools and Their Purposes
+The agent's ability to act on the environment is fundamentally enabled by its access to a diverse set of "standard" tools. These tools abstract complex system interactions into simple, actionable commands for the LLM.
+
+| Tool Name | Primary Purpose | Context of Use / Examples |
+|-----------|-----------------|---------------------------|
+| fetch | Retrieve content from URLs. | Used in the 'Core Execution Loop' for fetching URLs. |
+| sourcegraph | Code search and navigation (implied for large codebases). | Used for investigation, similar to `grep` or `glob`. See [Sourcegraph API Integration](#sourcegraph-api-integration). |
+| bash | Execute arbitrary shell commands. | Used for debugging, testing, or executing system commands in the 'Core Execution Loop'. |
+| edit | Modify a single file. | Used for implementation tasks in the 'Core Execution Loop'. See [Secure File System Operations](#secure-file-system-operations). |
+| multiedit | Modify multiple files simultaneously. | Used for implementation tasks, especially when changes span multiple files, in the 'Core Execution Loop'. |
+| view | Display the content of a file. | Used for reviewing file contents during investigation or verification. |
+| glob | Find files and directories matching a specified pattern. | Used for investigation, e.g., finding relevant files for a task in the 'Core Execution Loop'. |
+| grep | Search for patterns within file contents. | Used for investigation, e.g., finding specific code snippets or references in the 'Core Execution Loop'. |
+| Agent tool (for large repos) | Specialized tool for navigating and interacting with very large repositories. | Used for investigation in large codebases where standard tools might be inefficient. |
+| file_tool | Generic tool for file-system operations. | Used for various file-related tasks not covered by more specific tools. |
+
+### Conversation History and Context Management
+
+For an autonomous agent to function effectively, it requires a robust memory and context management system. Crush employs a dual-pronged approach, combining database persistence for structured history with a dynamic, user-editable file for immediate context.
+
+1.  **Database Persistence**: The agent uses a database to store messages associated with sessions. This provides a fundamental, structured memory for long-term recall. See [Database Schema and Persistence Layer](#database-schema-and-persistence-layer) for more details.
+
+### Message Database Schema for Conversation History
+This diagram visualizes the entity-relationship model for the `messages` table, showing its attributes and how conversation history is structured for persistence.
+
+```mermaid
+erDiagram
+    SESSION ||--o{ MESSAGE : contains
+
+    SESSION {
+        string id PK
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    MESSAGE {
+        string id PK
+        string session_id FK
+        string role
+        json parts
+        string model
+        string provider
+        timestamp created_at
+        timestamp updated_at
+    }
+```
+
+### `messages` Database Table Schema
+This table details the columns of the `messages` table used for storing conversation history, including their purpose and implied data types.
+
+| Column Name | Description | Implied Data Type |
+|-------------|-------------|-------------------|
+| id | Unique identifier for the message. | TEXT (UUID) |
+| session_id | Foreign key linking the message to a specific conversation session. | TEXT (UUID) |
+| role | The role of the sender of the message (e.g., 'user', 'assistant', 'system'). | TEXT |
+| parts | The content of the message, which can be an array of text or other content blocks. | JSONB |
+| model | The AI model used to generate the message, if applicable (e.g., 'gpt-4', 'claude-3'). | TEXT |
+| provider | The AI service provider used (e.g., 'openai', 'anthropic'). | TEXT |
+| created_at | Timestamp indicating when the message record was created. | TIMESTAMP |
+| updated_at | Timestamp indicating when the message record was last updated. | TIMESTAMP |
+
+    The `internal/db/messages.sql.go` file defines SQL operations for managing messages, including `CreateMessage`, `GetMessage`, `ListMessagesBySession`, `DeleteMessage`, and `DeleteSessionMessages`. The `internal/db/db.go` file provides the Go interface (`Queries` struct) to execute these SQL commands, preparing and managing database statements. This structured storage allows the agent to retrieve and reconstruct past conversations, providing a persistent context.
+
+2.  **CRUSH.md File**: This file is "automatically added to your context" and serves as a dynamic, user-editable memory for the agent. Its fundamental purpose is to provide immediate, project-specific context and user preferences to the LLM, enhancing its relevance and efficiency. See [The 'CRUSH' Subsystem](#the-crush-subsystem) and [Dynamic Prompt Engineering Strategy](#dynamic-prompt-engineering-strategy) for more details.
+
+### `CRUSH.md` File Contents and Purpose
+This table summarizes the types of information stored in the `CRUSH.md` file, how it contributes to the agent's dynamic memory, and its purpose.
+
+| Category of Information | Specific Examples | Purpose / Benefit to Agent |
+|-------------------------|-------------------|----------------------------|
+| Command Shortcuts / Utilities | Frequently used bash commands | Expedites command execution, improves efficiency in terminal interactions. |
+| User Preferences | User's code style preferences | Ensures generated code adheres to user's desired style, maintains consistency. |
+| Project Context / Structure | Useful information about the codebase structure and organization | Provides essential context for understanding, navigating, and modifying the project, aids in accurate task execution. |
+
+    The agent is prompted to proactively ask the user if it's okay to add commands or information to `CRUSH.md` to "remember it for next time," fostering a continuous learning and adaptation loop.
+
+3.  **Dynamic Context Awareness**: Beyond explicit memory, the agent is instructed to maintain "awareness of your current working directory" and to avoid redundant file reads by checking if files/folders have "already been read" or if their content has changed. When resuming a task, it explicitly checks "the previous conversation history to see what the next incomplete step in the todo list is." This combines explicit memory (database, `CRUSH.md`) with active, real-time contextual awareness, allowing the agent to operate efficiently within its current environment.
+
+## 3. LLM Provider Abstraction Layer
+
+The Crush application is designed with a flexible LLM provider abstraction layer. This is a fundamental architectural choice driven by the need to support diverse Large Language Models (LLMs) from various providers (e.g., OpenAI, Anthropic, Gemini, Azure, Vertex AI) without tightly coupling the application logic to any single API. This abstraction enables multi-model support, dynamic switching, and extensibility for custom API endpoints, ensuring Crush remains adaptable to the evolving LLM landscape.
+
+### LLM Request Processing Flow in Crush
+This flowchart illustrates the high-level workflow of how Crush processes an LLM request, from user input to receiving a response, leveraging its abstraction layer to handle various providers and model capabilities.
+
+```mermaid
+graph TD
+    User_Input[User Request] --> Crush_Entry[Crush Entry]
+
+    subgraph Crush System
+        Crush_Entry --> Abstraction_Layer[LLM Abstraction]
+
+        subgraph LLM Abstraction Details
+            Abstraction_Layer --> Select_Config[Select LLM Config]
+            Select_Config --> Type_Field{Check LLM Type?}
+            Type_Field -- Yes --> Provider_Config[Provider Config]
+            Provider_Config --> Base_URL_Key[Base URL/Key]
+            Base_URL_Key --> Model_Caps[Model Capabilities]
+            Model_Caps --> Build_Request[Build Request]
+            Build_Request --> Extra_Params[Extra Headers/Body]
+        end
+
+        Extra_Params --> Call_Provider[Call Provider API]
+        Call_Provider --> Handle_Response[Handle Response]
+    end
+
+    Handle_Response --> User_Output[Return Response]
+```
+
+### Common Provider Interface (Configuration Structure)
+
+While the explicit Go interface definition for LLM providers is not provided, the common structure for configuring them is clearly defined in the `schema.json` file under the `$defs/ProviderConfig` definition. This configuration structure acts as the **de facto common interface**, dictating the fundamental attributes expected for any LLM provider integrated into Crush.
+
+### LLM Provider Abstraction Data Model
+This class diagram visualizes the key data structures (`ProviderConfig`, `Model`, `SelectedModel`) and their relationships within Crush's LLM abstraction layer, showing attributes and compositions.
+
+```mermaid
+classDiagram
+    class ProviderConfig {
+        +string id
+        +string name
+        +string base_url
+        +string type
+        +string api_key
+        +boolean disable
+        +string system_prompt_prefix
+        +object extra_headers
+        +object extra_body
+    }
+
+    class Model {
+        +string id
+        +string name
+        +number cost_per_1m_in
+        +number cost_per_1m_out
+        +number context_window
+        +number default_max_tokens
+        +boolean can_reason
+        +boolean supports_attachments
+    }
+
+    class SelectedModel {
+        +string model_id
+        +string provider_id
+    }
+
+    ProviderConfig "1" *-- "N" Model : contains
+    SelectedModel --> Model : references model
+    SelectedModel --> ProviderConfig : references provider
+```
+
+### Common Attributes for LLM Provider Configuration (`ProviderConfig`)
+This table provides a structured list of all configurable attributes for an LLM provider within Crush, along with their purpose and examples, as defined in `schema.json` and exemplified in `README.md`.
+
+| Attribute | Description | Type/Format | Example/Notes |
+|---|---|---|---|
+| `id` | A unique identifier for the LLM provider configuration. | String | e.g., `openai-gpt4`, `anthropic-claude` |
+| `name` | A human-readable name for the LLM provider. | String | e.g., `OpenAI GPT-4`, `Anthropic Claude` |
+| `base_url` | The base URL for the LLM API endpoint. | String (URL) | e.g., `https://api.openai.com/v1`, `https://api.anthropic.com` |
+| `type` | Specifies the type of LLM provider, influencing how requests are structured. This is a fundamental discriminator. | String (Enum) | e.g., `openai`, `anthropic`, `azure`, `custom` |
+| `api_key` | The API key for authenticating with the LLM provider. | String (Sensitive) | Should be kept secure, often loaded from environment variables. |
+| `disable` | A boolean flag to temporarily disable the provider configuration. | Boolean | `true` to disable, `false` to enable. |
+| `system_prompt_prefix` | An optional custom prefix to add to system prompts for this provider. | String | Useful for global instructions or persona setting. |
+| `extra_headers` | An object allowing additional HTTP headers to be sent with requests, useful for provider-specific requirements. | Object (Key-Value pairs) | e.g., `{"anthropic-version": "2023-06-01"}` |
+| `extra_body` | An object allowing additional fields to be included in request bodies. | Object (Key-Value pairs) | e.g., `{"temperature": 0.7, "top_p": 0.9}` |
+| `models` | An array of objects, each defining a specific model available from this provider, including its capabilities and cost. | Array of Objects (ModelConfig) | e.g., `[{"id": "gpt-4", "name": "GPT-4"}, {"id": "gpt-3.5-turbo"}]` |
+
+### LLM Model Definition Attributes
+This table details the attributes used to define individual LLM models within a `ProviderConfig`, including cost metrics, context window, default token limits, and specific capabilities.
+
+| Attribute | Description | Type/Format | Example/Notes |
+|---|---|---|---|
+| `id` | Unique identifier for the model within the provider's configuration. | String | e.g., "gpt-4o", "claude-3-opus-20240229" |
+| `name` | Human-readable name for the model. | String | e.g., "GPT-4o", "Claude 3 Opus" |
+| `cost_per_1m_in` | Cost per 1 million input tokens for this model. | Number (e.g., USD per 1M tokens) | e.g., 5.00 (for $5.00/1M input tokens) |
+| `cost_per_1m_out` | Cost per 1 million output tokens for this model. | Number (e.g., USD per 1M tokens) | e.g., 15.00 (for $15.00/1M output tokens) |
+| `context_window` | The maximum number of tokens the model can process in a single request (input + output). | Integer (tokens) | e.g., 128000, 200000 |
+| `default_max_tokens` | The default maximum number of tokens to generate in a response. | Integer (tokens) | e.g., 4096, 2048. Can be overridden per request. |
+| `can_reason` | Indicates if the model possesses strong reasoning capabilities. | Boolean | `true` for advanced models, `false` for basic ones. |
+| `supports_attachments` | Indicates if the model supports processing file attachments (e.g., images, PDFs). | Boolean | `true` for multimodal models, `false` otherwise. |
+
+### 2. Handling Provider-Specific Request/Response Formats
+
+Crush handles provider-specific request/response formats primarily through the `type` field within the `ProviderConfig` and the ability to customize API parameters. This is a fundamental aspect of the abstraction, allowing Crush to speak the correct "dialect" for each LLM.
+
+*   **`type` field**: The `type` field (e.g., `"openai"`, `"anthropic"`) acts as a discriminator, indicating which underlying API protocol and message format the provider adheres to. For example, Deepseek is configured with `"type": "openai"` because it uses an OpenAI-compatible API.
+*   **Base URL and API Key**: The `base_url` and `api_key` fields are fundamental for directing requests to the correct endpoint and authenticating them, respectively.
+*   **`extra_headers` and `extra_body`**: These fields provide a flexible mechanism to inject provider-specific HTTP headers or JSON body parameters into requests. For instance, the Anthropic configuration example explicitly adds `"anthropic-version": "2023-06-01"` to `extra_headers`. This allows the abstraction layer to send the exact parameters required by a specific provider's API.
+*   **Model Capabilities**: The `Model` definition within `ProviderConfig` includes fields like `can_reason` and `supports_attachments`. These capabilities, specific to certain models, suggest that the abstraction layer adapts its internal logic and request payloads based on the selected model's features, ensuring that only supported functionalities are attempted.
+*   **Prompt Customization**: The `system_prompt_prefix` in `ProviderConfig` allows for custom prefixes to system prompts, which might be used to tailor interactions for specific provider behaviors or prompt engineering best practices. See [Dynamic Prompt Engineering Strategy](#dynamic-prompt-engineering-strategy) for more details.
+
+### Supported LLM API Types and Customization Mechanisms
+This table outlines the predefined `type` values for LLM providers and how Crush handles their specific API formats using various configuration options like `base_url`, `extra_headers`, and `extra_body`.
+
+| API Type (`type` value) | Description | Key Customization Fields | Example Usage/Notes |
+|---|---|---|---|
+| "openai" | Specifies the API format for OpenAI and compatible services. The `type` field acts as a discriminator for Crush to handle this specific structure. | `base_url`, `api_key`, `extra_headers`, `extra_body` | `base_url` allows custom endpoints (e.g., local models, proxies). `extra_headers` and `extra_body` enable adding provider-specific parameters or authentication methods. The `type` also influences how model capabilities are understood. |
+| "anthropic" | Specifies the API format for Anthropic services (e.g., Claude models). The `type` field acts as a discriminator for Crush to handle this specific structure. | `base_url`, `api_key`, `extra_headers`, `extra_body` | `base_url` allows custom endpoints. `extra_headers` and `extra_body` enable adding provider-specific parameters or authentication methods. The `type` also influences how model capabilities are understood. |
+| "gemini" | Specifies the API format for Google Gemini services. The `type` field acts as a discriminator for Crush to handle this specific structure. | `base_url`, `api_key`, `extra_headers`, `extra_body` | `base_url` allows custom endpoints. `extra_headers` and `extra_body` enable adding provider-specific parameters or authentication methods. The `type` also influences how model capabilities are understood. |
+| "azure" | Specifies the API format for Azure OpenAI Service. The `type` field acts as a discriminator for Crush to handle this specific structure. | `base_url`, `api_key`, `extra_headers`, `extra_body` | `base_url` allows custom endpoints. `extra_headers` and `extra_body` enable adding provider-specific parameters or authentication methods. The `type` also influences how model capabilities are understood. |
+| "vertexai" | Specifies the API format for Google Cloud Vertex AI. The `type` field acts as a discriminator for Crush to handle this specific structure. | `base_url`, `api_key`, `extra_headers`, `extra_body` | `base_url` allows custom endpoints. `extra_headers` and `extra_body` enable adding provider-specific parameters or authentication methods. The `type` also influences how model capabilities are understood. |
+
+### 3. Steps to Add a New LLM Provider
+
+Adding a new LLM provider to Crush is fundamentally a configuration task, allowing users to extend the system's capabilities without modifying its core code.
+
+### Workflow for Adding a New LLM Provider to Crush
+This flowchart details the step-by-step process a user follows to configure and integrate a new LLM provider into the Crush application via JSON configuration files.
+
+```mermaid
+graph TD
+    Start_Node[Start]
+    Step1_Config[Edit Config File]
+    Step2_Define[Define Provider]
+    Step3_Details[Specify Details]
+    Step4_Example[Review Example]
+    Step5_EnvVars[Set Env Vars]
+    End_Node[Provider Ready]
+    Optional_Contribute{Contribute Config?}
+    Contrib_Action[Share Config]
+    Final_End[End]
+
+    Start_Node --> Step1_Config
+    Step1_Config --> Step2_Define
+    Step2_Define --> Step3_Details
+    Step3_Details --> Step4_Example
+    Step4_Example --> Step5_EnvVars
+    Step5_EnvVars --> End_Node
+
+    End_Node --> Optional_Contribute
+    Optional_Contribute -- Yes --> Contrib_Action
+    Optional_Contribute -- No --> Final_End
+    Contrib_Action --> Final_End
+```
+
+1.  **Create/Edit Configuration File**: Users need to create or modify a Crush configuration file. This externalization of configuration is a core principle, allowing flexibility. The files are loaded with a specific priority: `./.crush.json`, `./crush.json`, or `$HOME/.config/crush/crush.json`.
+2.  **Define Provider Entry**: Within the JSON configuration, add a new entry under the `providers` object. The key for this entry will be the unique `id` of your custom provider.
+3.  **Specify Provider Details**:
+    *   Set the `type` field to one of the supported API formats: `"openai"`, `"anthropic"`, `"gemini"`, `"azure"`, or `"vertexai"`. This is crucial for Crush to know how to format requests.
+    *   Provide the `base_url` for the provider's API.
+    *   Specify the `api_key`, often referencing an environment variable (e.g., `"$DEEPSEEK_API_KEY"`).
+    *   Optionally, include `extra_headers` or `extra_body` for any unique API requirements.
+    *   Define the `models` array, listing each model's `id`, `name`, cost metrics, `context_window`, `default_max_tokens`, and specific capabilities like `can_reason` or `supports_attachments`.
+4.  **Example Configuration**:
+    *   For an OpenAI-compatible API (like Deepseek):
+        ```json
+        {
+          "providers": {
+            "deepseek": {
+              "type": "openai",
+              "base_url": "https://api.deepseek.com/v1",
+              "api_key": "$DEEPSEEK_API_KEY",
+              "models": [
+                {
+                  "id": "deepseek-chat",
+                  "name": "Deepseek V3",
+                  "cost_per_1m_in": 0.27,
+                  "cost_per_1m_out": 1.1,
+                  "context_window": 64000,
+                  "default_max_tokens": 5000
+                }
+              ]
+            }
+          }
+        }
+        ```
+    *   For an Anthropic-compatible API:
+        ```json
+        {
+          "providers": {
+            "custom-anthropic": {
+              "type": "anthropic",
+              "base_url": "https://api.anthropic.com/v1",
+              "api_key": "$ANTHROPIC_API_KEY",
+              "extra_headers": {
+                "anthropic-version": "2023-06-01"
+              },
+              "models": [
+                {
+                  "id": "claude-sonnet-4-20250514",
+                  "name": "Claude Sonnet 4",
+                  "can_reason": true,
+                  "supports_attachments": true
+                }
+              ]
+            }
+          }
+        }
+        ```
+5.  **Environment Variables**: Ensure any referenced environment variables (e.g., `DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`) are set in the system where Crush is run.
+6.  **Community Contribution**: For default model listings, contributions are welcomed to the `Catwalk` open-source repository.
+
+### 4. How the Configuration System Selects and Instantiates the Active Provider
+
+The configuration system in Crush manages provider selection and instantiation through a hierarchical loading process and explicit model/provider mapping. This ensures that the correct LLM and its associated settings are always active.
+
+*   **Configuration File Priority**: Crush loads configuration from specific JSON files in a defined order of priority: `./.crush.json` (highest), `./crush.json`, and `$HOME/.config/crush/crush.json` (lowest). This allows for project-specific overrides of global settings.
+
+### Crush Configuration File Loading Priority
+This table specifies the order in which Crush loads its configuration files, highlighting which files take precedence for settings and overrides.
+
+| File Path | Priority Level | Purpose/Notes |
+|---|---|---|
+| `./.crush.json` | Highest | Takes highest precedence; often used for directory-specific overrides. |
+| `./crush.json` | Medium | Standard project-level or directory-specific configuration. |
+| `$HOME/.config/crush/crush.json` | Lowest | User-specific global configuration; provides default settings. |
+
+*   **Environment Variables**: API keys for well-known providers (e.g., `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`) are automatically recognized and used if set in the environment. Custom providers can also reference environment variables in their `api_key` field.
+*   **`SelectedModel` Configuration**: The `schema.json` defines a `SelectedModel` object, which explicitly links a `model` ID to its `provider` ID (e.g., `{"model": "gpt-4o", "provider": "openai"}`). This structure indicates that the application selects an active LLM by first identifying its provider and then the specific model within that provider. Additional model-specific options like `reasoning_effort` and `max_tokens` are also configured here.
+*   **Internal Configuration Access**: The `CRUSH.md` development guide mentions `config.Providers()` in the context of testing with mock providers. This implies that there is an internal `config` package or module responsible for loading, storing, and providing access to the parsed `ProviderConfig` objects.
+*   **Mocking for Testing**: The testing guidelines in `CRUSH.md` demonstrate how `config.UseMockProviders` and `config.ResetProviders()` are used to control the instantiation of providers for testing purposes, suggesting a programmatic control over the provider lifecycle within the application's `config` system.
+*   **Disabling Providers**: The `disable` boolean field in `ProviderConfig` allows specific providers to be deactivated within the configuration, preventing their instantiation or use even if their details are present.
+
+## 4. Agent Tooling System
+
+The Crush LLM agent's ability to perform practical software engineering tasks is fundamentally enabled by its extensible tooling system. This system allows the agent to interact with the user's environment, execute commands, and manage files, abstracting complex operations into simple, actionable directives for the LLM.
+
+### 1. Common Interface for Tools
+
+From the LLM agent's perspective, the "interface" for tools is primarily **protocol-based**, defined by the expected `[tool_call: ...]` input format and the parameters required for each tool. Tools are either built-in functionalities or external services known as "Multi-Capability Providers" (MCPs).
+
+### Built-in Agent Tools Overview
+A structured list of the core tools directly available to the LLM agent, detailing their purpose and required parameters.
+
+| Tool Name | Purpose/Description | Key Parameters | Example Context/Usage |
+|---|---|---|---|
+| edit | Modifies content within a file by replacing an 'old string' with a 'new string'. | `file_path` (absolute), `old_string`, `new_string` | Changing specific text in a file. See [Secure File System Operations](#secure-file-system-operations) for safety details. |
+| bash | Executes a shell command. | `command string` | Running system commands or scripts. |
+| view | Displays the content of a file. | `absolute_path` | Inspecting the content of a specified file. |
+| ls | Used for listing files. | None explicitly mentioned | Listing directory contents. |
+| grep | Used for searching files (for patterns). | None explicitly mentioned | Finding specific text or patterns within files. |
+| glob | Used for listing and searching files (often by pattern matching file paths). | None explicitly mentioned | Discovering files that match a specified pattern. |
+| fetch | Gathers information from URLs. | URL (implied) | Retrieving data from a web page or API endpoint. |
+| Sourcegraph | Searches for code examples. | Search query (implied) | Finding relevant code snippets or implementations across repositories. See [Sourcegraph API Integration](#sourcegraph-api-integration). |
+
+All tools are designed to be executed in parallel when multiple tool calls are sent in a single message, provided there are no dependencies between them. This allows for efficient execution of independent tasks.
+
+### LLM Agent Tool Interaction Flow
+Illustrates the high-level process of how the LLM agent initiates tool calls and how Crush executes them, including the possibility of parallel execution.
+
+```mermaid
+graph TD
+    LLM_Agent[LLM Agent]
+    Generate_Calls[Generate Tool Calls]
+    Send_Crush[Send To Crush]
+
+    subgraph Crush System
+        Multi_Calls{Multiple Calls?}
+        Execute_Single[Execute Single Tool]
+        Dependencies{Dependencies?}
+        Execute_Seq[Execute Sequentially]
+        Execute_Parallel[Execute In Parallel]
+        Tool_Execution[Tool Execution]
+    end
+
+    Return_Results[Return Results]
+    Flow_End[Flow End]
+
+    LLM_Agent --> Generate_Calls
+    Generate_Calls --> Send_Crush
+    Send_Crush --> Multi_Calls
+
+    Multi_Calls -- No --> Execute_Single
+    Multi_Calls -- Yes --> Dependencies
+
+    Dependencies -- Yes --> Execute_Seq
+    Dependencies -- No --> Execute_Parallel
+
+    Execute_Single --> Tool_Execution
+    Execute_Seq --> Tool_Execution
+    Execute_Parallel --> Tool_Execution
+
+    Tool_Execution --> Return_Results
+    Return_Results --> Flow_End
+```
+
+### 2. Tool Registration and Availability
+
+Tools are made available to the agent through a combination of implicitly built-in capabilities and explicit configuration.
+
+*   **Built-in Tools**: The agent is pre-configured with access to common tools like `view`, `edit`, `bash`, `ls`, `grep`, `glob`, `fetch`, and `Sourcegraph`, which are directly referenced in its prompt instructions. These are fundamental capabilities.
+*   **Multi-Capability Providers (MCPs)**: Crush is "Extensible: add capabilities via MCPs (`http`, `stdio`, and `sse`)". This extensibility is a core principle, allowing the system to grow beyond its initial built-in toolset. These external tools are registered via the `crush.json` configuration file.
+
+### Multi-Capability Provider (MCP) Configuration Reference
+Details the configurable parameters for registering external tools (MCPs) via the `crush.json` file.
+
+| Configuration Key | Description | Type/Format | Example Value |
+|---|---|---|---|
+| `[MCP_NAME]` | A unique identifier for the Multi-Capability Provider. This key serves as the top-level identifier for an MCP's configuration within the `crush.json` file. | String (JSON object key) | `example-mcp` |
+| `type` | The communication protocol used by the Multi-Capability Provider. This defines the fundamental interaction mechanism. | String (enum: `http`, `stdio`, `sse`) | `http` |
+| `url` | The endpoint, executable path, or resource locator for the MCP. Required for `http` and `sse` types. For `stdio`, it typically refers to the path of the executable. | String (URL or file path) | `http://localhost:8080/mcp` |
+| `headers` | Optional HTTP headers to include in requests made to the MCP. Applicable primarily for `http` and `sse` communication types. | Object (key-value pairs of strings) | `{"Authorization": "Bearer YOUR_TOKEN", "X-Custom-Header": "value"}` |
+
+### 3. Safety Mechanisms for File System and Shell Interaction
+
+Crush prioritizes safety and user control, especially for operations that modify the file system or execute shell commands. This is a fundamental safeguard for an autonomous agent.
+
+*   **User Permission Prompts**: By default, Crush requires explicit user permission before executing any tool call that could modify the environment.
+*   **Tool Whitelisting**: Users can pre-approve specific tools to run without prompts by listing them in the `crush.json` file under `permissions.allowed_tools`. This balances security with convenience for trusted tools.
+*   **"YOLO" Flag**: For advanced users and specific development scenarios, a `--yolo` flag can be used to skip all permission prompts. This is explicitly marked with a strong warning, emphasizing its bypass of fundamental safety.
+
+### Tool Execution Authorization Process in Crush
+Depicts the decision-making flow Crush follows to determine whether to execute a tool call, considering user permission prompts, tool whitelisting, and the '--yolo' flag.
+
+```mermaid
+graph TD
+    Start_Call[Tool Call]
+    Dec_Yolo{--yolo flag?}\n(Bypass all safety)
+    Dec_Whitelist{Tool Whitelisted?}\n(No prompt needed)
+    Dec_Prompt{User Grants?}\n(Explicit confirmation)
+    Action_Execute[Execute Tool]
+    Action_Deny[Deny Execution]
+
+    Start_Call --> Dec_Yolo
+    Dec_Yolo -- Yes --> Action_Execute
+    Dec_Yolo -- No --> Dec_Whitelist
+    Dec_Whitelist -- Yes --> Action_Execute
+    Dec_Whitelist -- No --> Dec_Prompt
+    Dec_Prompt -- Yes --> Action_Execute
+    Dec_Prompt -- No --> Action_Deny
+```
+
+*   **Agent's Internal Directives (Prompt-based Safety)**: The LLM agent is instructed to follow strict safety protocols, acting as an internal "conscience":
+    *   **Explain Critical Commands**: Before executing `bash` commands that modify the file system, codebase, or system state, the agent *must* provide a brief explanation of the command's purpose and potential impact to prioritize user understanding and safety.
+    *   **Security Best Practices**: The agent is mandated to always apply security best practices, specifically to "Never introduce code that exposes, logs, or commits secrets, API keys, or other sensitive information."
+    *   **Avoiding Interactive Commands**: The agent is advised to avoid interactive shell commands (e.g., `git rebase -i`) and prefer non-interactive versions (e.g., `npm init -y`).
+    *   **Precise `edit` Operations**: The `edit` tool requires "Absolute file paths", "Unique old_string matches with 3-5 lines of context before and after", and "Exact whitespace and indentation matching" to ensure highly precise and intended modifications, reducing accidental broad changes.
+
+### `edit` Tool Operation Requirements
+Specifies the precise conditions and inputs required for the `edit` tool to ensure accurate and intended file modifications, minimizing accidental changes.
+
+| Requirement | Description/Detail | Purpose |
+|---|---|---|
+| Absolute file paths | Specifies the full, unambiguous path to the target file. | Ensures the correct file is identified and modified, preventing accidental changes to similarly named files in different directories. Contributes to highly precise and intended modifications. |
+| Unique old_string matches with 3-5 lines of context before and after | The string to be replaced (old_string) must be unique within its surrounding context (3-5 lines before and after). | Guarantees that only the intended instance of a string is modified, avoiding unintended changes to other occurrences or similar patterns. Minimizes accidental broad changes. |
+| Exact whitespace and indentation matching | The `old_string` must match the target content precisely, including all leading/trailing spaces, tabs, and indentation levels. | Preserves code formatting, readability, and syntax integrity. Prevents unintended shifts in structure or introduction of syntax errors, ensuring the modification is precise and maintains original file quality. |
+
+*   **File Ignoring**: Crush respects `.gitignore` files by default and allows users to specify additional files/directories to ignore using a `.crushignore` file, preventing the agent from considering them for context or modification.
+
+### Crush Security and Safety Mechanisms
+Summarizes the various mechanisms implemented in Crush to ensure safe and controlled interaction with the file system and shell, including user permissions and agent directives.
+
+| Mechanism | Description | Configuration/Trigger | Agent Directive (if applicable) |
+|---|---|---|---|
+| User Permission Prompts | Users are prompted to explicitly approve or deny tool interactions with the file system or shell before execution. | Sensitive operations requiring user confirmation. | Agent respects the user's explicit decision. |
+| Tool Whitelisting | Only pre-approved tools are permitted to interact with the file system or shell, preventing execution of unauthorized binaries. | Pre-configured list of allowed tools. | Agent only invokes tools present in the whitelist. |
+| 'YOLO' Flag | A flag that, when enabled, bypasses all safety mechanisms, allowing unrestricted tool interactions for development or specific use cases. | Explicitly set by the user or developer. | Agent operates without safety checks when this flag is active. |
+| Agent's Internal Directives (Prompt-based Safety) | The agent itself incorporates internal safety protocols and decision-making based on its understanding of the prompt and context. | Agent's internal logic, AI reasoning, and contextual understanding. | This is a core agent directive, guiding its actions to ensure safety. |
+| File Ignoring | Specific files or patterns (e.g., sensitive configuration files, version control directories) are designated to be ignored by tools to prevent unintended modification or access. | Configuration of ignored files/patterns (e.g., via a `.ignore` file or similar mechanism). | Agent respects the defined ignored files and patterns, avoiding interaction with them. |
+
+### 4. Creating, Implementing, and Registering a New Tool
+
+Extending Crush's capabilities with new tools is a core aspect of its extensibility. This involves implementing new Multi-Capability Providers (MCPs) and registering them in the configuration.
+
+### New Tool (MCP) Development and Integration Workflow
+Outlines the sequential steps a developer would follow to implement, register, and optionally whitelist a new external tool (Multi-Capability Provider) within the Crush system.
+
+```mermaid
+graph TD
+    Start_Workflow[Start]
+
+    subgraph Tool Development
+        Code_Tool[1. Implement Tool Logic]\n(e.g., HTTP server, STDIN/OUT handler)
+        Create_Manifest[2. Define Tool Capabilities]\n(Input/Output Schema for LLM)
+        Build_Package[3. Build/Package Tool]\n(Executable, Docker image, etc.)
+        Deploy_Service[4. Deploy Tool Service]\n(Local, Cloud, etc.)
+    end
+
+    subgraph Crush Integration
+        Call_Register[5. Register in crush.json]\n(Add MCP entry)
+        Crush_Validate[Crush Validates Config]\n(Checks syntax, accessibility)
+        Tool_Registered[Tool Available to Agent]
+    end
+
+    subgraph Optional Whitelisting
+        Needs_Whitelist{6. Needs Whitelist?}\n(Sensitive operations?)
+        Request_Whitelist[Add to permissions.allowed_tools]\n(in crush.json)
+        Admin_Approve[User/Admin Approves]
+        Tool_Whitelisted[Tool Runs Without Prompt]
+    end
+
+    End_Workflow[End]
+
+    Start_Workflow --> Code_Tool
+    Code_Tool --> Create_Manifest
+    Create_Manifest --> Build_Package
+    Build_Package --> Deploy_Service
+
+    Deploy_Service --> Call_Register
+    Call_Register --> Crush_Validate
+    Crush_Validate --> Tool_Registered
+
+    Tool_Registered --> Needs_Whitelist
+    Needs_Whitelist -- Yes --> Request_Whitelist
+    Request_Whitelist --> Admin_Approve
+    Admin_Approve --> Tool_Whitelisted
+    Tool_Whitelisted --> End_Workflow
+    Needs_Whitelist -- No --> End_Workflow
+```
+
+1.  **Implement the Tool**: New tools are implemented as external "Multi-Capability Providers" (MCPs). These MCPs communicate with Crush using standard protocols: `http`, `stdio`, or `sse`. The implementation involves setting up a service that can receive requests (e.g., HTTP POST requests for an `http` type MCP) and return responses that the LLM agent can interpret. The tool's functionality would need to align with a defined input/output schema that the LLM is prompted to use.
+
+### Crush-MCP Communication Sequence (HTTP Example)
+Illustrates the interaction sequence between the Crush core system and an external HTTP-based Multi-Capability Provider when a tool call is made.
+
+```mermaid
+sequenceDiagram
+    participant Crush as Crush
+    participant MCP_HTTP as HTTP_MCP
+
+    Crush->>MCP_HTTP: POST Request (Tool Call with Parameters)
+    activate MCP_HTTP
+    MCP_HTTP-->>Crush: HTTP Response (Tool Result/Output)
+    deactivate MCP_HTTP
+```
+
+2.  **Register the Tool**: Once implemented, the new tool (as an MCP) is registered by adding an entry to the `crush.json` configuration file. This involves defining a unique name for the MCP, its communication type, and its URL. Optional headers can be included for authentication or other purposes.
+3.  **Whitelisting (Optional but Recommended)**: If the new tool performs actions that interact with the file system or execute commands, it is advisable to add its specific capability names (e.g., `mcp_my-new-developer-tool_perform-action`) to the `permissions.allowed_tools` array in `crush.json` to prevent repeated permission prompts during agent operation.
+
+## 5. Secure File System Operations
+
+The ability to read, write, and modify files is fundamental for a software engineering agent. However, this power necessitates robust safeguards to prevent accidental or malicious changes. Crush employs a layered approach to secure its file system interactions, combining explicit tool requirements, user confirmation, and agent internal directives.
+
+### How the Agent Reads, Writes, and Edits Files on the User's Machine
+
+The agent interacts with the file system through a set of defined tools and strict operational guidelines, each designed with specific purposes and inherent safeguards.
+
+### Agent File System Interaction Tools Overview
+This table provides a structured overview of the tools available to the agent for interacting with the file system, detailing their purpose, key requirements, and specific safeguards or notes.
+
+| Tool Name | Purpose | Key Requirements | Safeguards/Notes | Example Usage |
+|---|---|---|---|---|
+| `view` | To read and display the content of a specified file. | Absolute path to the file. | Read-only operation. Useful for inspecting file content without modification. | `view("/path/to/your/file.txt")` |
+| `glob` | To list files and directories that match a specified pattern. | A glob pattern (e.g., `*`, `**`, `?`). Can be absolute or relative. | Useful for discovery and navigating the file system. Be specific with patterns to avoid excessive results. | `glob("**/*.py")` or `glob("/home/user/docs/*.md")` |
+| `grep` | To search for specific text patterns within files. | File path (or glob pattern for multiple files) and a search pattern (regex). | Efficient for finding specific lines or content. Can be combined with `glob` for broader searches. | `grep("/var/log/syslog", "ERROR")` or `grep("*.log", "warning")` |
+| `edit` | To modify a specific part of a file by replacing an 'old string' with a 'new string'. | Absolute path to the file, `old_string` (the exact content to be replaced), and `new_string` (the replacement content). | Requires `old_string` as a crucial safeguard to ensure the correct context for modification and prevent unintended changes. Agent should use `view` first to get the exact `old_string`. | `edit("/app/config.json", "\"debug\": false", "\"debug\": true")` |
+| `write` | To write or overwrite the entire content of a file. | Absolute path to the file and the full `content` to be written. | **Extremely powerful and dangerous** as it overwrites the entire file. Use with extreme caution, ideally for creating new files or after careful verification of existing content (e.g., using `view`). | `write("/new/report.txt", "This is the generated report content.")` |
+| `bash` | To execute arbitrary shell commands on the user's machine. | A valid shell command string. | **Most powerful and potentially dangerous tool.** Provides direct access to the underlying system. Use as a last resort for operations not covered by specific file tools (e.g., `mkdir`, `rm`, `mv`, `pip install`). Exercise extreme caution with commands, especially those that modify the system or delete files. | `bash("ls -l /tmp")` or `bash("pip install pandas")` |
+
+The agent's interaction flow:
+*   **Reading Files:** The agent uses `view` for direct content retrieval and `glob`/`grep` for discovery and pattern matching. It is instructed to avoid redundant reads by checking if content has changed, optimizing its perception of the environment.
+*   **Writing and Editing Files:** The `edit` tool is the primary mechanism for targeted modifications, requiring precise `old_string` matching for safety. The `write` tool is used for creating new files or overwriting entire files. The `bash` tool provides a powerful, but less constrained, avenue for general file system operations.
+
+### Agent File System Interaction Workflow
+Illustrates the general process an agent follows when interacting with the file system, from receiving a request to executing a tool, incorporating safeguard checks and user confirmation points.
+
+```mermaid
+graph TD
+    Start_Node[Receive Request]
+    Identify_Tool[Identify Tool]
+    Tool_Type_Check{Is Write Tool?}
+    Read_Tools[Read Tools]
+    Write_Tools[Write Tools]
+    Safeguard_Check[Run Safeguards]
+    Destructive_Check{Is Destructive?}
+    User_Confirm{User Confirms?}
+    Execute_Tool[Execute Tool]
+    Output_Result[Output Result]
+    Abort_Process[Abort/Refine]
+    End_Node[End]
+
+    Start_Node --> Identify_Tool
+    Identify_Tool --> Tool_Type_Check
+
+    Tool_Type_Check -- No --> Read_Tools
+    Tool_Type_Check -- Yes --> Write_Tools
+
+    Read_Tools --> Safeguard_Check
+    Write_Tools --> Safeguard_Check
+
+    Safeguard_Check --> Destructive_Check
+
+    Destructive_Check -- No --> Execute_Tool
+    Destructive_Check -- Yes --> User_Confirm
+
+    User_Confirm -- Yes --> Execute_Tool
+    User_Confirm -- No --> Abort_Process
+
+    Execute_Tool --> Output_Result
+    Output_Result --> End_Node
+    Abort_Process --> End_Node
+```
+
+### User Confirmation Prompts Before Destructive File Operations
+
+A fundamental safety mechanism is requiring explicit user confirmation before the agent performs actions that could significantly alter the file system or system state. This puts the user in ultimate control.
+
+*   **Explanation and Confirmation for Bash Commands:** Before executing `bash` commands that modify the file system, codebase, or system state, the agent *must* provide a brief explanation of the command's purpose and potential impact, prioritizing user understanding and safety. This implies a waiting period for user approval.
+*   **Confirmation for Significant Actions:** The agent is instructed not to "take significant actions beyond the clear scope of the request without confirming with the user." This is exemplified by the agent asking "Should I proceed?" before applying a refactoring via the `edit` tool.
+*   **Explicit Commit Control:** The agent is "NEVER allowed to stage and commit files automatically. Only do this when explicitly requested" by the user. This ensures that changes are reviewed and approved before being permanently recorded in version control.
+
+### User Confirmation Flow for Destructive File Operations
+Details the specific steps and user interaction required before the agent executes potentially destructive file system commands (e.g., `bash` `rm -rf`) or significant modifications (e.g., `edit` refactoring).
+
+```mermaid
+graph TD
+    Start_Flow[Start] --> Detect_Action[Detect Destructive]
+    Detect_Action --> Explain_Impact[Explain Impact]
+    Explain_Impact --> Prompt_Confirm[Prompt Confirm]
+    Prompt_Confirm --> User_Decides{User Confirms?}
+
+    User_Decides -- Yes --> Proceed_Action[Execute Action]
+    User_Decides -- No --> Abort_Action[Abort Action]
+
+    Proceed_Action --> Commit_Check{Commit Req?}
+    Commit_Check -- Yes --> Perform_Commit[Perform Commit]
+    Commit_Check -- No --> End_Flow[End]
+
+    Abort_Action --> End_Flow
+    Perform_Commit --> End_Flow
+```
+
+### Limitations or Sandboxing Mechanisms on File Access
+
+Beyond explicit prompts, Crush implements several architectural and policy-based limitations to control the agent's file system interactions, acting as a form of "sandboxing" through strict adherence to rules.
+
+*   **Absolute Path Requirement:** Tools like `edit`, `view`, and `write` strictly require absolute file paths (starting with `/`). This provides a clear, unambiguous target for all file operations, preventing unintended access.
+*   **Contextual Editing (Old String Matching):** The `edit` tool's requirement for a unique `old_string` with context and exact matching prevents the agent from making broad or unintended changes, ensuring modifications target very specific, identified code blocks.
+*   **User Control and Proactiveness Policy:** The agent is generally guided to avoid surprising the user with unrequested actions and to "Confirm Ambiguity/Expansion." This overarching policy limits autonomous file system modifications.
+*   **No Automatic Reverts:** The agent is prohibited from reverting changes unless explicitly asked by the user or if its own changes resulted in an error, reinforcing the permanence of actions.
+*   **Security Best Practices:** The agent is mandated to "Always follow security best practices. Never introduce code that exposes or logs secrets and keys. Never commit secrets or keys to the repository." This acts as a content-based limitation on what the agent can write to files.
+*   **Memory and Redundant Read Prevention:** The agent is encouraged to use its internal memory to avoid re-reading file content that has not changed, reducing unnecessary file access.
+*   **Tool-Specific Search:** The agent is directed to use "the Agent tool for searching instead" of general `ls -R`, `find`, or `grep` commands, which are considered "slow in large repos." This implies a controlled, optimized search mechanism, limiting the scope of file system traversal.
+
+### Agent File System Safeguards and Operational Limitations
+Summarizes the various mechanisms and policies implemented to secure and control the agent's file system access, preventing accidental or malicious changes.
+
+| Safeguard/Limitation | Description | Applicable Tools/Actions |
+|---|---|---|
+| Absolute Path Requirement for File Operations | All file system operations (read, write, delete) must specify an absolute path, preventing relative path ambiguities and unintended access outside the intended scope. | All file system tools (e.g., `view`, `edit`, `write`) |
+| Contextual Editing of Files | File modifications are typically performed within a specific context (e.g., an `edit` tool), allowing for focused changes rather than broad, unconstrained access to the entire file system. | File editing tools (e.g., `edit`) |
+| User Confirmation for Destructive Actions | Before executing any potentially destructive file operation (e.g., deletion, overwriting existing content), the system prompts the user for explicit confirmation. | `write` (when overwriting), `bash` commands (e.g., `rm`) |
+| Explicit Commit Control for Changes | Changes made by the agent are not automatically saved or committed to the file system; they require an explicit commit action by the user or agent, ensuring review. | File writing/editing tools, overall agent workflow |
+| No Automatic Reverts | The system does not automatically revert file changes; once a change is committed, it is persistent, emphasizing the need for careful review and confirmation before committing. | All file system operations |
+| Adherence to Security Best Practices | File system interactions are designed following general security best practices, including principles of least privilege and secure coding to minimize vulnerabilities. | All file system tools |
+| Memory for Redundant Reads | The agent retains a memory of previously read file contents to avoid unnecessary redundant reads, improving efficiency and reducing repeated disk access. | `view` |
+| Tool-Specific Search Mechanisms | File searching is conducted through specific tools with defined scopes (e.g., searching within a project directory), rather than broad, unrestricted file system scans. | File search tools (e.g., `glob`, `grep`, `Agent tool`) |
+
+## 6. Language Server Protocol (LSP) Integration
+
+Crush's ability to act as an intelligent software engineering agent is significantly enhanced by its integration with the Language Server Protocol (LSP). This integration provides the agent with a deep, semantic understanding of code, moving beyond mere text processing to grasp the underlying structure, types, and relationships within a codebase.
+
+### Crush's LSP Integration Workflow
+This flowchart illustrates the comprehensive workflow of how Crush integrates with and leverages the Language Server Protocol (LSP) to enhance its code intelligence capabilities, from initial configuration to informing agent decisions.
+
+```mermaid
+flowchart TD
+    CrushConfig[Crush Configuration]
+    LaunchLSP[Launch LSP Server]
+    LSPConnect[LSP Connection]
+    LSPRequests[LSP Requests]
+    LSPResponses[LSP Responses]
+    CodebaseInvest[Codebase Investigation]
+    GatherContext[Gather Context]
+    UnderstandCode[Understand Codebase]
+    InformedDecisions[Informed Decisions]
+    EnhancedAgent[Enhanced Agent]
+
+    subgraph Crush_LSP_Setup
+        CrushConfig --> LaunchLSP
+        LaunchLSP --> LSPConnect
+    end
+
+    subgraph Crush_Agent_Workflow
+        CodebaseInvest --> GatherContext
+        GatherContext --> UnderstandCode
+        UnderstandCode --> InformedDecisions
+    end
+
+    subgraph LSP_Server_Process
+        LSP_Server_External[External LSP Server]
+        LSP_Server_External --> LSPResponses
+    end
+
+    LSPConnect --> CodebaseInvest
+    CodebaseInvest --> LSPRequests
+    LSPRequests --> LSP_Server_External
+    LSPResponses --> GatherContext
+    InformedDecisions --> EnhancedAgent
+```
+
+### 1. Application's Role: LSP Client or Server?
+
+Crush fundamentally acts as an **LSP client**. Its role is to connect to and consume code intelligence data provided by external LSP servers. This design choice allows Crush to leverage the rich ecosystem of existing language servers (e.g., `gopls` for Go, `typescript-language-server` for TypeScript) without needing to implement language-specific parsing or analysis logic itself. This modularity is a key architectural principle.
+
+The `README.md` explicitly states, "Crush can use LSPs for additional context to help inform its decisions, just like you would." Furthermore, the `schema.json` defines `LSPConfig` properties like `"command"` and `"args"`, which are used to specify how to execute an external LSP *server*.
+
+### 2. LSP Connection Management
+
+LSP connections within Crush are managed through explicit configuration, allowing the application to dynamically launch and communicate with external LSP servers as needed.
+
+*   **Configuration:** LSP servers are defined within Crush's configuration files (e.g., `crush.json`). The `schema.json` defines the `LSPConfig` structure, which includes:
+    *   `"command"`: The executable command for the LSP server (e.g., `"gopls"`).
+    *   `"args"`: Arguments to pass to the LSP server command (e.g., `["--stdio"]`).
+    *   `"enabled"`: A boolean flag to enable or disable a specific LSP server configuration.
+*   **Execution Model:** Crush launches these configured LSP servers as external processes. The use of `"--stdio"` as an argument suggests that communication between Crush (the client) and the LSP server is established over standard I/O (stdin/stdout), which is a common and robust method for LSP communication.
+
+### LSP Configuration (`LSPConfig`) Properties
+The following table details the `LSPConfig` properties, which are central to how Crush defines and manages its connections to external LSP servers.
+
+| Property | Type | Description | Example |
+|---|---|---|---|
+| command | string | A string specifying the executable command for the LSP server. | `"gopls"` |
+| args | array<string> | An array of strings for arguments to pass to the LSP server command. | `["--stdio"]` |
+| enabled | boolean | A boolean flag to enable or disable a specific LSP server configuration. | `true` or `false` |
+
+### 3. Specific LSP Features Used
+
+While the documentation broadly states that LSPs provide "additional context," specific LSP features are not explicitly detailed. The agent's prompts mention its responsibility to "run the lint and typecheck commands," implying that LSP *could* contribute to diagnostics and type checking, but it's not explicitly stated that LSP is the direct mechanism for these actions within the agent's workflow. The documentation does not elaborate on the use of features like code completion, hover information, go-to-definition, or refactoring capabilities.
+
+### Crush LSP Client-Server Communication Flow
+This sequence diagram illustrates a typical communication flow between Crush, acting as an LSP client, and an external LSP server. It highlights common LSP messages exchanged to establish a connection and request code intelligence features.
+
+```mermaid
+sequenceDiagram
+    participant Crush as Crush LSP Client
+    participant LSP_Server as LSP Server Process
+
+    Note over Crush,LSP_Server: Crush launches LSP Server process
+
+    Crush->>LSP_Server: initialize Request
+    LSP_Server-->>Crush: initialize Result
+    Crush->>LSP_Server: initialized Notify
+
+    Crush->>LSP_Server: textDocument/didOpen
+    LSP_Server-->>Crush: publishDiagnostics
+
+    Crush->>LSP_Server: textDocument/completion
+    LSP_Server-->>Crush: completion Result
+
+    Crush->>LSP_Server: shutdown Request
+    LSP_Server-->>Crush: shutdown Result
+    Crush->>LSP_Server: exit Notify
+
+    Note over LSP_Server: Process Terminates
+```
+
+### 4. Enhanced Code Intelligence for the Agent
+
+The LSP integration significantly enhances the agent's code intelligence by providing a deeper, semantic understanding of the codebase. This is a fundamental augmentation to the LLM's capabilities, allowing it to reason about code more effectively.
+
+*   **Contextual Awareness:** The primary benefit is that LSPs provide "additional context." This context is crucial for the agent to "understand the codebase" and "gather context" during its "Codebase Investigation" phase, moving beyond simple lexical analysis.
+*   **Informed Decision Making:** By leveraging LSP, Crush gains insights into code structure, type information, and relationships between code elements, similar to how a human developer uses an IDE. This enables the agent to make more informed decisions when performing complex software engineering tasks such as "solving bugs, adding new functionality, refactoring code, explaining code." The LSP's ability to provide structured information about the code allows the agent to move beyond simple text-based analysis to a more robust, semantic understanding, thereby significantly enhancing its problem-solving capabilities.
+
+### Crush Agent Capabilities Enhanced by LSP
+The integration of LSP significantly enhances the Crush agent's capabilities, transforming its ability to interact with and understand codebases. The table below summarizes these key improvements.
+
+| Enhanced Capability | Benefit/Description | Agent Workflow Phase/Context |
+|---|---|---|
+| Informed Decision Making | Crush uses additional context from LSPs to help inform its decisions, leading to more accurate and relevant choices. | General decision-making throughout various tasks |
+| Deep Codebase Understanding & Context Gathering | Gains crucial insights into code structure, type information, and relationships between code elements. | Codebase Investigation phase |
+| Enhanced Execution of Complex Software Engineering Tasks | Enables the agent to make more informed decisions when performing tasks such as solving bugs, adding new functionality, refactoring code, and explaining code. | Execution of specific software engineering tasks (e.g., bug fixing, feature development, refactoring) |
+| Robust Semantic Code Understanding & Problem Solving | Moves beyond simple text-based analysis to a more robust, semantic understanding of the code, thereby significantly enhancing its problem-solving capabilities. | Core analysis and problem-solving processes |
+
+## 7. Sourcegraph API Integration
+
+The `sourcegraph` tool is integrated into the Crush autonomous software engineering agent as a critical research utility. Its fundamental purpose is to expand the agent's knowledge base beyond the local codebase by providing access to a vast repository of public code examples and usage patterns.
+
+### Functionality Provided to the Agent
+
+The `sourcegraph` tool serves as a crucial research utility for the Crush agent, enabling it to enhance its understanding of external codebases and libraries.
+
+### Sourcegraph Tool Capabilities in Crush
+This table summarizes the specific functionalities that the `sourcegraph` tool provides to the Crush agent, detailing each capability, its description, and its use case or benefit.
+
+| Capability | Description | Use Case / Benefit |
+|---|---|---|
+| Code Example Search | Ability to search for code examples across public repositories. | Helps in understanding syntax, finding implementation patterns, and learning from existing codebases. |
+| Usage Pattern Verification | Verifies usage patterns for libraries and frameworks. | Aids in understanding best practices and common implementation patterns. |
+
+This functionality is integrated into the agent's problem-solving workflow under the "Research When Needed" step, alongside the `fetch` tool for documentation. This positions Sourcegraph as a fundamental "external knowledge source" for the agent.
+
+### Crush Agent Research Workflow with Sourcegraph
+This flowchart illustrates how the `sourcegraph` tool is integrated into the Crush agent's problem-solving process, specifically within the 'Research When Needed' step, alongside other tools like `fetch`.
+
+```mermaid
+graph TD
+    Agent_Workflow[Agent Workflow Start]
+    Problem_Solving[Problem Solving]
+
+    subgraph Research_Needed_Step[Research When Needed]
+        Fetch_Doc(Fetch Documentation)
+        Sourcegraph_Tool(Sourcegraph Tool)
+        Sourcegraph_Tool --> Code_Examples[Code Examples Search]
+        Sourcegraph_Tool --> Usage_Patterns[Usage Pattern Verify]
+    end
+
+    Research_Complete[Research Complete]
+
+    Agent_Workflow --> Problem_Solving
+    Problem_Solving --> Research_Needed_Step
+
+    Fetch_Doc --> Research_Complete
+    Code_Examples --> Research_Complete
+    Usage_Patterns --> Research_Complete
+```
+
+### Specific Sourcegraph APIs Utilized
+
+The provided content does not detail the specific Sourcegraph APIs being utilized. It only refers to the general "Sourcegraph tool" and its ability to "search for code examples across public repositories." No specific API endpoints, query languages, or versions are mentioned. This suggests that the interaction is abstracted at a higher level within Crush.
+
+### Authentication with the Sourcegraph Instance
+
+The provided content does not contain any information regarding how authentication with a Sourcegraph instance is handled. While authentication methods for various LLM providers (e.g., `api_key` in JSON configurations or environment variables like `DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`) are extensively described, there is no analogous information provided for Sourcegraph. This implies that either Sourcegraph integration does not require explicit API key configuration in the provided context, or the mechanism is handled outside the scope of the available documentation.
+
+### Crush Agent Authentication Methods Overview
+This table compares known authentication methods for various Crush components/LLM providers, highlighting the absence of specific information for Sourcegraph.
+
+| Component / Provider | Authentication Method(s) Described | Sourcegraph Information |
+|---|---|---|
+| Various LLM Providers (e.g., DeepSeek, Anthropic, OpenRouter, Gemini, AWS, Azure OpenAI) | `api_key` in JSON configurations; Environment variables (e.g., `DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AZURE_OPENAI_API_KEY`) | N/A (This row describes LLM provider authentication, not Sourcegraph) |
+| Sourcegraph Instance | No specific authentication method described in the provided content. | The provided content explicitly states there is no analogous information regarding how authentication with a Sourcegraph instance is handled. |
+
+### Configuration Necessary for Integration
+
+The provided content does not explicitly outline the configuration necessary to enable and use the Sourcegraph integration. While general configuration mechanisms for Crush are described, including local (`./.crush.json`, `./crush.json`) and global (`$HOME/.config/crush/crush.json`) JSON configuration files, and examples are given for LLM providers, LSPs, and MCPs, there is no specific configuration block, environment variable, or setting mentioned for the `sourcegraph` tool. The `schema.json` file, which defines the configuration structure, also does not contain any explicit entries related to Sourcegraph configuration. This suggests that Sourcegraph might be a built-in tool that does not require explicit user-level configuration beyond its inherent functionality.
+
+### Crush Agent Configuration Mechanisms Overview
+This table outlines the general configuration mechanisms and examples for Crush, highlighting the lack of specific configuration details for the Sourcegraph integration.
+
+| Configuration Aspect | General Crush Mechanism / Example | Sourcegraph Specifics |
+|---|---|---|
+| Overall Configuration Scope | Outlines general configuration mechanisms and examples for Crush. | Highlights the lack of specific configuration details for the Sourcegraph integration. |
+| Configuration File Locations | Local JSON files (`./.crush.json`, `./crush.json`) and global JSON file (`$HOME/.config/crush/crush.json`). | The provided content does not explicitly outline the configuration necessary to enable and use the Sourcegraph integration within these files. |
+| Examples of Configurable Components | Examples are given for LLM providers, LSPs (Language Server Protocols), and MCPs (Model Control Protocols). | There is no specific configuration block, environment variable, or setting mentioned for the `sourcegraph` tool. |
+| Configuration Schema | The `schema.json` file defines the structure for Crush configurations. | The `schema.json` file also does not contain any explicit entries related to Sourcegraph configuration. |
+
+## 8. Application Configuration Management
+
+Crush's application configuration management is designed for flexibility and robustness, allowing users to tailor the agent's behavior to their specific needs and environments. This externalization of settings is a fundamental design principle, enabling adaptability without modifying the core application code.
+
+### Application Configuration Management Summary
+
+Crush provides flexible configuration options that can be applied locally or globally, with a defined loading priority and robust validation through a JSON Schema.
+
+### Crush Application Configuration Schema Structure
+This class diagram visualizes the hierarchical structure of the Crush application configuration as defined by `schema.json`, showing the main configuration objects and their composed or aggregated nested components.
+
+```mermaid
+classDiagram
+    class Config {
+        +ModelsConfig models
+        +ProvidersConfig providers
+        +MCPConfig mcp
+        +LSPConfig lsp
+        +Options options
+        +Permissions permissions
+    }
+
+    class ModelsConfig {
+        +SelectedModel selected
+        +Model[] models
+    }
+
+    class ProvidersConfig {
+        +ProviderConfig[] providers
+    }
+
+    class Options {
+        +TUIOptions tui
+    }
+
+    class SelectedModel {
+        // model details
+    }
+
+    class Model {
+        // model definition
+    }
+
+    class ProviderConfig {
+        // provider details
+    }
+
+    class MCPConfig {
+        // mcp settings
+    }
+
+    class LSPConfig {
+        // lsp settings
+    }
+
+    class TUIOptions {
+        // tui settings
+    }
+
+    class Permissions {
+        // permission rules
+    }
+
+    Config *-- ModelsConfig : has models
+    Config *-- ProvidersConfig : has providers
+    Config *-- MCPConfig : has mcp
+    Config *-- LSPConfig : has lsp
+    Config *-- Options : has options
+    Config *-- Permissions : has permissions
+
+    ModelsConfig *-- SelectedModel : has selected
+    ModelsConfig *-- Model : lists models
+    ProvidersConfig *-- ProviderConfig : lists providers
+    Options *-- TUIOptions : has tui
+```
+
+### Crush Top-Level Configuration Sections
+An overview of the main configuration categories available in the Crush application, derived from the `Config` object in `schema.json`.
+
+| Section | Description |
+|---------|-------------|
+| models | Model configurations for different model types |
+| providers | AI provider configurations |
+| mcp | Model Context Protocol server configurations |
+| lsp | Language Server Protocol configurations |
+| options | General application options |
+| permissions | Permission settings for tool usage |
+
+### 1. Available Configuration Options and Their Default Values
+
+The application's configuration is defined by the `schema.json` file, which acts as the single source of truth for all configurable parameters.
+
+### Detailed Configuration Options: `models`
+A comprehensive list of configurable options within the `models` section, detailing their type, description, default values, and constraints.
+
+| Option Path | Type | Description | Default Value | Required | Constraints/Enum |
+|-------------|------|-------------|---------------|----------|------------------|
+| `models.*.model` | String | The model ID as used by the provider API | No default | Yes | - |
+| `models.*.provider` | String | The model provider ID that matches a key in the providers config | No default | Yes | - |
+| `models.*.reasoning_effort` | String | Reasoning effort level for OpenAI models that support it | No default | No | Enum: `"low"`, `"medium"`, `"high"` |
+| `models.*.max_tokens` | Integer | Maximum number of tokens for model responses | No default | No | Min: 1, Max: 200000 |
+| `models.*.think` | Boolean | Enable thinking mode for Anthropic models that support reasoning | No default | No | - |
+
+### Detailed Configuration Options: `providers`
+A comprehensive list of configurable options within the `providers` section, detailing their type, description, default values, and constraints, including nested `Model` properties.
+
+| Option Path | Type | Description | Default Value | Required | Constraints/Enum |
+|-------------|------|-------------|---------------|----------|------------------|
+| `providers` | Object | AI provider configurations | - | No | Keys are provider IDs, values are `ProviderConfig` objects. |
+| `providers.<provider_id>` | Object | Configuration for a specific AI provider. | - | No | Represents a `ProviderConfig` object. |
+| `providers.<provider_id>.id` | String | Unique identifier for the provider | No default | Yes | - |
+| `providers.<provider_id>.name` | String | Human-readable name | No default | No | - |
+| `providers.<provider_id>.type` | String | Provider type that determines the API format | `"openai"` | Yes | Enum: `"openai"`, `"anthropic"`, `"gemini"`, `"azure"`, `"vertexai"` |
+| `providers.<provider_id>.api_key` | String | API key for authentication with the provider | No default | No | - |
+| `providers.<provider_id>.disable` | Boolean | Whether this provider is disabled | `false` | No | - |
+| `providers.<provider_id>.system_prompt_prefix` | String | Custom prefix to add to system prompts for this provider | No default | No | - |
+| `providers.<provider_id>.extra_headers` | Object | Additional HTTP headers to send with requests | No default | No | `additionalProperties` of String |
+| `providers.<provider_id>.extra_body` | Object | Additional fields to include in request bodies | No default | No | - |
+| `providers.<provider_id>.models` | Array of `Model` | List of models available from this provider | No default | No | - |
+| `providers.<provider_id>.models[].id` | String | Unique identifier for the model | No default | Yes | - |
+| `providers.<provider_id>.models[].name` | String | Human-readable name for the model | No default | Yes | - |
+| `providers.<provider_id>.models[].cost_per_1m_in` | Number | Cost per 1 million input tokens for this model | No default | Yes | - |
+| `providers.<provider_id>.models[].cost_per_1m_out` | Number | Cost per 1 million output tokens for this model | No default | Yes | - |
+| `providers.<provider_id>.models[].cost_per_1m_in_cached` | Number | Cost per 1 million cached input tokens for this model | No default | Yes | - |
+| `providers.<provider_id>.models[].cost_per_1m_out_cached` | Number | Cost per 1 million cached output tokens for this model | No default | Yes | - |
+| `providers.<provider_id>.models[].context_window` | Integer | Maximum context window size for this model | No default | Yes | - |
+| `providers.<provider_id>.models[].default_max_tokens` | Integer | Default maximum number of tokens for responses from this model | No default | Yes | - |
+| `providers.<provider_id>.models[].can_reason` | Boolean | Whether this model supports reasoning | No default | Yes | - |
+| `providers.<provider_id>.models[].has_reasoning_efforts` | Boolean | Whether this model supports reasoning effort levels | No default | Yes | - |
+| `providers.<provider_id>.models[].default_reasoning_effort` | String | Default reasoning effort level for this model | No default | Yes | - |
+| `providers.<provider_id>.models[].supports_attachments` | Boolean | Whether this model supports attachments | No default | Yes | - |
+
+### Detailed Configuration Options: `mcp`
+A comprehensive list of configurable options within the `mcp` (Model Context Protocol) section, detailing their type, description, default values, and constraints.
+
+| Option Path | Type | Description | Default Value | Required | Constraints/Enum |
+|-------------|------|-------------|---------------|----------|------------------|
+| `mcp` | Object | Model Context Protocol server configurations. Each property of `mcp` is a named server configuration conforming to `MCPConfig`. | `{}` | No | Additional properties must conform to `MCPConfig` schema |
+| `mcp.<name>.command` | string | Command to execute for stdio MCP servers | No default | No | - |
+| `mcp.<name>.env` | Object | Environment variables for the MCP command | No default | No | Key-value pairs of strings |
+| `mcp.<name>.type` | string | Type of MCP connection | `"stdio"` | Yes | Enum: `"stdio"`, `"sse"`, `"http"` |
+| `mcp.<name>.url` | string | URL for HTTP or SSE MCP servers | No default | No | Format: `uri` |
+| `mcp.<name>.disabled` | boolean | Whether this MCP server is disabled | `false` | No | - |
+| `mcp.<name>.headers` | Object | HTTP headers for HTTP/SSE MCP servers | No default | No | Key-value pairs of strings |
+
+Other sections, `lsp`, `options`, and `permissions`, also have detailed structures defined in `schema.json`, including:
+*   **`lsp`**: Defines LSP server configurations, including `command`, `args`, and `enabled` status.
+*   **`options`**: Contains general application settings like `context_paths` (paths to additional context files for the AI), `tui` options (e.g., `compact_mode`), `debug` flags, `disable_auto_summarize`, and `data_directory` (default: `".crush"`).
+*   **`permissions`**: Manages `allowed_tools` (a list of tools that don't require permission prompts).
+
+### 2. Configuration Source Loading and Merging Order
+
+Crush loads and merges configuration from multiple JSON files with a specific priority. This hierarchical loading is a fundamental mechanism for allowing global defaults, project-specific overrides, and local developer customizations.
+
+### Crush Configuration Loading and Merging Process
+This flowchart illustrates the sequential loading and merging process of configuration files in Crush, highlighting the priority order where later sources override earlier ones.
+
+```mermaid
+graph TD
+    Start_Process[Start]
+    Init_Config[Initialize Config]
+    Load_Hidden[Load ./.crush.json]
+    Apply_Hidden[Apply Hidden Config]
+    Load_Local[Load ./crush.json]
+    Apply_Local[Apply Local Config]
+    Load_Global[Load Global Config]
+    Apply_Global[Apply Global Config]
+    Final_Result[Final Configuration]
+    End_Process[End]
+
+    Start_Process --> Init_Config
+    Init_Config --> Load_Hidden
+    Load_Hidden --> Apply_Hidden
+    Apply_Hidden --> Load_Local
+    Load_Local --> Apply_Local
+    Apply_Local --> Load_Global
+    Load_Global --> Apply_Global
+    Apply_Global --> Final_Result
+    Final_Result --> End_Process
+```
+
+The application prioritizes configurations as follows, where later sources explicitly override earlier ones:
+1.  `./.crush.json` (Highest priority, typically for local, temporary, or sensitive project-specific overrides)
+2.  `./crush.json` (Medium priority, for general project-specific configuration)
+3.  `$HOME/.config/crush/crush.json` (Lowest priority, for global user-specific defaults)
+
+### 3. Environment Variable Mapping
+
+Environment variables serve as a crucial mechanism for injecting sensitive information (like API keys) and dynamic values into the configuration without hardcoding them. This is a fundamental security and flexibility feature.
+
+1.  **Direct API Key Mappings**: Specific environment variables are automatically recognized as API keys for various AI providers:
+    *   `ANTHROPIC_API_KEY`
+    *   `OPENAI_API_KEY`
+    *   `OPENROUTER_API_KEY`
+    *   `GEMINI_API_KEY`
+    *   `VERTEXAI_PROJECT`, `VERTEXAI_LOCATION`
+    *   `GROQ_API_KEY`
+    *   `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`
+    *   `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_API_VERSION`
+
+2.  **Environment Variable Expansion within Configuration Values**: Configuration fields can directly reference environment variables using the `$(echo $VAR)` syntax. This allows for dynamic injection of values from the shell environment into the configuration, commonly used for MCP headers and custom provider API keys.
+
+### 4. Configuration Validation
+
+Configuration validation is performed using a JSON Schema, `schema.json`, which defines the expected structure, data types, and constraints for the `crush.json` configuration files. This validation is a fundamental integrity check, preventing malformed or invalid configurations from causing runtime errors.
+
+*   **Schema Definition**: The `schema.json` file itself is a JSON Schema and defines the application's configuration structure. Configuration examples in `README.md` explicitly reference this schema.
+*   **Type Enforcement**: The schema specifies data types for all configuration fields (e.g., `boolean`, `string`, `integer`, `array`, `object`).
+*   **Required Fields**: Many objects within the configuration define `required` properties, ensuring essential fields are present.
+*   **Enumerated Values**: For certain fields, the schema restricts values to a predefined set using `enum` (e.g., `ProviderConfig.type`, `MCPConfig.type`).
+*   **Range Constraints**: Numeric fields can have `minimum` and `maximum` constraints (e.g., `SelectedModel.max_tokens`).
+*   **Strict Property Checking**: Most configuration objects use `"additionalProperties": false`, which prevents the use of undefined or misspelled configuration properties, ensuring that only valid options are accepted.
+
+This comprehensive schema-based validation ensures that loaded configurations adhere to the expected format and content, contributing to the application's stability.
+
+### Crush Configuration Validation Process
+This flowchart outlines the key validation steps performed on Crush configurations using the `schema.json`, demonstrating how various schema properties enforce data integrity.
+
+```mermaid
+graph TD
+    Start_Val[Start Validation]
+    Load_Config[Load Config]
+    Load_Schema[Load Schema]
+
+    Validate_Type{Type Valid?}
+    Validate_Required{Required Valid?}
+    Validate_Enum{Enum Valid?}
+    Validate_Range{Range Valid?}
+    Validate_Strict{Strict Valid?}
+
+    Config_Pass[Config Valid]
+    Config_Fail[Config Invalid]
+
+    Start_Val --> Load_Config
+    Start_Val --> Load_Schema
+
+    Load_Config --> Validate_Type
+    Load_Schema --> Validate_Type
+
+    Validate_Type -- Yes --> Validate_Required
+    Validate_Type -- No --> Config_Fail
+
+    Load_Schema --> Validate_Required
+    Validate_Required -- Yes --> Validate_Enum
+    Validate_Required -- No --> Config_Fail
+
+    Load_Schema --> Validate_Enum
+    Validate_Enum -- Yes --> Validate_Range
+    Validate_Enum -- No --> Config_Fail
+
+    Load_Schema --> Validate_Range
+    Validate_Range -- Yes --> Validate_Strict
+    Validate_Range -- No --> Config_Fail
+
+    Load_Schema --> Validate_Strict
+    Validate_Strict -- Yes --> Config_Pass
+    Validate_Strict -- No --> Config_Fail
+```
+
+## 9. Database Schema and Persistence Layer
+
+The persistence layer in Crush is a fundamental component that provides the agent with long-term memory, enabling it to maintain context across sessions and manage related files. This is primarily achieved through a SQLite database, leveraging `sqlc` for type-safe data access and `goose` for migrations.
+
+### 1. Database Schema and Table Purposes
+
+The application's database schema consists of three main tables: `sessions`, `messages`, and `files`. These tables are represented by Go structs generated by `sqlc`, ensuring type safety and consistency in data handling.
+
+### Database Schema: Sessions, Messages, and Files
+Illustrates the relationships between the `sessions`, `messages`, and `files` tables, showing primary keys and foreign key dependencies, which form the core data model for session history and associated files.
+
+```mermaid
+erDiagram
+    sessions {
+        string ID PK
+        string ParentSessionID FK
+        string Title
+        int64 MessageCount
+        int64 PromptTokens
+        int64 CompletionTokens
+        float64 Cost
+        int64 UpdatedAt
+        int64 CreatedAt
+        string SummaryMessageID
+    }
+
+    messages {
+        string ID PK
+        string SessionID FK
+        string Role
+        string Parts
+        string Model
+        int64 CreatedAt
+        int64 UpdatedAt
+        int64 FinishedAt
+        string Provider
+    }
+
+    files {
+        string ID PK
+        string SessionID FK
+        string Path
+        string Content
+        int64 Version
+        int64 CreatedAt
+        int64 UpdatedAt
+    }
+
+    sessions ||--o{ messages : has_msg
+    sessions ||--o{ files : has_file
+    sessions ||--o{ sessions : has_child
+```
+
+*   **`Session` Table**: Stores metadata for each user session. This is the top-level container for a conversation context.
+
+### Database Table: `sessions` Schema
+Provides a structured overview of the `sessions` table, detailing each field, its Go data type, and its purpose.
+
+| Field Name | Go Type | Purpose |
+|------------|---------|---------|
+| ID | string | Unique identifier for the session. |
+| ParentSessionID | sql.NullString | References the ID of a parent session, if this session is a sub-session. |
+| Title | string | A user-friendly title or description for the session. |
+| MessageCount | int64 | The total number of messages exchanged within this session. |
+| PromptTokens | int64 | The cumulative number of tokens used for prompts in this session. |
+| CompletionTokens | int64 | The cumulative number of tokens generated as completions in this session. |
+| Cost | float64 | The estimated monetary cost incurred for this session. |
+| UpdatedAt | int64 | Timestamp of the last modification to the session record. |
+| CreatedAt | int64 | Timestamp of when the session record was first created. |
+| SummaryMessageID | sql.NullString | References the ID of a specific message that summarizes the session content. |
+
+*   **`Message` Table**: Stores individual messages that are part of a session's conversation history. This table captures the turn-by-turn interaction with the LLM.
+
+### Database Table: `messages` Schema
+Provides a structured overview of the `messages` table, detailing each field, its Go data type, and its purpose.
+
+| Field Name | Go Type | Purpose |
+|------------|---------|---------|
+| ID | string | Unique identifier for the message record. |
+| SessionID | string | Foreign key linking to the sessions table, indicating which conversation session this message belongs to. |
+| Role | string | The role of the entity that sent the message (e.g., "user", "assistant", "system"). |
+| Parts | string | The content of the message. Can be a single part or multiple parts (e.g., for multi-modal input). |
+| Model | sql.NullString | The specific AI model identifier used to generate this message (if Role is "assistant"). |
+| CreatedAt | int64 | Timestamp indicating when the message record was first created. |
+| UpdatedAt | int64 | Timestamp indicating when the message record was last updated. |
+| FinishedAt | sql.NullInt64 | Timestamp indicating when the AI model finished generating this message (for assistant messages). Null if not yet finished or not an assistant message. |
+| Provider | sql.NullString | The AI service provider (e.g., "OpenAI", "Google", "Anthropic") for the model used. |
+
+*   **`File` Table**: Stores file content and metadata associated with specific sessions. This is crucial for persisting the state of relevant project files during a coding session, allowing the agent to "remember" the files it has interacted with.
+
+### Database Table: `files` Schema
+Provides a structured overview of the `files` table, detailing each field, its Go data type, and its purpose.
+
+| Field Name | Go Type | Purpose |
+|------------|---------|---------|
+| ID | string | Unique identifier for the file record. |
+| SessionID | string | Foreign key linking the file to a specific session. |
+| Path | string | The full path of the file within its associated session. |
+| Content | string | The actual content of the file. |
+| Version | int64 | Incremental version number of the file content. |
+| CreatedAt | int64 | Timestamp indicating when the file record was created. |
+| UpdatedAt | int64 | Timestamp indicating when the file record was last updated. |
+
+### 2. Kind of Data Being Persisted
+
+Based on the schema, the database primarily persists:
+*   **Session History:** This includes the metadata of user interactions (sessions) and the detailed conversation turns (messages) within those sessions. This allows for maintaining multiple work sessions and contexts per project.
+*   **File Context/State:** The `File` table stores the content and path of files associated with a session, indicating that the application persists the state of relevant project files during a session.
+
+It's important to note that data related to "user preferences" or general application configuration (like LSP commands, AI provider settings, debug flags) is **not** stored in this database schema. Instead, `crush.json` and `schema.json` indicate that configuration is managed through JSON files.
+
+### 3. `sqlc` Configuration in `sqlc.yaml`
+
+The `sqlc.yaml` file configures `sqlc` for Go code generation targeting a SQLite database. `sqlc` is a fundamental tool for maintaining type safety and reducing boilerplate when interacting with the database.
+
+### `sqlc.yaml` Configuration Options
+Summarizes the configuration parameters defined in `sqlc.yaml`, explaining their purpose and impact on the generated Go database access code.
+
+| Option | Description | Example Value (for this project) |
+|---|---|---|
+| version | Specifies the `sqlc.yaml` configuration file format version. This ensures compatibility with future `sqlc` releases. | "2" |
+| engine | Defines the database engine to use for SQL parsing and type inference. | "sqlite" |
+| schema | Path(s) to SQL schema files or directories containing schema definitions. These files are parsed to understand table structures and types. | "internal/db/migrations" |
+| queries | Path(s) to SQL query files or directories containing the SQL queries `sqlc` should generate Go code for. Each query typically defines a method. | "internal/db/sql" |
+| package | The Go package name for the generated database access code. This will be the `package` declaration in the generated `.go` files. | "db" |
+| out | The output directory where the generated Go files will be placed. `sqlc` will create this directory if it doesn't exist. | "internal/db" |
+| emit_json_tags | If `true`, `json:"tag"` will be added to struct fields in the generated Go code, useful for JSON serialization/deserialization. | true |
+| emit_prepared_queries | If `true`, `sqlc` will generate methods that use prepared statements for improved performance on repeated queries. Requires the database driver to support prepared statements. | true |
+| emit_interface | If `true`, an interface (`Querier`) will be generated for the `Queries` struct. This is highly recommended for easier mocking and dependency injection in tests. | true |
+| emit_exact_table_names | If `true`, generated struct names will exactly match table names (e.g., `user_posts` becomes `UserPosts` instead of `UserPost`). By default, `sqlc` attempts to singularize names. | false |
+| emit_empty_slices | If `true`, `sqlc` will generate empty slices (`[]Type{}`) instead of `nil` for slice fields when no rows are returned by a query. This can simplify client-side logic. | true |
+
+### 4. Application Interaction with Generated Go Code
+
+The application interacts with the database through the type-safe Go code generated by `sqlc`. This ensures that all database operations are strongly typed, reducing runtime errors and improving code maintainability.
+
+1.  **Database Connection and Migration:** The `db.Connect` function is responsible for establishing the SQLite database connection. It ensures the data directory (`.crush` by default) exists, opens `crush.db`, sets performance-enhancing SQLite pragmas, and applies database migrations using the `goose` library. The migrations are embedded into the binary, ensuring that the database schema is always up-to-date.
+
+### Application Database Connection and Access Flow
+Outlines the sequential steps an application takes to establish a database connection, apply schema migrations, and prepare the `sqlc`-generated data access layer for type-safe database operations.
+
+```mermaid
+graph TD
+    Start_App[App Init]
+
+    subgraph DB_Connection_Setup[db.Connect Function]
+        Call_DB_Connect[Call db.Connect]
+        Check_Create_Dir[Check/Create DB Dir]
+        Apply_Pragmas[Apply SQLite Pragmas]
+        Run_Goose_Migrate[Run Goose Migrations]
+    end
+
+    DB_Ready[DB Connection Ready]
+
+    subgraph SQLC_Access_Layer[sqlc Data Access Layer]
+        Choose_Query_Method{Choose Query Method}
+        Call_DB_New[Call db.New]
+        Call_DB_Prepare[Call db.Prepare]
+        Queries_Ready[Queries Struct Ready]
+    end
+
+    End_Operations[Ready for Operations]
+
+    Start_App --> Call_DB_Connect
+    Call_DB_Connect --> Check_Create_Dir
+    Check_Create_Dir --> Apply_Pragmas
+    Apply_Pragmas --> Run_Goose_Migrate
+    Run_Goose_Migrate --> DB_Ready
+    DB_Ready --> Choose_Query_Method
+    Choose_Query_Method -- "New" --> Call_DB_New
+    Choose_Query_Method -- "Prepare" --> Call_DB_Prepare
+    Call_DB_New --> Queries_Ready
+    Call_DB_Prepare --> Queries_Ready
+    Queries_Ready --> End_Operations
+```
+
+2.  **Instantiating the Data Access Layer:** After establishing a database connection (`*sql.DB`), the application instantiates the `Queries` struct, which encapsulates all generated database operations. This can be done via `db.New` (without prepared statements) or `db.Prepare` (with prepared statements for performance).
+
+### Go Database Access Layer (sqlc Generated)
+Visualizes the key Go structs and interfaces within the `internal/db` package, including the generated models (`Session`, `Message`, `File`), the `DBTX` interface for database transactions, the `Querier` interface defining operations, and the concrete `Queries` struct that implements `Querier` and holds prepared statements.
+
+```mermaid
+classDiagram
+    class Session
+    class Message
+    class File
+
+    class DBTX {
+        <<interface>>
+        +ExecContext()
+        +QueryContext()
+    }
+
+    class Querier {
+        <<interface>>
+        +CreateSession() Session
+        +GetMessage() Message
+        +ListFiles() []File
+        +CreateMessage() Message
+        +DeleteSession()
+        +UpdateSession() Session
+        +DeleteFile()
+        +GetFile() File
+        +ListSessions() []Session
+        +ListMessagesBySession() []Message
+        +ListFilesBySession() []File
+    }
+
+    class Queries {
+        db DBTX
+        +CreateSession() Session
+        +GetMessage() Message
+        +ListFiles() []File
+        +CreateMessage() Message
+        +DeleteSession()
+        +UpdateSession() Session
+        +DeleteFile()
+        +GetFile() File
+        +ListSessions() []Session
+        +ListMessagesBySession() []File
+        +ListFilesBySession() []File
+    }
+
+    Queries --|> Querier
+    Queries o-- DBTX
+    Session "1" --o "N" Message : has
+    Session "1" --o "N" File : has
+```
+
+3.  **Type-Safe Database Operations:** The generated code provides type-safe functions for each defined SQL query. These functions are methods on the `*db.Queries` struct and implement the `db.Querier` interface. This interface-driven design is a fundamental practice for promoting modularity and testability, allowing other parts of the application to depend on an abstraction rather than concrete implementation.
+
+## 10. Terminal User Interface (TUI) Architecture
+
+The Terminal User Interface (TUI) is the primary means of interaction between the user and the Crush agent. Its architecture is built upon a robust Go library and a component-based design, providing an interactive and responsive experience within the terminal environment.
+
+### 1. Go Library Used for the TUI
+
+The TUI is built using the **Bubble Tea** Go library (`github.com/charmbracelet/bubbletea/v2`). This choice is fundamental, as Bubble Tea provides a Model-View-Update (MVU) architecture, which is a clear and predictable pattern for building interactive applications. It simplifies state management and rendering in a terminal environment.
+
+### 2. Major Reusable Components and Composition
+
+The TUI architecture leverages Bubble Tea's MVU pattern to create reusable and composable components. This modularity is a core principle for building maintainable and scalable user interfaces.
+
+*   **`anim.Anim`**: A foundational, reusable animation component (from `internal/tui/components/anim`). This component encapsulates the logic for visual animations, making it easy to integrate animated feedback into various parts of the TUI.
+*   **`Spinner`**: A higher-level component designed for displaying loading or background process indicators. The `Spinner` struct wraps a `tea.Program` and internally utilizes an `anim.Anim` component.
+*   **`model`**: This struct implements the `tea.Model` interface, which is central to Bubble Tea's MVU pattern. It holds the component's state (including the `anim.Anim` instance) and defines the `Init`, `Update`, and `View` methods.
+*   **Composition**: The `NewSpinner` function demonstrates how `anim.Anim` is composed within the `model` struct. It initializes `anim.Anim` with specific settings (e.g., size, labels, colors from the current theme) and then embeds it into the `model`, which forms the core of the `tea.Program`. This shows how smaller, focused components are combined to build larger, more complex UI elements.
+*   **Configurable Options**: The `schema.json` file defines `TUIOptions`, including a `compact_mode` boolean option. This indicates that the TUI's behavior or appearance can be configured at a higher level, allowing views to adapt based on these options.
+
+### TUI Component Structure (Bubble Tea MVU)
+This diagram illustrates the relationships and composition of core TUI components, including `Spinner`, `model`, `anim.Anim`, and their interaction with Bubble Tea's `tea.Program` and `tea.Model` interface. This highlights the MVU pattern's implementation.
+
+```mermaid
+classDiagram
+    class Spinner {
+        TeaProgram program
+    }
+
+    class TeaProgram {
+        +Run()
+    }
+
+    class TeaModel {
+        <<interface>>
+        +Init() Cmd
+        +Update(Msg) (TeaModel, Cmd)
+        +View() string
+    }
+
+    class Model {
+        Anim animation
+        +Init() Cmd
+        +Update(Msg) (TeaModel, Cmd)
+        +View() string
+    }
+
+    class Anim {
+        // Anim specific fields/methods
+    }
+
+    Spinner "1" *-- "1" TeaProgram : wraps
+    Model ..|> TeaModel : implements
+    Model "1" *-- "1" Anim : contains
+    TeaProgram "1" *-- "1" TeaModel : uses
+```
+
+### TUI Configuration Options
+This table provides a structured overview of the configurable options available for the TUI, detailing their name, type, and purpose as defined in the `schema.json` file.
+
+| Option Name | Type | Description |
+|---|---|---|
+| compact_mode | boolean | Controls whether the TUI displays in a compact or standard mode, affecting its layout or appearance. |
+
+### 3. User Input Handling and Backend Interaction
+
+User input is processed through Bubble Tea's message passing mechanism, a fundamental aspect of the MVU pattern. While the provided files offer limited direct insight into broad backend interaction, they show how specific TUI events can trigger signals to the application's underlying logic.
+
+*   **Input Handling**: The `model.Update` method is responsible for processing user input, specifically `tea.KeyPressMsg`.
+*   **Triggering Events**: When "ctrl+c" or "esc" key presses are detected, the `model.Update` method triggers a `m.cancel()` call (a `context.CancelFunc`) and `tea.Quit`. This demonstrates a fundamental mechanism for the TUI to signal a cancellation event to the application's backend, allowing background operations to be gracefully terminated.
+*   **Backend Interaction Hints**: While the TUI code primarily shows cancellation, the overall system is described as "LSP-Enhanced" and "Extensible: add capabilities via MCPs." This indicates that the TUI is part of a larger system that interacts with various backend services, even if the direct TUI-to-LSP/MCP interaction isn't detailed in the provided TUI code. The `Spinner` component itself is for "non-interactive mode," suggesting its role is primarily for visual feedback of background operations rather than direct user command input.
+
+### TUI User Input and Backend Cancellation Flow
+This diagram shows the sequence of events when a user interacts with the TUI, specifically how key presses are handled by the `model.Update` method and how they can trigger a cancellation signal to the application's backend via `context.CancelFunc`.
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant TUI as TUI
+    participant ModelUpdate as model.Update
+    participant ContextCancelFunc as context.CancelFunc
+    participant BackendContext as Backend Context
+    participant Application as Application
+
+    User->>TUI: Presses Ctrl+C or Esc
+    TUI->>ModelUpdate: tea.KeyPressMsg
+    activate ModelUpdate
+    ModelUpdate->>ModelUpdate: Check KeyPress
+    alt KeyPress is Ctrl+C or Esc
+        ModelUpdate->>ContextCancelFunc: Call m.cancel()
+        activate ContextCancelFunc
+        ContextCancelFunc->>BackendContext: Signal Cancellation
+        deactivate ContextCancelFunc
+        ModelUpdate->>Application: tea.Quit
+        deactivate ModelUpdate
+        Application->>Application: Prepare to Exit
+    else Other KeyPress
+        ModelUpdate->>ModelUpdate: Process Input
+        deactivate ModelUpdate
+    end
+    Application-->>User: Application Exits
+```
+
+### 4. State Management and Synchronization
+
+TUI state is managed internally within its Bubble Tea models, following the MVU pattern. Synchronization with the broader application agent appears to be facilitated through `context.Context` and configurable options, though detailed bidirectional state synchronization is not extensively described.
+
+*   **Internal TUI State**: The `model` struct holds its internal state, primarily through the `anim.Anim` component, which manages the animation's visual state. The `model.Update` method is responsible for updating this internal state based on messages.
+*   **Synchronization with Agent/Backend**: The `context.CancelFunc` provided to the `model` serves as a one-way mechanism for the TUI to signal a cancellation event to the application's backend or agent. This allows the TUI to influence the execution flow of background tasks.
+*   **Configurable State**: The `TUIOptions` in `schema.json`, particularly the `compact_mode` setting, represents a persistent configuration state that influences the TUI's behavior. This configuration would likely be loaded at application startup and dictate aspects of the TUI's presentation.
+
+Beyond the cancellation signal and configuration options, the provided files do not detail complex state synchronization mechanisms or protocols between the TUI and the agent for broader application data or interactive workflows. This suggests that the TUI primarily acts as a display and input mechanism, with core logic and complex state residing in the backend.
+
+## 11. Dynamic Prompt Engineering Strategy
+
+The effectiveness of an LLM agent is fundamentally tied to its "programming" through prompts. Crush employs a sophisticated dynamic prompt engineering strategy to guide its LLM agents, ensuring they operate effectively in software engineering tasks, adapt to context, and interact appropriately with users and tools.
+
+### 1. How are the `.md` files in the prompt directory used as templates?
+
+The `.md` files located within the `internal/llm/prompt/` directory serve as foundational **system prompt templates** for the Large Language Models (LLMs). These files are not just static instructions; they define the agent's core persona, operational guidelines, memory mechanisms, and workflows for various tasks. They are the initial "mindset" provided to the LLM.
+
+For instance, `internal/llm/prompt/gemini.md` establishes the agent's role: "You are an interactive CLI agent specializing in software engineering tasks. Your primary goal is to help users safely and efficiently, adhering strictly to the following instructions and utilizing your available tools." Similarly, `internal/llm/prompt/openai.md` states: "You are a deployed coding agent."
+
+These `.md` files contain detailed instructions on tone, style, security rules, and how to interact with the user and the codebase. The `schema.json` file further indicates a `system_prompt_prefix` property, which allows for a "Custom prefix to add to system prompts for this provider." This suggests that the content of these `.md` files forms the main body of the system prompt, which can then be dynamically prefixed based on configuration, allowing for fine-grained control over the LLM's initial instructions.
+
+### 2. How are prompts dynamically populated with context, history, and tool definitions?
+
+Prompts are dynamically populated with crucial information to enable the LLM agent to perform its tasks effectively. This dynamic injection of information is a fundamental aspect of enabling the LLM to operate contextually and intelligently.
+
+*   **Context:**
+    *   **CRUSH.md:** A significant mechanism for dynamic context population is the `CRUSH.md` file. All provider-specific prompt templates explicitly state: "If the current working directory contains a file called CRUSH.md, it will be automatically added to your context." This file serves multiple purposes: "Storing frequently used bash commands," "Recording the user's code style preferences," and "Maintaining useful information about the codebase structure and organization." The agent is also instructed to proactively suggest adding commands and preferences to `CRUSH.md` for future memory, creating a self-improving context.
+    *   **Configurable Context Paths:** The `schema.json` file defines an `options.context_paths` array, described as "Paths to files containing context information for the AI," with examples like `.cursorrules` and `CRUSH.md`. This allows for explicit inclusion of additional, predefined context files.
+    *   **Dynamic Codebase Context:** The prompts instruct the agent to actively understand and incorporate codebase context. For example, agents are told to "think about what the code you're editing is supposed to do based on the filenames directory structure" and to "Analyze surrounding code, tests, and configuration first." They are also advised to "understand the local context (imports, functions/classes) to ensure your changes integrate naturally and idiomatically." This implies dynamic retrieval and inclusion of relevant code snippets or file contents based on the task and current working directory, providing the LLM with a real-time "view" of the code.
+
+### Dynamic Prompt Context Sources
+This table categorizes and describes the various mechanisms used to dynamically populate prompts with contextual information.
+
+| Context Source | Description | Mechanism/Configuration |
+|---|---|---|
+| CRUSH.md File | A specific file (CRUSH.md) located in the current working directory that is automatically included to provide contextual information. | Automatic inclusion if `CRUSH.md` exists in the Current Working Directory (CWD). |
+| Configurable Context Paths | User-defined or system-defined paths that specify additional files or directories to be included as context for prompts. | Defined via the `schema.json` file, specifically within the `options.context_paths` array. |
+| Dynamic Codebase Analysis | Context derived from an intelligent analysis of the surrounding code, file structure, and related project files to infer intent and functionality. | Analysis of filenames, directory structure, surrounding code, tests, and configuration files. |
+
+*   **History:** While the provided files do not explicitly detail how conversational history is directly populated into the prompt, the `schema.json` file includes a `disable_auto_summarize` option. This suggests that conversation summarization is a feature, implying that historical turns are managed and potentially summarized to fit within the LLM's context window, rather than simply appending raw history, which would quickly exceed token limits.
+
+*   **Tool Definitions:** The system prompts themselves explicitly define the available tools and provide detailed instructions on their usage. This is crucial for the LLM to understand its capabilities and how to invoke them. The prompts include examples demonstrating tool calls within conversational flows. The `schema.json` file further defines `permissions.allowed_tools`, indicating that the set of tools available to the LLM can be configured and dynamically provided, ensuring the LLM only attempts to use authorized tools.
+
+### Key Configuration Options for Prompt Engineering (from schema.json)
+This table highlights important configuration options from `schema.json` that directly influence the dynamic prompt engineering strategy, covering system prompt prefixes, context paths, history management, and tool permissions.
+
+| Option Name | Type | Description | Relevance to Prompting |
+|---|---|---|---|
+| system_prompt_prefix | String | A property that defines a prefix for the system prompt. | Directly influences the initial system-level instructions, setting the foundational context or persona for the model's responses. |
+| options.context_paths | Array | An array that defines paths from which to fetch additional context. | Crucial for providing specific, relevant information to the prompt, enabling the model to generate more accurate and contextually aware outputs. |
+| disable_auto_summarize | Boolean | An option to disable automatic summarization of content. | Affects how input content is processed before being included in the prompt, influencing prompt length, detail, and the model's focus on raw information. |
+| permissions.allowed_tools | Array of Strings/Objects | Defines a list of tools that the model is permitted to use. | Determines the model's capabilities for external interaction and function calling, directly impacting its ability to generate prompts that leverage tools or to respond based on tool outputs. |
+
+### Dynamic LLM System Prompt Construction Flow
+This flowchart illustrates how the final system prompt for an LLM is dynamically assembled from various sources, including base templates, configuration, context files, and tool definitions, as discussed in the preceding sections.
+
+```mermaid
+graph TD
+    Base_Templates[Base MD Templates]
+    Config_Prefix[Config Prefix]
+    CRUSH_MD[CRUSH MD]
+    Context_Files[Context Files]
+    Codebase_Context[Codebase Context]
+    Agent_History[Agent History]
+    Tool_Defs[Tool Definitions]
+    Prompt_Builder[Prompt Builder]
+    Final_Prompt[Final System Prompt]
+
+    Base_Templates --> Prompt_Builder
+    Config_Prefix --> Prompt_Builder
+    CRUSH_MD --> Prompt_Builder
+    Context_Files --> Prompt_Builder
+    Codebase_Context --> Prompt_Builder
+    Agent_History --> Prompt_Builder
+    Tool_Defs --> Prompt_Builder
+    Prompt_Builder --> Final_Prompt
+```
+
+### 3. Are there different prompt strategies for different tasks (e.g., coding vs. summarizing)?
+
+The provided content primarily outlines a unified prompt strategy centered around "software engineering tasks." These tasks encompass a range of activities including "fixing bugs, adding features, refactoring, or explaining code." The underlying principle is a consistent, iterative problem-solving workflow.
+
+All relevant prompt files (`gemini.md`, `anthropic.md`, `openai.md`, `v2.md`) prescribe a similar, multi-step workflow for these tasks, emphasizing a systematic approach:
+
+*   **Understand:** Analyze request and codebase.
+*   **Plan:** Develop a coherent, grounded plan, potentially including self-verification via unit tests.
+*   **Implement:** Use tools (`edit`, `write`, `bash`) adhering to conventions.
+*   **Verify (Tests):** Run project's testing procedures.
+*   **Verify (Standards):** Execute build, linting, and type-checking commands.
+
+### LLM Software Engineering Task Workflow
+This flowchart outlines the standardized multi-step workflow prescribed to the LLM for handling software engineering tasks, as detailed in the prompt templates.
+
+```mermaid
+graph TD
+    Start_Task((Start Task))
+    Step_Understand[Understand]
+    Step_Plan[Plan]
+    Step_Implement[Implement]
+    Step_VerifyTests[Verify Tests]
+    Step_VerifyStandards[Verify Standards]
+    End_Task((Task End))
+
+    Start_Task --> Step_Understand
+    Step_Understand --> Step_Plan
+    Step_Plan --> Step_Implement
+    Step_Implement --> Step_VerifyTests
+    Step_VerifyTests --> Step_VerifyStandards
+    Step_VerifyStandards --> End_Task
+```
+
+While the agent's core role is coding and code-related tasks, the existence of the `disable_auto_summarize` option in `schema.json` suggests that summarization is a *feature* of the system (likely for managing conversation history), rather than a distinct prompt strategy that the LLM itself is explicitly trained or instructed to perform as a primary task. There is no evidence of separate, distinct prompt templates or strategies specifically for non-coding tasks like summarizing. The focus is consistently on guiding the LLM through a robust software engineering process.
+
+### 4. How are prompts adapted to the specific requirements of different LLM providers like OpenAI, Anthropic, and Gemini?
+
+The system adapts prompts to specific LLM providers by utilizing dedicated Markdown files as base templates for each provider, coupled with configurable settings. This fine-tuning is crucial because different LLMs have varying strengths, preferred input formats, and behavioral nuances.
+
+### LLM Provider-Specific Prompt Template Files
+This table lists the core Markdown files used as base templates for different LLM providers and their initial persona/role definition, highlighting the starting point for provider-specific adaptations.
+
+| File Path | LLM Provider | Initial Persona/Role | Key Characteristics |
+|---|---|---|---|
+| internal/llm/prompt/gemini.md | Gemini | You are an interactive CLI agent specializing in software engineering tasks. | Foundational template; Defines initial persona and role for Gemini LLMs. |
+| internal/llm/prompt/openai.md | OpenAI | You are a deployed coding agent. | Foundational template; Defines initial persona and role for OpenAI LLMs. |
+
+*   **Provider-Specific Prompt Files:** The most direct adaptation is through distinct prompt files for each provider: `openai.md`, `anthropic.md`, `gemini.md`. These files contain instructions tailored to the nuances and expected behaviors of each LLM.
+
+*   **Tailored Tone and Style Guidelines:**
+    *   **OpenAI:** `openai.md` defines a friendly, knowledgeable, and eager tone.
+    *   **Anthropic:** `anthropic.md` imposes strict verbosity constraints ("MUST answer concisely with fewer than 4 lines").
+    *   **Gemini:** `gemini.md` emphasizes "Minimal Output" and "No Chitchat."
+
+*   **Provider-Specific Tool Usage and Constraints:**
+    *   **OpenAI:** `openai.md` includes specific negative constraints like: "Do not use `ls -R` `find`, or `grep` - these are slow in large repos. Use the Agent tool for searching instead." It also details precise requirements for the `edit` tool.
+    *   **Anthropic & Gemini:** Both `anthropic.md` and `gemini.md` have "Tool usage policy" sections that emphasize parallelism of tool calls when there are no dependencies.
+
+### LLM Provider-Specific Prompt Adaptations and Guidelines
+This table compares how prompts are tailored for different LLM providers, focusing on their unique tone, style guidelines, and specific tool usage constraints.
+
+| LLM Provider | Base Prompt File | Tone/Style Guidelines | Specific Tool Constraints/Notes |
+|---|---|---|---|
+| OpenAI | Dedicated Markdown File | Respond in a friendly tone as a remote teammate. | Do not use `ls -R`, `find`, or `grep`. |
+| Anthropic | Dedicated Markdown File | MUST answer concisely with fewer than 4 lines. | None specified. |
+| Gemini | Dedicated Markdown File | Minimal Output: Aim for fewer than 3 lines of text output; No Chitchat. | None specified. |
+
+*   **Configuration-driven Adaptation:** The `README.md` and `schema.json` demonstrate how providers are configured, specifying a `type` (e.g., `"openai"`, `"anthropic"`) for each provider. This configuration likely dictates which base `.md` prompt template is loaded. The `system_prompt_prefix` property in `schema.json` further allows for dynamic addition of provider-specific instructions or context that might not be part of the main `.md` template.
+
+In summary, while all providers share common core mandates regarding code conventions, security, and the use of `CRUSH.md` for memory, the system employs distinct prompt templates and configuration options to fine-tune the LLM's behavior, communication style, and tool interaction according to the specific characteristics and requirements of each provider, maximizing performance and adherence to best practices.
+
+## 12. Testing Strategy and Golden Files
+
+The Crush project employs a comprehensive testing strategy, with a significant emphasis on **snapshot testing using "golden files"** to ensure the stability and correctness of specific application components, particularly those related to Terminal User Interface (TUI) rendering. This approach is fundamental for verifying visual consistency and complex textual outputs.
+
+### Purpose and Mechanism of Golden Files
+
+Golden files (`.golden` extension) serve as reference snapshots for expected test outputs. During a standard test run, the actual output generated by the code is compared against the content of its corresponding golden file. If there is any discrepancy, the test fails, indicating an unintended change in behavior. This mechanism is explicitly used for "debugging" and verifying outputs, acting as a regression safety net for UI components.
+
+### Golden File Test Execution Workflow
+This flowchart visualizes the standard process of how golden file tests are executed, comparing actual output against reference files and determining test success or failure.
+
+```mermaid
+graph TD
+    Start[Start]
+    Generate_Output[Generate Output]
+    Compare_Files[Compare Files]
+    Discrepancy_Check{Discrepancy?}
+    Test_Fail[Test Failed]
+    Test_Pass[Test Passed]
+    End_Node[End]
+
+    Start --> Generate_Output
+    Generate_Output --> Compare_Files
+    Compare_Files --> Discrepancy_Check
+    Discrepancy_Check -- Yes --> Test_Fail
+    Discrepancy_Check -- No --> Test_Pass
+    Test_Fail --> End_Node
+    Test_Pass --> End_Node
+```
+
+### Application Areas for Golden File Testing
+
+The provided content indicates that golden files are primarily utilized for testing the `diffview` component within the `internal/tui/exp` package. This suggests an extensive use of snapshot testing for TUI rendering, ensuring that the visual representation of code differences remains consistent across changes.
+
+### Golden File Test Scenarios for `diffview` Component
+This table provides a structured overview of the various conditions and parameters tested using golden files for the `internal/tui/exp/diffview` component, highlighting the extensive use of snapshot testing for TUI rendering.
+
+| Test Scenario | Description | Parameters/Conditions | Golden File Path Examples |
+|---|---|---|---|
+| General DiffView Rendering | Basic rendering tests for the `diffview` component, covering various general diff states and content. | Default or unspecified parameters; focus on diverse diff content. | `./testdata/TestDiffView/**/*.golden` |
+| DiffView with Varying Width | Tests how the `diffview` component renders and adapts to different horizontal display sizes. | Varying `Width` values; tested for both Unified and Split diff modes. | `./testdata/TestDiffViewWidth/Unified/*.golden`, `./testdata/TestDiffViewWidth/Split/*.golden` |
+| DiffView with Varying Height | Tests how the `diffview` component handles different vertical display sizes, including truncation and content fitting. | Varying `Height` values; tested for both Unified and Split diff modes. | `./testdata/TestDiffViewHeight/Unified/*.golden`, `./testdata/TestDiffViewHeight/Split/*.golden` |
+| DiffView with Horizontal Offset (XOffset) | Tests the horizontal scrolling behavior of the `diffview` component. | Varying `XOffset` values; tested for both Unified and Split diff modes. | `./testdata/TestDiffViewXOffset/Unified/*.golden`, `./testdata/TestDiffViewXOffset/Split/*.golden` |
+| DiffView with Vertical Offset (YOffset) | Tests the vertical scrolling behavior of the `diffview` component, including scenarios where content extends beyond the viewable area, simulating 'infinite' scroll. | Varying `YOffset` values, including large or 'infinite' scroll positions; tested for both Unified and Split diff modes. | `./testdata/TestDiffViewYOffset/Unified/*.golden`, `./testdata/TestDiffViewYOffset/Split/*.golden`, `./testdata/TestDiffViewYOffsetInfinite/Unified/*.golden`, `./testdata/TestDiffViewYOffsetInfinite/Split/*.golden` |
+
+### Process for Updating Golden Files
+
+When intentional changes to the application's behavior affect the expected output, the golden files need to be updated. This process is managed through a dedicated `Taskfile` command, making it a streamlined part of the developer workflow.
+
+*   The `test:update` task is used for this purpose.
+*   Its description explicitly states: "Run tests and update golden files".
+*   The command executed is `go test ./... -update {{.CLI_ARGS}}`.
+
+To update a golden file, developers run `task test:update`. This command triggers the Go test suite with the `-update` flag, which causes the tests to regenerate the output and overwrite the existing golden files with the new, desired state. This is a crucial step in maintaining the validity of snapshot tests.
+
+### Golden File Update Process
+This flowchart illustrates the developer workflow for updating golden files when intentional changes to the application's behavior alter the expected output.
+
+```mermaid
+graph TD
+    A[Behavior Change]
+    B[Output Affected]
+    C[Developer Runs]
+    D[Taskfile Invoked]
+    E[Go Test Executed]
+    F[Output Regenerated]
+    G[Golden Overwritten]
+    H[Golden Files Updated]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+```
+
+### Other Types of Tests
+
+Beyond golden file snapshot testing, the codebase incorporates other standard testing methodologies, forming a comprehensive testing pyramid.
+
+*   **Unit and Integration Tests**: The project uses Go's built-in testing framework. The `CRUSH.md` file specifies how to run tests: `task test` or `go test ./...`, with an example for running a single test: `go test ./internal/llm/prompt -run TestGetContextFromPaths`. This indicates the presence of traditional unit tests, which verify individual components in isolation, and integration tests, which verify interactions between components.
+*   **Testing Practices**: The `CRUSH.md` file outlines specific Go testing practices:
+    *   Use of `testify`'s `require` package for assertions, providing idiomatic and robust failure handling.
+    *   Parallel test execution with `t.Parallel()`, optimizing test suite runtime.
+    *   Setting environment variables for tests using `t.SetEnv()`, enabling isolated and configurable test environments.
+    *   Using `t.Tempdir()` for temporary directories, which is common in integration tests requiring file system interaction, ensuring clean test environments.
+
+These practices suggest a robust suite of unit and integration tests that complement the golden file snapshot tests, covering various aspects of the application's logic and interactions, from low-level functions to complex system behaviors.
+
+### General Testing Practices and Methodologies
+This table summarizes the broader testing approaches, frameworks, and specific Go testing practices employed in the project beyond golden file snapshotting.
+
+| Category | Practice/Tool | Description/Purpose | Example/Context |
+|---|---|---|---|
+| Methodologies | Unit Testing | Verifying individual components or functions in isolation. | Indicated by the example of running a single test: `go test ./internal/llm/prompt -run TestGetContextFromPaths` |
+| Methodologies | Integration Testing | Testing the interaction between different modules or services, often involving external dependencies like file systems. | Use of `t.Tempdir()` for temporary directories, which is common in integration tests requiring file system interaction. |
+| Test Execution | Standard Go Test Runner | Running all or specific tests using the built-in Go testing tool. | `go test ./...` or `go test ./internal/llm/prompt -run TestGetContextFromPaths` |
+| Test Execution | Task Runner (e.g., `task`) | Simplified command for running all tests, likely wrapping `go test` for convenience. | `task test` |
+| Go Testing Practices | Assertions with `testify/require` | Providing robust and idiomatic assertion functions for tests, failing immediately on assertion failure. | Use of `testify`'s `require` package for assertions. |
+| Go Testing Practices | Parallel Test Execution | Running tests concurrently to speed up the test suite execution. | Use of `t.Parallel()` |
+| Go Testing Practices | Environment Variable Management | Setting specific environment variables for the duration of a test, useful for configuring test behavior or mocking external services. | Setting environment variables for tests using `t.SetEnv()` |
+| Go Testing Practices | Temporary Directory Creation | Creating a unique, temporary directory for tests that require file system interaction, ensuring isolation and clean-up. | Using `t.Tempdir()` for temporary directories |
+
+## 13. Developer Onboarding and Build Process
+
+This section outlines the fundamental steps for new developers to set up their environment, build the Crush project, run tests, and utilize the automated task runner. A smooth onboarding process is crucial for developer productivity and project maintainability.
+
+### 1. System Prerequisites
+
+The primary language for this project is Go. A standard Go development environment is a fundamental prerequisite.
+
+### Required System Prerequisites
+This table lists the essential tools and dependencies that must be installed on a developer's machine before starting development.
+
+| Tool / Dependency | Purpose / Description | Notes |
+|---|---|---|
+| Go | The primary programming language and runtime environment. Essential for compiling and running Go applications. | Core dependency for all Go development. |
+| Task | A task runner/build tool used to automate and execute common development tasks (e.g., build, test, lint) defined in a Taskfile. | Simplifies build and development workflows. |
+| `golangci-lint` | A fast Go linters aggregator. Used to check code for style violations, potential bugs, and common errors across multiple linters. | Ensures code quality and consistency. |
+| `gofumpt` | A Go formatter that is a stricter version of `gofmt`. Ensures consistent and opinionated code formatting. | Maintains a consistent code style across the project. |
+| `goimports` | A tool that updates Go import lines, adding missing ones and removing unreferenced ones. It also formats the code. | Manages import statements and contributes to code formatting. |
+| `gopls` | The Go language server. Provides IDE features like autocompletion, go-to-definition, refactoring, and error checking for Go projects. | Enhances developer experience and productivity in IDEs/editors. |
+
+The application itself "Works Everywhere" (macOS, Linux, Windows, FreeBSD, OpenBSD, NetBSD), implying the development environment can be set up on these operating systems.
+
+### 2. Using `Taskfile.yaml` for Common Development Tasks
+
+The `Taskfile.yaml` defines several convenient commands for development, abstracting complex `go` commands into simpler, memorable `task` commands. This automation is a fundamental practice for consistent builds and development workflows.
+
+### Common Development Commands (using Taskfile.yaml)
+This table catalogs the various `task` commands and direct `go` commands available for building, testing, linting, formatting, running, and profiling the application.
+
+| Task Command / Go Command | Description | Underlying Command(s) | Usage Example |
+|---|---|---|---|
+| `task build` / `go build` | Compiles the application binaries for the current platform or specified targets. | `go build ./cmd/myapp` | `task build` or `go build -o bin/myapp ./cmd/myapp` |
+| `task test` / `go test` | Runs all unit and integration tests across the project. | `go test ./...` | `task test` or `go test -v ./pkg/service` |
+| `task lint` | Analyzes code for potential errors, style violations, and suspicious constructs using a linter. | `golangci-lint run ./...` | `task lint` |
+| `task format` | Automatically formats Go source code according to standard Go conventions. | `go fmt ./...` or `gofumpt -w ./...` | `task format` |
+| `task run` / `go run` | Runs the application locally for development purposes, often with hot-reloading or specific configurations. | `go run ./cmd/server` | `task run` or `go run ./cmd/server` |
+| `task profile` | Generates performance profiles (CPU, memory, blocking, etc.) for the application. | `go tool pprof` (after running app with profiling flags) | `task profile` (assuming Taskfile orchestrates run + pprof) or `go run -cpuprofile=cpu.prof ./cmd/myapp` |
+| `task schema` | Generates or updates application schemas (e.g., database migrations, API documentation, configuration schemas). | Application-specific schema generation tool or `go run ./cmd/schema-generator` | `task schema` |
+
+### Core Development Task Workflow
+This flowchart depicts the common development loop, showing how various tasks like linting, testing, formatting, and running are executed, primarily leveraging the `Task` runner.
+
+```mermaid
+graph TD
+    Start[User Action]
+    TaskCmd[task Command]
+    TaskfileLookup[Read Taskfile]
+
+    subgraph Task Runner
+        TaskLint[task lint]
+        TaskTest[task test]
+        TaskFmt[task fmt]
+        TaskDev[task dev]
+    end
+
+    subgraph Go Toolchain Commands
+        GoVet[go vet]
+        GoLint[golint]
+        GoTest[go test]
+        GoFmt[go fmt]
+        GoRun[go run]
+    end
+
+    ExecuteCmd[Execute Process]
+    ShowOutput[Display Result]
+    End[End Workflow]
+
+    Start --> TaskCmd
+    TaskCmd --> TaskfileLookup
+
+    TaskfileLookup --> TaskLint
+    TaskfileLookup --> TaskTest
+    TaskfileLookup --> TaskFmt
+    TaskfileLookup --> TaskDev
+
+    TaskLint --> GoVet
+    TaskLint --> GoLint
+    TaskTest --> GoTest
+    TaskFmt --> GoFmt
+    TaskDev --> GoRun
+
+    GoVet --> ExecuteCmd
+    GoLint --> ExecuteCmd
+    GoTest --> ExecuteCmd
+    GoFmt --> ExecuteCmd
+    GoRun --> ExecuteCmd
+
+    ExecuteCmd --> ShowOutput
+    ShowOutput --> End
+```
+
+### 3. Fetching Dependencies and Running the Application Locally
+
+For a first-time setup and local execution, the process involves fetching Go module dependencies (which Go handles automatically) and then running the application.
+
+### Developer Onboarding Workflow
+This flowchart illustrates the step-by-step process for a new developer to set up their environment, fetch dependencies, configure environment variables, and run the application locally for the first time.
+
+```mermaid
+graph TD
+    Start_Onboarding[(Start)]
+
+    subgraph System_Prerequisites
+        Install_Go[Install Go]
+        Install_Task[Install Task]
+        Install_Linters[Install Linters]
+        Install_Formatters[Install Formatters]
+        Setup_LSP[Setup LSP]
+    end
+
+    subgraph Env_Variables
+        Configure_API[Config API Keys]
+        Set_CRUSH[Set CRUSH_PROFILE]
+    end
+
+    subgraph Fetch_Run_App
+        Go_Install[Run go install]
+        Go_Run[Run go run]
+        Task_Dev[Run task dev]
+        Implicit_Deps[Implicit Deps]
+    end
+
+    End_Onboarding[(End)]
+
+    Start_Onboarding --> Install_Go
+    Install_Go --> Install_Task
+    Install_Task --> Install_Linters
+    Install_Linters --> Install_Formatters
+    Install_Formatters --> Setup_LSP
+
+    Setup_LSP --> Configure_API
+    Configure_API --> Set_CRUSH
+
+    Set_CRUSH --> Go_Install
+    Go_Install --> Go_Run
+    Go_Run --> Task_Dev
+    Task_Dev --> Implicit_Deps
+    Implicit_Deps --> End_Onboarding
+```
+
+1.  **Install the application binary (optional for development)**: `go install github.com/charmbracelet/crush@latest`.
+2.  **Fetch Dependencies**: When running `go build .`, `go run .`, or `go test ./...`, Go automatically fetches required module dependencies. No explicit `go mod download` command is specified as a separate first step, as Go's toolchain handles this implicitly.
+3.  **Run the Application Locally**:
+    *   The most direct way to run the application is `go run .`.
+    *   For a development run with profiling enabled, use the `Task` runner: `task dev`.
+
+### 4. Environment Variables Required for Local Development
+
+Environment variables are a fundamental mechanism for configuring the application, especially for sensitive information like API keys and internal development flags.
+
+### Environment Variables for Local Development
+This table details the environment variables necessary for the application to function correctly, especially for interacting with LLM providers and enabling internal development features.
+
+| Variable Name | Purpose | Notes / Example |
+|---|---|---|
+| ANTHROPIC_API_KEY | Authenticates with the Anthropic LLM provider. | Required for interacting with Anthropic models (e.g., Claude). |
+| OPENAI_API_KEY | Authenticates with the OpenAI LLM provider. | Required for interacting with OpenAI models (e.g., GPT-3.5, GPT-4). |
+| OPENROUTER_API_KEY | Authenticates with the OpenRouter LLM proxy/provider. | Allows access to various models via OpenRouter's unified API. |
+| GEMINI_API_KEY | Authenticates with the Google Gemini LLM provider. | Required for interacting with Google Gemini models. |
+| CRUSH_PROFILE | Enables specific internal development features or configurations. | Used to switch between different development profiles or modes (e.g., `development`, `testing`). |
+
+Additionally, the `CRUSH_PROFILE` environment variable is used internally by the `task dev` command to enable profiling. The project's internal prompt documentation also suggests that if an environment variable is required and a `.env` file doesn't exist, one should be proactively created with placeholders.
+
+## 14. Conclusion
+
+The Crush system represents a sophisticated approach to augmenting Large Language Models with practical software engineering capabilities. By dissecting its architecture from first principles, we can appreciate how complex functionalities are built upon fundamental, interconnected components:
+
+*   **LLM as Orchestrator**: The LLM agent's core logic, driven by a meticulous execution loop and dynamic prompt engineering, acts as the central brain, transforming high-level user requests into actionable plans.
+*   **Robust Tooling**: A comprehensive and extensible tooling system provides the agent with the "hands" to interact with the file system, execute shell commands, and leverage external services like Sourcegraph, bridging the gap between AI reasoning and real-world development environments.
+*   **Layered Safety**: Secure file system operations, enforced through explicit tool requirements, user confirmation prompts, and internal agent directives, are paramount. This ensures that the powerful autonomous capabilities are always exercised under strict user control, fostering trust and preventing unintended consequences.
+*   **Flexible Configuration**: A hierarchical configuration management system, validated by JSON Schema and integrated with environment variables, allows for seamless adaptation to diverse LLM providers, custom tools, and user preferences without code modifications.
+*   **Persistent Memory**: The database persistence layer, coupled with the dynamic `CRUSH.md` file, provides the agent with both long-term and immediate context, enabling session continuity and continuous learning from user interactions and codebase specifics.
+*   **Enhanced Code Intelligence**: LSP integration elevates the agent's understanding of code from lexical analysis to semantic comprehension, allowing it to make more informed and accurate decisions during complex software engineering tasks.
+*   **Developer Experience**: A streamlined developer onboarding process, supported by a `Taskfile.yaml` for automated common tasks and clear environment variable management, ensures that the system is not only powerful but also accessible and maintainable.
+
+In essence, Crush is more than just an LLM wrapper; it's a carefully engineered system that integrates AI intelligence with practical development workflows, prioritizing safety, extensibility, and user control. This comprehensive architecture allows Crush to function as an intelligent, adaptable, and reliable "coding bestie," poised to significantly enhance the productivity of software engineers by bringing autonomous capabilities directly to their terminal.

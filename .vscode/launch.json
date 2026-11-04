@@ -9,16 +9,47 @@
             "args": [
                 "api.api:app",
                 "--reload",
-                "--host",
-                "0.0.0.0",
                 "--port",
                 "8001"
             ],
             "jinja": true,
-            "justMyCode": true,
+            "justMyCode": true
+        },
+        {
+            "name": "Debug Wiki Research Agent (Simple)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/wiki_research_agent.py",
+            "args": [
+                ".",
+                "--output", "debug_wiki.md",
+                "--topics", "2",
+                "--demo",
+                "--no-rag"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
             "env": {
-                "PORT": "8001"
-            }
+                "GOOGLE_API_KEY": "${env:GOOGLE_API_KEY}"
+            },
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Debug Wiki Research Agent (with RAG)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/wiki_research_agent.py",
+            "args": [
+                "https://github.com/sst/opencode",
+                "--output", "debug_wiki_rag.md",
+                "--topics", "2"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "GOOGLE_API_KEY": "${env:GOOGLE_API_KEY}"
+            },
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

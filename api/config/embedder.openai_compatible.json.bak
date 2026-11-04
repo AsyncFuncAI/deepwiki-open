@@ -1,0 +1,29 @@
+{
+  "embedder": {
+    "client_class": "OpenAIClient",
+    "initialize_kwargs": {
+      "api_key": "${OPENAI_API_KEY}",
+      "base_url": "${OPENAI_BASE_URL}"
+    },
+    "batch_size": 10,
+    "model_kwargs": {
+      "model": "text-embedding-v3",
+      "dimensions": 256,
+      "encoding_format": "float"
+    }
+  },
+  "embedder_ollama": {
+    "client_class": "OllamaClient",
+    "model_kwargs": {
+      "model": "nomic-embed-text"
+    }
+  },
+  "retriever": {
+    "top_k": 20
+  },
+  "text_splitter": {
+    "split_by": "word",
+    "chunk_size": 350,
+    "chunk_overlap": 100
+  }
+}

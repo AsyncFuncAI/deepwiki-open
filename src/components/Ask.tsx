@@ -1,9 +1,25 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { FaArrowRight, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import React, {useState, useRef, useEffect} from 'react';
+import {FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Markdown from './Markdown';
 import { useLanguage } from '@/contexts/LanguageContext';
+import RepoInfo from '@/types/repoinfo';
+import getRepoUrl from '@/utils/getRepoUrl';
+import ModelSelectionModal from './ModelSelectionModal';
+import { createChatWebSocket, closeWebSocket, ChatCompletionRequest } from '@/utils/websocketClient';
+
+interface Model {
+  id: string;
+  name: string;
+}
+
+interface Provider {
+  id: string;
+  name: string;
+  models: Model[];
+  supportsCustomModel?: boolean;
+}
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -18,38 +34,36 @@ interface ResearchStage {
 }
 
 interface AskProps {
-  repoUrl: string;
-  githubToken?: string;
-  gitlabToken?: string;
-  bitbucketToken?: string;
-  localOllama?: boolean;
-  useOpenRouter?: boolean;
-  useOpenai?: boolean;
-  openRouterModel?: string;
-  openaiModel?: string;
+  repoInfo: RepoInfo;
+  provider?: string;
+  model?: string;
+  isCustomModel?: boolean;
+  customModel?: string;
   language?: string;
+  onRef?: (ref: { clearConversation: () => void }) => void;
 }
 
-// const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
-
 const Ask: React.FC<AskProps> = ({
-  repoUrl,
-  githubToken,
-  gitlabToken,
-  bitbucketToken,
-  localOllama = false,
-  useOpenRouter = false,
-  useOpenai = false,
-  openRouterModel = 'openai/gpt-4o',
-  openaiModel = 'gpt-4o',
-  language = 'en'
+  repoInfo,
+  provider = '',
+  model = '',
+  isCustomModel = false,
+  customModel = '',
+  language = 'en',
+  onRef
 }) => {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [deepResearch, setDeepResearch] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [hasResponse, setHasResponse] = useState(false);
+
+  // Model selection state
+  const [selectedProvider, setSelectedProvider] = useState(provider);
+  const [selectedModel, setSelectedModel] = useState(model);
+  const [isCustomSelectedModel, setIsCustomSelectedModel] = useState(isCustomModel);
+  const [customSelectedModel, setCustomSelectedModel] = useState(customModel);
+  const [isModelSelectionModalOpen, setIsModelSelectionModalOpen] = useState(false);
+  const [isComprehensiveView, setIsComprehensiveView] = useState(true);
 
   // Get language context for translations
   const { messages } = useLanguage();
@@ -62,6 +76,8 @@ const Ask: React.FC<AskProps> = ({
   const [researchComplete, setResearchComplete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const responseRef = useRef<HTMLDivElement>(null);
+  const providerRef = useRef(provider);
+  const modelRef = useRef(model);
 
   // Focus input on component mount
   useEffect(() => {
@@ -70,6 +86,13 @@ const Ask: React.FC<AskProps> = ({
     }
   }, []);
 
+  // Expose clearConversation method to parent component
+  useEffect(() => {
+    if (onRef) {
+      onRef({ clearConversation });
+    }
+  }, [onRef]);
+
   // Scroll to bottom of response when it changes
   useEffect(() => {
     if (responseRef.current) {
@@ -77,10 +100,57 @@ const Ask: React.FC<AskProps> = ({
     }
   }, [response]);
 
+  // Close WebSocket when component unmounts
+  useEffect(() => {
+    return () => {
+      closeWebSocket(webSocketRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    providerRef.current = provider;
+    modelRef.current = model;
+  }, [provider, model]);
+
+  useEffect(() => {
+    const fetchModel = async () => {
+      try {
+        setIsLoading(true);
+
+        const response = await fetch('/api/models/config');
+        if (!response.ok) {
+          throw new Error(`Error fetching model configurations: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // use latest provider/model ref to check
+        if(providerRef.current == '' || modelRef.current== '') {
+          setSelectedProvider(data.defaultProvider);
+
+          // Find the default provider and set its default model
+          const selectedProvider = data.providers.find((p:Provider) => p.id === data.defaultProvider);
+          if (selectedProvider && selectedProvider.models.length > 0) {
+            setSelectedModel(selectedProvider.models[0].id);
+          }
+        } else {
+          setSelectedProvider(providerRef.current);
+          setSelectedModel(modelRef.current);
+        }
+      } catch (err) {
+        console.error('Failed to fetch model configurations:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    if(provider == '' || model == '') {
+      fetchModel()
+    }
+  }, [provider, model]);
+
   const clearConversation = () => {
     setQuestion('');
     setResponse('');
-    setHasResponse(false);
     setConversationHistory([]);
     setResearchIteration(0);
     setResearchComplete(false);
@@ -100,27 +170,27 @@ const Ask: React.FC<AskProps> = ({
 
     // Check for conclusion sections that don't indicate further research
     if ((content.includes('## Conclusion') || content.includes('## Summary')) &&
-        !content.includes('I will now proceed to') &&
-        !content.includes('Next Steps') &&
-        !content.includes('next iteration')) {
+      !content.includes('I will now proceed to') &&
+      !content.includes('Next Steps') &&
+      !content.includes('next iteration')) {
       return true;
     }
 
     // Check for phrases that explicitly indicate completion
     if (content.includes('This concludes our research') ||
-        content.includes('This completes our investigation') ||
-        content.includes('This concludes the deep research process') ||
-        content.includes('Key Findings and Implementation Details') ||
-        content.includes('In conclusion,') ||
-        (content.includes('Final') && content.includes('Conclusion'))) {
+      content.includes('This completes our investigation') ||
+      content.includes('This concludes the deep research process') ||
+      content.includes('Key Findings and Implementation Details') ||
+      content.includes('In conclusion,') ||
+      (content.includes('Final') && content.includes('Conclusion'))) {
       return true;
     }
 
     // Check for topic-specific completion indicators
     if (content.includes('Dockerfile') &&
-        (content.includes('This Dockerfile') || content.includes('The Dockerfile')) &&
-        !content.includes('Next Steps') &&
-        !content.includes('In the next iteration')) {
+      (content.includes('This Dockerfile') || content.includes('The Dockerfile')) &&
+      !content.includes('Next Steps') &&
+      !content.includes('In the next iteration')) {
       return true;
     }
 
@@ -193,6 +263,9 @@ const Ask: React.FC<AskProps> = ({
     }
   };
 
+  // WebSocket reference
+  const webSocketRef = useRef<WebSocket | null>(null);
+
   // Function to continue research automatically
   const continueResearch = async () => {
     if (!deepResearch || researchComplete || !response || isLoading) return;
@@ -226,50 +299,123 @@ const Ask: React.FC<AskProps> = ({
       const newIteration = researchIteration + 1;
       setResearchIteration(newIteration);
 
+      // Clear previous response
+      setResponse('');
+
       // Prepare the request body
-      const requestBody: Record<string, unknown> = {
-        repo_url: repoUrl,
-        messages: newHistory,
-        language: language,
-        local_ollama: localOllama,
-        use_openrouter: useOpenRouter,
-        use_openai: useOpenai
+      const requestBody: ChatCompletionRequest = {
+        repo_url: getRepoUrl(repoInfo),
+        type: repoInfo.type,
+        messages: newHistory.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content })),
+        provider: selectedProvider,
+        model: isCustomSelectedModel ? customSelectedModel : selectedModel,
+        language: language
       };
 
-      // Add model names if using specific providers
-      if (useOpenRouter) {
-        requestBody.openrouter_model = openRouterModel;
-      }
-      if (useOpenai) {
-        requestBody.openai_model = openaiModel;
-      }
-
       // Add tokens if available
-      if (githubToken && repoUrl.includes('github.com')) {
-        requestBody.github_token = githubToken;
-      }
-      if (gitlabToken && repoUrl.includes('gitlab.com')) {
-        requestBody.gitlab_token = gitlabToken;
-      }
-      if (bitbucketToken && repoUrl.includes('bitbucket.org')) {
-        requestBody.bitbucket_token = bitbucketToken;
+      if (repoInfo?.token) {
+        requestBody.token = repoInfo.token;
       }
 
-      // Make the API call
+      // Close any existing WebSocket connection
+      closeWebSocket(webSocketRef.current);
+
+      let fullResponse = '';
+
+      // Create a new WebSocket connection
+      webSocketRef.current = createChatWebSocket(
+        requestBody,
+        // Message handler
+        (message: string) => {
+          fullResponse += message;
+          setResponse(fullResponse);
+
+          // Extract research stage if this is a deep research response
+          if (deepResearch) {
+            const stage = extractResearchStage(fullResponse, newIteration);
+            if (stage) {
+              // Add the stage to the research stages if it's not already there
+              setResearchStages(prev => {
+                // Check if we already have this stage
+                const existingStageIndex = prev.findIndex(s => s.iteration === stage.iteration && s.type === stage.type);
+                if (existingStageIndex >= 0) {
+                  // Update existing stage
+                  const newStages = [...prev];
+                  newStages[existingStageIndex] = stage;
+                  return newStages;
+                } else {
+                  // Add new stage
+                  return [...prev, stage];
+                }
+              });
+
+              // Update current stage index to the latest stage
+              setCurrentStageIndex(researchStages.length);
+            }
+          }
+        },
+        // Error handler
+        (error: Event) => {
+          console.error('WebSocket error:', error);
+          setResponse(prev => prev + '\n\nError: WebSocket connection failed. Falling back to HTTP...');
+
+          // Fallback to HTTP if WebSocket fails
+          fallbackToHttp(requestBody);
+        },
+        // Close handler
+        () => {
+          // Check if research is complete when the WebSocket closes
+          const isComplete = checkIfResearchComplete(fullResponse);
+
+          // Force completion after a maximum number of iterations (5)
+          const forceComplete = newIteration >= 5;
+
+          if (forceComplete && !isComplete) {
+            // If we're forcing completion, append a comprehensive conclusion to the response
+            const completionNote = "\n\n## Final Conclusion\nAfter multiple iterations of deep research, we've gathered significant insights about this topic. This concludes our investigation process, having reached the maximum number of research iterations. The findings presented across all iterations collectively form our comprehensive answer to the original question.";
+            fullResponse += completionNote;
+            setResponse(fullResponse);
+            setResearchComplete(true);
+          } else {
+            setResearchComplete(isComplete);
+          }
+
+          setIsLoading(false);
+        }
+      );
+    } catch (error) {
+      console.error('Error during API call:', error);
+      setResponse(prev => prev + '\n\nError: Failed to continue research. Please try again.');
+      setResearchComplete(true);
+      setIsLoading(false);
+    }
+  };
+
+  // Fallback to HTTP if WebSocket fails
+  const fallbackToHttp = async (requestBody: ChatCompletionRequest) => {
+    try {
+      // Create an AbortController for timeout handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 300000); // 5 minutes timeout for Ollama models
+
+      // Make the API call using HTTP
       const apiResponse = await fetch(`/api/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
       });
+
+      // Clear the timeout once we get a response
+      clearTimeout(timeoutId);
 
       if (!apiResponse.ok) {
         throw new Error(`API error: ${apiResponse.status}`);
       }
-
-      // Clear previous response
-      setResponse('');
 
       // Process the streaming response
       const reader = apiResponse.body?.getReader();
@@ -291,25 +437,19 @@ const Ask: React.FC<AskProps> = ({
 
         // Extract research stage if this is a deep research response
         if (deepResearch) {
-          const stage = extractResearchStage(fullResponse, newIteration);
+          const stage = extractResearchStage(fullResponse, researchIteration);
           if (stage) {
-            // Add the stage to the research stages if it's not already there
+            // Add the stage to the research stages
             setResearchStages(prev => {
-              // Check if we already have this stage
               const existingStageIndex = prev.findIndex(s => s.iteration === stage.iteration && s.type === stage.type);
               if (existingStageIndex >= 0) {
-                // Update existing stage
                 const newStages = [...prev];
                 newStages[existingStageIndex] = stage;
                 return newStages;
               } else {
-                // Add new stage
                 return [...prev, stage];
               }
             });
-
-            // Update current stage index to the latest stage
-            setCurrentStageIndex(researchStages.length);
           }
         }
       }
@@ -318,7 +458,7 @@ const Ask: React.FC<AskProps> = ({
       const isComplete = checkIfResearchComplete(fullResponse);
 
       // Force completion after a maximum number of iterations (5)
-      const forceComplete = newIteration >= 5;
+      const forceComplete = researchIteration >= 5;
 
       if (forceComplete && !isComplete) {
         // If we're forcing completion, append a comprehensive conclusion to the response
@@ -328,14 +468,10 @@ const Ask: React.FC<AskProps> = ({
         setResearchComplete(true);
       } else {
         setResearchComplete(isComplete);
-
-        // If not complete and we haven't reached max iterations, continue research
-        // Don't call continueResearch directly to avoid stack overflow
-        // The useEffect will trigger it after a short delay
       }
     } catch (error) {
-      console.error('Error during API call:', error);
-      setResponse(prev => prev + '\n\nError: Failed to continue research. Please try again.');
+      console.error('Error during HTTP fallback:', error);
+      setResponse(prev => prev + '\n\nError: Failed to get a response. Please try again.');
       setResearchComplete(true);
     } finally {
       setIsLoading(false);
@@ -357,7 +493,7 @@ const Ask: React.FC<AskProps> = ({
         return () => clearTimeout(timer);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [response, isLoading, deepResearch, researchComplete, researchIteration]);
 
   // Effect to update research stages when the response changes
@@ -389,7 +525,7 @@ const Ask: React.FC<AskProps> = ({
       }
     }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [response, isLoading, deepResearch, researchIteration]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -397,6 +533,11 @@ const Ask: React.FC<AskProps> = ({
 
     if (!question.trim() || isLoading) return;
 
+    handleConfirmAsk();
+  };
+
+  // Handle confirm and send request
+  const handleConfirmAsk = async () => {
     setIsLoading(true);
     setResponse('');
     setResearchIteration(0);
@@ -414,126 +555,141 @@ const Ask: React.FC<AskProps> = ({
       setConversationHistory(newHistory);
 
       // Prepare request body
-      const requestBody: Record<string, unknown> = {
-        repo_url: repoUrl,
-        messages: newHistory,
-        language: language,
-        local_ollama: localOllama,
-        use_openrouter: useOpenRouter,
-        use_openai: useOpenai
+      const requestBody: ChatCompletionRequest = {
+        repo_url: getRepoUrl(repoInfo),
+        type: repoInfo.type,
+        messages: newHistory.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content })),
+        provider: selectedProvider,
+        model: isCustomSelectedModel ? customSelectedModel : selectedModel,
+        language: language
       };
 
-      // Add model names if using specific providers
-      if (useOpenRouter) {
-        requestBody.openrouter_model = openRouterModel;
-      }
-      if (useOpenai) {
-        requestBody.openai_model = openaiModel;
-      }
-
       // Add tokens if available
-      if (githubToken && repoUrl.includes('github.com')) {
-        requestBody.github_token = githubToken;
-      }
-      if (gitlabToken && repoUrl.includes('gitlab.com')) {
-        requestBody.gitlab_token = gitlabToken;
-      }
-      if (bitbucketToken && repoUrl.includes('bitbucket.org')) {
-        requestBody.bitbucket_token = bitbucketToken;
+      if (repoInfo?.token) {
+        requestBody.token = repoInfo.token;
       }
 
-      const apiResponse = await fetch(`/api/chat/stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
+      // Close any existing WebSocket connection
+      closeWebSocket(webSocketRef.current);
 
-      if (!apiResponse.ok) {
-        throw new Error(`API error: ${apiResponse.status}`);
-      }
-
-      // Process the streaming response
-      const reader = apiResponse.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error('Failed to get response reader');
-      }
-
-      // Read the stream
       let fullResponse = '';
-      setHasResponse(true);
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      // Create a new WebSocket connection
+      webSocketRef.current = createChatWebSocket(
+        requestBody,
+        // Message handler
+        (message: string) => {
+          fullResponse += message;
+          setResponse(fullResponse);
 
-        const chunk = decoder.decode(value, { stream: true });
-        fullResponse += chunk;
-        setResponse(fullResponse);
-
-        // Extract research stage if this is a deep research response
-        if (deepResearch) {
-          const stage = extractResearchStage(fullResponse, 1); // First iteration
-          if (stage) {
-            // Add the stage to the research stages
-            setResearchStages([stage]);
-            setCurrentStageIndex(0);
+          // Extract research stage if this is a deep research response
+          if (deepResearch) {
+            const stage = extractResearchStage(fullResponse, 1); // First iteration
+            if (stage) {
+              // Add the stage to the research stages
+              setResearchStages([stage]);
+              setCurrentStageIndex(0);
+            }
           }
+        },
+        // Error handler
+        (error: Event) => {
+          console.error('WebSocket error:', error);
+          setResponse(prev => prev + '\n\nError: WebSocket connection failed. Falling back to HTTP...');
+
+          // Fallback to HTTP if WebSocket fails
+          fallbackToHttp(requestBody);
+        },
+        // Close handler
+        () => {
+          // If deep research is enabled, check if we should continue
+          if (deepResearch) {
+            const isComplete = checkIfResearchComplete(fullResponse);
+            setResearchComplete(isComplete);
+
+            // If not complete, start the research process
+            if (!isComplete) {
+              setResearchIteration(1);
+              // The continueResearch function will be triggered by the useEffect
+            }
+          }
+
+          setIsLoading(false);
         }
-      }
-
-      // Set hasResponse to true after successful response
-      setHasResponse(true);
-
-      // If deep research is enabled, check if we should continue
-      if (deepResearch) {
-        const isComplete = checkIfResearchComplete(fullResponse);
-        setResearchComplete(isComplete);
-
-        // If not complete, start the research process
-        if (!isComplete) {
-          setResearchIteration(1);
-          // The continueResearch function will be triggered by the useEffect
-        }
-      }
+      );
     } catch (error) {
       console.error('Error during API call:', error);
       setResponse(prev => prev + '\n\nError: Failed to get a response. Please try again.');
-      setHasResponse(true);
       setResearchComplete(true);
-    } finally {
       setIsLoading(false);
     }
   };
 
+  const [buttonWidth, setButtonWidth] = useState(0);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Measure button width and update state
+  useEffect(() => {
+    if (buttonRef.current) {
+      const width = buttonRef.current.offsetWidth;
+      setButtonWidth(width);
+    }
+  }, [messages.ask?.askButton, isLoading]);
+
   return (
-    <div className="w-full max-w-full">
-      <div className="rounded-lg overflow-hidden">
-        {/* Input area */}
-        <form onSubmit={handleSubmit} className="p-0">
+    <div>
+      <div className="p-4">
+        <div className="flex items-center justify-end mb-4">
+          {/* Model selection button */}
+          <button
+            type="button"
+            onClick={() => setIsModelSelectionModalOpen(true)}
+            className="text-xs px-2.5 py-1 rounded border border-[var(--border-color)]/40 bg-[var(--background)]/10 text-[var(--foreground)]/80 hover:bg-[var(--background)]/30 hover:text-[var(--foreground)] transition-colors flex items-center gap-1.5"
+          >
+            <span>{selectedProvider}/{isCustomSelectedModel ? customSelectedModel : selectedModel}</span>
+            <svg className="h-3.5 w-3.5 text-[var(--accent-primary)]/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Question input */}
+        <form onSubmit={handleSubmit} className="mt-4">
           <div className="relative">
             <input
               ref={inputRef}
               type="text"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder={messages?.ask?.placeholder || "Ask about this repository..."}
-              className="w-full p-3 pr-12 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder={messages.ask?.placeholder || 'What would you like to know about this codebase?'}
+              className="block w-full rounded-md border border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--foreground)] px-5 py-3.5 text-base shadow-sm focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-primary)]/30 focus:outline-none transition-all"
+              style={{ paddingRight: `${buttonWidth + 24}px` }}
               disabled={isLoading}
             />
             <button
+              ref={buttonRef}
               type="submit"
-              disabled={!question.trim() || isLoading}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 disabled:opacity-50 disabled:hover:text-gray-400"
-              aria-label="Submit question"
+              disabled={isLoading || !question.trim()}
+              className={`absolute right-3 top-1/2 transform -translate-y-1/2 px-4 py-2 rounded-md font-medium text-sm ${
+                isLoading || !question.trim()
+                  ? 'bg-[var(--button-disabled-bg)] text-[var(--button-disabled-text)] cursor-not-allowed'
+                  : 'bg-[var(--accent-primary)] text-white hover:bg-[var(--accent-primary)]/90 shadow-sm'
+              } transition-all duration-200 flex items-center gap-1.5`}
             >
-              <FaArrowRight />
+              {isLoading ? (
+                <div className="w-4 h-4 rounded-full border-2 border-t-transparent border-white animate-spin" />
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                  </svg>
+                  <span>{messages.ask?.askButton || 'Ask'}</span>
+                </>
+              )}
             </button>
           </div>
 
+          {/* Deep Research toggle */}
           <div className="flex items-center mt-2 justify-between">
             <div className="group relative">
               <label className="flex items-center cursor-pointer">
@@ -619,6 +775,7 @@ const Ask: React.FC<AskProps> = ({
 
               {/* Clear button */}
               <button
+                id="ask-clear-conversation"
                 onClick={clearConversation}
                 className="text-xs text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 px-2 py-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
               >
@@ -640,8 +797,8 @@ const Ask: React.FC<AskProps> = ({
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 {deepResearch
                   ? (researchIteration === 0
-                      ? "Planning research approach..."
-                      : `Research iteration ${researchIteration} in progress...`)
+                    ? "Planning research approach..."
+                    : `Research iteration ${researchIteration} in progress...`)
                   : "Thinking..."}
               </span>
             </div>
@@ -726,6 +883,29 @@ const Ask: React.FC<AskProps> = ({
           </div>
         )}
       </div>
+
+      {/* Model Selection Modal */}
+      <ModelSelectionModal
+        isOpen={isModelSelectionModalOpen}
+        onClose={() => setIsModelSelectionModalOpen(false)}
+        provider={selectedProvider}
+        setProvider={setSelectedProvider}
+        model={selectedModel}
+        setModel={setSelectedModel}
+        isCustomModel={isCustomSelectedModel}
+        setIsCustomModel={setIsCustomSelectedModel}
+        customModel={customSelectedModel}
+        setCustomModel={setCustomSelectedModel}
+        isComprehensiveView={isComprehensiveView}
+        setIsComprehensiveView={setIsComprehensiveView}
+        showFileFilters={false}
+        onApply={() => {
+          console.log('Model selection applied:', selectedProvider, selectedModel);
+        }}
+        showWikiType={false}
+        authRequired={false}
+        isAuthLoading={false}
+      />
     </div>
   );
 };

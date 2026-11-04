@@ -1,0 +1,1964 @@
+# OpenCode Client Application Documentation
+
+## Overview
+
+The OpenCode Client is a modern web application built with React, designed to provide an interactive chat interface for interacting with various Large Language Models (LLMs) via a backend service. At its core, any web application fundamentally involves displaying information and responding to user interactions. React, as a declarative JavaScript library, simplifies this by allowing developers to describe the desired UI state, and React handles the underlying Document Object Model (DOM) manipulations.
+
+This document deconstructs the OpenCode Client application from its foundational architecture to its specific features and development tooling. It explores how the application initializes, manages data, handles user input, and maintains a consistent, type-safe codebase. We will reason from first principles, understanding *why* certain architectural choices and tools were made, rather than just *what* they are.
+
+## Table of Contents
+
+1.  [Application Architecture & Entry Point](#1-application-architecture--entry-point)
+    *   [1.1. React Application Initialization (`main.tsx`)](#11-react-application-initialization-maintx)
+    *   [1.2. Role of the Root `App` Component (`src/app.tsx`)](#12-role-of-the-root-app-component-srcapptsx)
+    *   [1.3. Top-Level Providers Configuration](#13-top-level-providers-configuration)
+    *   [1.4. Primary Page Structure and Rendering](#14-primary-page-structure-and-rendering)
+2.  [Backend API Integration and Data Fetching](#2-backend-api-integration-and-data-fetching)
+    *   [2.1. Patterns for API Requests in Custom Fetch Hooks](#21-patterns-for-api-requests-in-custom-fetch-hooks)
+    *   [2.2. Primary Data Entities: Fetching and Mutation](#22-primary-data-entities-fetching-and-mutation)
+    *   [2.3. API Loading and Error State Management](#23-api-loading-and-error-state-management)
+    *   [2.4. Utilization of `openapi-types.ts` for Type-Safe Communication](#24-utilization-of-openapi-typests-for-type-safe-communication)
+3.  [Core Chat Feature: Component Breakdown](#3-core-chat-feature-component-breakdown)
+    *   [3.1. Responsibility of Each Major Component within `src/pages/chat/components`](#31-responsibility-of-each-major-component-within-srcpageschatcomponents)
+    *   [3.2. Data Flow Between Components](#32-data-flow-between-components)
+    *   [3.3. User Interaction Effects](#33-user-interaction-effects)
+    *   [3.4. Component Hierarchy Starting from `src/pages/chat/index.tsx`](#34-component-hierarchy-starting-from-srcpageschatindextsx)
+4.  [State Management Strategy](#4-state-management-strategy)
+    *   [4.1. State Management Libraries Used](#41-state-management-libraries-used)
+    *   [4.2. Main State 'Stores' or 'Slices' and Managed Data](#42-main-state-stores-or-slices-and-managed-data)
+    *   [4.3. How Components Subscribe to State Changes](#43-how-components-subscribe-to-state-changes)
+    *   [4.4. Flow for Updating State (e.g., New Message Received)](#44-flow-for-updating-state-eg-new-message-received)
+5.  [The 'Provider' Abstraction System](#5-the-provider-abstraction-system)
+    *   [5.1. What does a 'Provider' represent in the context of the application?](#51-what-does-a-provider-represent-in-the-context-of-the-application)
+    *   [5.2. How are the available providers fetched and displayed to the user?](#52-how-are-the-available-providers-fetched-and-displayed-to-the-user)
+    *   [5.3. How does selecting a different provider impact the chat session and API calls?](#53-how-does-selecting-a-different-provider-impact-the-chat-session-and-api-calls)
+    *   [5.4. What steps are required to add and configure a new Provider?](#54-what-steps-are-required-to-add-and-configure-a-new-provider)
+6.  [Custom Hooks and Reusable Logic](#6-custom-hooks-and-reusable-logic)
+    *   [6.1. Specific Purpose of the `use-handle-session-message-events` Hook](#61-specific-purpose-of-the-use-handle-session-message-events-hook)
+    *   [6.2. How the `use-stick-to-bottom` Hook Functions](#62-how-the-use-stick-to-bottom-hook-functions)
+    *   [6.3. Other Significant Business Logic Abstracted into Custom Hooks or Utility Functions](#63-other-significant-business-logic-abstracted-into-custom-hooks-or-utility-functions)
+    *   [6.4. Best Practices for Creating New Reusable Hooks](#64-best-practices-for-creating-new-reusable-hooks)
+7.  [UI Component Library and Design System](#7-ui-component-library-and-design-system)
+    *   [7.1. Available Base UI Components and Their Props](#71-available-base-ui-components-and-their-props)
+    *   [7.2. Component Styling Management](#72-component-styling-management)
+    *   [7.3. Purpose of `lib/utils.ts`](#73-purpose-of-libutilsts)
+    *   [7.4. Process for Creating a New, Complex Component by Composing Base UI Elements](#74-process-for-creating-a-new-complex-component-by-composing-base-ui-elements)
+8.  [Type Safety and API Schema Generation](#8-type-safety-and-api-schema-generation)
+    *   [8.1. Source of the OpenAPI Schema](#81-source-of-the-openapi-schema)
+    *   [8.2. Execution of Type Generation and Tool Used](#82-execution-of-type-generation-and-tool-used)
+    *   [8.3. Process for Updating Types When Backend API Changes](#83-process-for-updating-types-when-backend-api-changes)
+    *   [8.4. Import and Usage of Generated Types Throughout the Application](#84-import-and-usage-of-generated-types-throughout-the-application)
+9.  [User Input and Message Handling](#9-user-input-and-message-handling)
+    *   [9.1. How is the state of the text input managed?](#91-how-is-the-state-of-the-text-input-managed)
+    *   [9.2. What logic is executed when the user submits a message?](#92-what-logic-is-executed-when-the-user-submits-a-message)
+    *   [9.3. How are optimistic updates handled in the UI, if at all?](#93-how-are-optimistic-updates-handled-in-the-ui-if-at-all)
+    *   [9.4. What is the data flow from the `ChatInput` component to the data fetching hook that sends the message?](#94-what-is-the-data-flow-from-the-chatinput-component-to-the-data-fetching-hook-that-sends-the-message)
+10. [Development Environment & Tooling](#10-development-environment--tooling)
+    *   [10.1. Project Setup and Dependency Installation](#101-project-setup-and-dependency-installation)
+    *   [10.2. Key Scripts in `package.json`](#102-key-scripts-in-packagejson)
+    *   [10.3. Important Configurations in `vite.config.ts`](#103-important-configurations-in-viteconfigts)
+    *   [10.4. Enforced Coding Standards](#104-enforced-coding-standards)
+11. [Conclusion](#11-conclusion)
+
+---
+
+## 1. Application Architecture & Entry Point
+
+A React application's architecture fundamentally defines how its user interface is structured and how data flows through it. It begins with a single point where the application "wakes up" in the browser's environment, then proceeds to orchestrate its various parts.
+
+### 1.1. React Application Initialization (`main.tsx`)
+
+The journey of the React application begins with `src/main.tsx`. This file is the primary entry point for the client-side rendering process, acting as the bridge between the browser's raw HTML document and React's component tree. Its fundamental role is to tell React *where* to render the application and *what* to render.
+
+*   **Root Element**: The application targets a specific DOM element with the ID `root` for rendering. This is the designated "mount point" in the `index.html` where React will take control.
+*   **Rendering Process**: React's `createRoot` API is used to establish a concurrent mode renderer. This root then takes the main `App` component and renders it into the designated `root` DOM element.
+*   **Strict Mode**: The `App` component is wrapped within React's `StrictMode`. This is a development-only tool that performs additional checks and warnings, helping developers identify potential problems and adhere to best practices, fundamentally improving the robustness of the application during development.
+*   **Global Styles**: Global CSS styles and Tailwind CSS configurations are loaded directly into `src/main.tsx`. This ensures that foundational styling is applied at the very beginning of the application's lifecycle, providing a consistent visual baseline for all components.
+
+The following diagram illustrates the sequence of events during the React application's initialization, from the browser loading the HTML to the final rendering of the root `App` component.
+
+### React Application Initialization Flow
+Illustrates the sequence of events from the browser loading `index.html` to the rendering of the root `App` component, including global style loading and React's Strict Mode.
+
+```mermaid
+graph TD
+    BrowserLoad_HTML[Load index.html]
+    Load_MainJS[Load main.js]
+
+    subgraph React_App_Init[React Application Initialization]
+        Import_CSS[Import index.css]
+        Get_RootDOM[Get root DOM]
+        Call_CreateRoot[Call createRoot]
+        Wrap_StrictMode[Wrap StrictMode]
+        Render_App[Render App Component]
+
+        Get_RootDOM --> Call_CreateRoot
+        Call_CreateRoot --> Wrap_StrictMode
+        Wrap_StrictMode --> Render_App
+    end
+
+    BrowserLoad_HTML --> Load_MainJS
+    Load_MainJS --> Get_RootDOM
+    Load_MainJS --> Import_CSS
+    Render_App --> App_Rendered[App Rendered]
+```
+
+This table organizes the essential steps and elements involved in the initial loading and setup of the React application.
+
+### Key React Application Initialization Steps
+Organizes the essential steps and elements involved in the initial loading and setup of the React application.
+
+| Step/Element | Description | Source File/Location | Purpose |
+|---|---|---|---|
+| Root Element Identification | Locates the specific HTML element (typically a `div` with `id="root"`) in `index.html` where the React application will be mounted and controlled. | main.tsx (identifies), public/index.html (contains the element) | Provides the singular entry point in the Document Object Model (DOM) for React to inject and manage its component tree. |
+| React Root Creation & Rendering | Creates a React root using `ReactDOM.createRoot()` and then renders the main application component (`<App />`) into the identified root element. This initiates React's control over that part of the DOM. | main.tsx | To bootstrap the React application, making the main component and its children visible and interactive in the browser. |
+| React.StrictMode | A development-only wrapper component that activates additional checks and warnings for potential problems within the application. It helps identify deprecated lifecycles, unexpected side effects, and other issues. | main.tsx | To highlight potential problems in an application during development, leading to more robust code and better adherence to React best practices. |
+| Global Styles Import | Imports a CSS file (e.g., `index.css`) that defines global styles, CSS resets, and base typography applicable to the entire application. | main.tsx (import statement), src/index.css (style definitions) | To establish a consistent visual baseline, apply universal styling rules, and ensure cross-browser consistency across all components. |
+
+### 1.2. Role of the Root `App` Component (`src/app.tsx`)
+
+The `src/app.tsx` file defines the root `App` component. Its fundamental role is to act as the central orchestrator for top-level application concerns, ensuring that global functionalities like data fetching, routing, and UI contexts are available to all parts of the application. It establishes the foundational environment for all other components to operate within.
+
+*   **Central Composition**: The `App` component is responsible for composing the main parts of the application, wrapping them with necessary global contexts and providers.
+*   **Provider Configuration**: It configures and provides global state management and routing:
+    *   **React Query**: It wraps the application with `QueryClientProvider` from `@tanstack/react-query`, enabling efficient data fetching and caching throughout the application. A `QueryClient` instance is configured with `defaultOptions` to `refetchOnWindowFocus: true`, ensuring data freshness.
+    *   **React Router**: It uses `BrowserRouter` from `react-router-dom` to enable client-side routing. This allows the application to navigate between different "pages" without full page reloads, providing a seamless Single Page Application (SPA) experience.
+*   **Top-Level Routing**: The `App` component defines the primary navigation structure using `Routes` and `Route` components, mapping URL paths to specific UI layouts or components.
+
+The following class diagram shows the main components and providers that the `App` component composes and makes available to the rest of the application, highlighting 'has-a' relationships.
+
+### Root `App` Component Composition
+Shows the main components and providers that the `App` component composes and makes available to the rest of the application, highlighting 'has-a' relationships.
+
+```mermaid
+classDiagram
+    class App
+    class QueryClientProvider
+    class BrowserRouter
+    class Routes
+    class Route
+    class ChatLayout
+
+    App *-- QueryClientProvider
+    App *-- BrowserRouter
+    App *-- Routes
+    App *-- Route
+    App *-- ChatLayout
+```
+
+### 1.3. Top-Level Providers Configuration
+
+As identified in the `App` component's role, the application leverages several top-level providers. These providers fundamentally encapsulate global state or functionality, making it accessible to any component within their subtree without explicit prop drilling.
+
+*   **Data Fetching (React Query)**:
+    *   A `QueryClient` instance is created and configured with `defaultOptions` (e.g., `refetchOnWindowFocus: true`).
+    *   The `QueryClientProvider` wraps the entire application, making the `queryClient` available to all child components for managing server-side data fetching, caching, and synchronization.
+*   **Client-Side Routing (React Router)**:
+    *   The `BrowserRouter` component provides the routing context, enabling declarative navigation and URL-driven UI rendering.
+*   **UI Component Libraries**: While many UI components from `@radix-ui/react-*` are used (e.g., `Sheet`, `Popover`, `Breadcrumb`, `Separator`, `Input`, `Textarea`), their styling is managed via Tailwind CSS and CSS variables, not through a top-level React Context provider.
+*   **State Management**: `zustand` is used for client-side state (e.g., `useSelectedModelStore`), but a global `Zustand` provider is not explicitly configured at the `App` component level in the provided content, as Zustand's hooks can be used directly without a provider.
+
+The table below provides a structured overview of the global providers configured at the `App` component level, detailing their purpose and specific configurations.
+
+### Top-Level Providers Configuration Overview
+Provides a structured overview of the global providers configured at the `App` component level, detailing their purpose and specific configurations.
+
+| Provider | Library/Source | Purpose | Key Configuration/Notes | Impact |
+|---|---|---|---|---|
+| QueryClientProvider | @tanstack/react-query | Manages server-side data fetching, caching, and synchronization. | Wraps the app with a `QueryClient` instance; often configured with default options like `staleTime`, `cacheTime`. | Optimizes data fetching, reduces network requests, provides consistent data state, simplifies loading/error handling. |
+| BrowserRouter / RouterProvider | react-router-dom | Enables client-side routing and navigation within the Single Page Application (SPA). | Defines application routes and their corresponding components; uses `createBrowserRouter` for data routers. | Allows dynamic content rendering based on URL, provides a seamless navigation experience without full page reloads. |
+| Theme/Context Provider (e.g., `ThemeProvider`) | UI Component Library (e.g., Material-UI, Ant Design, Chakra UI) | Provides a consistent set of pre-built, accessible, and styled UI components. | Often involves wrapping the app with a context provider to apply global themes, styles, or design tokens. | Accelerates UI development, ensures design consistency, improves accessibility, reduces custom CSS. |
+| Global State Provider (e.g., Redux `Provider`, Context API Provider) | State Management Library (e.g., Redux, Zustand, React Context API) | Manages global application state, making it accessible across deeply nested components. | Typically wraps the app; configuration varies by library (e.g., store setup, reducers, slices). | Centralizes complex state, reduces prop drilling, improves maintainability and predictability of state changes. |
+
+### 1.4. Primary Page Structure and Rendering
+
+The primary page structure is fundamentally defined by how routes are configured and which components are rendered for those routes. This dictates the overall layout and user experience of the application.
+
+*   **Main Layout Component**: The `ChatLayout` component serves as the primary layout for the application. It is rendered for both the root path (`/`) and session-specific paths (`/s/:sessionId`). This indicates a consistent main application interface regardless of whether a specific chat session is active or not.
+*   **Layout Components within `ChatLayout`**: The `ChatLayout` orchestrates several key sub-components, each responsible for a distinct part of the UI:
+    *   **Sidebar**: The `ChatSidebar` component manages navigation and displays chat history (sessions), dynamically fetching them via `useGetSessions`.
+    *   **Messages Display**: The `Messages` component renders the conversation history within a `StickToBottomContent` component, ensuring a scrollable area that can stick to the bottom for new messages.
+    *   **Chat Input**: The `ChatInput` component handles user input, including a `ChatInputTextarea` and `ProviderSelect`, and manages sending messages using `useSendMessage`.
+*   **API Interactions**: The application interacts with a backend API (e.g., `/app/info`, `/app/init`, `/config`, session, and message endpoints). This suggests the application fetches initial configuration and application-specific data upon startup or as needed, which forms the dynamic content of the UI.
+
+The following flowchart depicts how client-side routes are handled by React Router and which main layout component (`ChatLayout`) is rendered for the primary application paths, along with its key sub-components.
+
+### Main Application Routing and Layout Flow
+Depicts how client-side routes are handled by React Router and which main layout component (`ChatLayout`) is rendered for the primary application paths, along with its key sub-components.
+
+```mermaid
+graph TD
+    Browser_Router[(BrowserRouter)]
+    Routes_Main[Routes Component]
+    Route_Root[Route /]
+    Route_Session[Route /s/:sessionId]\n(Dynamic Session ID)
+    Chat_Layout[ChatLayout]
+
+    subgraph Chat_Layout_Internal [ChatLayout Content]
+        Chat_Sidebar[ChatSidebar]
+        Messages_Display[Messages]
+        Chat_Input_Comp[ChatInput]
+    end
+
+    Browser_Router --> Routes_Main
+    Routes_Main --> Route_Root
+    Routes_Main --> Route_Session
+    Route_Root --> Chat_Layout
+    Route_Session --> Chat_Layout
+    Chat_Layout --> Chat_Sidebar
+    Chat_Layout --> Messages_Display
+    Chat_Layout --> Chat_Input_Comp
+```
+
+This table details the primary layout component (`ChatLayout`) and its key sub-components, outlining their responsibilities within the application's user interface.
+
+### Main Application Layout Components and Roles
+Details the primary layout component (`ChatLayout`) and its key sub-components, outlining their responsibilities within the application's user interface.
+
+| Component Name | Source File | Role/Description | Key Features/Sub-components |
+|---|---|---|---|
+| ChatLayout | `@/pages/chat` (imported) | The primary layout component for the main application view, orchestrating the arrangement and interaction of its key sub-components. | ChatSidebar, Messages, ChatInput |
+| ChatSidebar | `src/pages/chat/components/chat-sidebar.tsx` | Manages navigation, displays chat history (sessions), and provides access to settings. | Navigation, Chat History Display, Settings Access, dynamically renders sessions via `useGetSessions` |
+| Messages | `src/pages/chat/components/messages.tsx` | Renders the conversation history between the user and the AI within a scrollable area. | Conversation History Display, User-AI Interaction Rendering, `StickToBottomContent` |
+| ChatInput | `src/pages/chat/components/chat-input.tsx` | Allows users to type and send messages to the AI. | Message Input Field (`ChatInputTextarea`), Send Functionality (`useSendMessage`), `ProviderSelect` |
+
+The following sequence diagram illustrates the sequence of interactions between client-side components (e.g., `ChatSidebar`, `ChatInput`) and the backend API for operations like fetching sessions and sending messages, as well as initial app configuration.
+
+### Client-Server API Interactions (Data Fetching & Sending)
+Illustrates the sequence of interactions between client-side components (e.g., `ChatSidebar`, `ChatInput`) and the backend API for operations like fetching sessions and sending messages, as well as initial app configuration.
+
+```mermaid
+sequenceDiagram
+    participant ClientApp as Client App
+    participant ChatSidebar as Chat Sidebar
+    participant ChatInput as Chat Input
+    participant BackendAPI as Backend API
+
+    ClientApp->>BackendAPI: GET /app/info
+    BackendAPI-->>ClientApp: App Info
+    ClientApp->>BackendAPI: GET /app/init
+    BackendAPI-->>ClientApp: Init Data
+    ClientApp->>BackendAPI: GET /config
+    BackendAPI-->>ClientApp: Config Data
+
+    ChatSidebar->>BackendAPI: Get Sessions (via useGetSessions)
+    BackendAPI-->>ChatSidebar: Session List
+
+    ChatInput->>BackendAPI: Send Message (via useSendMessage)
+    BackendAPI-->>ChatInput: Message Status
+```
+
+This table lists the backend API endpoints identified in the research, along with their general purpose or context.
+
+### Backend API Endpoints Mentioned
+Lists the backend API endpoints identified in the research, along with their general purpose or context.
+
+| Endpoint | Purpose/Context | Source Reference |
+|---|---|---|
+| `/app/info` | Retrieving general application information. | Section 4: 'API Interactions', src/types/openapi-types.ts |
+| `/app/init` | Initializing the application. | Section 4: 'API Interactions', src/types/openapi-types.ts |
+| `/config` | Accessing application configuration. | Section 4: 'API Interactions', src/types/openapi-types.ts |
+| Session-related endpoints (e.g., `/sessions`, `/sessions/:id`) | Managing user sessions (e.g., creation, retrieval, updates). | Section 4: 'API Interactions' (implicitly mentioned by `useGetSessions`) |
+| Message-related endpoints (e.g., `/messages`, `/sessions/:sessionId/messages`) | Handling messages within sessions (e.g., sending, retrieving). | Section 4: 'API Interactions' (implicitly mentioned by `useSendMessage`) |
+
+## 2. Backend API Integration and Data Fetching
+
+At its core, any interactive web application needs to communicate with a server to fetch and persist data. This communication fundamentally involves making requests to a backend API and handling the responses. The OpenCode Client leverages `@tanstack/react-query` to manage this "server state" efficiently, abstracting away the complexities of caching, synchronization, and re-fetching.
+
+### 2.1. Patterns for API Requests in Custom Fetch Hooks
+
+The frontend primarily uses `@tanstack/react-query` for managing server state. This library is chosen because it provides robust solutions for common data fetching challenges like caching, background re-fetching, and automatic state updates. The pattern observed is the creation of custom React hooks (e.g., `useGetActiveSession`, `useGetMessages`) that wrap `react-query`'s `useQuery` (for read operations) and `useMutation` (for write operations) hooks. This abstraction provides a clean, declarative interface for components to interact with the API, separating data fetching logic from UI concerns.
+
+### Frontend Data Fetching Pattern
+This diagram illustrates the typical flow of data fetching from a React component using custom hooks and `@tanstack/react-query`.
+
+```mermaid
+graph TD
+    A[React Component] --> B{Custom Hook (e.g., useGetActiveSession)};
+    B --> C[react-query's useQuery/useMutation];
+    C --> D[API Call to Backend];
+    D -- Data/Error --> C;
+    C -- Data/Loading/Error State --> B;
+    B -- Data/Loading/Error State --> A;
+```
+
+### React Query Hook Usage Summary
+This table summarizes the primary `@tanstack/react-query` hooks inferred from the code and their general purpose in the frontend application.
+
+| Hook Type | Purpose | Example Custom Hook | Frontend File Example |
+|-----------|---------|---------------------|-----------------------|
+| `useQuery` | Fetching and caching data (read operations) | `useGetActiveSession()` | `src/pages/chat/components/messages.tsx` |
+| `useQuery` | Fetching and caching data (read operations) | `useGetMessages()` | `src/pages/chat/components/messages.tsx` |
+| `useMutation` | Sending data to the backend (create/update/delete operations) | (Implied for `postSessionByIdMessage`) | (Not explicitly shown in snippets) |
+
+### 2.2. Primary Data Entities: Fetching and Mutation
+
+The core data entities managed by the application are **Sessions** and **Messages**. Understanding how these entities are fetched and mutated is fundamental to the application's functionality.
+
+*   **Sessions:** Represent individual chat conversations.
+    *   **Fetching:** Handled by hooks like `useGetActiveSession()`. The `Session` schema includes properties such as `id`, `parentID`, `share`, `title`, `version`, and `time`.
+    *   **Mutation:** Implied by OpenAPI event definitions (e.g., `"Event.session.updated"`, `"Event.session.deleted"`) and operations like `postSessionByIdSummarize`, indicating that sessions can be created, updated, and deleted.
+
+*   **Messages:** Represent individual user or assistant responses within a session.
+    *   **Fetching:** Handled by `useGetMessages()`, which takes a `sessionId`. Messages are typed using `TMessageWithParts` and `TMessagePart`, which accommodate various content types (text, file, tool, etc.).
+    *   **Mutation:** The `postSessionByIdMessage` operation allows sending new messages or updating existing ones. Real-time updates to messages and their parts are handled by events (`"Event.message.updated"`, `"Event.message.part.updated"`) which directly update the `react-query` cache.
+
+*   **Providers:** While `ProviderAuthError` exists, direct fetching or mutation hooks for `Provider` entities are not explicitly shown in the provided snippets, suggesting they might be part of initial configuration fetching rather than dynamic management.
+
+### Primary Data Entities and Operations
+This table summarizes the primary data entities identified, their fetching mechanisms, and implied mutation capabilities based on the provided code and OpenAPI types.
+
+| Entity | Fetching Mechanism (Frontend Hook/Type) | Implied Mutation Capabilities (OpenAPI Operations/Events) | Key Properties (from `openapi-types.ts`) |
+|--------|------------------------------------------|----------------------------------------------------------|-------------------------------------------|
+| **Session** | `useGetActiveSession()` | `postSessionByIdSummarize`, `Event.session.updated`, `Event.session.deleted` | `id`, `parentID`, `share`, `title`, `version`, `time` |
+| **Message** | `useGetMessages({ sessionId })` | `postSessionByIdMessage`, `Event.message.updated`, `Event.message.part.updated` | `id`, `providerID`, `modelID`, `mode`, `parts` (TextPart, FilePart, etc.) |
+| **Provider** | (No direct fetching hook shown) | (No direct mutation hook shown) | `providerID` (in `ProviderAuthError`) |
+
+### Simplified Entity Relationship
+This diagram illustrates the conceptual relationship between the primary data entities, Session and Message, as inferred from their usage and types.
+
+```mermaid
+erDiagram
+    SESSION ||--o{ MESSAGE : "contains"
+    MESSAGE {
+        string id
+        string providerID
+        string modelID
+        string mode
+        array parts
+    }
+    SESSION {
+        string id
+        string parentID
+        string title
+        timestamp time
+    }
+```
+
+### 2.3. API Loading and Error State Management
+
+Managing the asynchronous nature of API requests fundamentally requires handling loading states (to indicate ongoing operations) and error states (to inform the user of failures). `react-query` inherently provides these states (`isLoading`, `isError`, `error`).
+
+Error handling is also observed through event-driven updates. Real-time events from the backend (e.g., `"message.updated"`) are used to directly update the `react-query` cache via `queryClient.setQueryData`, ensuring the UI reflects the latest state without full data refetches.
+
+The `openapi-types.ts` file defines specific error schemas (`ProviderAuthError`, `UnknownError`, `MessageOutputLengthError`, `MessageAbortedError`), which are referenced within `Event.session.error`. This structured approach to errors allows the frontend to react to specific failure conditions with tailored UI feedback.
+
+### Defined API Error Types
+This table lists the specific error schemas defined in `openapi-types.ts` and their purpose, indicating structured error handling capabilities.
+
+| Error Type | Description | Key Properties | Referenced In |
+|------------|-------------|----------------|---------------|
+| `ProviderAuthError` | Authentication issues with a specific provider. | `providerID`, `message` | `Event.session.error` |
+| `UnknownError` | A generic, unspecified error. | `message` | `Event.session.error` |
+| `MessageOutputLengthError` | Message generation exceeded the allowed output length. | `message` | `Event.session.error` |
+| `MessageAbortedError` | Message generation was explicitly aborted. | `message` | `Event.session.error` |
+
+### Real-time Cache Update Flow
+This diagram illustrates how backend events are processed by the frontend to update the `react-query` cache in real-time, ensuring UI consistency without full data refetches.
+
+```mermaid
+graph TD
+    A[Backend] --> B[Real-time Event (e.g., "message.updated")];
+    B --> C[Frontend Event Listener (use-handle-session-message-events.ts)];
+    C -- Parse Event Data --> D[queryClient.setQueryData];
+    D --> E[React Query Cache];
+    E -- Triggers Re-render --> F[React Component (e.g., messages.tsx)];
+```
+
+### 2.4. Utilization of `openapi-types.ts` for Type-Safe Communication
+
+The `src/types/openapi-types.ts` file is an auto-generated artifact from an OpenAPI (Swagger) specification. Its fundamental purpose is to serve as the single source of truth for API contract definitions, ensuring **type-safe communication** between the frontend and backend.
+
+By generating these types, `openapi-typescript` provides compile-time checks. This means that any mismatch between the frontend's understanding of the API and the actual API contract will be caught during development, significantly reducing runtime errors and improving developer efficiency. Components and hooks import and use these types to ensure that data consumed from API calls conforms to the expected schema.
+
+### OpenAPI Type Generation Workflow
+This diagram illustrates the automated process by which API types are generated and integrated into the frontend development workflow, ensuring type safety.
+
+```mermaid
+graph TD
+    A[Backend OpenAPI Specification (YAML/JSON)] --> B{openapi-typescript Tool};
+    B -- Generates --> C[src/types/openapi-types.ts];
+    C -- Imported by --> D[Frontend React Components/Hooks];
+    D -- Ensures Type Safety at Compile-time --> E[API Calls/Data Handling];
+```
+
+## 3. Core Chat Feature: Component Breakdown
+
+The core chat feature is the heart of the application, enabling users to interact with AI models. Its design fundamentally relies on breaking down the complex user experience into smaller, manageable, and interconnected React components, each with a specific responsibility.
+
+### 3.1. Responsibility of Each Major Component within `src/pages/chat/components`
+
+The `src/pages/chat/components` directory houses several key components that collectively form the chat interface:
+
+*   **`ChatSidebar`**: Displays a list of all chat sessions, allowing users to navigate between them and create new ones. It fetches session data using `useGetSessions`.
+*   **`ChatWindow`**: Acts as the main display area for the active chat session, including its header and the chat content. It manages real-time message events via `useHandleSessionMessageEvents`.
+*   **`SessionChat`**: Manages the display of messages for a specific active session and integrates the chat input functionality. It fetches `activeSession` and `messages` using dedicated hooks.
+*   **`Messages`**: Renders the chronological list of messages for the currently active chat session. It distinguishes between "User" and "Assistant" messages and uses `StickToBottom` for scroll management.
+*   **`ChatInput`**: Provides the user interface for typing and sending messages, and selecting a model/provider. It manages input state, sends messages using `useSendMessage`, and implements optimistic UI updates.
+
+### Core Chat Components Overview
+This table provides a structured summary of some of the main chat components, detailing their file paths, primary responsibilities, and key features. Note that some component names in the table may be more generalized than the specific implementation names used in the detailed text.
+
+| Component Name | File Path | Responsibility | Key Features |
+|---|---|---|---|
+| ChatInput | src/pages/chat/components/ChatInput.tsx | Handles user message input, including text entry and message submission. | Text input area, send button, emoji picker integration, attachment upload trigger. |
+| MessageList | src/pages/chat/components/MessageList.tsx | Renders a chronological list of chat messages within a conversation. | Scrollable container, virtualized rendering for performance, integrates `MessageBubble` components, handles message loading. |
+| MessageBubble | src/pages/chat/components/MessageBubble.tsx | Displays an individual chat message, including sender, content, and timestamp. | Differentiates sender/receiver, displays message content (text, images, files), timestamp, optional read receipts. |
+| ChatSidebar | src/pages/chat/components/ChatSidebar.tsx | Manages and displays a list of active conversations or online users. | Search functionality, unread message indicators, user online/offline status, conversation selection. |
+
+### 3.2. Data Flow Between Components
+
+Data flow in the chat feature is fundamentally managed by React hooks for data fetching (leveraging `tanstack/react-query`) and `react-router-dom` for session selection via URL parameters. This ensures that components receive the data they need to render and that state changes propagate efficiently.
+
+*   **Current Session Data (`activeSession`)**: The `useGetActiveSession()` hook is central. It's consumed by `ChatWindow`, `SessionChat`, `Messages`, and `ChatInput` to fetch and display context-specific data. This data is implicitly derived from the `sessionId` URL parameter, which `useGetActiveSession` likely consumes.
+*   **Message List Data (`messages`)**: The `useGetMessages({ sessionId: activeSession?.id })` hook fetches messages for the active session. This data is passed from `SessionChat` to `Messages` for rendering. When a new message is sent, `queryClient.setQueryData` is used for optimistic updates, and `useHandleSessionMessageEvents` handles real-time updates from the backend, directly manipulating the `react-query` cache.
+*   **Session List Data (`sessions`)**: The `useGetSessions()` hook fetches the list of all available chat sessions, which is then used by `ChatSidebar` to display the navigation list.
+
+### Chat Feature Data Entities and Consumers
+This table lists the primary data entities used in the chat feature, the hooks responsible for managing them, and the components that consume or update this data. Note that hook and component names in the table may be more generalized than the specific implementation names used in the detailed text.
+
+| Data Entity | Managing Hook(s) | Consuming/Updating Components |
+|---|---|---|
+| activeSession | useChatSession | ChatWindow, SessionList (consumes and updates) |
+| messages | useMessages | ChatWindow, MessageInput (updates) |
+| sessions | useSessions | SessionList (consumes and updates) |
+
+### Core Chat Feature: Key Data Flow
+This diagram shows the primary data entities (`activeSession`, `messages`, `sessions`) and the conceptual components/hooks responsible for fetching, consuming, and updating this data, illustrating their dependencies.
+
+```mermaid
+graph TD
+    subgraph Data Entities
+        ActiveSession_D((Active Session))
+        Messages_D((Messages))
+        Sessions_D((Sessions))
+    end
+
+    subgraph Hooks
+        UseSessionManager_H[useSessionManager]
+        UseMessageStore_H[useMessageStore]
+        UseActiveSession_H[useActiveSession]
+    end
+
+    subgraph Components
+        ChatScreen_C[Chat Screen]
+        SessionList_C[Session List]
+        MessageInput_C[Message Input]
+    end
+
+    Sessions_D --> UseSessionManager_H
+    ActiveSession_D --> UseSessionManager_H
+    Messages_D --> UseMessageStore_H
+
+    UseSessionManager_H --> UseActiveSession_H
+
+    UseSessionManager_H --> SessionList_C
+    UseActiveSession_H --> ChatScreen_C
+    UseMessageStore_H --> ChatScreen_C
+    UseMessageStore_H --> MessageInput_C
+
+    ChatScreen_C --> MessageInput_C
+```
+
+### 3.3. User Interaction Effects
+
+User interactions fundamentally drive changes in the application's state and UI. In this application, these interactions primarily propagate through routing and `react-query`'s cache invalidation/updates, ensuring a dynamic and responsive experience.
+
+*   **Selecting a Session in the Sidebar**: Clicking a session in `ChatSidebar` triggers a `react-router-dom` navigation (`navigate(`/s/${session.id}`)`). This URL change updates the `sessionId` parameter, which `useGetActiveSession()` consumes. Components relying on this hook (e.g., `ChatWindow`, `SessionChat`, `Messages`, `ChatInput`) then re-render with the data for the newly selected session.
+*   **Creating a New Chat Session**: Clicking "New Chat" in `ChatSidebar` calls `useCreateSession` to create a new session on the backend. Upon success, the application navigates to the new session's URL (`navigate(`/s/${newSession.id}`)`). This again updates the `activeSession` context, causing the chat window to display the newly created, empty session.
+
+### User Interaction: Session Selection & Creation Flow
+This sequence diagram depicts the sequence of actions and their effects when a user selects an existing chat session or creates a new one, highlighting the role of routing and data fetching hooks in updating the chat window.
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant SidebarUI as Sidebar UI
+    participant AppRouter as App Router
+    participant ChatWindowUI as Chat Window UI
+    participant DataFetchHooks as Data Fetch Hooks
+    participant BackendAPI as Backend API
+
+    User->>SidebarUI: Click Session/New
+    activate SidebarUI
+
+    alt Select Existing Session
+        SidebarUI->>AppRouter: Navigate Session ID
+        deactivate SidebarUI
+        activate AppRouter
+        AppRouter->>ChatWindowUI: URL Change
+        deactivate AppRouter
+        activate ChatWindowUI
+        ChatWindowUI->>DataFetchHooks: Request Chat Data
+        activate DataFetchHooks
+        DataFetchHooks->>BackendAPI: Fetch Chat Data(ID)
+        activate BackendAPI
+        BackendAPI-->>DataFetchHooks: Return Chat Data
+        deactivate BackendAPI
+        DataFetchHooks-->>ChatWindowUI: Update UI Data
+        deactivate DataFetchHooks
+        ChatWindowUI->>User: Display Chat History
+        deactivate ChatWindowUI
+    else Create New Chat
+        SidebarUI->>AppRouter: Navigate New Session
+        deactivate SidebarUI
+        activate AppRouter
+        AppRouter->>ChatWindowUI: URL Change
+        deactivate AppRouter
+        activate ChatWindowUI
+        ChatWindowUI->>BackendAPI: Request New Session
+        activate BackendAPI
+        BackendAPI-->>ChatWindowUI: Return New ID
+        deactivate BackendAPI
+        ChatWindowUI->>AppRouter: Update URL New ID
+        activate AppRouter
+        AppRouter->>ChatWindowUI: URL Change (New ID)
+        deactivate AppRouter
+        ChatWindowUI->>User: Display Empty Chat
+        deactivate ChatWindowUI
+    end
+```
+
+*   **Sending a Message**: In `ChatInput`, submitting a message first triggers an **optimistic UI update** by immediately adding a temporary message to the `queryClient` cache. This makes the message appear instantly in the `Messages` component. Then, `useSendMessage` sends the message to the backend. If the backend call fails, the optimistic update is reverted. Successful message sending and subsequent assistant responses are handled by `useHandleSessionMessageEvents`, which updates the shared `messages` cache in real-time.
+
+### User Interaction: Sending a Message Flow
+This sequence diagram illustrates the step-by-step sequence of events and component interactions when a user sends a message, including optimistic UI updates, backend communication, and real-time message handling.
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant ChatInput as ChatInput
+    participant Messages as Messages
+    participant UseSendMessage as useSendMessage
+    participant QueryClient as queryClient
+    participant Backend as Backend
+    participant WebSocket as WebSocket
+    participant UseHandleEvents as useHandleSessionMessageEvents
+
+    User->>ChatInput: Enters message
+    ChatInput->>UseSendMessage: Submit message
+    UseSendMessage->>QueryClient: Optimistic add
+    QueryClient->>Messages: Update display (pending)
+    UseSendMessage->>Backend: Send message
+    Backend-->>Backend: Process message
+    Backend->>WebSocket: Broadcast message
+    WebSocket->>UseHandleEvents: New message event
+    UseHandleEvents->>QueryClient: Confirm message
+    QueryClient->>Messages: Update display (confirmed)
+```
+
+### 3.4. Component Hierarchy Starting from `src/pages/chat/index.tsx`
+
+The application's UI is built as a tree of components, where complex features are composed from simpler, reusable building blocks. Understanding this hierarchy is fundamental to grasping how the UI is rendered and how data flows through it.
+
+### Core Chat Feature: Main Component Hierarchy
+This diagram visualizes the containment and rendering relationships between the primary chat components, starting from the main `ChatLayout` and detailing its nested structure. Note that some component names in the diagram may be more generalized than the specific implementation names used in the detailed text.
+
+```mermaid
+graph TD
+    ChatLayout[Chat Layout]
+
+    ChatLayout --> ChatHeader[Chat Header]
+    ChatLayout --> ChatSidebar[Chat Sidebar]
+    ChatLayout --> ChatWindow[Chat Window]
+
+    ChatSidebar --> ChatList[Chat List]
+    ChatList --> ChatItem[Chat Item]
+
+    ChatWindow --> MessageList[Message List]
+    ChatWindow --> MessageInput[Message Input]
+
+    MessageList --> MessageItem[Message Item]
+
+    MessageInput --> SendButton[Send Button]
+    MessageInput --> AttachmentButton[Attach Button]
+```
+
+The core chat feature's component hierarchy, starting from the main `ChatLayout` component, is as follows:
+
+*   **`App`** (`src/app.tsx`)
+    *   `QueryClientProvider`
+    *   `BrowserRouter`
+        *   `Routes`
+            *   `Route path="/" element={<ChatLayout />}`
+            *   `Route path="/s/:sessionId" element={<ChatLayout />}`
+
+*   **`ChatLayout`** (`src/pages/chat/index.tsx`)
+    *   `SidebarProvider` (from `@/components/ui/sidebar`)
+        *   **`ChatSidebar`** (`src/pages/chat/components/chat-sidebar.tsx`)
+            *   `SidebarHeader` (from `@/components/ui/sidebar`)
+                *   `SidebarTrigger` (from `@/components/ui/sidebar`)
+                *   `Button` (for "New Chat")
+            *   `SidebarContent` (from `@/components/ui/sidebar`)
+                *   `SidebarGroup` (from `@/components/ui/sidebar`)
+                    *   `SidebarGroupContent` (from `@/components/ui/sidebar`)
+                        *   `SidebarMenu` (from `@/components/ui/sidebar`)
+                            *   `SessionList` (internal to `ChatSidebar`)
+                                *   `Session` (internal to `ChatSidebar`, mapped for each session)
+                                    *   `SidebarMenuItem` (from `@/components/ui/sidebar`)
+                                    *   `SidebarMenuButton` (from `@/components/ui/sidebar`)
+            *   `SidebarRail` (from `@/components/ui/sidebar`)
+        *   `SidebarInset` (from `@/components/ui/sidebar`)
+            *   **`ChatWindow`** (`src/pages/chat/components/chat-window.tsx`)
+                *   `ChatHeader` (internal to `ChatWindow`)
+                *   **`SessionChat`** (`src/pages/chat/components/session-chat.tsx`)
+                    *   **`Messages`** (`src/pages/chat/components/messages.tsx`)
+                        *   `StickToBottom` (from `@/lib/use-stick-to-bottom`)
+                            *   `StickToBottomContent` (from `@/lib/use-stick-to-bottom`)
+                                *   `Card` (from `@/components/ui/card`, mapped for each message)
+                    *   **`ChatInput`** (`src/pages/chat/components/chat-input.tsx`)
+                        *   `ChatInputTextarea` (from `src/components/chat-input.tsx`)
+                        *   `ProviderSelect` (imported, but no file content provided)
+                        *   `ChatInputSubmit` (from `src/components/chat-input.tsx`)
+
+## 4. State Management Strategy
+
+In any dynamic application, managing data (state) is paramount. The OpenCode Client employs a multi-faceted state management strategy, recognizing that different types of state (server-derived, global UI, local UI) have different lifecycle and access requirements. The fundamental principle is to use the right tool for the right job to ensure efficiency, predictability, and maintainability.
+
+### 4.1. State Management Libraries Used
+
+The application utilizes a combination of state management solutions tailored for different types of state:
+
+*   **TanStack Query (React Query)**: This is the primary library for managing **server-side state**. Server state is data that lives on a remote server but needs to be displayed and manipulated on the client. React Query excels at handling data fetching, caching, synchronization with the backend, and background updates, fundamentally abstracting the complexities of asynchronous data.
+*   **Zustand**: Used for managing **global client-side UI state** that is not directly tied to server data. This includes application-wide preferences or temporary UI states that need to be accessible across many components without the overhead of React Context. Zustand is chosen for its simplicity and performance.
+*   **React Context API**: Employed for managing **UI-specific global state** that needs to be accessible across a component subtree. Unlike server state, this state often relates directly to UI behavior (e.g., sidebar's open/closed state). Context provides a way to "inject" state deep into the component tree without prop drilling.
+*   **React `useState`**: The fundamental React hook for managing **local component-level state**. This is for data that is only relevant to a single component and its immediate children, such as input field values or toggle states.
+
+### State Management Libraries and Their Roles
+This table summarizes the different state management libraries used in the application, outlining their primary purpose and the type of state they are designed to manage.
+
+| Library | Primary Purpose | Type of State Managed | Example Usage/Indicator |
+|---|---|---|---|
+| TanStack Query (React Query) | Primary library for managing server-side state, including data fetching, caching, synchronization, and updates. | Server-side state (data fetching, caching, synchronization, updates) | API call results, data mutations, background data refetching |
+| Zustand | Used for managing global client-side UI state that is not directly tied to server data. | Global client-side UI state (not tied to server data) | Application-wide theme settings, global modal visibility, user preferences (client-only) |
+| React Context API | Employed for managing UI-specific global state that needs to be accessible across a component subtree. | UI-specific global state (accessible across a component subtree) | Authentication status, current language, user settings within a specific section of the app |
+| React `useState` | Standard React hook for managing local component-level state. | Local component-level state | Form input values, toggle states, counter within a single component |
+
+### 4.2. Main State 'Stores' or 'Slices' and Managed Data
+
+The application organizes its state into several logical units or "stores," each responsible for a specific domain of data. This modularity helps in reasoning about and managing different parts of the application's state.
+
+*   **TanStack Query Cache**: Manages server-derived data:
+    *   `["messages", sessionId]`: Chat message history for a specific session.
+    *   `["sessions"]`: List of all chat sessions.
+    *   `Active Session`: Derived from `["sessions"]` and `sessionId` URL parameter.
+    *   `["appInfo"]`: General application information.
+    *   `["configProviders"]`: Configuration for available AI providers and models.
+*   **Zustand Store**: Manages global client-side UI state:
+    *   `useSelectedModelStore`: Stores the currently selected AI model for responses.
+*   **React Context (`SidebarContext`)**: Manages UI-specific global state:
+    *   `Sidebar State`: Controls the visibility and expanded/collapsed state of the chat sidebar.
+*   **Local Component State (`useState`)**: Manages transient, component-specific UI state:
+    *   `Chat Input`: Text currently being typed by the user.
+    *   `Sidebar Open State`: Internal flags for sidebar visibility (desktop/mobile).
+
+### Application State Units and Managed Data
+This table catalogs the main logical units of state ('stores' or 'slices') across different state management solutions and the specific data they are responsible for managing.
+
+| State Unit/Key | Managed Data Type/Description | Managing Library | Example Location/Usage |
+|---|---|---|---|
+| `["messages", sessionId]` | Message history for a specific chat session | TanStack Query | `useQuery(["messages", sessionId], ...)` |
+| `["sessions"]` | List of chat sessions | TanStack Query | `useQuery(["sessions"], ...)` |
+| Active Session | Currently active chat session (derived) | TanStack Query (derived) | Derived from `["sessions"]` or other query state |
+| `["appInfo"]` | Application general information | TanStack Query | `useQuery(["appInfo"], ...)` |
+| `["configProviders"]` | Configuration providers data | TanStack Query | `useQuery(["configProviders"], ...)` |
+| `useSelectedModelStore` | Currently selected AI model | Zustand | `const selectedModel = useSelectedModelStore(state => state.model);` |
+| SidebarContext | Sidebar visibility (open/closed) and expanded/collapsed state | React Context | `useContext(SidebarContext)` in components, `SidebarContext.Provider` for global access |
+| Chat Input | User-typed text in the chat input field | Local Component State (useState) | `const [inputValue, setInputValue] = useState('');` within a `ChatInput` component |
+| Sidebar Open State (_open, openMobile) | Internal flags for sidebar visibility (desktop/mobile) | Local Component State (useState) | `const [open, setOpen] = useState(true);` within a `Sidebar` component |
+
+### 4.3. How Components Subscribe to State Changes
+
+Components fundamentally "subscribe" to state changes to know when to re-render and update their display. The mechanism for subscription varies based on the state management library used, but the core principle is that React efficiently re-renders only the necessary parts of the UI when their underlying data changes.
+
+*   **TanStack Query**: Components subscribe by invoking `useQuery` hooks with specific `queryKey` arrays. When the cache associated with a `queryKey` is updated (either by a refetch or direct `setQueryData` calls), all subscribed components automatically re-render.
+*   **Zustand**: Components subscribe by calling the Zustand store hook and providing a selector function. This ensures that the component only re-renders when the *specific part of the state* it's interested in changes, optimizing performance.
+*   **React Context API**: Components subscribe by using the `useContext` hook. When the value provided by the `Context.Provider` changes, all consuming components re-render.
+*   **React `useState`**: Components implicitly subscribe to their local state. When the state setter function is called, the component itself re-renders with the updated local state.
+
+### Component Subscription Mechanisms by State Management Library
+This table details how different state management libraries facilitate component subscription to state changes and what triggers a component to re-render.
+
+| Library | Subscription Mechanism | Trigger for Re-render | Example Component/Hook |
+|---|---|---|---|
+| TanStack Query | Components subscribe by invoking `useQuery` hooks with specific `queryKey` arrays. | When the TanStack Query cache is updated. | `useQuery` hook |
+| Zustand | Components subscribe by calling the Zustand store hook and providing a selector function. | Only when the selected part of the store's state changes (e.g., `selectedModel` property). | Zustand store hook (e.g., `useStore()`) with a selector function |
+| React Context API | Components subscribe by using the `useContext` hook, typically wrapped in a custom hook. | Upon changes to the context value (e.g., sidebar's state). | `useContext` hook (often within a custom hook) |
+| React `useState` | Components implicitly subscribe to their local state. | When the state setter function is called. | State setter function (e.g., `setCount`) |
+
+### 4.4. Flow for Updating State (e.g., New Message Received)
+
+The flow for updating state, particularly for new messages, demonstrates a sophisticated combination of optimistic updates, server communication, and real-time event handling. This complex interplay ensures a highly responsive user experience while maintaining data consistency with the backend.
+
+**Scenario: User Sends a New Message**
+
+1.  **User Input & Submission**: User types a message in `ChatInput` and submits.
+2.  **Optimistic Update**: A temporary message is immediately added to the TanStack Query cache for the active session's messages using `queryClient.setQueryData`. This causes the UI to instantly display the user's message, providing immediate feedback.
+3.  **Server Communication**: The `sendMessageMutation.mutate` function is called, sending the message to the backend API.
+4.  **Success Handling**: If successful, `queryClient.invalidateQueries` marks the messages query as stale, prompting a refetch to synchronize the client-side cache with the authoritative server state. If it's the first message, the `sessions` query is also invalidated to update the sidebar.
+5.  **Error Handling**: If the submission fails, the optimistic update is reverted by removing the temporary message from the cache, and the user's input is restored.
+
+### User Sends New Message Workflow
+This sequence diagram illustrates the detailed sequence of interactions and state updates when a user sends a new message, encompassing client-side optimistic updates, server communication, and subsequent cache synchronization.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant ChatInputTextarea as Chat Input
+    participant MessagesComponent as Messages UI
+    participant TanstackQueryCache as Query Cache
+    participant SendMessageMutation as Mutation Logic
+    participant Server
+
+    User->>ChatInputTextarea: Types & Submits
+    ChatInputTextarea->>Query Cache: Add Temp Msg
+    Query Cache->>Messages UI: Display Temp Msg
+    ChatInputTextarea->>Mutation Logic: Call Mutate
+    Mutation Logic->>Server: POST Message API
+
+    alt Message Success
+        Server-->>Mutation Logic: Success Response
+        Mutation Logic->>Query Cache: Invalidate Messages
+        opt If First Message
+            Mutation Logic->>Query Cache: Invalidate Sessions
+        end
+        Query Cache->>Messages UI: Display Confirmed Msg
+    else Message Failure
+        Server-->>Mutation Logic: Error Response
+        Mutation Logic->>Query Cache: Revert Temp Msg
+        Mutation Logic->>ChatInputTextarea: Restore Input
+    end
+```
+
+**Scenario: New Message or Message Part Received via Server-Sent Events (SSE)**
+
+1.  **Event Listener Setup**: The `useHandleSessionMessageEvents` hook establishes an `EventSource` connection to the backend's `/api/event` endpoint, listening for real-time updates.
+2.  **Event Processing**: When a `message.updated` or `message.part.updated` event is received, the event data is parsed.
+3.  **Cache Direct Update**: The `handleMessageUpdated` or `handleMessagePartUpdated` functions directly update the `messages` cache using `queryClient.setQueryData`. They either update an existing message/part or add a new one.
+4.  **UI Re-render**: Since `Messages` and other components are subscribed to the `messages` query, these direct cache manipulations trigger immediate re-renders, displaying the real-time updates (e.g., streaming AI responses) in the chat.
+
+### Real-time Message Update via Server-Sent Events (SSE)
+This flowchart depicts the flow of how real-time chat message updates (full messages or message parts) are received from the server via SSE and how they directly update the TanStack Query cache, triggering immediate UI re-renders.
+
+```mermaid
+graph TD
+    subgraph Client-side Setup
+        A[Hook Setup]
+        B[EventSource Conn]
+    end
+
+    subgraph Server-Sent Events
+        C[API Endpoint]
+        D[Event Received]
+        E[Parse EventData]
+    end
+
+    subgraph TanStack Query Cache
+        F{Event Type?}
+        G[Msg Updated]
+        H[Handle Msg Update]
+        I[Get Current Msgs]
+        J[Update/Add Msg]
+        K[Msg Part Updated]
+        L[Handle Part Update]
+        M[Get/Locate Msg]
+        N[Update/Append Part]
+        O[Set QueryData]
+        P[TanStack Cache]
+    end
+
+    subgraph User Interface
+        Q[UI Components]
+        R[UI Re-render]
+    end
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+
+    F -- "message.updated" --> G
+    G --> H
+    H --> I
+    I --> J
+    J --> O
+
+    F -- "message.part.updated" --> K
+    K --> L
+    L --> M
+    M --> N
+    N --> O
+
+    O --> P
+    P --> Q
+    Q --> R
+```
+
+## 5. The 'Provider' Abstraction System
+
+The 'Provider' abstraction system is a fundamental design choice that allows the OpenCode Client to interact with diverse backend services, particularly Large Language Models (LLMs), in a unified and extensible manner. Its core principle is to decouple the application's core logic from the specifics of individual LLM APIs, enabling seamless integration of new models without extensive code changes.
+
+### 5.1. What does a 'Provider' represent in the context of the application?
+
+In the application's context, a 'Provider' fundamentally represents a distinct backend service or API source that offers one or more LLM models. It's an abstraction layer that encapsulates the details of how to connect to and interact with a particular LLM vendor (e.g., OpenAI, Anthropic).
+
+*   Each `Provider` has a unique `id`, a display `name`, and configuration details (`api`, `env`, `npm`) for integration.
+*   Crucially, each `Provider` contains a `models` object, which lists the specific LLM models it offers. Each `Model` defines its `id`, `name`, `release_date`, and key capabilities (e.g., `attachment`, `reasoning`, `tool_call`), along with `cost` and `limit` (context/output token limits). This allows the application to dynamically understand and present the capabilities of different models to the user.
+*   The `Config` schema reinforces this by referencing models in the format "provider/model" and allowing specific providers to be `disabled_providers`. Error types like `ProviderAuthError` are also tied to a `providerID`, indicating that authentication failures are tracked at this abstraction level.
+
+### Provider Schema (`Provider`) Properties
+This table provides a detailed breakdown of the properties that define a 'Provider' in the application's context, as per `src/types/openapi-types.ts`.
+
+| Property | Type/Format | Description | Notes/Example |
+|---|---|---|---|
+| `id` | string | A unique identifier for the provider. | e.g., `openai`, `anthropic` |
+| `name` | string | The human-readable name of the provider. | e.g., "OpenAI", "Anthropic" |
+| `api` | object | Configuration details for interacting with the provider's API. | May include `baseURL`, `apiKeyEnvVar`, etc. |
+| `env` | object | Environment variables or specific settings required or used by the provider. | e.g., `{"OPENAI_API_KEY": "..."}` |
+| `npm` | string | The associated NPM package name for the provider's SDK or client library. | e.g., `openai`, `@anthropic-ai/sdk` |
+| `models` | Record<string, Model> | A dictionary mapping model IDs to their respective `Model` objects, detailing the models offered by this provider. | e.g., `{"gpt-4": {...}, "claude-3-opus-20240229": {...}}` |
+
+### Model Schema (`Model`) Properties and Capabilities
+This table enumerates the various attributes, capabilities, costs, and limits associated with each 'Model' hosted by a 'Provider'.
+
+| Property | Type/Category | Description | Details/Impact |
+|---|---|---|---|
+| id | Identifier | Unique identifier for the model. | Used to programmatically reference a specific model hosted by a provider. |
+| name | Metadata | Human-readable name of the model. | User-friendly label for model selection and display. |
+| release_date | Metadata / Lifecycle | Date when the model was released or made available. | Indicates model recency; useful for versioning and deprecation tracking. |
+| attachment | Capability / Input Modality | Indicates support for processing various file types or media attachments. | Determines if the model can handle multi-modal inputs (e.g., images, audio, documents). |
+| reasoning | Capability / Core Functionality | Describes the model's ability to perform complex logical inference or problem-solving. | Crucial for tasks requiring advanced cognitive abilities, beyond simple information retrieval. |
+| temperature | Parameter / Generation Control | Controls the randomness or creativity of the model's output. | Higher values lead to more diverse/creative outputs; lower values lead to more deterministic/focused outputs. Typically a float between 0 and 1 or 2. |
+| tool_call | Capability / Integration | Indicates the model's ability to generate structured calls to external tools or functions. | Enables the model to interact with external systems, perform actions, or retrieve real-time information. |
+| cost | Financial / Pricing | Associated cost for using the model, typically per token or per request. | Direct financial implication; influences model selection based on budget constraints. Can vary for input vs. output. |
+| limit (Context Token) | Constraint / Resource | Maximum number of tokens the model can process in a single input context. | Defines the maximum length of prompts and conversational history the model can handle. |
+| limit (Output Token) | Constraint / Resource | Maximum number of tokens the model can generate in a single response. | Defines the maximum length of the model's output; affects verbosity and completeness of responses. |
+
+### Core Data Schemas: Provider, Model, and Config Relationships
+This diagram illustrates the structure and relationships between the `Provider` object, `Model` objects, and relevant fields within the application's `Config` schema, showing their properties and how they compose or relate.
+
+```mermaid
+classDiagram
+    class Provider {
+        +id: string
+        +name: string
+        +api: string
+        +env: object
+        +npm: string
+        +models: object
+    }
+
+    class Model {
+        +id: string
+        +name: string
+        +release_date: date
+        +attachment: string
+        +reasoning: string
+        +temperature: number
+        +tool_call: boolean
+        +cost: number
+        +limit: number
+    }
+
+    class Config {
+        +model: string (provider/model)
+        +disabled_providers: string[]
+    }
+
+    Provider "1" *-- "0..*" Model : has
+    Config --> Model : references
+    Config --> Provider : disables
+```
+
+### 5.2. How are the available providers fetched and displayed to the user?
+
+The process of making providers available to the user fundamentally involves fetching their configurations from the backend and presenting them in a user-friendly interface for selection.
+
+### Key API Endpoints for Provider Management and Usage
+This table summarizes the crucial API endpoints mentioned, their HTTP methods, and their specific roles in fetching provider data and sending messages.
+
+| Endpoint | Method | Purpose | Request Payload (if applicable) | Response Structure |
+|---|---|---|---|---|
+| /api/config/providers | GET | To retrieve a list of available providers and their configurations for provider management. | N/A | A JSON array of provider objects, each containing details like ID, name, and configuration. |
+| postSessionByIdMessage (Operation Name) | POST | To send a message within a specific session, routing it based on the provided `providerID` and `modelID`. | A JSON object containing the message content, `providerID`, and `modelID`. Example: `{ "message": "User query", "providerID": "provider-abc", "modelID": "model-xyz" }` | A JSON object confirming the message submission, possibly including a message ID, status, or updated session state. Example: `{ "status": "success", "messageId": "msg-123" }` |
+
+*   **Fetching**: Providers are fetched from the backend via the `/api/config/providers` endpoint. The `useGetProviders` React Query hook (`src/hooks/fetch/providers.tsx`) is responsible for this API call, returning a list of `Provider` objects and default selections.
+*   **Displaying**: The `ProviderSelect` component (`src/pages/chat/components/provider-select.tsx`) displays these providers and their models. It uses `useGetProviders` to get the data, then processes it to create a `modelList` (a flat list of all available models across providers). This `modelList` is then rendered in a combobox (using Radix UI's `Popover` and `Command` components), allowing the user to select a model. Upon initial load, it attempts to set a default model based on the backend's `providers.default` configuration.
+
+### Provider Data Fetching and UI Display Flow
+This diagram shows the chronological sequence of interactions and API calls involved when the application fetches available providers and models from the backend and displays them to the user in the `ProviderSelect` component.
+
+```mermaid
+sequenceDiagram
+    participant ProviderSelect as ProviderSelect Component
+    participant UseGetProviders as useGetProviders Hook
+    participant BackendAPI as Backend API
+
+    ProviderSelect->>UseGetProviders: Init Fetch
+    UseGetProviders->>BackendAPI: GET /api/config/providers
+    BackendAPI-->>UseGetProviders: Providers and Defaults
+    UseGetProviders-->>ProviderSelect: Raw Data
+    ProviderSelect->>ProviderSelect: Process Data
+    ProviderSelect->>ProviderSelect: Create ModelList
+    ProviderSelect->>ProviderSelect: Display UI
+```
+
+### Core UI Components and Their Roles in Provider Abstraction
+This table provides an overview of the primary React components and state management mechanisms responsible for displaying, selecting, and utilizing providers/models in the user interface.
+
+| Component/Store | Location | Primary Role | Key Interactions/Data Flow |
+|---|---|---|---|
+| ProviderSelect | User Interface (Provider Selection) | Displaying available providers/models and enabling user selection. | Uses `useGetProviders` hook; responsible for `modelList` creation and display. |
+| `useGetProviders` hook | React Hook | Retrieving/fetching the list of available providers. | Provides data to `ProviderSelect` for `modelList` creation. |
+| `modelList` creation | Data Structure/Process | Organizing retrieved provider data into a displayable list. | Created from data provided by `useGetProviders`; consumed by `ProviderSelect`. |
+| ChatInput | User Interface (Chat Input Area) | Facilitating user input and constructing API requests using the selected model. | Retrieves `selectedModel` (from `useSelectedModelStore`); constructs API payload. |
+| `useSelectedModelStore` | Global State Management Store | Maintaining the globally selected provider/model state. | Provides `selectedModel` to components (e.g., `ChatInput`); updated by selection components (e.g., `ProviderSelect`). |
+
+### 5.3. How does selecting a different provider impact the chat session and API calls?
+
+Selecting a different provider (and its associated model) fundamentally changes how subsequent chat messages are processed. It dictates which backend service (and specific LLM) will handle the user's input, thus directly impacting the underlying API calls.
+
+### Chat Message Submission with Dynamic Provider/Model Selection
+This diagram illustrates how the user's selected provider and model are integrated into the API call payload when a chat message is sent, ensuring messages are routed to the correct backend service.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant ProviderSelect_Comp as ProviderSelect
+    participant SelectedModel_Store as useSelectedModelStore
+    participant ChatInput_Comp as ChatInput
+    participant API_Service as Backend API
+
+    User->>ProviderSelect_Comp: Selects Provider/Model
+    ProviderSelect_Comp->>SelectedModel_Store: Updates (providerID, modelID)
+    activate SelectedModel_Store
+    deactivate SelectedModel_Store
+
+    User->>ChatInput_Comp: Sends Chat Message
+    activate ChatInput_Comp
+    ChatInput_Comp->>SelectedModel_Store: Get Selected Model
+    activate SelectedModel_Store
+    SelectedModel_Store-->>ChatInput_Comp: Returns Model Data
+    deactivate SelectedModel_Store
+
+    ChatInput_Comp->>API_Service: Post Message (payload: msg, providerID, modelID)
+    activate API_Service
+    API_Service-->>ChatInput_Comp: Message Processed
+    deactivate API_Service
+    deactivate ChatInput_Comp
+```
+
+*   **Chat Session State**: The `ProviderSelect` component updates a global state (`useSelectedModelStore`) with the `providerID` and `modelID` of the chosen model. This `selectedModel` object is then used throughout the application to determine the active LLM.
+*   **API Calls for Messages**: When a user sends a message, the `ChatInput` component retrieves the `selectedModel` from the store. The `payload` for the `postSessionByIdMessage` API call (which sends a new message to the session) explicitly includes the `providerID` and `modelID` from the `selectedModel`. This ensures that each message sent is routed to the specific provider and model chosen by the user.
+*   **Message Metadata**: Assistant messages also store the `modelID` and `providerID` in their metadata, allowing for tracking which provider/model generated a particular response.
+
+### 5.4. What steps are required to add and configure a new Provider?
+
+Adding and configuring a new Provider fundamentally involves extending the backend's knowledge of available LLM services. Based on the provided content, this process appears to be primarily driven by backend configuration rather than direct client-side UI operations.
+
+*   **Configuration Schema**: The `Config` schema in `src/types/openapi-types.ts` defines a `provider` field for "Custom provider configurations and model overrides." This structure suggests that new providers can be defined by adding new entries to this configuration, specifying their `api`, `name`, `env` variables, `id`, and `npm` package.
+*   **Model Definitions**: Within this custom provider configuration, specific models can be defined with their capabilities, costs, and limits.
+*   **Automatic Loading/Disabling**: The `disabled_providers` field in the `Config` schema allows for disabling pre-configured or default providers, implying a mechanism for managing a set of known providers.
+*   **No Direct API for Addition**: The OpenAPI specification for `/config/providers` only exposes a `GET` operation to *list* providers, with no `POST`, `PUT`, or `DELETE` operations. This strongly implies that the addition or modification of providers is not performed directly via client-side API calls but rather through server-side configuration files or other backend mechanisms. The `npm` property further hints at a possible plugin or package-based installation method for new providers on the backend.
+
+### New Provider Configuration and Availability Workflow
+This flowchart depicts the conceptual workflow for adding or configuring a new provider within the system, emphasizing that it's primarily a backend/configuration-driven process.
+
+```mermaid
+graph TD
+    Config_Def[Define Config]
+
+    subgraph System
+        Backend_Load[Load Config]
+        System_Process[Process Providers]
+        API_Endpoint[Expose API]
+    end
+
+    Config_Def --> Backend_Load
+    Backend_Load --> System_Process
+    System_Process --> API_Endpoint
+    API_Endpoint --> Providers_Avail[Providers Available]
+```
+
+## 6. Custom Hooks and Reusable Logic
+
+In React, custom hooks are a fundamental mechanism for abstracting and reusing stateful logic and side effects across multiple components. They allow developers to extract complex business logic or UI behaviors into standalone, composable functions, thereby promoting code reuse, separation of concerns, and cleaner component code.
+
+### 6.1. Specific Purpose of the `use-handle-session-message-events` Hook
+
+The `useHandleSessionMessageEvents` hook (`src/hooks/use-handle-session-message-events.ts`) is specifically designed to manage real-time updates for chat messages within an active session. Its fundamental purpose is to maintain UI synchronization with backend events without requiring manual polling or full data refetches.
+
+*   It establishes a Server-Sent Events (SSE) connection to `/api/event`, listening for `message.updated` or `message.part.updated` events.
+*   Upon receiving an event, it dispatches handlers that either update existing messages or message parts in the `react-query` cache or add new messages. This ensures the chat UI reflects the latest state in real-time, providing a dynamic user experience.
+
+### Real-time Chat Message Update Flow
+This sequence diagram illustrates the sequence of interactions when a `message.updated` or `message.part.updated` event is received via Server-Sent Events (SSE), showing how the `useHandleSessionMessageEvents` hook processes it and updates the `react-query` cache.
+
+```mermaid
+sequenceDiagram
+    participant Backend_SSE_Endpoint as Backend SSE
+    participant EventSource_Listener as EventSource Listener
+    participant UseHandleEvents_Hook as Handle Events Hook
+    participant HandleMessageUpdated as Handle Msg Updated
+    participant HandleMessagePartUpdated as Handle Part Updated
+    participant React_Query_Cache as React Query Cache
+
+    Backend_SSE_Endpoint->>EventSource_Listener: message.updated event
+    activate EventSource_Listener
+    EventSource_Listener->>UseHandleEvents_Hook: Event Dispatched
+    deactivate EventSource_Listener
+    activate UseHandleEvents_Hook
+    UseHandleEvents_Hook->>HandleMessageUpdated: Call Handler
+    activate HandleMessageUpdated
+    HandleMessageUpdated->>React_Query_Cache: Update Existing/New
+    deactivate HandleMessageUpdated
+    deactivate UseHandleEvents_Hook
+
+    Backend_SSE_Endpoint->>EventSource_Listener: message.part.updated event
+    activate EventSource_Listener
+    EventSource_Listener->>UseHandleEvents_Hook: Event Dispatched
+    deactivate EventSource_Listener
+    activate UseHandleEvents_Hook
+    UseHandleEvents_Hook->>HandleMessagePartUpdated: Call Handler
+    activate HandleMessagePartUpdated
+    HandleMessagePartUpdated->>React_Query_Cache: Append Part
+    deactivate HandleMessagePartUpdated
+    deactivate UseHandleEvents_Hook
+```
+
+### `handleMessageUpdated` Logic Flow
+This flowchart visualizes the decision logic within the `handleMessageUpdated` function, showing how it determines whether to update an existing message or create a new one based on whether a matching ID is found in the `react-query` cache.
+
+```mermaid
+graph TD
+    Start_Node[Start]
+    Receive_Event[Receive Message Updated]
+    Check_Cache{ID In Cache?}
+    Update_Content[Update Message Content]
+    Add_New[Add New Message]
+    End_Node[End]
+
+    Start_Node --> Receive_Event
+    Receive_Event --> Check_Cache
+    Check_Cache -- Yes --> Update_Content
+    Check_Cache -- No --> Add_New
+    Update_Content --> End_Node
+    Add_New --> End_Node
+```
+
+### 6.2. How the `use-stick-to-bottom` Hook Functions
+
+The `useStickToBottom` hook (`src/lib/use-stick-to-bottom/hook.js` and `component.tsx`) fundamentally solves the problem of automatically scrolling a content area (like a chat window) to its bottom when new content is added. It provides a flexible and declarative way to manage scroll behavior, crucial for dynamic lists.
+
+*   **Refs Management**: It uses `scrollRef` and `contentRef` to reference the scrollable container and its content, allowing it to monitor scroll position and dimensions.
+*   **Scroll Modes**: Supports `"element"` mode (managing a specific HTML element's scroll) and `"document"` mode (managing the entire document body's scroll).
+*   **Programmatic Control**: Exposes `scrollToBottom` and `stopScroll` functions for imperative control.
+*   **State Tracking**: Provides `isAtBottom` (user is at the bottom) and `escapedFromLock` (user manually scrolled away) states.
+*   **Context Provision**: The `StickToBottom` component wraps children with `StickToBottomContext.Provider`, making the hook's state and functions available to descendants without prop drilling.
+
+### `useStickToBottom` Hook and Component Relationship
+This class diagram illustrates how the `StickToBottom` component utilizes the `useStickToBottom` hook and then provides its functionalities and state to descendant components via `StickToBottomContext` to avoid prop drilling.
+
+```mermaid
+classDiagram
+    class UseStickToBottomHook {
+        +scrollToBottom()
+        +stopScroll()
+        +isAtBottom: boolean
+        +autoScroll: boolean
+    }
+
+    class StickToBottomComponent {
+        +render()
+    }
+
+    class StickToBottomContext {
+        +scrollToBottom()
+        +stopScroll()
+        +isAtBottom: boolean
+        +autoScroll: boolean
+    }
+
+    class DescendantComponent {
+        +useStickToBottomContext()
+    }
+
+    StickToBottomComponent ..> UseStickToBottomHook : Uses
+    StickToBottomComponent o-- StickToBottomContext : Provides
+    DescendantComponent ..> StickToBottomContext : Consumes
+```
+
+### `useStickToBottom` Hook Features and Outputs
+This table lists the key functionalities, state variables, and exposed functions provided by the `useStickToBottom` hook, along with their descriptions.
+
+| Feature/Output | Type | Description | Example Property/Method |
+|---|---|---|---|
+| Refs Management | Functionality | Provides React refs (`containerRef`, `contentRef`) that must be attached to the scrollable container and its inner content. These refs enable the hook to monitor scroll position, content height, and container dimensions for accurate sticking behavior. | `containerRef`, `contentRef` |
+| Programmatic Control | Functionality / Method | Exposes functions that allow developers to imperatively control the sticking state or trigger scroll actions. This enables overriding automatic behavior or responding to user interactions/events. | `stickToBottom()`, `unstick()`, `scrollBottom()` |
+| State Tracking | Output (State Variable) | Provides real-time boolean state variables reflecting the current scroll conditions and the hook's sticking status. These outputs are useful for conditional rendering, UI feedback, or integrating with other logic. | `isStuck`, `isUserScrolling`, `isAtBottom` |
+| Scroll Modes | Functionality | Manages different modes of sticking behavior, such as automatic adherence to the bottom when new content arrives, or maintaining a stuck state based on user interaction. This functionality underpins how the hook decides to stick or unstick. | (Implicitly managed by the hook's internal logic, reflected in `isStuck` and control functions) |
+| Context Provision | Functionality | (If implemented) Allows the hook's state and control functions to be shared down the component tree without prop drilling. This is typically achieved via a React Context Provider component exported alongside the hook. | `StickToBottomProvider` (as a separate component/export) |
+
+### 6.3. Other Significant Business Logic Abstracted into Custom Hooks or Utility Functions
+
+Beyond the specific hooks mentioned, the codebase abstracts several other significant business logic units into custom hooks or utility functions. This modularization is a core principle for managing complexity in a growing application.
+
+### Data Fetching & Mutation Hooks Summary
+This table provides a structured overview of the custom hooks used for data fetching and mutation with `@tanstack/react-query`, detailing their purpose and where they are utilized.
+
+| Hook Name | Purpose | Key Usage Location(s) | Query Type |
+|---|---|---|---|
+| `useGetMessages` | Fetches a list of messages, typically for a specific session or context. | Components displaying message lists (e.g., chat window, message history). | Query |
+| `useSendMessage` | Sends a new message to the backend. | Message input forms, chat submission buttons. | Mutation |
+| `useCreateSession` | Initiates or creates a new user session. | Session creation flows, 'Start New Chat' buttons. | Mutation |
+| `useGetSessions` | Fetches a list of all available user sessions. | Session history views, session selection lists. | Query |
+| `useGetActiveSession` | Retrieves details of the currently active user session. | Components that depend on the context of the current session (e.g., chat window header). | Query |
+| `useGetAppInfo` | Fetches global application configuration or status information. | App initialization, global headers/footers, settings pages. | Query |
+
+*   **Data Fetching and Mutation (using `@tanstack/react-query`):** Hooks like `useGetMessages`, `useSendMessage`, `useCreateSession`, `useGetSessions`, and `useGetActiveSession` encapsulate all API interaction logic, including `fetch` calls, error handling, and `react-query` cache invalidation/updates.
+*   **Optimistic UI Updates:** The `onSubmit` function in `src/pages/chat/components/chat-input.tsx` demonstrates optimistic UI updates for sending messages. It immediately adds a temporary user message to the `queryClient` cache before the actual API call, providing instant feedback. If the API call fails, the optimistic update is reverted.
+
+### Optimistic Message Sending Flow
+This sequence diagram depicts the sequence of actions when a user sends a message, including the immediate optimistic update to the UI, the API call, and the subsequent cache invalidation or optimistic update reversion on error.
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant UI as UI
+    participant QueryClient as QueryClient
+    participant APIService as API_Service
+    participant Backend as Backend
+
+    User->>UI: Submit Msg
+    UI->>QueryClient: Optimistic Update
+    QueryClient-->>UI: Show Temp Msg
+    UI->>APIService: Call Send API
+    APIService->>Backend: Save Msg
+    Backend-->>APIService: API Response
+
+    alt Success
+        APIService-->>UI: Success
+        UI->>QueryClient: Invalidate Cache
+        QueryClient-->>UI: Update UI
+    else Failure
+        APIService-->>UI: Error
+        UI->>QueryClient: Revert Optimistic
+        QueryClient-->>UI: Remove Temp Msg
+        UI->>User: Display Error
+    end
+```
+
+*   **UI Component State Management:** `useSidebar` (`src/components/ui/sidebar.tsx`) provides context-based state management for the sidebar, allowing child components to interact with its open/closed state.
+*   **ID Generation:** Utility functions like `generateNewID` (`src/lib/generateId.ts`) are used to create unique IDs for messages and message parts, crucial for optimistic updates and data management.
+
+### Other Significant Business Logic Abstractions
+This table provides an overview of other important custom hooks and utility functions that abstract business logic or common functionalities, excluding the `react-query` ones already covered.
+
+| Category | Hook/Utility Name | Purpose | Key Usage Location(s) |
+|---|---|---|---|
+| Optimistic UI | Optimistic Update Logic | Provides immediate feedback to the user for actions, even before a server response is received. | `chat-input.tsx` |
+| UI State Management | `useSidebar` | Manages the state and behavior (e.g., open/closed) of the sidebar UI component. | `src/components/ui/sidebar.tsx` |
+| Utility Function | `generateNewID` | Generates unique identifiers for new data entries or components. | `src/lib/generateId.ts` (and various components requiring new IDs) |
+
+### 6.4. Best Practices for Creating New Reusable Hooks
+
+The codebase demonstrates several best practices for creating new reusable hooks, which are fundamental for maintaining a modular, scalable, and maintainable React application. These practices ensure that hooks are easy to understand, use, and contribute to the overall quality of the codebase.
+
+### Custom Hook Best Practices
+This table summarizes the best practices identified in the codebase for creating reusable React hooks, providing a clear guideline for future development.
+
+| Best Practice | Description | Example/Benefit |
+|---|---|---|
+| Naming Convention | Custom hooks must always start with the 'use' prefix (e.g., `useAuth`, `useFormValidation`) to signify they are hooks and enable React's rules of hooks. | Enables React's linter rules for hooks, improves code readability, and clearly identifies a function as a hook. |
+| Logical Grouping and File Structure | Group related hooks together, typically within a dedicated `hooks/` directory at the project root or within feature-specific directories. Each hook should ideally reside in its own file. | Enhances project organization, improves discoverability of hooks, and promotes modularity (e.g., `src/hooks/useDebounce.js`). |
+| Encapsulation of Complex Logic | Custom hooks should abstract away complex stateful logic, side effects, and imperative DOM manipulations, providing a clean, declarative interface to components. | Reduces component complexity, promotes separation of concerns, and makes logic reusable (e.g., a `useFetch` hook encapsulates data fetching, loading, and error states). |
+| Clear Inputs and Outputs | Define explicit parameters (inputs) for the hook and return clear, well-structured values (outputs). The hook's API should be intuitive and predictable. | Improves the usability and understanding of the hook (e.g., `useCounter(initialValue)` returns `{ count, increment, decrement }`). |
+| Leveraging Existing Libraries | Utilize battle-tested third-party libraries (e.g., `react-query` for data fetching, `redux-toolkit` for state management) for common patterns rather than re-implementing complex logic from scratch. | Reduces development time, minimizes boilerplate, and benefits from optimized, community-maintained solutions. |
+| Context API for Global/Shared State | Employ React's Context API within hooks when managing global or deeply shared state that needs to be accessible to many components without prop drilling. | Simplifies state management for application-wide concerns (e.g., a `useAuth` hook providing user authentication status via Context). |
+| Dependency Array Management | Meticulously manage dependency arrays for `useEffect`, `useCallback`, and `useMemo` hooks. Ensure all dependencies are correctly listed to prevent stale closures, infinite loops, or unnecessary re-renders. | Optimizes performance by preventing redundant computations/effects and avoids common bugs related to outdated values (e.g., `useEffect(() => { /* ... */ }, [value1, value2])`). |
+
+Evident best practices include:
+*   **Naming Convention:** All custom hooks adhere to the `use` prefix.
+*   **Logical Grouping and File Structure:** Hooks are organized under `src/hooks/fetch/` for data fetching, `src/lib/` for general utilities, and often exported from UI component files for component-specific state.
+*   **Encapsulation of Complex Logic:** Hooks encapsulate specific logic units (e.g., `EventSource` subscriptions in `useHandleSessionMessageEvents`, scroll management in `useStickToBottom`).
+*   **Clear Inputs and Outputs:** Hooks take specific parameters and return a well-defined set of values.
+*   **Leveraging Existing Libraries:** Effective use of `@tanstack/react-query` and Radix UI primitives.
+*   **Context API for Global/Shared State:** `useStickToBottom` and `useSidebar` illustrate using Context for state accessible by deeply nested components.
+*   **Dependency Array Management:** `useEffect` and `useCallback` calls consistently include dependency arrays for performance optimization and correctness.
+
+## 7. UI Component Library and Design System
+
+A UI component library and design system fundamentally serve to ensure consistency, efficiency, and accessibility across an application's user interface. By providing a set of pre-built, styled, and reusable components, it accelerates development, reduces design drift, and creates a cohesive user experience. This repository's system is heavily influenced by `shadcn/ui`, leveraging Tailwind CSS and CSS variables for flexible theming.
+
+### 7.1. Available Base UI Components and Their Props
+
+The `src/components/ui` directory contains a collection of foundational UI components. These components often wrap unstyled primitives from `@radix-ui/react-*` libraries, applying styling and additional functionality. Each component typically accepts a `className` prop for custom styling overrides and `...props` to pass through standard HTML or Radix primitive attributes. Many components also feature `data-slot` attributes for identification and potential targeted styling.
+
+Here's a breakdown of available components and their notable props:
+
+*   **Card (`src/components/ui/card.tsx`)**: `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardAction`, `CardContent`, `CardFooter`. Provides structured content containers.
+*   **Command (`src/components/ui/command.tsx`)**: `Command`, `CommandDialog`, `CommandInput`, `CommandList`, `CommandEmpty`, `CommandGroup`, `CommandSeparator`, `CommandItem`, `CommandShortcut`. Used for command palettes or searchable lists.
+*   **Dialog (`src/components/ui/dialog.tsx`)**: `Dialog`, `DialogTrigger`, `DialogPortal`, `DialogClose`, `DialogOverlay`, `DialogContent` (with `showCloseButton`), `DialogHeader`, `DialogFooter`, `DialogTitle`, `DialogDescription`. Creates modal windows.
+*   **Dropdown Menu (`src/components/ui/dropdown-menu.tsx`)**: `DropdownMenu`, `DropdownMenuPortal`, `DropdownMenuTrigger`, `DropdownMenuContent` (with `sideOffset`), `DropdownMenuGroup`, `DropdownMenuItem` (with `inset`, `variant`), `DropdownMenuCheckboxItem`, `DropdownMenuRadioGroup`, `DropdownMenuRadioItem`, `DropdownMenuLabel` (with `inset`), `DropdownMenuSeparator`, `DropdownMenuShortcut`, `DropdownMenuSub`, `DropdownMenuSubTrigger` (with `inset`), `DropdownMenuSubContent`. Provides contextual menus.
+*   **Input (`src/components/ui/input.tsx`)**: `Input` (with `type`). Standard text input field.
+*   **Popover (`src/components/ui/popover.tsx`)**: `Popover`, `PopoverTrigger`, `PopoverContent` (with `align`, `sideOffset`), `PopoverAnchor`. Small overlays for transient content.
+*   **Select (`src/components/ui/select.tsx`)**: `Select`, `SelectGroup`, `SelectValue`, `SelectTrigger` (with `size`), `SelectContent` (with `position`), `SelectLabel`, `SelectItem`, `SelectSeparator`, `SelectScrollUpButton`, `SelectScrollDownButton`. Custom dropdown select.
+*   **Separator (`src/components/ui/separator.tsx`)**: `Separator` (with `orientation`, `decorative`). Horizontal or vertical dividing lines.
+*   **Sheet (`src/components/ui/sheet.tsx`)**: `Sheet`, `SheetTrigger`, `SheetClose`, `SheetPortal`, `SheetOverlay`, `SheetContent` (with `side`). Side-panel dialogs (drawers).
+*   **Sidebar (`src/components/ui/sidebar.tsx`)**: A comprehensive set of components including `SidebarContent`, `SidebarFooter`, `SidebarGroup`, `SidebarHeader`, `SidebarMenu`, `SidebarMenuButton` (with `variant`, `size`), `SidebarProvider`, `useSidebar`. Used for navigation sidebars.
+*   **Tooltip (`src/components/ui/tooltip.tsx`)**: `TooltipProvider` (with `delayDuration`), `Tooltip`, `TooltipTrigger`, `TooltipContent` (with `sideOffset`). Small pop-ups for information on hover/focus.
+
+To provide a clearer visual understanding of how these components are structured and relate to their underlying primitives, the following class diagram illustrates their hierarchy and composition:
+
+### UI Component Hierarchy and Composition
+This diagram illustrates the relationships between base UI components and their sub-components, showing how they are composed or extend underlying primitives from Radix UI or standard HTML elements. This helps visualize the structural dependencies and modularity.
+
+```mermaid
+classDiagram
+    direction LR
+
+    class RadixPrimitive_Root
+    class RadixPrimitive_List
+    class RadixPrimitive_Empty
+    class RadixPrimitive_Group
+    class RadixPrimitive_Separator
+    class RadixPrimitive_Item
+    class RadixPrimitive_Trigger
+    class RadixPrimitive_Portal
+    class RadixPrimitive_Overlay
+    class RadixPrimitive_Content
+    class RadixPrimitive_Title
+    class RadixPrimitive_Description
+
+    class HTML_DivElement
+    class HTML_H3Element
+    class HTML_PElement
+    class HTML_InputElement
+    class HTML_SpanElement
+
+    class Card
+    class CardHeader
+    class CardTitle
+    class CardDescription
+    class CardContent
+    class CardFooter
+
+    class Command
+    class CommandInput
+    class CommandList
+    class CommandEmpty
+    class CommandGroup
+    class CommandSeparator
+    class CommandItem
+    class CommandShortcut
+
+    class Dialog
+    class DialogTrigger
+    class DialogPortal
+    class DialogOverlay
+    class DialogContent
+    class DialogHeader
+    class DialogFooter
+    class DialogTitle
+    class DialogDescription
+
+    Card --|> HTML_DivElement
+    CardHeader --|> HTML_DivElement
+    CardTitle --|> HTML_H3Element
+    CardDescription --|> HTML_PElement
+    CardContent --|> HTML_DivElement
+    CardFooter --|> HTML_DivElement
+
+    Card --* CardHeader
+    Card --* CardContent
+    Card --* CardFooter
+    CardHeader --* CardTitle
+    CardHeader --* CardDescription
+
+    Command --|> RadixPrimitive_Root
+    CommandInput --|> HTML_InputElement
+    CommandList --|> RadixPrimitive_List
+    CommandEmpty --|> RadixPrimitive_Empty
+    CommandGroup --|> RadixPrimitive_Group
+    CommandSeparator --|> RadixPrimitive_Separator
+    CommandItem --|> RadixPrimitive_Item
+    CommandShortcut --|> HTML_SpanElement
+
+    Command --* CommandInput
+    Command --* CommandList
+    CommandList --* CommandEmpty
+    CommandList --* CommandGroup
+    CommandList --* CommandSeparator
+    CommandList --* CommandItem
+    CommandItem --* CommandShortcut
+
+    Dialog --|> RadixPrimitive_Root
+    DialogTrigger --|> RadixPrimitive_Trigger
+    DialogPortal --|> RadixPrimitive_Portal
+    DialogOverlay --|> RadixPrimitive_Overlay
+    DialogContent --|> RadixPrimitive_Content
+    DialogHeader --|> HTML_DivElement
+    DialogFooter --|> HTML_DivElement
+    DialogTitle --|> RadixPrimitive_Title
+    DialogDescription --|> RadixPrimitive_Description
+```
+
+### 7.2. Component Styling Management
+
+Component styling is fundamentally managed by combining **Tailwind CSS** for utility-first styling and **CSS Variables** for a flexible theming system. This approach allows for rapid development and easy customization of the application's visual appearance.
+
+*   **Tailwind CSS**: The primary styling framework. Components apply classes directly in their `className` attributes. This utility-first approach means that styles are applied by composing small, single-purpose classes.
+*   **CSS Variables for Theming**: `src/index.css` defines a comprehensive set of CSS variables (e.g., `--background`, `--primary`, `--radius`) under `:root` and `@theme inline`. These variables act as design tokens, abstracting specific values for colors, fonts, and spacing. Tailwind classes then consume these variables (e.g., `bg-card` resolves to `background-color: var(--color-card)`), enabling easy theme customization by simply changing the variable values.
+*   **`cva` (Class Variance Authority)**: The `cva` utility is used (e.g., in `src/components/ui/sidebar.tsx` for `sidebarMenuButtonVariants`) to define component variations (e.g., `variant`, `size`) and their corresponding Tailwind classes in a structured way. This allows for creating components that can easily adapt their appearance based on props, generating a single, optimized class string.
+
+    Here's how `cva` defines variants for `SidebarMenuButton`:
+
+    ### `cva` (Class Variance Authority) Example - `SidebarMenuButton` Variants
+    This table illustrates how the `cva` utility is used to define different visual variants and sizes for a specific component (`SidebarMenuButton`), mapping prop values to distinct sets of Tailwind CSS classes. This demonstrates a key aspect of structured styling.
+
+    | Prop | Value | Description/Effect | Associated Tailwind Classes |
+|---|---|---|---|
+| `variant` | `default` | Standard button style, light background. | `bg-gray-100 text-gray-900 hover:bg-gray-200` |
+| `variant` | `ghost` | Transparent background, minimal styling. | `hover:bg-gray-100 hover:text-gray-900` |
+| `size` | `default` | Standard size for typical use. | `px-3 py-2 text-sm` |
+| `size` | `sm` | Smaller size, compact. | `px-2 py-1 text-xs` |
+| `size` | `lg` | Larger size, more prominent. | `px-4 py-3 text-base` |
+
+*   **Radix UI Primitives**: Components like `DropdownMenu` and `Dialog` leverage Radix UI primitives. These primitives provide headless (unstyled) components with built-in accessibility, state management, and interaction logic. Styling is then layered on top using Tailwind CSS classes, effectively separating concerns between behavior and appearance.
+
+The following flowchart summarizes the conceptual flow of how these styling mechanisms interact to produce the final component styles:
+
+### UI Component Styling Application Flow
+This flowchart depicts the conceptual flow and interaction of different styling mechanisms within the design system, from unstyled primitives to final class name resolution. It shows how Radix UI, CSS Variables, Tailwind CSS, `cva`, and the `cn` utility work together.
+
+```mermaid
+graph TD
+    Unstyled_Primitive[Unstyled Radix Primitive]
+
+    subgraph Styling_Mechanisms
+        Tailwind_Utilities[Tailwind Utilities]
+        CSS_Variables[CSS Variables]
+        CVA_Variants[CVA Variants]
+    end
+
+    CN_Utility[CN Utility]
+
+    Final_Class_Names[Final Class Names]
+
+    Unstyled_Primitive --> Tailwind_Utilities
+    Unstyled_Primitive --> CSS_Variables
+    Unstyled_Primitive --> CVA_Variants
+
+    Tailwind_Utilities --> CN_Utility
+    CSS_Variables --> CN_Utility
+    CVA_Variants --> CN_Utility
+
+    CN_Utility --> Final_Class_Names
+```
+
+### 7.3. Purpose of `lib/utils.ts`
+
+The `lib/utils.ts` file, specifically the `cn` utility imported from it, plays a crucial role in managing and composing CSS class names. Its fundamental purpose is to provide a robust and consistent way to combine multiple Tailwind CSS class strings, including conditional classes, into a single string. This is essential for building flexible and customizable UI components.
+
+*   **Conditionally Combine Class Names**: It allows developers to easily merge various class strings, including those that are conditionally applied.
+*   **Merge User-Provided Classes**: It consistently merges a component's default, predefined Tailwind classes with any additional `className` prop passed by the user. This enables customization while preserving the component's base styling, ensuring that components are both reusable and extensible. This pattern is consistent across all UI components.
+
+### 7.4. Process for Creating a New, Complex Component by Composing Base UI Elements
+
+The component library fundamentally encourages composition. This means building new, complex features by combining existing, well-defined, and styled base UI elements. This approach promotes modularity, consistency, and reusability, accelerating development and reducing redundancy.
+
+The following flowchart illustrates the step-by-step methodology for composing new complex UI components:
+
+### Process for Composing New Complex UI Components
+This flowchart outlines the step-by-step methodology and best practices for building new, more complex UI components by leveraging and combining existing, well-defined base UI elements from the library.
+
+```mermaid
+graph TD
+    Start_Process[(Start)]
+    Identify_Base[Identify Necessary Base Components]
+    Import_Nest[Import & Nest Components]
+    Pass_Props[Pass Props & Customize Styling]
+    Component_Ready[(Component Ready)]
+
+    Start_Process --> Identify_Base
+    Identify_Base --> Import_Nest
+    Import_Nest --> Pass_Props
+    Pass_Props --> Component_Ready
+```
+
+1.  **Identifying Necessary Base Components**: Determine which existing UI components can serve as building blocks.
+2.  **Importing and Nesting**: Import the required base components and nest them within the new component's JSX structure.
+3.  **Passing Props and Customizing**:
+    *   Pass relevant props from the complex component down to its child base components.
+    *   Utilize the `className` prop on base components to apply specific styling or overrides using Tailwind CSS.
+    *   Leverage component-specific props (e.g., `DialogContent`'s `showCloseButton`) to configure behavior and appearance.
+    *   Utilize `data-slot` attributes on the base components for more targeted styling or logic if needed.
+
+**Example: `CommandDialog` (`src/components/ui/command.tsx`)**
+`CommandDialog` composes `Dialog` and `Command` components. It wraps a `Command` component within a `DialogContent`, applying specific styling to both. This demonstrates how a specialized component is built from existing, more generic ones. Similarly, the `Sidebar` component family (`src/components/ui/sidebar.tsx`) provides a structured set of sub-components intended to be nested and combined to form a complete navigation sidebar.
+
+## 8. Type Safety and API Schema Generation
+
+Type safety is a fundamental principle in modern application development, especially for complex systems involving client-server communication. It ensures that data structures and API contracts are consistently understood across different parts of the system, catching errors at compile-time rather than runtime. This project achieves strong type safety by automatically generating TypeScript types from an OpenAPI specification.
+
+### 8.1. Source of the OpenAPI Schema
+
+The exact source of the OpenAPI schema (e.g., a specific URL or a local file path like `swagger.json` or `openapi.yaml`) **cannot be determined** from the provided repository content. However, the comment within `src/types/openapi-types.ts` explicitly states:
+```typescript
+/**
+ * This file was auto-generated by openapi-typescript.
+ * Do not make direct changes to the file.
+ */
+```
+This confirms that the types are derived from an OpenAPI schema, serving as the authoritative definition of the backend API's structure.
+
+### 8.2. Execution of Type Generation and Tool Used
+
+The `package.json` file **does not contain a script** explicitly defined for generating types from an OpenAPI specification.
+
+However, the comment in `src/types/openapi-types.ts` clearly identifies the tool used for this generation: `openapi-typescript`. This tool is responsible for transforming the OpenAPI specification into the TypeScript interface definitions found in `src/types/openapi-types.ts`.
+
+### 8.3. Process for Updating Types When Backend API Changes
+
+As there is no explicit script or command defined in `package.json` for type generation, the precise automated process for a developer to update types when the backend API changes is **not detailed** in the provided files.
+
+Given that `openapi-typescript` is the identified tool, a developer would typically need to manually re-run this tool against the updated OpenAPI specification. The mechanism for triggering this re-generation (e.g., a manual command, a pre-commit hook, or a CI/CD step) is not evident from the provided repository content. This suggests that the process might currently be a manual step or part of an external build pipeline.
+
+### Automated API Type Generation Workflow
+This flowchart illustrates the high-level process of generating TypeScript types from an OpenAPI specification, highlighting both the known and unknown steps involved in updating types when the backend API changes. It visually represents the information discussed in sections 8.1, 8.2, and 8.3 regarding the generation tool and the undefined update process.
+
+```mermaid
+graph TD
+    OpenAPI_Spec[OpenAPI Specification]
+    OpenAPI_TS_Tool[openapi-typescript Tool]
+    Generated_TS_Types[Generated TypeScript Types]
+
+    OpenAPI_Spec --> OpenAPI_TS_Tool
+    OpenAPI_TS_Tool --> Generated_TS_Types
+
+    subgraph Type Update Workflow
+        API_Change[Backend API Change]
+        Updated_Spec_Output[Updated OpenAPI Spec]
+        Trigger_Update{Trigger Update?}
+        Automated_Path[Automated Process Unknown]
+        Manual_Path[Manual Action]
+        ReRun_Tool[Re-run openapi-typescript]
+        New_TS_Types[New TypeScript Types]
+
+        API_Change --> Updated_Spec_Output
+        Updated_Spec_Output --> ReRun_Tool
+        Updated_Spec_Output --> Trigger_Update
+        Trigger_Update -- Automated --> Automated_Path
+        Trigger_Update -- Manual --> Manual_Path
+        Automated_Path --> ReRun_Tool
+        Manual_Path --> ReRun_Tool
+        ReRun_Tool --> New_TS_Types
+    end
+```
+
+### 8.4. Import and Usage of Generated Types Throughout the Application
+
+The generated types, primarily from `src/types/openapi-types.ts`, are fundamentally imported and utilized in various parts of the application to ensure type safety for API responses and data structures. This creates a strong contract between the frontend and backend.
+
+### Key Files and Their Roles in Type Safety Workflow
+This table organizes the primary files mentioned in the research summary, detailing their specific purpose and contribution to the overall type safety and API schema generation workflow.
+
+| File Path | Primary Role | Relevance to Type Safety |
+|---|---|---|
+| src/types/openapi-types.ts | Auto-generated types from OpenAPI/Swagger schema. | Provides compile-time type checking for API requests and responses, ensuring adherence to the defined API contract and preventing runtime type mismatches. |
+| package.json | Manages project dependencies and scripts; notably, the *lack* of an auto-generation script for `openapi-types.ts`. | Its configuration (or lack of specific scripts) directly impacts the automation and reliability of type generation, which, if not properly managed, can lead to desynchronization between API schema and application types, compromising type safety. |
+| src/types/index.ts | Centralized repository for semantic, application-specific types. | Defines core data structures and types used throughout the application, enabling strong typing of internal data, improving code clarity, and catching type-related errors during development. |
+| src/hooks/fetch/app.tsx | Handles API response typing and data consumption. | Applies the generated and semantic types to API responses, ensuring that data received from the backend conforms to expected types, thus preventing runtime errors when processing fetched data. |
+| tsconfig.app.json | TypeScript compiler configuration, including path aliases. | Configures how TypeScript resolves modules and applies type definitions. Correct alias configuration ensures that type files are found and correctly interpreted by the compiler, facilitating accurate type checking across the project. |
+
+**Importing Generated Types:**
+*   `src/types/index.ts` imports `components` from `openapi-types.ts`.
+*   `src/hooks/fetch/app.tsx` imports `operations` from `openapi-types.ts`.
+*   The `@/types` alias (configured in `tsconfig.app.json`) allows for absolute imports.
+
+**Usage of Generated Types:**
+*   **Centralized Type Definitions (`src/types/index.ts`):** This file acts as a central hub, creating more semantic and manageable types for the application's domain (e.g., `TSession`, `TMessage`, `TEvent`) by deriving them from the raw `components["schemas"]` interfaces.
+*   **API Response Typing (`src/hooks/fetch/app.tsx`):** The `operations` interface is used to strongly type the expected response from specific API endpoints (e.g., `TGetAppResponse` for `/app`). This type is then applied to `useQuery` hooks, ensuring that the data returned by API calls conforms to the defined schema, providing compile-time checks.
+
+This workflow ensures that any changes in the backend API, once reflected in the OpenAPI specification and re-generated, immediately propagate as type errors in the client-side TypeScript code, enforcing type safety and consistency across the full stack.
+
+### Application-Specific Type Derivations from OpenAPI Schema
+This table lists the application-specific TypeScript types created for domain objects and API responses, explicitly showing how each is derived from the raw `components` or `operations` interfaces generated by `openapi-typescript`.
+
+| Application Type Name | Derived From (OpenAPI Type Path) | File Location |
+|---|---|---|
+| TSession | components["schemas"]["Session"] | src/types/index.ts |
+| TMessage | components["schemas"]["Message"] | src/types/index.ts |
+| TMessagePart | components["schemas"]["Part"] | src/types/index.ts |
+| TEvent | components["schemas"]["Event"] | src/types/index.ts |
+| TGetAppResponse | operations["getApp"]["responses"]["200"]["content"]["application/json"] | src/hooks/fetch/app.tsx |
+
+### Relationship Between Generated and Application-Specific Types
+This class diagram visualizes the derivation and usage relationships between the raw types generated from the OpenAPI specification (`components`, `operations`) and the more semantic, application-specific types defined and used throughout the application. It clarifies how `openapi-types.ts` serves as the foundation for the application's type system.
+
+```mermaid
+classDiagram
+    class OpenApi_Root
+    class OpenApi_Components
+    class OpenApi_Schemas
+    class OpenApi_Operations
+    class Op_GetApp
+    class Op_GetAppResponses
+    class Op_GetApp200
+    class Op_GetAppJson
+
+    class App_TSession
+    class App_TMessage
+    class App_TMessagePart
+    class App_TEvent
+    class App_GetAppResponse
+
+    subgraph OpenApi_Generated
+        OpenApi_Root
+        OpenApi_Components
+        OpenApi_Schemas
+        OpenApi_Operations
+        Op_GetApp
+        Op_GetAppResponses
+        Op_GetApp200
+        Op_GetAppJson
+    end
+
+    subgraph Application_Specific
+        App_TSession
+        App_TMessage
+        App_TMessagePart
+        App_TEvent
+        App_GetAppResponse
+    end
+
+    OpenApi_Root --o OpenApi_Components
+    OpenApi_Root --o OpenApi_Operations
+    OpenApi_Components --o OpenApi_Schemas
+    OpenApi_Operations --o Op_GetApp
+    Op_GetApp --o Op_GetAppResponses
+    Op_GetAppResponses --o Op_GetApp200
+    Op_GetApp200 --o Op_GetAppJson
+
+    App_TSession ..> OpenApi_Schemas : DefinedBy
+    App_TMessage ..> OpenApi_Schemas : DefinedBy
+    App_TMessagePart ..> OpenApi_Schemas : DefinedBy
+    App_TEvent ..> OpenApi_Schemas : DefinedBy
+    App_GetAppResponse ..> Op_GetAppJson : DerivedFrom
+```
+
+### Client-Side Type Consumption and Enforcement Flow
+This flowchart details how the generated TypeScript types are imported, transformed into application-specific types, and then utilized to enforce type safety for API responses and data structures within the client-side code, illustrating the complete type consumption process described in Section 8.4.
+
+```mermaid
+graph TD
+    subgraph Type Generation Source
+        OpenAPI_Types[src/types/openapi-types.ts]
+    end
+
+    subgraph Type Definition & Transformation
+        Import_Index[Import to index.ts]
+        Import_App[Import to app.tsx]
+        Index_TS[src/types/index.ts]
+        App_TSX[src/hooks/fetch/app.tsx]
+        Semantic_Types[Define Semantic Types]
+        API_Types[Define API Types]
+    end
+
+    subgraph Client-Side Data Consumption
+        Use_Query[useQuery Hook]
+        Apply_API[Apply API Type]
+        Apply_Semantic[Apply Semantic Type]
+    end
+
+    subgraph Type Enforcement
+        Compile_Check[Compile-Time Checks]
+    end
+
+    OpenAPI_Types --> Import_Index
+    OpenAPI_Types --> Import_App
+
+    Import_Index --> Index_TS
+    Import_App --> App_TSX
+
+    Index_TS --> Semantic_Types
+    App_TSX --> API_Types
+
+    API_Types --> Use_Query
+    Semantic_Types --> Use_Query
+
+    Use_Query --> Apply_API
+    Use_Query --> Apply_Semantic
+
+    Apply_API --> Compile_Check
+    Apply_Semantic --> Compile_Check
+```
+
+## 9. User Input and Message Handling
+
+The process of capturing user input and sending it as a message to a backend service is fundamental to any chat application. This section deconstructs how the OpenCode Client manages the lifecycle of a user's message, from typing to display, including client-side validation, state updates, and the critical role of optimistic UI handling.
+
+### 9.1. How is the state of the text input managed?
+
+The state of the text input field in the `ChatInput` component is managed using React's `useState` hook. This is the most fundamental way to manage local, mutable data within a React component.
+
+*   A state variable `input` is declared and initialized as an empty string.
+*   The `ChatInputTextarea` component receives `input` as its `value` prop, making it a **controlled component**. This means React is the "single source of truth" for the input's value.
+*   Any change in the textarea's value triggers its `onChange` handler, which updates the `input` state.
+*   After submission, the input field is cleared by calling `setInput("")`. In case of submission errors, the input value is reverted to its pre-submission state.
+*   The `ChatInputTextarea` also uses an `useAutoResizeTextarea` hook to dynamically adjust its height, providing a better user experience for multi-line input.
+
+### 9.2. What logic is executed when the user submits a message?
+
+Message submission is a critical interaction point, triggering a sequence of well-defined steps to ensure data integrity and a responsive user experience. This logic is primarily executed within the `onSubmit` handler of the `<form>` in `ChatInput`.
+
+1.  **Event Prevention**: `e.preventDefault()` prevents the default browser form submission, allowing React to handle the submission logic.
+2.  **Client-Side Validation**: Fundamental checks ensure the message is meaningful and can be sent:
+    *   `!input.trim()`: Ensures the input is not empty or just whitespace.
+    *   `!activeSession?.id`: Verifies an active session exists.
+    *   `!selectedModel`: Confirms a model has been selected.
+    If any validation fails, the submission is aborted.
+
+### Client-Side Message Submission Validation Rules
+This table summarizes the essential conditions that must be met before a user message is processed and sent to the backend, as enforced by the `ChatInput` component.
+
+| Condition | Description | Impact if Not Met |
+|---|---|---|
+| `!input.trim()` | The user's message input is empty or consists only of whitespace characters. | The message will not be submitted, as it contains no meaningful content. |
+| `!activeSession?.id` | There is no active chat session or the session ID is missing. | The message cannot be sent because there is no conversation context to attach it to. |
+| `!selectedModel` | A language model has not been selected or configured for the current chat. | The message cannot be processed and sent to the backend, as there's no specified model to handle it. |
+
+3.  **ID Generation**: Unique IDs are generated for the new message and its part.
+4.  **Message Payload Construction**: A `TMessagePart` object is created for the user's input, which is then included in a `payload` object (`TPostSessionByIdMessageRequest`) containing message metadata (`messageID`, `providerID`, `modelID`, `mode`).
+5.  **Input Clearing**: The `input` state is immediately cleared (`setInput("")`) for instant visual feedback.
+6.  **Optimistic UI Update**: An `optimisticNewMessageWithParts` object is constructed and immediately added to the local `messages` cache using `queryClient.setQueryData`. This makes the user's message appear instantly in the UI.
+7.  **Backend Submission**: The `sendMessageMutation.mutate` function is called to send the message payload to the backend.
+8.  **Post-Submission Actions**:
+    *   **`onSuccess`**: If successful, `sessions` query cache is invalidated if it was the first message, to update the sidebar.
+    *   **`onError`**: If submission fails, the optimistic update is reverted from the cache, and the input field is restored.
+9.  **Submit Button State**: The `ChatInputSubmit` button's `disabled` state is controlled by `sendMessageMutation.isPending || !input.trim()`, preventing duplicate or empty submissions. It also visually indicates its status (e.g., spinner). Keyboard shortcuts are supported.
+
+### User Message Submission Process in ChatInput
+This flowchart illustrates the step-by-step logic executed within the `ChatInput` component's `onSubmit` handler, covering event prevention, client-side validation, payload construction, optimistic UI updates, backend submission, and post-submission error handling or success actions.
+
+```mermaid
+graph TD
+    Start_Submit[Start Submit]
+    Prevent_Default[Prevent Default]
+    Validate_Input{Valid Input?}
+    Show_Error[Show Error]
+    Construct_Payload[Construct Payload]
+    Optimistic_Update[Optimistic Update]
+    Clear_Input[Clear Input]
+    Call_Backend[Call Backend API]
+    Handle_Response{API Success?}
+    OnSuccess_Callback[Run OnSuccess]
+    OnError_Callback[Run OnError]
+    End_Process[End Process]
+
+    Start_Submit --> Prevent_Default
+    Prevent_Default --> Validate_Input
+    Validate_Input -- No --> Show_Error
+    Show_Error --> End_Process
+    Validate_Input -- Yes --> Construct_Payload
+    Construct_Payload --> Optimistic_Update
+    Optimistic_Update --> Clear_Input
+    Clear_Input --> Call_Backend
+    Call_Backend --> Handle_Response
+    Handle_Response -- Yes --> OnSuccess_Callback
+    Handle_Response -- No --> OnError_Callback
+    OnSuccess_Callback --> End_Process
+    OnError_Callback --> End_Process
+```
+
+### 9.3. How are optimistic updates handled in the UI, if at all?
+
+Optimistic updates are explicitly and strategically handled in the UI to provide immediate feedback to the user, a critical aspect of responsive applications. This fundamentally means updating the UI *before* receiving confirmation from the server.
+
+1.  **Immediate Cache Update**: Upon message submission, a temporary `optimisticNewMessageWithParts` object is created. This object is immediately added to the `messages` cache using `queryClient.setQueryData`. This causes the user's message to appear in the chat interface instantly.
+2.  **Reversion on Error**: If the backend submission fails, the `onError` callback of the mutation is triggered. This callback removes the optimistically added message from the cache using `queryClient.setQueryData`, effectively "undoing" the optimistic update and restoring the UI to its previous state. The user's input is also restored.
+3.  **Real-time Updates and Reconciliation**: The `useHandleSessionMessageEvents` hook listens for server-sent events (`message.updated`, `message.part.updated`). These events are crucial for reconciling the optimistic update with the actual server state. When a `message.updated` event arrives, the `handleMessageUpdated` function updates the message in the `queryClient` cache (confirming the optimistic message or adding a new AI response). Similarly, `message.part.updated` events update individual parts, allowing for streaming responses. This ensures that once the backend confirms or provides new data, the UI seamlessly updates to reflect the authoritative server state.
+
+### End-to-End Message Data Flow with Optimistic Updates and Reconciliation
+This sequence diagram visualizes the interactions and data flow between the user, `ChatInput` component, various TanStack Query hooks (`useSendMessage`, `queryClient`), the backend API, Server-Sent Events (`EventSource`), and UI components (`Messages`) during message submission, optimistic updates, and real-time reconciliation.
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant ChatInput as ChatInput
+    participant UseSendMsg as useSendMessage
+    participant QueryClient as queryClient
+    participant BackendAPI as BackendAPI
+    participant EventSource as EventSource
+    participant MessagesUI as Messages
+
+    User->>ChatInput: Types message
+    User->>ChatInput: Clicks Send
+
+    activate ChatInput
+    ChatInput->>UseSendMsg: Call mutate()
+    deactivate ChatInput
+
+    activate UseSendMsg
+    Note over UseSendMsg, QueryClient: onMutate() handler
+
+    UseSendMsg->>QueryClient: Get prev data
+    activate QueryClient
+    QueryClient-->>UseSendMsg: Return prev data
+    deactivate QueryClient
+
+    UseSendMsg->>UseSendMsg: Create optimistic
+    UseSendMsg->>QueryClient: Set optimistic cache
+    activate QueryClient
+    deactivate QueryClient
+
+    QueryClient-->>MessagesUI: Cache update
+    activate MessagesUI
+    MessagesUI->>MessagesUI: Render optimistic
+    deactivate MessagesUI
+
+    UseSendMsg->>BackendAPI: POST message
+    activate BackendAPI
+
+    alt Mutation Success
+        BackendAPI->>BackendAPI: Process message
+        BackendAPI->>EventSource: Send real msg (SSE)
+        deactivate BackendAPI
+
+        EventSource-->>MessagesUI: Receive SSE update
+        activate MessagesUI
+        MessagesUI->>QueryClient: Update real cache
+        activate QueryClient
+        deactivate QueryClient
+        MessagesUI->>MessagesUI: Render real message
+        deactivate MessagesUI
+    else Mutation Failure
+        BackendAPI-->>UseSendMsg: Error response
+        deactivate BackendAPI
+
+        Note over UseSendMsg, QueryClient: onError() handler
+        UseSendMsg->>QueryClient: Rollback cache
+        activate QueryClient
+        deactivate QueryClient
+        QueryClient-->>MessagesUI: Cache update
+        activate MessagesUI
+        MessagesUI->>MessagesUI: Remove optimistic
+        deactivate MessagesUI
+    end
+
+    deactivate UseSendMsg
+```
+
+### 9.4. What is the data flow from the `ChatInput` component to the data fetching hook that sends the message?
+
+The data flow from the `ChatInput` component to the data fetching hook that sends the message is a well-defined sequence, ensuring that user input is correctly packaged and transmitted to the backend.
+
+1.  **User Input Capture**: User types into `ChatInputTextarea`, updating the local `input` state in `ChatInput`.
+2.  **Submission Trigger**: User submits the form (e.g., via button click or keyboard shortcut).
+3.  **Payload Preparation**: Inside `onSubmit`, the `input` state is used to construct a `TMessagePart` object. This part, along with generated `messageID`, `providerID` (from `useSelectedModelStore`), `modelID` (from `useSelectedModelStore`), and `mode`, forms the `payload` (`TPostSessionByIdMessageRequest`).
+4.  **Hook Invocation**: `ChatInput` uses the `useSendMessage()` custom hook (a TanStack Query mutation).
+5.  **Mutation Execution**: The `sendMessageMutation.mutate()` method is called with the `sessionId` (from `useGetActiveSession()`) and the prepared `payload`. This triggers the underlying API call within `useSendMessage`.
+6.  **Backend Processing**: The backend receives and processes the message.
+7.  **Real-time Updates (Server-Sent Events)**: As the backend processes and generates a response, it sends `message.updated` and `message.part.updated` events via an EventSource API endpoint.
+8.  **UI Update via Cache**: The `useHandleSessionMessageEvents` hook listens to these events. Its handlers update the `messages` cache using `queryClient.setQueryData`. Since `Messages` component fetches from this cache, the UI automatically re-renders to display the server's response, including streaming parts.
+
+This end-to-end flow ensures a responsive user experience with optimistic updates, robust error handling, and real-time synchronization with the backend.
+
+### Key Components and Hooks in Message Handling
+This table provides an overview of the primary React components and custom hooks involved in the entire lifecycle of user message input, processing, submission, and display.
+
+| Component/Hook | Primary Role | Key Data/Interactions | Example Source File |
+|---|---|---|---|
+| ChatInput | Main container for user message input and submission. | Orchestrates `ChatInputTextarea`, manages message state (or passes it down), triggers `useSendMessage`. | `components/ChatInput/ChatInput.tsx` |
+| ChatInputTextarea | The actual textarea element where users type messages. | Displays user input, updates message state (via `onChange`), integrates `useAutoResizeTextarea`. | `components/ChatInput/ChatInputTextarea.tsx` |
+| useState | React built-in hook for managing local component state. | Stores the current message text being typed, manages UI-specific states within components like `ChatInput`. | `(Used within ChatInput, ChatInputTextarea, etc.)` |
+| useAutoResizeTextarea | Custom hook to automatically adjust the height of a textarea based on its content. | Takes a ref to the textarea and its value; dynamically updates the textarea's height. | `hooks/useAutoResizeTextarea.ts` |
+| useSendMessage | Custom hook responsible for initiating the message submission to the backend/API. | Takes user message, session ID, selected model; triggers a mutation (e.g., via React Query) to send the message. | `hooks/useSendMessage.ts` |
+| useGetActiveSession | Custom hook to retrieve data for the currently active chat session. | Provides the active session's ID, conversation history, and other metadata to components and other hooks. | `hooks/useGetActiveSession.ts` |
+| useSelectedModelStore | State management hook (e.g., Zustand) to store and retrieve the user's selected AI model. | Provides the selected model ID/details; consumed by `useSendMessage` to specify the AI model for generation. | `store/useSelectedModelStore.ts` |
+| queryClient | React Query's `QueryClient` instance, managing server state caching and invalidation. | Used to interact with the cache directly (e.g., invalidate queries after message send, update cache with new messages). | `lib/queryClient.ts` |
+| useHandleSessionMessageEvents | Custom hook to listen for and process real-time updates/events related to session messages. | Subscribes to websocket/SSE events; updates the `queryClient` cache upon receiving new messages or updates. | `hooks/useHandleSessionMessageEvents.ts` |
+| Messages | Component responsible for displaying the list of messages in the current chat session. | Renders individual message components; fetches messages from `useGetActiveSession` or the React Query cache. | `components/Messages/Messages.tsx` |
+
+## 10. Development Environment & Tooling
+
+A robust development environment and well-configured tooling are fundamental for efficient development, consistent code quality, and successful deployment of any software project. This section outlines the setup, build process, and quality assurance mechanisms for the `opencode-client` project.
+
+### 10.1. Project Setup and Dependency Installation
+
+Setting up the project fundamentally involves obtaining the codebase and installing its dependencies, preparing the local environment for development.
+
+1.  **Clone the repository**: `git clone https://github.com/nihalshetty0/opencode-web`
+2.  **Navigate into the project directory**: `cd opencode-web`
+3.  **Install dependencies using PNPM**: `pnpm install` (PNPM is specified as the package manager).
+
+Once the client is set up, it expects the `opencode` server to be running, accessible at `http://localhost:5173` by default.
+
+The following flowchart illustrates the initial setup process for a new developer.
+
+### `opencode-client` Development Setup Flow
+This flowchart illustrates the step-by-step process for a new developer to set up the `opencode-client` project, from cloning the repository to installing dependencies and the expected server state.
+
+```mermaid
+graph TD
+    Start[Begin Setup]
+    CloneRepo[Clone Client Repo]
+    ChangeDir[CD opencode-web]
+    InstallDeps[pnpm Install]
+    VerifyServer[Server Running: 5173]
+
+    Start --> CloneRepo
+    CloneRepo --> ChangeDir
+    ChangeDir --> InstallDeps
+    InstallDeps --> VerifyServer
+```
+
+### 10.2. Key Scripts in `package.json`
+
+The `package.json` file defines several key scripts that serve as the primary interface for developers to interact with the project's development, build, and quality assurance workflows. These scripts fundamentally automate common tasks, ensuring consistency and efficiency.
+
+*   **Development (`dev`)**: `vite` - Starts the development server with Vite, providing hot module replacement for a fast development loop.
+*   **Building (`build`)**: `tsc -b && vite build` - First compiles TypeScript files, then bundles the application for production using Vite, optimizing for deployment.
+*   **Linting (`lint`)**: `eslint .` - Runs ESLint across the project to enforce code quality and style guidelines.
+*   **Preview (`preview`)**: `vite preview` - Serves the production build locally, allowing developers to preview the optimized application before deployment.
+
+The table below summarizes these essential scripts and their functions.
+
+### `package.json` Development Scripts Summary
+A structured overview of the key development, build, and quality assurance scripts available in the `opencode-client`'s `package.json` file, detailing their commands and purposes.
+
+| Script Name | Command | Description |
+|---|---|---|
+| dev | vite | Starts the development server for local development with hot-reloading. |
+| build | tsc -b && vite build | Compiles the project into a production-ready bundle, optimizing for deployment. |
+| lint | eslint . --ext .ts,.tsx --fix | Analyzes code for potential errors and style inconsistencies, automatically fixing issues where possible. |
+| preview | vite preview | Serves the production build locally to preview how the application will behave once deployed. |
+
+The following flowchart illustrates the typical workflow involving these scripts, from development to building and quality assurance.
+
+### `opencode-client` Build & Quality Assurance Workflow
+This flowchart depicts the main scripts defined in `package.json` for developing, building, linting, and previewing the application, illustrating their roles and sequence in the development lifecycle.
+
+```mermaid
+graph TD
+    Start((Start))
+
+    Dev_Script[Dev Script]
+    Lint_Script[Lint Code]
+    Coding_Standards{Code OK?}
+    Build_App[Build App]
+    Preview_Built[Preview Built]
+
+    End((End))
+
+    Start --> Dev_Script
+
+    subgraph Workflow Steps
+        Dev_Script --> Lint_Script
+        Lint_Script --> Coding_Standards
+        Coding_Standards -- Yes --> Build_App
+        Coding_Standards -- No --> Dev_Script
+        Build_App --> Preview_Built
+    end
+
+    Preview_Built --> End
+```
+
+### 10.3. Important Configurations in `vite.config.ts`
+
+The `vite.config.ts` file configures the Vite build tool, which is fundamental for both the development server and production builds. Its settings dictate how the project is compiled, served, and how it interacts with external services.
+
+*   **Plugins**: The project uses `react()` for React support (including JSX and Fast Refresh) and `tailwindcss()` for Tailwind CSS integration.
+*   **Path Aliases (`resolve.alias`)**: An alias `@` is configured to point to the `src` directory. This allows for cleaner, absolute imports (e.g., `import { ChatLayout } from "@/pages/chat"`), improving code readability and maintainability.
+*   **Development Server Proxy (`server.proxy`)**: A proxy is set up to redirect API requests during development. Requests to `/api` are forwarded to `http://localhost:4096` (the expected backend server address), with the `/api` prefix removed. This enables seamless client-backend communication during local development, bypassing CORS issues.
+
+The table below provides a concise overview of these critical Vite configurations.
+
+### Vite Configuration Details
+This table details the important configurations found in `vite.config.ts`, including utilized plugins for framework and styling support, path aliases for cleaner imports, and the development server proxy settings for API communication.
+
+| Configuration Area | Setting/Value | Purpose/Description |
+|---|---|---|
+| Plugins | `react()` | Provides React framework support. |
+| Plugins | `tailwindcss()` | Integrates Tailwind CSS for styling. |
+| Path Aliases | `@` pointing to `src` | Enables cleaner imports by aliasing `@` to the `src` directory. |
+| Development Server Proxy | Proxy `/api` to `http://localhost:4096` (with rewrite) | Proxies API requests from `/api` to the backend server at `http://localhost:4096` for seamless communication during development. |
+
+The proxy configuration is vital for local development, as visualized in the following flowchart.
+
+### Vite Development Server Proxy Flow
+This flowchart visualizes how API requests originating from the `opencode-client` are intercepted and proxied by the Vite development server to the `opencode` backend during local development.
+
+```mermaid
+graph TD
+    Client_Req[Client Request]
+
+    subgraph Vite Dev Server
+        Vite_Server[Vite Dev Server]
+        Is_API{Is /api?}
+        Rewrite_Path[Remove /api]
+        Proxy_To_Backend[Proxy Backend]
+        Serve_Static[Serve Static]
+
+        Vite_Server --> Is_API
+        Is_API -- Yes --> Rewrite_Path
+        Rewrite_Path --> Proxy_To_Backend
+        Is_API -- No --> Serve_Static
+    end
+
+    Opencode_Backend[Opencode Backend]
+    Backend_Response[Backend Response]
+    Client_Receives[Client Receives]
+
+    Client_Req --> Vite_Server
+    Proxy_To_Backend --> Opencode_Backend
+    Opencode_Backend --> Backend_Response
+    Backend_Response --> Vite_Server
+    Vite_Server --> Client_Receives
+    Serve_Static --> Client_Receives
+```
+
+### 10.4. Enforced Coding Standards
+
+Coding standards are fundamentally enforced to ensure code quality, consistency, and maintainability across the project, especially in collaborative environments. This is achieved through a combination of ESLint, TypeScript compiler configurations, and Prettier.
+
+*   **ESLint Configuration (`eslint.config.js`)**: Defines the project's linting rules. It applies to all TypeScript and TSX files, ignores the `dist` directory, and extends recommended rule sets for JavaScript, TypeScript, React Hooks, and Vite's React Fast Refresh. This ensures adherence to established best practices and catches common errors.
+*   **TypeScript Compiler Options (`tsconfig.app.json` and `tsconfig.node.json`)**: Enforce strict type-checking and code consistency. Key options like `strict: true`, `noUnusedLocals: true`, `noUnusedParameters: true`, `noFallthroughCasesInSwitch: true`, `noUncheckedSideEffectImports: true`, and `verbatimModuleSyntax: true` promote robust, error-free code and consistent module resolution.
+*   **Prettier Configuration**: Included as a `devDependency`, indicating its use for automatic code formatting. The presence of `@ianvs/prettier-plugin-sort-imports` specifically ensures that import statements are automatically sorted, contributing to consistent code structure and readability.
+
+The table below summarizes the key configurations and rules that enforce coding standards and type safety within the project.
+
+### Enforced Coding Standards & TypeScript Compiler Options
+This table summarizes the specific rules and options configured in ESLint and TypeScript to enforce code quality, consistency, and strict type-checking within the `opencode-client` project, along with Prettier's role.
+
+| Tool/Standard | Configuration Item | Description/Impact |
+|---|---|---|
+| ESLint | File Scope | Specifies which file types (e.g., .ts, .tsx, .js, .jsx) ESLint applies its linting rules to. |
+| ESLint | Ignored Paths | Defines directories and files (e.g., node_modules/, dist/) that are explicitly excluded from linting checks. |
+| ESLint | Extended Configurations | Inherits and enforces code quality rules from popular configurations like `@typescript-eslint/recommended`, `react/recommended`, `jsx-a11y/recommended`, and `prettier`. |
+| ESLint | Language Options | Configures the parser (e.g., `@typescript-eslint/parser`), parser options (e.g., `ecmaVersion`, `sourceType`, `ecmaFeatures.jsx`), and global variables for the linting environment. |
+| TypeScript | `strict` | Enables a broad range of strict type-checking options, ensuring robust type safety across the entire codebase. |
+| TypeScript | `noUnusedLocals` | Reports compilation errors for local variables that are declared but never used, promoting cleaner and more efficient code. |
+| TypeScript | `noUnusedParameters` | Reports compilation errors for function parameters that are declared but never used, encouraging concise and relevant function signatures. |
+| TypeScript | `noFallthroughCasesInSwitch` | Ensures that all non-empty `switch` cases have an explicit `break` or `return` statement, preventing accidental fall-through behavior. |
+| TypeScript | `noUncheckedSideEffectImports` | Reports errors for import statements that only have side effects and are not explicitly consumed, promoting explicit management of side-effecting imports. |
+| TypeScript | `verbatimModuleSyntax` | Ensures that `import type` and `export type` statements are preserved in the emitted JavaScript, preventing accidental runtime imports and improving type safety. |
+| Prettier | `sort-imports` (via plugin/integration) | Enforces consistent alphabetical or grouped sorting of import statements, improving code readability and maintainability. |
+
+## 11. Conclusion
+
+The OpenCode Client application is a well-structured and robust React application designed for interacting with various LLM providers. By applying fundamental software engineering principles and leveraging modern web technologies, it achieves a balance of responsiveness, maintainability, and extensibility.
+
+Key takeaways from this comprehensive documentation include:
+
+*   **Modular Architecture**: The application is built upon a clear component hierarchy, starting from a single React root (`main.tsx`) and orchestrated by the `App` component. This modularity simplifies development and reasoning about different parts of the UI.
+*   **Effective State Management**: A multi-faceted approach to state management, utilizing `@tanstack/react-query` for server state, `Zustand` for global client UI state, React Context for subtree-specific UI state, and `useState` for local component state, ensures that each type of data is managed efficiently and predictably.
+*   **Robust API Integration**: The use of custom React Query hooks and auto-generated OpenAPI types provides a type-safe and efficient mechanism for interacting with the backend API, abstracting complex data fetching and mutation logic.
+*   **Provider Abstraction**: The 'Provider' abstraction system is a critical design pattern that enables the application to seamlessly integrate and switch between different LLM services, promoting extensibility and decoupling core logic from specific vendor implementations.
+*   **Reusable Logic with Custom Hooks**: Extensive use of custom hooks encapsulates complex UI behaviors and business logic, promoting code reuse, testability, and cleaner component definitions.
+*   **Consistent Design System**: The `shadcn/ui`-inspired component library, powered by Tailwind CSS and CSS variables, ensures a consistent, accessible, and easily customizable user interface.
+*   **Strong Type Safety**: The automated generation and pervasive use of TypeScript types derived from an OpenAPI specification enforce strong contracts between the frontend and backend, significantly reducing runtime errors and improving developer confidence.
+*   **Streamlined Development Workflow**: Modern tooling like Vite, ESLint, TypeScript, and Prettier are integrated to provide a fast, efficient, and quality-controlled development environment.
+
+In summary, the OpenCode Client stands as a testament to thoughtful application design, prioritizing clear separation of concerns, efficient data flow, and a developer-friendly environment. These foundational choices position the application for continued growth and adaptation to evolving requirements in the dynamic field of AI interaction.

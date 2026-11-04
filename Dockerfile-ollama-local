@@ -1,0 +1,116 @@
+# syntax=docker/dockerfile:1-labs
+
+FROM node:20-alpine AS node_base
+
+FROM node_base AS node_deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps
+
+FROM node_base AS node_builder
+WORKDIR /app
+COPY --from=node_deps /app/node_modules ./node_modules
+COPY --exclude=./api . .
+RUN NODE_ENV=production npm run build
+
+FROM python:3.11-slim AS py_deps
+WORKDIR /app
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+COPY api/requirements.txt ./api/
+RUN pip install --no-cache -r api/requirements.txt
+
+FROM python:3.11-slim AS ollama_base
+RUN apt-get update && apt-get install -y \
+    curl
+# Detect architecture and download appropriate Ollama version
+# ARG TARGETARCH can be set at build time with --build-arg TARGETARCH=arm64 or TARGETARCH=amd64
+ARG TARGETARCH=arm64
+RUN OLLAMA_ARCH="" && \
+    if [ "$TARGETARCH" = "arm64" ]; then \
+        echo "Building for ARM64 architecture." && \
+        OLLAMA_ARCH="arm64"; \
+    elif [ "$TARGETARCH" = "amd64" ]; then \
+        echo "Building for AMD64 architecture." && \
+        OLLAMA_ARCH="amd64"; \
+    else \
+        echo "Error: Unsupported architecture '$TARGETARCH'. Supported architectures are 'arm64' and 'amd64'." >&2 && \
+        exit 1; \
+    fi && \
+    curl -L "https://ollama.com/download/ollama-linux-${OLLAMA_ARCH}.tgz" -o ollama.tgz && \
+    tar -C /usr -xzf ollama.tgz && \
+    rm ollama.tgz
+
+RUN ollama serve > /dev/null 2>&1 & \
+    sleep 20 && \
+    ollama pull nomic-embed-text && \
+    ollama pull qwen3:1.7b
+
+# Use Python 3.11 as final image
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install Node.js and npm
+RUN apt-get update && apt-get install -y \
+    curl \
+    gnupg \
+    git \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy Python dependencies
+COPY --from=py_deps /opt/venv /opt/venv
+COPY api/ ./api/
+
+# Copy Node app
+COPY --from=node_builder /app/public ./public
+COPY --from=node_builder /app/.next/standalone ./
+COPY --from=node_builder /app/.next/static ./.next/static
+COPY --from=ollama_base /usr/bin/ollama /usr/local/bin/
+COPY --from=ollama_base /root/.ollama /root/.ollama
+
+# Expose the port the app runs on
+EXPOSE ${PORT:-8001} 3000
+
+# Create a script to run both backend and frontend
+RUN echo '#!/bin/bash\n\
+# Start ollama serve in background\n\
+ollama serve > /dev/null 2>&1 &\n\
+\n\
+# Load environment variables from .env file if it exists\n\
+if [ -f .env ]; then\n\
+  export $(grep -v "^#" .env | xargs -r)\n\
+fi\n\
+\n\
+# Check for required environment variables\n\
+if [ -z "$OPENAI_API_KEY" ] || [ -z "$GOOGLE_API_KEY" ]; then\n\
+  echo "Warning: OPENAI_API_KEY and/or GOOGLE_API_KEY environment variables are not set."\n\
+  echo "These are required for DeepWiki to function properly."\n\
+  echo "You can provide them via a mounted .env file or as environment variables when running the container."\n\
+fi\n\
+\n\
+# Start the API server in the background with the configured port\n\
+python -m api.main --port ${PORT:-8001} &\n\
+PORT=3000 HOSTNAME=0.0.0.0 node server.js &\n\
+wait -n\n\
+exit $?' > /app/start.sh && chmod +x /app/start.sh
+
+# Set environment variables
+ENV PORT=8001
+ENV NODE_ENV=production
+ENV SERVER_BASE_URL=http://localhost:${PORT:-8001}
+
+# Create empty .env file (will be overridden if one exists at runtime)
+RUN touch .env
+
+# Command to run the application
+CMD ["/app/start.sh"]

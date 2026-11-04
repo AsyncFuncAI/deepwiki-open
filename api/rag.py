@@ -6,6 +6,8 @@ from uuid import uuid4
 
 import adalflow as adal
 
+from api.tools.embedder import get_embedder
+
 
 # Create our own implementation of the conversation classes
 @dataclass
@@ -36,7 +38,7 @@ class CustomConversation:
 
 # Import other adalflow components
 from adalflow.components.retriever.faiss_retriever import FAISSRetriever
-from api.config import app_configs, embedder_config, generator_config
+from api.config import configs
 from api.data_pipeline import DatabaseManager
 
 # Configure logging
@@ -205,24 +207,40 @@ class RAG(adal.Component):
     """RAG with one repo.
     If you want to load a new repos, call prepare_retriever(repo_url_or_path) first."""
 
-    def __init__(self, use_s3: bool = False, use_local_models: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
+    def __init__(self, provider="google", model=None, use_s3: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
         """
         Initialize the RAG component.
 
         Args:
+            provider: Model provider to use (google, openai, openrouter, ollama)
+            model: Model name to use with the provider
             use_s3: Whether to use S3 for database storage (default: False)
-            use_local_models: Whether to use local models like Ollama (default: False)
         """
         super().__init__()
 
+        self.provider = provider
+        self.model = model
+
+        # Import the helper functions
+        from api.config import get_embedder_config, is_ollama_embedder
+
+        # Determine if we're using Ollama embedder based on configuration
+        self.is_ollama_embedder = is_ollama_embedder()
+
+        # Check if Ollama model exists before proceeding
+        if self.is_ollama_embedder:
+            from api.ollama_patch import check_ollama_model_exists
+            from api.config import get_embedder_config
+            
+            embedder_config = get_embedder_config()
+            if embedder_config and embedder_config.get("model_kwargs", {}).get("model"):
+                model_name = embedder_config["model_kwargs"]["model"]
+                if not check_ollama_model_exists(model_name):
+                    raise Exception(f"Ollama model '{model_name}' not found. Please run 'ollama pull {model_name}' to install it.")
+
         # Initialize components
         self.memory = Memory()
-
-        # --- Initialize Embedder ---
-        self.embedder = adal.Embedder(
-            model_client=embedder_config.get_client(),
-            model_kwargs=embedder_config.model_kwargs,
-        )
+        self.embedder = get_embedder()
 
         # Patch: ensure query embedding is always single string for Ollama
         def single_string_embedder(query):
@@ -232,7 +250,9 @@ class RAG(adal.Component):
                     raise ValueError("Ollama embedder only supports a single string")
                 query = query[0]
             return self.embedder(input=query)
-        self.query_embedder = single_string_embedder
+
+        # Use single string embedder for Ollama, regular embedder for others
+        self.query_embedder = single_string_embedder if self.is_ollama_embedder else self.embedder
 
         self.initialize_db_manager()
 
@@ -253,6 +273,10 @@ IMPORTANT FORMATTING RULES:
 8. When listing tags or similar items, write them as plain text without escape characters
 9. For pipe characters (|) in text, write them directly without escaping them"""
 
+        # Get model configuration based on provider and model
+        from api.config import get_model_config
+        generator_config = get_model_config(self.provider, self.model)
+
         # Set up the main generator
         self.generator = adal.Generator(
             template=RAG_TEMPLATE,
@@ -262,8 +286,8 @@ IMPORTANT FORMATTING RULES:
                 "system_prompt": system_prompt,
                 "contexts": None,
             },
-            model_client=generator_config.get_client(),
-            model_kwargs=generator_config.model_kwargs,
+            model_client=generator_config["model_client"](),
+            model_kwargs=generator_config["model_kwargs"],
             output_processors=data_parser,
         )
 
@@ -273,7 +297,103 @@ IMPORTANT FORMATTING RULES:
         self.db_manager = DatabaseManager()
         self.transformed_docs = []
 
-    def prepare_retriever(self, repo_url_or_path: str, access_token: str = None):
+    def _validate_and_filter_embeddings(self, documents: List) -> List:
+        """
+        Validate embeddings and filter out documents with invalid or mismatched embedding sizes.
+
+        Args:
+            documents: List of documents with embeddings
+
+        Returns:
+            List of documents with valid embeddings of consistent size
+        """
+        if not documents:
+            logger.warning("No documents provided for embedding validation")
+            return []
+
+        valid_documents = []
+        embedding_sizes = {}
+
+        # First pass: collect all embedding sizes and count occurrences
+        for i, doc in enumerate(documents):
+            if not hasattr(doc, 'vector') or doc.vector is None:
+                logger.warning(f"Document {i} has no embedding vector, skipping")
+                continue
+
+            try:
+                if isinstance(doc.vector, list):
+                    embedding_size = len(doc.vector)
+                elif hasattr(doc.vector, 'shape'):
+                    embedding_size = doc.vector.shape[0] if len(doc.vector.shape) == 1 else doc.vector.shape[-1]
+                elif hasattr(doc.vector, '__len__'):
+                    embedding_size = len(doc.vector)
+                else:
+                    logger.warning(f"Document {i} has invalid embedding vector type: {type(doc.vector)}, skipping")
+                    continue
+
+                if embedding_size == 0:
+                    logger.warning(f"Document {i} has empty embedding vector, skipping")
+                    continue
+
+                embedding_sizes[embedding_size] = embedding_sizes.get(embedding_size, 0) + 1
+
+            except Exception as e:
+                logger.warning(f"Error checking embedding size for document {i}: {str(e)}, skipping")
+                continue
+
+        if not embedding_sizes:
+            logger.error("No valid embeddings found in any documents")
+            return []
+
+        # Find the most common embedding size (this should be the correct one)
+        target_size = max(embedding_sizes.keys(), key=lambda k: embedding_sizes[k])
+        logger.info(f"Target embedding size: {target_size} (found in {embedding_sizes[target_size]} documents)")
+
+        # Log all embedding sizes found
+        for size, count in embedding_sizes.items():
+            if size != target_size:
+                logger.warning(f"Found {count} documents with incorrect embedding size {size}, will be filtered out")
+
+        # Second pass: filter documents with the target embedding size
+        for i, doc in enumerate(documents):
+            if not hasattr(doc, 'vector') or doc.vector is None:
+                continue
+
+            try:
+                if isinstance(doc.vector, list):
+                    embedding_size = len(doc.vector)
+                elif hasattr(doc.vector, 'shape'):
+                    embedding_size = doc.vector.shape[0] if len(doc.vector.shape) == 1 else doc.vector.shape[-1]
+                elif hasattr(doc.vector, '__len__'):
+                    embedding_size = len(doc.vector)
+                else:
+                    continue
+
+                if embedding_size == target_size:
+                    valid_documents.append(doc)
+                else:
+                    # Log which document is being filtered out
+                    file_path = getattr(doc, 'meta_data', {}).get('file_path', f'document_{i}')
+                    logger.warning(f"Filtering out document '{file_path}' due to embedding size mismatch: {embedding_size} != {target_size}")
+
+            except Exception as e:
+                file_path = getattr(doc, 'meta_data', {}).get('file_path', f'document_{i}')
+                logger.warning(f"Error validating embedding for document '{file_path}': {str(e)}, skipping")
+                continue
+
+        logger.info(f"Embedding validation complete: {len(valid_documents)}/{len(documents)} documents have valid embeddings")
+
+        if len(valid_documents) == 0:
+            logger.error("No documents with valid embeddings remain after filtering")
+        elif len(valid_documents) < len(documents):
+            filtered_count = len(documents) - len(valid_documents)
+            logger.warning(f"Filtered out {filtered_count} documents due to embedding issues")
+
+        return valid_documents
+
+    def prepare_retriever(self, repo_url_or_path: str, type: str = "github", access_token: str = None,
+                      excluded_dirs: List[str] = None, excluded_files: List[str] = None,
+                      included_dirs: List[str] = None, included_files: List[str] = None):
         """
         Prepare the retriever for a repository.
         Will load database from local storage if available.
@@ -281,28 +401,73 @@ IMPORTANT FORMATTING RULES:
         Args:
             repo_url_or_path: URL or local path to the repository
             access_token: Optional access token for private repositories
+            excluded_dirs: Optional list of directories to exclude from processing
+            excluded_files: Optional list of file patterns to exclude from processing
+            included_dirs: Optional list of directories to include exclusively
+            included_files: Optional list of file patterns to include exclusively
         """
         self.initialize_db_manager()
         self.repo_url_or_path = repo_url_or_path
-        self.transformed_docs = self.db_manager.prepare_database(repo_url_or_path, access_token)
+        self.transformed_docs = self.db_manager.prepare_database(
+            repo_url_or_path,
+            type,
+            access_token,
+            is_ollama_embedder=self.is_ollama_embedder,
+            excluded_dirs=excluded_dirs,
+            excluded_files=excluded_files,
+            included_dirs=included_dirs,
+            included_files=included_files
+        )
         logger.info(f"Loaded {len(self.transformed_docs)} documents for retrieval")
 
-        # Select the appropriate embedder based on the current model mode
-        retriever_embedder = self.query_embedder if embedder_config.is_local() else self.embedder
-        self.retriever = FAISSRetriever(
-            **app_configs["retriever"],
-            embedder=retriever_embedder,
-            documents=self.transformed_docs,
-            document_map_func=lambda doc: doc.vector,
-        )
+        # Validate and filter embeddings to ensure consistent sizes
+        self.transformed_docs = self._validate_and_filter_embeddings(self.transformed_docs)
 
-    def call(self, query: str, language: str = "en") -> Tuple[Any, List]:
+        if not self.transformed_docs:
+            raise ValueError("No valid documents with embeddings found. Cannot create retriever.")
+
+        logger.info(f"Using {len(self.transformed_docs)} documents with valid embeddings for retrieval")
+
+        try:
+            # Use the appropriate embedder for retrieval
+            retrieve_embedder = self.query_embedder if self.is_ollama_embedder else self.embedder
+            self.retriever = FAISSRetriever(
+                **configs["retriever"],
+                embedder=retrieve_embedder,
+                documents=self.transformed_docs,
+                document_map_func=lambda doc: doc.vector,
+            )
+            logger.info("FAISS retriever created successfully")
+        except Exception as e:
+            logger.error(f"Error creating FAISS retriever: {str(e)}")
+            # Try to provide more specific error information
+            if "All embeddings should be of the same size" in str(e):
+                logger.error("Embedding size validation failed. This suggests there are still inconsistent embedding sizes.")
+                # Log embedding sizes for debugging
+                sizes = []
+                for i, doc in enumerate(self.transformed_docs[:10]):  # Check first 10 docs
+                    if hasattr(doc, 'vector') and doc.vector is not None:
+                        try:
+                            if isinstance(doc.vector, list):
+                                size = len(doc.vector)
+                            elif hasattr(doc.vector, 'shape'):
+                                size = doc.vector.shape[0] if len(doc.vector.shape) == 1 else doc.vector.shape[-1]
+                            elif hasattr(doc.vector, '__len__'):
+                                size = len(doc.vector)
+                            else:
+                                size = "unknown"
+                            sizes.append(f"doc_{i}: {size}")
+                        except:
+                            sizes.append(f"doc_{i}: error")
+                logger.error(f"Sample embedding sizes: {', '.join(sizes)}")
+            raise
+
+    def call(self, query: str, language: str = "en") -> Tuple[List]:
         """
         Process a query using RAG.
 
         Args:
             query: The user's query
-            language: Language code for response (e.g., 'en', 'ja', 'zh', 'es' ,'kr', 'vi')
 
         Returns:
             Tuple of (RAGAnswer, retrieved_documents)
@@ -316,45 +481,7 @@ IMPORTANT FORMATTING RULES:
                 for doc_index in retrieved_documents[0].doc_indices
             ]
 
-            # Get language name for the prompt
-            language_name = {
-                "en": "English",
-                "ja": "Japanese (日本語)",
-                "zh": "Mandarin Chinese (中文)",
-                "es": "Spanish (Español)",
-                "kr": "Korean (한국어)",
-                "vi": "Vietnamese (Tiếng Việt)"
-            }.get(language, "English")
-
-            # Prepare generation parameters
-            prompt_kwargs = {
-                "input_str": f"[RESPOND IN {language_name.upper()}] {query}",
-                "contexts": retrieved_documents[0].documents,
-                "conversation_history": self.memory(),
-            }
-
-            # Generate response
-            response = self.generator(prompt_kwargs=prompt_kwargs)
-
-            final_response = response.data
-
-            # Check if final_response is None and create a default response if needed
-            if final_response is None:
-                logger.warning("Generated response data is None, creating default response")
-                final_response = RAGAnswer(
-                    rationale="No response data was generated.",
-                    answer="I couldn't find a specific answer to your question based on the repository content. Could you please rephrase your question or provide more details?"
-                )
-
-            # Post-process answer to remove markdown fences if present
-            if hasattr(final_response, 'answer') and isinstance(final_response.answer, str):
-                final_response.answer = re.sub(r'^```markdown\s*\n', '', final_response.answer)
-                final_response.answer = re.sub(r'^```\w*\s*\n', '', final_response.answer)
-
-            # Add to conversation memory
-            self.memory.add_dialog_turn(user_query=query, assistant_response=final_response.answer)
-
-            return final_response, retrieved_documents
+            return retrieved_documents
 
         except Exception as e:
             logger.error(f"Error in RAG call: {str(e)}")

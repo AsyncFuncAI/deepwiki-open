@@ -14,6 +14,8 @@
 [![Twitter/X](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://x.com/sashimikun_void)
 [![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/VQMBGR8u5v)
 
+[English](./README.md) | [简体中文](./README.zh.md) | [日本語](./README.ja.md) | [Español](./README.es.md) | [한국어](./README.kr.md) | [Tiếng Việt](./README.vi.md) | [Português Brasileiro](./README.pt-br.md) | [Français](./README.fr.md)
+
 ## ✨ Características
 
 - **Documentación Instantánea**: Convierte cualquier repositorio de GitHub, GitLab o BitBucket en una wiki en segundos
@@ -169,6 +171,88 @@ deepwiki/
 └── .env                  # Variables de entorno (crear este archivo)
 ```
 
+## 🤖 Sistema de Selección de Modelos Basado en Proveedores
+
+DeepWiki ahora implementa un sistema flexible de selección de modelos basado en proveedores que soporta múltiples proveedores de LLM:
+
+### Proveedores y Modelos Soportados
+
+- **Google**: Predeterminado `gemini-2.0-flash`, también soporta `gemini-1.5-flash`, `gemini-1.0-pro`, etc.
+- **OpenAI**: Predeterminado `gpt-4o`, también soporta `o4-mini`, etc.
+- **OpenRouter**: Acceso a múltiples modelos a través de una API unificada, incluyendo Claude, Llama, Mistral, etc.
+- **Ollama**: Soporte para modelos de código abierto ejecutados localmente como `llama3`
+
+### Variables de Entorno
+
+Cada proveedor requiere sus correspondientes variables de entorno para las claves API:
+
+```
+# Claves API
+GOOGLE_API_KEY=tu_clave_api_google        # Requerida para modelos Google Gemini
+OPENAI_API_KEY=tu_clave_api_openai        # Requerida para modelos OpenAI
+OPENROUTER_API_KEY=tu_clave_api_openrouter # Requerida para modelos OpenRouter
+
+# Configuración de URL Base de OpenAI API
+OPENAI_BASE_URL=https://punto-final-personalizado.com/v1  # Opcional, para endpoints personalizados de OpenAI API
+
+# Directorio de Configuración
+DEEPWIKI_CONFIG_DIR=/ruta/a/directorio/config/personalizado  # Opcional, para ubicación personalizada de archivos de configuración
+```
+
+### Archivos de Configuración
+
+DeepWiki utiliza archivos de configuración JSON para gestionar varios aspectos del sistema:
+
+1. **`generator.json`**: Configuración para modelos de generación de texto
+   - Define los proveedores de modelos disponibles (Google, OpenAI, OpenRouter, Ollama)
+   - Especifica los modelos predeterminados y disponibles para cada proveedor
+   - Contiene parámetros específicos de los modelos como temperatura y top_p
+
+2. **`embedder.json`**: Configuración para modelos de embeddings y procesamiento de texto
+   - Define modelos de embeddings para almacenamiento vectorial
+   - Contiene configuración del recuperador para RAG
+   - Especifica ajustes del divisor de texto para fragmentación de documentos
+
+3. **`repo.json`**: Configuración para manejo de repositorios
+   - Contiene filtros de archivos para excluir ciertos archivos y directorios
+   - Define límites de tamaño de repositorio y reglas de procesamiento
+
+Por defecto, estos archivos se encuentran en el directorio `api/config/`. Puedes personalizar su ubicación usando la variable de entorno `DEEPWIKI_CONFIG_DIR`.
+
+### Selección de Modelos Personalizados para Proveedores de Servicios
+
+La función de selección de modelos personalizados está diseñada específicamente para proveedores de servicios que necesitan:
+
+- Puede ofrecer a los usuarios dentro de su organización una selección de diferentes modelos de IA
+- Puede adaptarse rápidamente al panorama de LLM en rápida evolución sin cambios de código
+- Puede soportar modelos especializados o ajustados que no están en la lista predefinida
+
+Usted puede implementar sus ofertas de modelos seleccionando entre las opciones predefinidas o ingresando identificadores de modelos personalizados en la interfaz frontend.
+
+### Configuración de URL Base para Canales Privados Empresariales
+
+La configuración de base_url del Cliente OpenAI está diseñada principalmente para usuarios empresariales con canales API privados. Esta función:
+
+- Permite la conexión a endpoints API privados o específicos de la empresa
+- Permite a las organizaciones usar sus propios servicios LLM auto-alojados o desplegados a medida
+- Soporta integración con servicios de terceros compatibles con la API de OpenAI
+
+**Próximamente**: En futuras actualizaciones, DeepWiki soportará un modo donde los usuarios deberán proporcionar sus propias claves API en las solicitudes. Esto permitirá a los clientes empresariales con canales privados utilizar sus disposiciones API existentes sin compartir credenciales con el despliegue de DeepWiki.
+
+## 🧩 Uso de modelos de embedding compatibles con OpenAI (por ejemplo, Alibaba Qwen)
+
+Si deseas usar modelos de embedding compatibles con la API de OpenAI (como Alibaba Qwen), sigue estos pasos:
+
+1. Sustituye el contenido de `api/config/embedder.json` por el de `api/config/embedder_openai_compatible.json`.
+2. En el archivo `.env` de la raíz del proyecto, configura las variables de entorno necesarias, por ejemplo:
+   ```
+   OPENAI_API_KEY=tu_api_key
+   OPENAI_BASE_URL=tu_endpoint_compatible_openai
+   ```
+3. El programa sustituirá automáticamente los placeholders de embedder.json por los valores de tus variables de entorno.
+
+Así puedes cambiar fácilmente a cualquier servicio de embedding compatible con OpenAI sin modificar el código.
+
 ## 🤖 Funciones de Preguntas e Investigación Profunda
 
 ### Función de Preguntas
@@ -247,3 +331,4 @@ Este proyecto está licenciado bajo la Licencia MIT - consulta el archivo [LICEN
 ## ⭐ Historial de Estrellas
 
 [![Gráfico de Historial de Estrellas](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
+

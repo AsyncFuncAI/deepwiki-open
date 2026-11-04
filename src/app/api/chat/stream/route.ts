@@ -4,10 +4,24 @@ import { NextRequest, NextResponse } from 'next/server';
 // This should match the logic in your frontend's page.tsx for consistency.
 const TARGET_SERVER_BASE_URL = process.env.SERVER_BASE_URL || 'http://localhost:8001';
 
+// This is a fallback HTTP implementation that will be used if WebSockets are not available
+// or if there's an error with the WebSocket connection
 export async function POST(req: NextRequest) {
   try {
     const requestBody = await req.json(); // Assuming the frontend sends JSON
+
+    // Note: This endpoint now uses the HTTP fallback instead of WebSockets
+    // The WebSocket implementation is in src/utils/websocketClient.ts
+    // This HTTP endpoint is kept for backward compatibility
+    console.log('Using HTTP fallback for chat completion instead of WebSockets');
+
     const targetUrl = `${TARGET_SERVER_BASE_URL}/chat/completions/stream`;
+
+    // Create an AbortController for timeout handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 300000); // 5 minutes timeout for Ollama models
 
     // Make the actual request to the backend service
     const backendResponse = await fetch(targetUrl, {
@@ -15,11 +29,13 @@ export async function POST(req: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'text/event-stream', // Indicate that we expect a stream
-        // TODO: Consider forwarding other relevant headers from the original request (req.headers) if needed,
-        // for example, an Authorization header.
       },
       body: JSON.stringify(requestBody),
+      signal: controller.signal, // Add abort signal for timeout
     });
+
+    // Clear the timeout once we get a response
+    clearTimeout(timeoutId);
 
     // If the backend service returned an error, forward that error to the client
     if (!backendResponse.ok) {
@@ -62,10 +78,6 @@ export async function POST(req: NextRequest) {
       },
       cancel(reason) {
         console.log('Client cancelled stream request:', reason);
-        // If the client cancels (e.g., navigates away), we might want to signal the backend.
-        // This can be complex. For fetch, an AbortController initiated with the fetch call
-        // could be aborted here. For now, we just log and the reader loop will terminate.
-        // reader.cancel() could also be called if the underlying stream supports it.
       }
     });
 
@@ -78,7 +90,6 @@ export async function POST(req: NextRequest) {
     }
     // It's good practice for streams not to be cached or transformed by intermediaries.
     responseHeaders.set('Cache-Control', 'no-cache, no-transform');
-    // 'Transfer-Encoding': 'chunked' is typically handled by the server/Next.js automatically for streams.
 
     return new NextResponse(stream, {
       status: backendResponse.status, // Should be 200 for a successful stream start
@@ -88,11 +99,23 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Error in API proxy route (/api/chat/stream):', error);
     let errorMessage = 'Internal Server Error in proxy';
+    let statusCode = 500;
+
     if (error instanceof Error) {
       errorMessage = error.message;
+
+      // Handle specific timeout errors
+      if (error.name === 'AbortError' || errorMessage.includes('timeout')) {
+        errorMessage = 'Request timeout - Ollama model may be taking too long to respond. Please try again or use a smaller model.';
+        statusCode = 408; // Request Timeout
+      } else if (errorMessage.includes('UND_ERR_BODY_TIMEOUT')) {
+        errorMessage = 'Body timeout error - The model response took too long. Please try again.';
+        statusCode = 408;
+      }
     }
+
     return new NextResponse(JSON.stringify({ error: errorMessage }), {
-      status: 500,
+      status: statusCode,
       headers: { 'Content-Type': 'application/json' },
     });
   }
@@ -109,4 +132,4 @@ export async function OPTIONS() {
       'Access-Control-Allow-Headers': 'Content-Type, Authorization', // Adjust as per client's request headers
     },
   });
-} 
+}
