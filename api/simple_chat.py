@@ -9,6 +9,9 @@ import google.generativeai as genai
 
 from api.data_pipeline import count_tokens, get_file_content
 from api.rag import RAG
+from api.config import configs
+from adalflow.components.model_client.ollama_client import OllamaClient
+from adalflow.core.types import ModelType
 
 # Configure logging
 logging.basicConfig(
@@ -55,6 +58,8 @@ class ChatCompletionRequest(BaseModel):
     filePath: Optional[str] = Field(None, description="Optional path to a file in the repository to include in the prompt")
     github_token: Optional[str] = Field(None, description="GitHub personal access token for private repositories")
     gitlab_token: Optional[str] = Field(None, description="GitLab personal access token for private repositories")
+    local_ollama: Optional[bool] = Field(False, description="Use locally run Ollama model for embedding and generation")
+    bitbucket_token: Optional[str] = Field(None, description="Bitbucket personal access token for private repositories")
 
 @app.post("/chat/completions/stream")
 async def chat_completions_stream(request: ChatCompletionRequest):
@@ -65,7 +70,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         if request.messages and len(request.messages) > 0:
             last_message = request.messages[-1]
             if hasattr(last_message, 'content') and last_message.content:
-                tokens = count_tokens(last_message.content)
+                tokens = count_tokens(last_message.content, local_ollama=request.local_ollama)
                 logger.info(f"Request size: {tokens} tokens")
                 if tokens > 8000:
                     logger.warning(f"Request exceeds recommended token limit ({tokens} > 7500)")
@@ -73,7 +78,8 @@ async def chat_completions_stream(request: ChatCompletionRequest):
 
         # Create a new RAG instance for this request
         try:
-            request_rag = RAG()
+            # Pass the local_ollama flag during initialization
+            request_rag = RAG(local_ollama=request.local_ollama)
 
             # Determine which access token to use based on the repository URL
             access_token = None
@@ -83,8 +89,11 @@ async def chat_completions_stream(request: ChatCompletionRequest):
             elif "gitlab.com" in request.repo_url and request.gitlab_token:
                 access_token = request.gitlab_token
                 logger.info("Using GitLab token for authentication")
+            elif "bitbucket.org" in request.repo_url and request.bitbucket_token:
+                access_token = request.bitbucket_token
+                logger.info("Using Bitbucket token for authentication")
 
-            request_rag.prepare_retriever(request.repo_url, access_token)
+            request_rag.prepare_retriever(request.repo_url, access_token, request.local_ollama)
             logger.info(f"Retriever prepared for {request.repo_url}")
         except Exception as e:
             logger.error(f"Error preparing retriever: {str(e)}")
@@ -186,6 +195,8 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         repo_type = "GitHub"
         if "gitlab.com" in repo_url:
             repo_type = "GitLab"
+        elif "bitbucket.org" in repo_url:
+            repo_type = "Bitbucket"
 
         # Create system prompt
         if is_deep_research:
@@ -295,6 +306,7 @@ You NEVER start responses with markdown headers or code fences.
 
 <guidelines>
 - Answer the user's question directly without ANY preamble or filler phrases
+- DO NOT include any rationale, explanation, or extra comments.
 - DO NOT start with preambles like "Okay, here's a breakdown" or "Here's an explanation"
 - DO NOT start with markdown headers like "## Analysis of..." or any file path references
 - DO NOT start with ```markdown code fences
@@ -315,6 +327,7 @@ This file contains...
 - Think step by step and structure your answer logically
 - Start with the most relevant information that directly addresses the user's query
 - Be precise and technical when discussing code
+- Your response language should be in the same language as the user's query 
 </guidelines>
 
 <style>
@@ -334,6 +347,8 @@ This file contains...
                     access_token = request.github_token
                 elif "gitlab.com" in request.repo_url and request.gitlab_token:
                     access_token = request.gitlab_token
+                elif "bitbucket.org" in request.repo_url and request.bitbucket_token:
+                    access_token = request.bitbucket_token
 
                 file_content = get_file_content(request.repo_url, request.filePath, access_token)
                 logger.info(f"Successfully retrieved content for file: {request.filePath}")
@@ -348,7 +363,7 @@ This file contains...
                 conversation_history += f"<turn>\n<user>{turn.user_query.query_str}</user>\n<assistant>{turn.assistant_response.response_str}</assistant>\n</turn>\n"
 
         # Create the prompt with context
-        prompt = f"{system_prompt}\n\n"
+        prompt = f"/no_think {system_prompt}\n\n"
 
         if conversation_history:
             prompt += f"<conversation_history>\n{conversation_history}</conversation_history>\n\n"
@@ -367,27 +382,55 @@ This file contains...
             prompt += "<note>Answering without retrieval augmentation.</note>\n\n"
 
         prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
-
-        # Initialize Google Generative AI model
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
-            generation_config={
-                "temperature": 0.3,
-                "top_p": 0.8,
-                "top_k": 40
+        
+        if request.local_ollama:
+            prompt += " /no_think"
+            
+            model = OllamaClient()
+            model_kwargs = {
+                "model": configs["generator_ollama"]["model_kwargs"]["model"],
+                "stream": True,
+                "options": {
+                    "temperature": configs["generator_ollama"]["model_kwargs"]["options"]["temperature"],
+                    "top_p": configs["generator_ollama"]["model_kwargs"]["options"]["top_p"]
+                }
             }
-        )
+            
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=prompt,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
+        else:
+            # Initialize Google Generative AI model
+            model = genai.GenerativeModel(
+                model_name="gemini-2.0-flash",
+                generation_config={
+                    "temperature": 0.7,
+                    "top_p": 0.8,
+                    "top_k": 40
+                }
+            )
 
         # Create a streaming response
         async def response_stream():
             try:
-                # Generate streaming response
-                response = model.generate_content(prompt, stream=True)
 
-                # Stream the response
-                for chunk in response:
-                    if hasattr(chunk, 'text'):
-                        yield chunk.text
+                if request.local_ollama:
+                    # Get the response and handle it properly using the previously created api_kwargs
+                    response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                    # Handle streaming response from Ollama
+                    async for chunk in response:
+                        text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
+                        if text and not text.startswith('model=') and not text.startswith('created_at='):
+                            yield text
+                else:
+                    # Generate streaming response
+                    response = model.generate_content(prompt, stream=True)
+                    # Stream the response
+                    for chunk in response:
+                        if hasattr(chunk, 'text'):
+                            yield chunk.text
 
             except Exception as e:
                 logger.error(f"Error in streaming response: {str(e)}")
@@ -399,7 +442,7 @@ This file contains...
                     logger.warning("Token limit exceeded, retrying without context")
                     try:
                         # Create a simplified prompt without context
-                        simplified_prompt = f"{system_prompt}\n\n"
+                        simplified_prompt = f"/no_think {system_prompt}\n\n"
                         if conversation_history:
                             simplified_prompt += f"<conversation_history>\n{conversation_history}</conversation_history>\n\n"
 
@@ -410,13 +453,34 @@ This file contains...
                         simplified_prompt += "<note>Answering without retrieval augmentation due to input size constraints.</note>\n\n"
                         simplified_prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
 
-                        # Try again with simplified prompt
-                        fallback_response = model.generate_content(simplified_prompt, stream=True)
 
-                        # Stream the fallback response
-                        for chunk in fallback_response:
-                            if hasattr(chunk, 'text'):
-                                yield chunk.text
+                        if request.local_ollama:
+                            simplified_prompt += " /no_think"
+                            
+                            # Create new api_kwargs with the simplified prompt
+                            fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
+                                input=simplified_prompt,
+                                model_kwargs=model_kwargs,
+                                model_type=ModelType.LLM
+                            )
+                            
+                            # Get the response using the simplified prompt
+                            fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
+                            
+                            # Handle streaming fallback_response from Ollama
+                            async for chunk in fallback_response:
+                                text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
+                                if text and not text.startswith('model=') and not text.startswith('created_at='):
+                                    yield text
+                        else:
+                            # Try again with simplified prompt
+                            fallback_response = model.generate_content(simplified_prompt, stream=True)
+
+                            # Stream the fallback response
+                            for chunk in fallback_response:
+                                if hasattr(chunk, 'text'):
+                                    yield chunk.text
+
 
                     except Exception as e2:
                         logger.error(f"Error in fallback streaming response: {str(e2)}")

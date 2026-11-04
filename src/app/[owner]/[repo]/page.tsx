@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
-import React, { useCallback, useState, useMemo, useEffect } from 'react';
+import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub, FaGitlab, FaDownload, FaFileExport, FaHome } from 'react-icons/fa';
+import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub, FaGitlab, FaBitbucket, FaDownload, FaFileExport, FaHome } from 'react-icons/fa';
 import Link from 'next/link';
 import ThemeToggle from '@/components/theme-toggle';
 import Markdown from '@/components/Markdown';
@@ -25,6 +26,8 @@ interface WikiStructure {
   pages: WikiPage[];
 }
 
+const SERVER_BASE_URL = process.env.NEXT_PUBLIC_SERVER_BASE_URL || 'http://localhost:8001';
+
 // Add CSS styles for wiki
 const wikiStyles = `
   .prose code {
@@ -36,19 +39,97 @@ const wikiStyles = `
   }
 `;
 
+// Helper functions for token handling and API requests
+const getRepoUrl = (owner: string, repo: string, repoType: string): string => {
+  return repoType === 'github'
+    ? `https://github.com/${owner}/${repo}`
+    : repoType === 'gitlab'
+    ? `https://gitlab.com/${owner}/${repo}`
+    : `https://bitbucket.org/${owner}/${repo}`;
+};
+
+
+const addTokensToRequestBody = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  requestBody: Record<string, any>,
+  githubToken: string,
+  gitlabToken: string,
+  bitbucketToken: string,
+  repoType: string,
+  localOllama: boolean = false,
+  useOpenRouter: boolean = false,
+  openRouterModel: string = 'openai/gpt-4o',
+): void => {
+  if (githubToken && repoType === 'github') {
+    requestBody.github_token = githubToken;
+  }
+  if (gitlabToken && repoType === 'gitlab') {
+    requestBody.gitlab_token = gitlabToken;
+  }
+  if (bitbucketToken && repoType === 'bitbucket') {
+    requestBody.bitbucket_token = bitbucketToken;
+  }
+  requestBody.local_ollama = localOllama;
+  requestBody.use_openrouter = useOpenRouter;
+  if (useOpenRouter) {
+    requestBody.openrouter_model = openRouterModel;
+  }
+};
+
+const createGithubHeaders = (githubToken: string): HeadersInit => {
+  const headers: HeadersInit = {
+    'Accept': 'application/vnd.github.v3+json'
+  };
+
+  if (githubToken) {
+    headers['Authorization'] = `Bearer ${githubToken}`;
+  }
+
+  return headers;
+};
+
+const createGitlabHeaders = (gitlabToken: string): HeadersInit => {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (gitlabToken) {
+    headers['PRIVATE-TOKEN'] = gitlabToken;
+  }
+
+  return headers;
+};
+
+const createBitbucketHeaders = (bitbucketToken: string): HeadersInit => {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (bitbucketToken) {
+    headers['Authorization'] = `Bearer ${bitbucketToken}`;
+  }
+
+  return headers;
+};
+
+
 export default function RepoWikiPage() {
   // Get route parameters and search params
   const params = useParams();
   const searchParams = useSearchParams();
-  
+
   // Extract owner and repo from route params
   const owner = params.owner as string;
   const repo = params.repo as string;
-  
+
   // Extract tokens from search params
   const githubToken = searchParams.get('github_token') || '';
   const gitlabToken = searchParams.get('gitlab_token') || '';
+  const bitbucketToken = searchParams.get('bitbucket_token') || '';
   const repoType = searchParams.get('type') || 'github';
+  const localOllama = searchParams.get('local_ollama') === 'true';
+  const useOpenRouter = searchParams.get('use_openrouter') === 'true';
+  const openRouterModel = searchParams.get('openrouter_model') || 'openai/gpt-4o';
 
   // Initialize repo info
   const repoInfo = useMemo(() => ({
@@ -69,14 +150,17 @@ export default function RepoWikiPage() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [originalMarkdown, setOriginalMarkdown] = useState<Record<string, string>>({});
   const [requestInProgress, setRequestInProgress] = useState(false);
-  const activeContentRequests = useMemo(() => new Map<string, boolean>(), []);
+  // Using useRef for activeContentRequests to maintain a single instance across renders
+  // This map tracks which pages are currently being processed to prevent duplicate requests
+  // Note: In a multi-threaded environment, additional synchronization would be needed,
+  // but in React's single-threaded model, this is safe as long as we set the flag before any async operations
+  const activeContentRequests = useRef(new Map<string, boolean>()).current;
   const [structureRequestInProgress, setStructureRequestInProgress] = useState(false);
-  
+
   // Create a flag to ensure the effect only runs once
   const effectRan = React.useRef(false);
 
   // Memoize repo info to avoid triggering updates in callbacks
-  const currentRepoInfo = useMemo(() => repoInfo, [repoInfo]);
 
   // Add useEffect to handle scroll reset
   useEffect(() => {
@@ -86,100 +170,6 @@ export default function RepoWikiPage() {
       wikiContent.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [currentPageId]);
-
-  // Function to handle Mermaid rendering errors and attempt auto-fix
-  const handleMermaidError = useCallback(async (errorMessage: string, originalChart: string) => {
-    if (!currentPageId || !originalMarkdown[currentPageId]) {
-      console.error('Cannot retry Mermaid: Missing current page ID or original markdown.');
-      return;
-    }
-
-    // Need owner and repo for the API call
-    const { owner, repo } = currentRepoInfo;
-    if (!owner || !repo) {
-      console.error('Cannot retry Mermaid: Missing repository info.');
-      return;
-    }
-
-    console.log(`Handling Mermaid error for page ${currentPageId}. Error: ${errorMessage}`);
-
-    const retryPrompt = `The following Mermaid diagram code failed to render with the error: "${errorMessage}"
-
-Original Mermaid Code:
-\`\`\`mermaid
-${originalChart}
-\`\`\`
-
-Please regenerate the diagram from scratch and return ONLY the corrected Mermaid code block itself, starting with \`\`\`mermaid and ending with \`\`\`. Do not include any other text, explanation, or markdown formatting outside the code block. Fix the error: "${errorMessage}".
-
-If this is a flow diagram, avoid horizontal layouts if possible and prefer "graph TD" orientation.
-If this is a sequence diagram, ensure proper syntax with "sequenceDiagram" directive and correct arrow notation (e.g., A->>B: Message).`;
-
-    try {
-      setLoadingMessage('Attempting to auto-correct diagram error...');
-      const response = await fetch('http://localhost:8001/chat/completions/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          repo_url: `https://${repoInfo.type === 'github' ? 'github' : 'gitlab'}.com/${owner}/${repo}`,
-          messages: [{ role: 'user', content: retryPrompt }]
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error during retry: ${response.status}`);
-      }
-
-      let correctedMermaidBlock = '';
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) throw new Error('Failed to get reader for retry response');
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        correctedMermaidBlock += decoder.decode(value, { stream: true });
-      }
-      correctedMermaidBlock += decoder.decode(); // Final decode
-
-      // Basic cleaning: Trim whitespace and ensure it looks like a mermaid block
-      correctedMermaidBlock = correctedMermaidBlock.trim();
-      if (correctedMermaidBlock.startsWith('```mermaid') && correctedMermaidBlock.endsWith('```')) {
-        console.log('Received corrected Mermaid block from API.');
-
-        // Find the original broken chart in the full markdown and replace it
-        // This simple replacement assumes the broken chart string is unique enough
-        const originalContent = originalMarkdown[currentPageId];
-        const originalChartBlock = `\`\`\`mermaid\n${originalChart}\n\`\`\``; // Reconstruct original block
-
-        if (originalContent.includes(originalChartBlock)) {
-          const updatedContent = originalContent.replace(originalChartBlock, correctedMermaidBlock);
-
-          // Update the generated page content
-          setGeneratedPages(prev => ({
-            ...prev,
-            [currentPageId]: {
-              ...prev[currentPageId],
-              content: updatedContent,
-            }
-          }));
-          // Update original markdown store as well in case of further errors
-          setOriginalMarkdown(prev => ({ ...prev, [currentPageId]: updatedContent }));
-          console.log(`Page ${currentPageId} updated with corrected Mermaid diagram.`);
-        } else {
-          console.warn('Could not find the original Mermaid block in the content for replacement.');
-        }
-      } else {
-        console.error('Received malformed corrected Mermaid block from API:', correctedMermaidBlock);
-      }
-
-    } catch (error) {
-      console.error('Error during Mermaid retry API call:', error);
-    } finally {
-      setLoadingMessage(undefined); // Clear loading message
-    }
-  }, [currentPageId, originalMarkdown, currentRepoInfo]);
 
   // Generate content for a wiki page
   const generatePageContent = useCallback(async (page: WikiPage, owner: string, repo: string) => {
@@ -192,13 +182,15 @@ If this is a sequence diagram, ensure proper syntax with "sequenceDiagram" direc
         }
 
         // Skip if this page is already being processed
+        // Use a synchronized pattern to avoid race conditions
         if (activeContentRequests.get(page.id)) {
           console.log(`Page ${page.id} (${page.title}) is already being processed, skipping duplicate call`);
           resolve();
           return;
         }
 
-        // Mark this page as being processed
+        // Mark this page as being processed immediately to prevent race conditions
+        // This ensures that if multiple calls happen nearly simultaneously, only one proceeds
         activeContentRequests.set(page.id, true);
 
         // Validate repo info
@@ -208,7 +200,7 @@ If this is a sequence diagram, ensure proper syntax with "sequenceDiagram" direc
 
         // Mark page as in progress
         setPagesInProgress(prev => new Set(prev).add(page.id));
-        setLoadingMessage(`Generating content for page: ${page.title}...`);
+        // Don't set loading message for individual pages during queue processing
 
         const filePaths = page.filePaths;
 
@@ -222,58 +214,38 @@ If this is a sequence diagram, ensure proper syntax with "sequenceDiagram" direc
         // Make API call to generate page content
         console.log(`Starting content generation for page: ${page.title}`);
 
-        // Determine which token to use based on the repository type
-        const repoUrl = repoInfo.type === 'github'
-          ? `https://github.com/${owner}/${repo}`
-          : `https://gitlab.com/${owner}/${repo}`;
+        // Get repository URL
+        const repoUrl = getRepoUrl(owner, repo, repoInfo.type);
 
-        // Create the prompt content
-        const promptContent = 
-`
-Generate comprehensive wiki page content for "${page.title}" in the repository ${owner}/${repo}.
+        // Create the prompt content - simplified to avoid message dialogs
+        const promptContent =
+`Generate comprehensive wiki page content for "${page.title}" in the repository ${owner}/${repo}.
 
-This page MUST focus exclusively on the following files:
+This page should focus on the following files:
 ${filePaths.map(path => `- ${path}`).join('\n')}
 
-## STRICT REQUIREMENTS:
+Include:
+- Clear introduction explaining what "${page.title}" is
+- Explanation of purpose and functionality
+- Code snippets when helpful (less than 20 lines)
+- At least one Mermaid diagram [Flow or Sequence] (use "graph TD" for vertical orientation)
+- Proper markdown formatting with code blocks and headings
+- Source links to relevant files: Eample: <p>Sources: <a href="https://github.com/AsyncFuncAI/deepwiki-open/blob/main/api/rag.py" target="_blank" rel="noopener noreferrer" class="mb-1 mr-1 inline-flex items-stretch font-mono text-xs !no-underline">SOURCE_DISPLAY</a></p>5. Explicitly explain how this component/feature integrates with the overall architecture
 
-### Content Structure:
-1. Begin with a clear, concise introduction (2-3 sentences) explaining what "${page.title}" is
-2. Provide detailed explanation of purpose and functionality
-3. Include properly formatted small code snippets only when applicable to explain concepts, less than 20 lines
-4. SOURCES:
-   - Include Github/Gitlab source links in format:
-     Eample: <p>Sources: <a href="https://github.com/AsyncFuncAI/deepwiki-open/blob/main/api/rag.py" target="_blank" rel="noopener noreferrer" class="mb-1 mr-1 inline-flex items-stretch font-mono text-xs !no-underline">SOURCE_DISPLAY</a></p>5. Explicitly explain how this component/feature integrates with the overall architecture
-6. Include complete setup and usage instructions when applicable
-7. Maintain consistent heading hierarchy (H1 > H2 > H3)
-### Markdown Formatting:
-1. CRITICAL: All code blocks MUST:
-   - Start immediately after a newline with triple backticks and language identifier
-   - Have NO spaces before the opening backticks
-   - End with triple backticks on a new line with NO spaces
-   - Be followed by a blank line
-   - Example:
-     \`\`\`typescript
-     // Code here
-     \`\`\`
-     
-2. Use proper heading hierarchy (# for title, ## for sections, ### for subsections)
-3. Use bullet points for lists (not dashes)
-4. Highlight important concepts with **bold text**
-5. Use inline code formatting with backticks for variable names, methods, etc.
+
+Use proper markdown formatting for code blocks and include a vertical Mermaid diagram.
 
 ### Mermaid Diagrams:
-1. MANDATORY: Include AT LEAST ONE relevant Mermaid diagram
+1. MANDATORY: Include AT LEAST ONE relevant Mermaid diagram, most people prefer sequence diagrams if applicable.
 2. CRITICAL: All diagrams MUST follow strict vertical orientation:
    - Use "graph TD" (top-down) directive for flow diagrams
    - NEVER use "graph LR" (left-right)
    - Maximum node width should be 3-4 words
-   - Break longer node labels into multiple lines using <br>
    - Example:
      \`\`\`mermaid
      graph TD
-       A[Start<br>Process] --> B[Middle<br>Step]
-       B --> C[End<br>Result]
+       A[Start Process] --> B[Middle Step]
+       B --> C[End Result]
      \`\`\`
 
 3. Flow Diagram Requirements:
@@ -297,16 +269,7 @@ ${filePaths.map(path => `- ${path}`).join('\n')}
      - -x for failed messages
    - Include activation boxes using +/- notation
    - Add notes for clarification using "Note over" or "Note right of"
-
-### Validation Checklist:
-Before submitting, ensure:
-1. NO horizontal node arrangements in diagrams
-2. ALL code blocks start with triple backticks and language identifier with NO preceding spaces
-3. ALL code blocks end with triple backticks on a new line with NO spaces
-4. At least one Mermaid diagram is included
-5. Page addresses ALL listed files
-6. NO placeholder or generic content
-7. ALL instructions in this prompt have been followed precisely`;
+`;
 
         // Prepare request body
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -319,14 +282,9 @@ Before submitting, ensure:
         };
 
         // Add tokens if available
-        if (githubToken && repoInfo.type === 'github') {
-          requestBody.github_token = githubToken;
-        }
-        if (gitlabToken && repoInfo.type === 'gitlab') {
-          requestBody.gitlab_token = gitlabToken;
-        }
+        addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, openRouterModel);
 
-        const response = await fetch('http://localhost:8001/chat/completions/stream', {
+        const response = await fetch(`${SERVER_BASE_URL}/chat/completions/stream`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -386,8 +344,10 @@ Before submitting, ensure:
         resolve(); // Resolve even on error to unblock queue
       } finally {
         // Clear the processing flag for this page
+        // This must happen in the finally block to ensure the flag is cleared
+        // even if an error occurs during processing
         activeContentRequests.delete(page.id);
-        
+
         // Mark page as done
         setPagesInProgress(prev => {
           const next = new Set(prev);
@@ -397,7 +357,8 @@ Before submitting, ensure:
         setLoadingMessage(undefined); // Clear specific loading message
       }
     });
-  }, [generatedPages, githubToken, gitlabToken, repoInfo.type, activeContentRequests]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generatedPages, githubToken, gitlabToken, bitbucketToken, repoInfo.type]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -417,10 +378,8 @@ Before submitting, ensure:
       setStructureRequestInProgress(true);
       setLoadingMessage('Determining wiki structure...');
 
-      // Determine which token to use based on the repository type
-      const repoUrl = repoInfo.type === 'github'
-        ? `https://github.com/${owner}/${repo}`
-        : `https://gitlab.com/${owner}/${repo}`;
+      // Get repository URL
+      const repoUrl = getRepoUrl(owner, repo, repoInfo.type);
 
       // Prepare request body
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -481,7 +440,7 @@ IMPORTANT FORMATTING INSTRUCTIONS:
 - Start directly with <wiki_structure> and end with </wiki_structure>
 
 IMPORTANT:
-1. Create 2-3 pages that would make a comprehensive wiki for this repository
+1. Create 4-6 pages that would make a comprehensive wiki for this repository
 2. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
 3. The relevant_files should be actual files from the repository that would be used to generate that page
 4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
@@ -489,14 +448,9 @@ IMPORTANT:
       };
 
       // Add tokens if available
-      if (githubToken && repoInfo.type === 'github') {
-        requestBody.github_token = githubToken;
-      }
-      if (gitlabToken && repoInfo.type === 'gitlab') {
-        requestBody.gitlab_token = gitlabToken;
-      }
+      addTokensToRequestBody(requestBody, githubToken, gitlabToken, bitbucketToken, repoInfo.type, localOllama, useOpenRouter, openRouterModel);
 
-      const response = await fetch('http://localhost:8001/chat/completions/stream', {
+      const response = await fetch(`${SERVER_BASE_URL}/chat/completions/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -671,7 +625,7 @@ IMPORTANT:
     } finally {
       setStructureRequestInProgress(false);
     }
-  }, [generatePageContent, githubToken, gitlabToken, repoInfo.type, pagesInProgress.size, structureRequestInProgress]);
+  }, [generatePageContent, githubToken, gitlabToken, bitbucketToken, repoInfo.type, pagesInProgress.size, structureRequestInProgress, localOllama, useOpenRouter, openRouterModel]);
 
   // Fetch repository structure using GitHub or GitLab API
   const fetchRepositoryStructure = useCallback(async () => {
@@ -691,7 +645,7 @@ IMPORTANT:
     try {
       // Set the request in progress flag
       setRequestInProgress(true);
-      
+
       // Update loading state
       setIsLoading(true);
       setLoadingMessage('Fetching repository structure...');
@@ -707,14 +661,7 @@ IMPORTANT:
 
         for (const branch of ['main', 'master']) {
           const apiUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
-          const headers: HeadersInit = {
-            'Accept': 'application/vnd.github.v3+json'
-          };
-
-          // Add GitHub token if available
-          if (githubToken) {
-            headers['Authorization'] = `Bearer ${githubToken}`;
-          }
+          const headers = createGithubHeaders(githubToken);
 
           console.log(`Fetching repository structure from branch: ${branch}`);
           try {
@@ -752,14 +699,7 @@ IMPORTANT:
 
         // Try to fetch README.md content
         try {
-          const headers: HeadersInit = {
-            'Accept': 'application/vnd.github.v3+json'
-          };
-
-          // Add GitHub token if available
-          if (githubToken) {
-            headers['Authorization'] = `Bearer ${githubToken}`;
-          }
+          const headers = createGithubHeaders(githubToken);
 
           const readmeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
             headers
@@ -784,14 +724,7 @@ IMPORTANT:
         let filesData = null;
         let apiErrorDetails = '';
 
-        const headers: HeadersInit = {
-          'Content-Type': 'application/json',
-        };
-
-        // Add GitLab token if available
-        if (gitlabToken) {
-          headers['PRIVATE-TOKEN'] = gitlabToken;
-        }
+        const headers = createGitlabHeaders(gitlabToken);
 
         // First get project info to determine default branch
         const projectInfoUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}`;
@@ -846,12 +779,7 @@ IMPORTANT:
         try {
           for (const branch of ['main', 'master']) {
             const readmeUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/files/README.md/raw?ref=${branch}`;
-            const headers: HeadersInit = {};
-
-            // Add GitLab token if available
-            if (gitlabToken) {
-              headers['PRIVATE-TOKEN'] = gitlabToken;
-            }
+            const headers = createGitlabHeaders(gitlabToken);
 
             try {
               const readmeResponse = await fetch(readmeUrl, {
@@ -873,6 +801,84 @@ IMPORTANT:
           console.warn('Could not fetch GitLab README.md, continuing with empty README', err);
         }
       }
+      else if (repoInfo.type === 'bitbucket') {
+        // Bitbucket API approach
+        const repoPath = `${owner}/${repo}`;
+        const encodedRepoPath = encodeURIComponent(repoPath);
+
+        // Try to get the file tree for common branch names
+        let filesData = null;
+        let apiErrorDetails = '';
+        let defaultBranch = '';
+        const headers = createBitbucketHeaders(bitbucketToken);
+
+        // First get project info to determine default branch
+        const projectInfoUrl = `https://api.bitbucket.org/2.0/repositories/${encodedRepoPath}`;
+        try {
+          const response = await fetch(projectInfoUrl, { headers });
+
+          const responseText = await response.text();
+
+          if (response.ok) {
+            const projectData = JSON.parse(responseText);
+            defaultBranch = projectData.mainbranch.name;
+
+            const apiUrl = `https://api.bitbucket.org/2.0/repositories/${encodedRepoPath}/src/${defaultBranch}/?recursive=true&per_page=100`;
+            try {
+              const response = await fetch(apiUrl, {
+                headers
+              });
+
+              const structureResponseText = await response.text();
+
+              if (response.ok) {
+                filesData = JSON.parse(structureResponseText);
+              } else {
+                const errorData = structureResponseText;
+                apiErrorDetails = `Status: ${response.status}, Response: ${errorData}`;
+              }
+            } catch (err) {
+              console.error(`Network error fetching Bitbucket branch ${defaultBranch}:`, err);
+            }
+          } else {
+            const errorData = responseText;
+            apiErrorDetails = `Status: ${response.status}, Response: ${errorData}`;
+          }
+        } catch (err) {
+          console.error("Network error fetching Bitbucket project info:", err);
+        }
+
+        if (!filesData || !Array.isArray(filesData.values) || filesData.values.length === 0) {
+          if (apiErrorDetails) {
+            throw new Error(`Could not fetch repository structure. Bitbucket API Error: ${apiErrorDetails}`);
+          } else {
+            throw new Error('Could not fetch repository structure. Repository might not exist, be empty or private.');
+          }
+        }
+
+        // Convert files data to a string representation
+        fileTreeData = filesData.values
+          .filter((item: { type: string; path: string }) => item.type === 'commit_file')
+          .map((item: { type: string; path: string }) => item.path)
+          .join('\n');
+
+        // Try to fetch README.md content
+        try {
+          const headers = createBitbucketHeaders(bitbucketToken);
+
+          const readmeResponse = await fetch(`https://api.bitbucket.org/2.0/repositories/${encodedRepoPath}/src/${defaultBranch}/README.md`, {
+            headers
+          });
+
+          if (readmeResponse.ok) {
+            readmeContent = await readmeResponse.text();
+          } else {
+            console.warn(`Could not fetch Bitbucket README.md, status: ${readmeResponse.status}`);
+          }
+        } catch (err) {
+          console.warn('Could not fetch Bitbucket README.md, continuing with empty README', err);
+        }
+      }
 
       // Now determine the wiki structure
       await determineWikiStructure(fileTreeData, readmeContent, owner, repo);
@@ -886,7 +892,7 @@ IMPORTANT:
       // Reset the request in progress flag
       setRequestInProgress(false);
     }
-  }, [owner, repo, determineWikiStructure, githubToken, gitlabToken, repoInfo.type, requestInProgress]);
+  }, [owner, repo, determineWikiStructure, githubToken, gitlabToken, bitbucketToken, repoInfo.type, requestInProgress]);
 
   // Function to export wiki content
   const exportWiki = useCallback(async (format: 'markdown' | 'json') => {
@@ -910,13 +916,11 @@ IMPORTANT:
         };
       });
 
-      // Determine which token to use based on the repository type
-      const repoUrl = repoInfo.type === 'github'
-        ? `https://github.com/${repoInfo.owner}/${repoInfo.repo}`
-        : `https://gitlab.com/${repoInfo.owner}/${repoInfo.repo}`;
+      // Get repository URL
+      const repoUrl = getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type);
 
       // Make API call to export wiki
-      const response = await fetch('http://localhost:8001/export/wiki', {
+      const response = await fetch(`${SERVER_BASE_URL}/export/wiki`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -955,7 +959,6 @@ IMPORTANT:
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      console.log(`Wiki exported successfully as ${format}`);
     } catch (err) {
       console.error('Error exporting wiki:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error during export';
@@ -969,7 +972,7 @@ IMPORTANT:
   // Start wiki generation when component mounts
   useEffect(() => {
     console.log('Initial repository fetch triggered');
-    
+
     if (effectRan.current === false) {
       console.log('Fetching repository structure - first execution');
       fetchRepositoryStructure();
@@ -977,11 +980,12 @@ IMPORTANT:
     } else {
       console.log('Skipping duplicate repository fetch');
     }
-    
+
     // Clean up function
     return () => {
       console.log('Repository page unmounting');
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);  // Empty dependency array to ensure it only runs once on mount
 
   return (
@@ -1052,10 +1056,10 @@ IMPORTANT:
             </div>
             <p className="text-red-800 dark:text-red-300 text-sm mb-2">{error}</p>
             <p className="text-red-700 dark:text-red-300 text-xs">
-              Please check that your repository exists and is public. Valid formats are &ldquo;owner/repo&rdquo;, &ldquo;https://github.com/owner/repo&rdquo;, or &ldquo;https://gitlab.com/owner/repo&rdquo;.
+              Please check that your repository exists and is public. Valid formats are &ldquo;owner/repo&rdquo;, &ldquo;https://github.com/owner/repo&rdquo;, &ldquo;https://gitlab.com/owner/repo&rdquo;, or &ldquo;https://bitbucket.org/owner/repo&rdquo;.
             </p>
             <div className="mt-4">
-              <Link 
+              <Link
                 href="/"
                 className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 inline-block"
               >
@@ -1074,13 +1078,17 @@ IMPORTANT:
               <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex items-center">
                 {repoInfo.type === 'github' ? (
                   <FaGithub className="mr-1" />
-                ) : (
+                ) : repoInfo.type === 'gitlab' ? (
                   <FaGitlab className="mr-1" />
+                ) : (
+                  <FaBitbucket className="mr-1" />
                 )}
                 <a
                   href={repoInfo.type === 'github'
                     ? `https://github.com/${repoInfo.owner}/${repoInfo.repo}`
-                    : `https://gitlab.com/${repoInfo.owner}/${repoInfo.repo}`
+                    : repoInfo.type === 'gitlab'
+                    ? `https://gitlab.com/${repoInfo.owner}/${repoInfo.repo}`
+                    : `https://bitbucket.org/${repoInfo.owner}/${repoInfo.repo}`
                   }
                   target="_blank"
                   rel="noopener noreferrer"
@@ -1171,7 +1179,6 @@ IMPORTANT:
                   <div className="prose prose-sm dark:prose-invert max-w-none">
                     <Markdown
                       content={generatedPages[currentPageId].content}
-                      onMermaidError={handleMermaidError}
                     />
                   </div>
 
@@ -1215,21 +1222,23 @@ IMPORTANT:
             </div>
             <Ask
               repoUrl={repoInfo.owner && repoInfo.repo
-                ? (repoInfo.type === 'github'
-                  ? `https://github.com/${repoInfo.owner}/${repoInfo.repo}`
-                  : `https://gitlab.com/${repoInfo.owner}/${repoInfo.repo}`)
+                ? getRepoUrl(repoInfo.owner, repoInfo.repo, repoInfo.type)
                 : "https://github.com/AsyncFuncAI/deepwiki-open"
               }
               githubToken={githubToken}
               gitlabToken={gitlabToken}
+              bitbucketToken={bitbucketToken}
+              localOllama={localOllama}
+              useOpenRouter={useOpenRouter}
+              openRouterModel={openRouterModel}
             />
           </div>
         )}
         <div className="flex justify-between items-center gap-4 text-center text-gray-500 dark:text-gray-400 text-sm h-fit w-full">
-          <p className="flex-1">DeepWiki - Generate Wiki from GitHub/Gitlab repositories</p>
+          <p className="flex-1">DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories</p>
           <ThemeToggle />
         </div>
       </footer>
     </div>
   );
-} 
+}

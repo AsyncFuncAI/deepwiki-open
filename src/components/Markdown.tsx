@@ -8,10 +8,9 @@ import Mermaid from './Mermaid';
 
 interface MarkdownProps {
   content: string;
-  onMermaidError?: (errorMessage: string, originalChart: string) => void;
 }
 
-const Markdown: React.FC<MarkdownProps> = ({ content, onMermaidError }) => {
+const Markdown: React.FC<MarkdownProps> = ({ content }) => {
   // Define markdown components
   const MarkdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
     p({ children, ...props }: { children?: React.ReactNode }) {
@@ -130,7 +129,6 @@ const Markdown: React.FC<MarkdownProps> = ({ content, onMermaidError }) => {
             <Mermaid
               chart={codeContent}
               className="w-full max-w-full"
-              onMermaidError={onMermaidError}
               zoomingEnabled={true}
             />
           </div>

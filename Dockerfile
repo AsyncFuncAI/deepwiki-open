@@ -32,7 +32,7 @@ COPY . .
 RUN NODE_ENV=production npm run build
 
 # Expose the port the app runs on
-EXPOSE 8001 3000
+EXPOSE ${PORT:-8001} 3000
 
 # Create a script to run both backend and frontend
 RUN echo '#!/bin/bash\n\
@@ -48,8 +48,8 @@ if [ -z "$OPENAI_API_KEY" ] || [ -z "$GOOGLE_API_KEY" ]; then\n\
   echo "You can provide them via a mounted .env file or as environment variables when running the container."\n\
 fi\n\
 \n\
-# Start the API server in the background\n\
-python -m api.main &\n\
+# Start the API server in the background with the configured port\n\
+python -m api.main --port ${PORT:-8001} &\n\
 \n\
 # Start the Next.js app on port 3000 explicitly\n\
 npm run start -- -p 3000\n\
@@ -58,6 +58,7 @@ npm run start -- -p 3000\n\
 # Set environment variables
 ENV PORT=8001
 ENV NODE_ENV=production
+ENV NEXT_PUBLIC_SERVER_BASE_URL=http://localhost:${PORT:-8001}
 
 # Create empty .env file (will be overridden if one exists at runtime)
 RUN touch .env

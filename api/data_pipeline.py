@@ -12,6 +12,7 @@ import glob
 from adalflow.utils import get_adalflow_default_root_path
 from adalflow.core.db import LocalDB
 from api.config import configs
+from api.ollama_patch import OllamaDocumentProcessor
 
 # Configure logging
 logging.basicConfig(
@@ -23,19 +24,23 @@ logger = logging.getLogger(__name__)
 # Maximum token limit for OpenAI embedding models
 MAX_EMBEDDING_TOKENS = 8192
 
-def count_tokens(text: str, model: str = "text-embedding-3-small") -> int:
+def count_tokens(text: str, local_ollama: bool = False) -> int:
     """
     Count the number of tokens in a text string using tiktoken.
 
     Args:
         text (str): The text to count tokens for.
-        model (str): The model to use for tokenization.
+        local_ollama (bool, optional): Whether using local Ollama embeddings. Default is False.
 
     Returns:
         int: The number of tokens in the text.
     """
     try:
-        encoding = tiktoken.encoding_for_model(model)
+        if local_ollama:
+            encoding = tiktoken.get_encoding("cl100k_base")
+        else:
+            encoding = tiktoken.encoding_for_model("text-embedding-3-small")
+            
         return len(encoding.encode(text))
     except Exception as e:
         # Fallback to a simple approximation if tiktoken fails
@@ -45,7 +50,7 @@ def count_tokens(text: str, model: str = "text-embedding-3-small") -> int:
 
 def download_repo(repo_url: str, local_path: str, access_token: str = None):
     """
-    Downloads a Git repository (GitHub or GitLab) to a specified local path.
+    Downloads a Git repository (GitHub, GitLab, or Bitbucket) to a specified local path.
 
     Args:
         repo_url (str): The URL of the Git repository to clone.
@@ -84,7 +89,9 @@ def download_repo(repo_url: str, local_path: str, access_token: str = None):
             elif "gitlab.com" in repo_url:
                 # Format: https://oauth2:{token}@gitlab.com/owner/repo.git
                 clone_url = repo_url.replace("https://", f"https://oauth2:{access_token}@")
-
+            elif "bitbucket.org" in repo_url:
+                # Format: https://{token}@bitbucket.org/owner/repo.git
+                clone_url = repo_url.replace("https://", f"https://{access_token}@")
             logger.info("Using access token for authentication")
 
         # Clone the repository
@@ -112,12 +119,13 @@ def download_repo(repo_url: str, local_path: str, access_token: str = None):
 # Alias for backward compatibility
 download_github_repo = download_repo
 
-def read_all_documents(path: str):
+def read_all_documents(path: str, local_ollama: bool = False):
     """
     Recursively reads all documents in a directory and its subdirectories.
 
     Args:
         path (str): The root directory path.
+        local_ollama (bool): Whether to use local Ollama for token counting. Default is False.
 
     Returns:
         list: A list of Document objects with metadata.
@@ -160,7 +168,7 @@ def read_all_documents(path: str):
                     )
 
                     # Check token count
-                    token_count = count_tokens(content)
+                    token_count = count_tokens(content, local_ollama)
                     if token_count > MAX_EMBEDDING_TOKENS:
                         logger.warning(f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit")
                         continue
@@ -199,7 +207,7 @@ def read_all_documents(path: str):
                     relative_path = os.path.relpath(file_path, path)
 
                     # Check token count
-                    token_count = count_tokens(content)
+                    token_count = count_tokens(content, local_ollama)
                     if token_count > MAX_EMBEDDING_TOKENS:
                         logger.warning(f"Skipping large file {relative_path}: Token count ({token_count}) exceeds limit")
                         continue
@@ -222,23 +230,42 @@ def read_all_documents(path: str):
     logger.info(f"Found {len(documents)} documents")
     return documents
 
-def prepare_data_pipeline():
-    """Creates and returns the data transformation pipeline."""
+def prepare_data_pipeline(local_ollama: bool = False):
+    """
+    Creates and returns the data transformation pipeline.
+    
+    Args:
+        local_ollama (bool): Whether to use local Ollama for embedding (default: False)
+    
+    Returns:
+        adal.Sequential: The data transformation pipeline
+    """
     splitter = TextSplitter(**configs["text_splitter"])
-    embedder = adal.Embedder(
-        model_client=configs["embedder"]["model_client"](),
-        model_kwargs=configs["embedder"]["model_kwargs"],
-    )
-    embedder_transformer = ToEmbeddings(
-        embedder=embedder, batch_size=configs["embedder"]["batch_size"]
-    )
+    
+    if local_ollama:
+        # Use Ollama embedder
+        embedder = adal.Embedder(
+            model_client=configs["embedder_ollama"]["model_client"](),
+            model_kwargs=configs["embedder_ollama"]["model_kwargs"],
+        )
+        embedder_transformer = OllamaDocumentProcessor(embedder=embedder)
+    else:
+        # Use OpenAI embedder
+        embedder = adal.Embedder(
+            model_client=configs["embedder"]["model_client"](),
+            model_kwargs=configs["embedder"]["model_kwargs"],
+        )
+        embedder_transformer = ToEmbeddings(
+            embedder=embedder, batch_size=configs["embedder"]["batch_size"]
+        )
+    
     data_transformer = adal.Sequential(
         splitter, embedder_transformer
     )  # sequential will chain together splitter and embedder
     return data_transformer
 
 def transform_documents_and_save_to_db(
-    documents: List[Document], db_path: str
+    documents: List[Document], db_path: str, local_ollama: bool = False
 ) -> LocalDB:
     """
     Transforms a list of documents and saves them to a local database.
@@ -246,9 +273,10 @@ def transform_documents_and_save_to_db(
     Args:
         documents (list): A list of `Document` objects.
         db_path (str): The path to the local database file.
+        local_ollama (bool): Whether to use local Ollama for embedding (default: False)
     """
     # Get the data transformer
-    data_transformer = prepare_data_pipeline()
+    data_transformer = prepare_data_pipeline(local_ollama)
 
     # Save the documents to a local database
     db = LocalDB()
@@ -434,6 +462,69 @@ def get_gitlab_file_content(repo_url: str, file_path: str, access_token: str = N
     except Exception as e:
         raise ValueError(f"Failed to get file content: {str(e)}")
 
+def get_bitbucket_file_content(repo_url: str, file_path: str, access_token: str = None) -> str:
+    """
+    Retrieves the content of a file from a Bitbucket repository using the Bitbucket API.
+
+    Args:
+        repo_url (str): The URL of the Bitbucket repository (e.g., "https://bitbucket.org/username/repo")
+        file_path (str): The path to the file within the repository (e.g., "src/main.py")
+        access_token (str, optional): Bitbucket personal access token for private repositories
+
+    Returns:
+        str: The content of the file as a string
+    """
+    try:
+        # Extract owner and repo name from Bitbucket URL
+        if not (repo_url.startswith("https://bitbucket.org/") or repo_url.startswith("http://bitbucket.org/")):
+            raise ValueError("Not a valid Bitbucket repository URL")
+
+        parts = repo_url.rstrip('/').split('/')
+        if len(parts) < 5:
+            raise ValueError("Invalid Bitbucket URL format")
+
+        owner = parts[-2]
+        repo = parts[-1].replace(".git", "")
+
+        # Use Bitbucket API to get file content
+        # The API endpoint for getting file content is: /2.0/repositories/{owner}/{repo}/src/{branch}/{path}
+        api_url = f"https://api.bitbucket.org/2.0/repositories/{owner}/{repo}/src/main/{file_path}"
+
+        # Prepare curl command with authentication if token is provided
+        curl_cmd = ["curl", "-s"]
+        if access_token:
+            curl_cmd.extend(["-H", f"Authorization: Bearer {access_token}"])
+        curl_cmd.append(api_url)
+
+        logger.info(f"Fetching file content from Bitbucket API: {api_url}")
+        result = subprocess.run(
+            curl_cmd,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        # Bitbucket API returns the raw file content directly
+        content = result.stdout.decode("utf-8") 
+        return content
+
+    except subprocess.CalledProcessError as e:
+        error_msg = e.stderr.decode('utf-8')
+        if e.returncode == 22:  # curl uses 22 to indicate an HTTP error occurred
+            if "HTTP/1.1 404" in error_msg:
+                raise ValueError("File not found on Bitbucket. Please check the file path and repository.")
+            elif "HTTP/1.1 401" in error_msg:
+                raise ValueError("Unauthorized access to Bitbucket. Please check your access token.")
+            elif "HTTP/1.1 403" in error_msg:
+                raise ValueError("Forbidden access to Bitbucket. You might not have permission to access this file.")
+            elif "HTTP/1.1 500" in error_msg:
+                raise ValueError("Internal server error on Bitbucket. Please try again later.")
+            else:
+                raise ValueError(f"Error fetching file content: {error_msg}")    
+    except Exception as e:
+        raise ValueError(f"Failed to get file content: {str(e)}")
+
+
 def get_file_content(repo_url: str, file_path: str, access_token: str = None) -> str:
     """
     Retrieves the content of a file from a Git repository (GitHub or GitLab).
@@ -453,6 +544,8 @@ def get_file_content(repo_url: str, file_path: str, access_token: str = None) ->
         return get_github_file_content(repo_url, file_path, access_token)
     elif "gitlab.com" in repo_url:
         return get_gitlab_file_content(repo_url, file_path, access_token)
+    elif "bitbucket.org" in repo_url:
+        return get_bitbucket_file_content(repo_url, file_path, access_token)
     else:
         raise ValueError("Unsupported repository URL. Only GitHub and GitLab are supported.")
 
@@ -466,20 +559,21 @@ class DatabaseManager:
         self.repo_url_or_path = None
         self.repo_paths = None
 
-    def prepare_database(self, repo_url_or_path: str, access_token: str = None) -> List[Document]:
+    def prepare_database(self, repo_url_or_path: str, access_token: str = None, local_ollama: bool = False) -> List[Document]:
         """
         Create a new database from the repository.
 
         Args:
             repo_url_or_path (str): The URL or local path of the repository
             access_token (str, optional): Access token for private repositories
+            local_ollama (bool): Whether to use local Ollama for embedding (default: False)
 
         Returns:
             List[Document]: List of Document objects
         """
         self.reset_database()
         self._create_repo(repo_url_or_path, access_token)
-        return self.prepare_db_index()
+        return self.prepare_db_index(local_ollama=local_ollama)
 
     def reset_database(self):
         """
@@ -516,6 +610,9 @@ class DatabaseManager:
                     # GitLab URL format: https://gitlab.com/owner/repo or https://gitlab.com/group/subgroup/repo
                     # Use the last part of the URL as the repo name
                     repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
+                elif "bitbucket.org" in repo_url_or_path:
+                    # Bitbucket URL format: https://bitbucket.org/owner/repo
+                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
                 else:
                     # Generic handling for other Git URLs
                     repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
@@ -547,10 +644,15 @@ class DatabaseManager:
             logger.error(f"Failed to create repository structure: {e}")
             raise
 
-    def prepare_db_index(self) -> List[Document]:
+    def prepare_db_index(self, local_ollama: bool = False) -> List[Document]:
         """
         Prepare the indexed database for the repository.
-        :return: List of Document objects
+        
+        Args:
+            local_ollama (bool): Whether to use local Ollama for embedding (default: False)
+            
+        Returns:
+            List[Document]: List of Document objects
         """
         # check the database
         if self.repo_paths and os.path.exists(self.repo_paths["save_db_file"]):
@@ -567,9 +669,9 @@ class DatabaseManager:
 
         # prepare the database
         logger.info("Creating new database...")
-        documents = read_all_documents(self.repo_paths["save_repo_dir"])
+        documents = read_all_documents(self.repo_paths["save_repo_dir"], local_ollama=local_ollama)
         self.db = transform_documents_and_save_to_db(
-            documents, self.repo_paths["save_db_file"]
+            documents, self.repo_paths["save_db_file"], local_ollama=local_ollama
         )
         logger.info(f"Total documents: {len(documents)}")
         transformed_docs = self.db.get_transformed_data(key="split_and_embed")

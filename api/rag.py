@@ -206,23 +206,44 @@ class RAG(adal.Component):
     """RAG with one repo.
     If you want to load a new repos, call prepare_retriever(repo_url_or_path) first."""
 
-    def __init__(self, use_s3: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
+    def __init__(self, use_s3: bool = False, local_ollama: bool = False):  # noqa: F841 - use_s3 is kept for compatibility
         """
         Initialize the RAG component.
 
         Args:
             use_s3: Whether to use S3 for database storage (default: False)
+            local_ollama: Whether to use local Ollama for embedding (default: False)
         """
         super().__init__()
+
+        self.local_ollama = local_ollama
 
         # Initialize components
         self.memory = Memory()
 
+        if self.local_ollama:
+            embedder_config = configs["embedder_ollama"]
+            generator_config = configs["generator_ollama"]
+        else:
+            embedder_config = configs["embedder"]
+            generator_config = configs["generator"]
+
+        # --- Initialize Embedder ---
         self.embedder = adal.Embedder(
-            model_client=configs["embedder"]["model_client"](),
-            model_kwargs=configs["embedder"]["model_kwargs"],
+            model_client=embedder_config["model_client"](),
+            model_kwargs=embedder_config["model_kwargs"],
         )
 
+        # Patch: ensure query embedding is always single string for Ollama
+        def single_string_embedder(query):
+            # Accepts either a string or a list, always returns embedding for a single string
+            if isinstance(query, list):
+                if len(query) != 1:
+                    raise ValueError("Ollama embedder only supports a single string")
+                query = query[0]
+            return self.embedder(input=query)
+        self.query_embedder = single_string_embedder
+        
         self.initialize_db_manager()
 
         # Set up the output parser
@@ -232,13 +253,15 @@ class RAG(adal.Component):
         format_instructions = data_parser.get_output_format_str() + """
 
 IMPORTANT FORMATTING RULES:
-1. DO NOT include ```markdown fences at the beginning or end of your answer
-2. DO NOT wrap your entire response in any kind of fences
-3. Start your response directly with the content
-4. The content will already be rendered as markdown
-5. Do not use backslashes before special characters like [ ] { } in your answer
-6. When listing tags or similar items, write them as plain text without escape characters
-7. For pipe characters (|) in text, write them directly without escaping them"""
+1. DO NOT include your thinking or reasoning process in the output
+2. Provide only the final, polished answer
+3. DO NOT include ```markdown fences at the beginning or end of your answer
+4. DO NOT wrap your response in any kind of fences
+5. Start your response directly with the content
+6. The content will already be rendered as markdown
+7. Do not use backslashes before special characters like [ ] { } in your answer
+8. When listing tags or similar items, write them as plain text without escape characters
+9. For pipe characters (|) in text, write them directly without escaping them"""
 
         # Set up the main generator
         self.generator = adal.Generator(
@@ -249,17 +272,18 @@ IMPORTANT FORMATTING RULES:
                 "system_prompt": system_prompt,
                 "contexts": None,
             },
-            model_client=configs["generator"]["model_client"](),
-            model_kwargs=configs["generator"]["model_kwargs"],
+            model_client=generator_config["model_client"](),  # Use selected generator config
+            model_kwargs=generator_config["model_kwargs"],    # Use selected generator config
             output_processors=data_parser,
         )
+
 
     def initialize_db_manager(self):
         """Initialize the database manager with local storage"""
         self.db_manager = DatabaseManager()
         self.transformed_docs = []
 
-    def prepare_retriever(self, repo_url_or_path: str, access_token: str = None):
+    def prepare_retriever(self, repo_url_or_path: str, access_token: str = None, local_ollama: bool = False):
         """
         Prepare the retriever for a repository.
         Will load database from local storage if available.
@@ -267,14 +291,17 @@ IMPORTANT FORMATTING RULES:
         Args:
             repo_url_or_path: URL or local path to the repository
             access_token: Optional access token for private repositories
+            local_ollama: Optional flag to use local Ollama for embedding
         """
         self.initialize_db_manager()
         self.repo_url_or_path = repo_url_or_path
-        self.transformed_docs = self.db_manager.prepare_database(repo_url_or_path, access_token)
+        self.transformed_docs = self.db_manager.prepare_database(repo_url_or_path, access_token, local_ollama=local_ollama)
         logger.info(f"Loaded {len(self.transformed_docs)} documents for retrieval")
+
+        retreive_embedder = self.query_embedder if local_ollama else self.embedder
         self.retriever = FAISSRetriever(
             **configs["retriever"],
-            embedder=self.embedder,
+            embedder=retreive_embedder,
             documents=self.transformed_docs,
             document_map_func=lambda doc: doc.vector,
         )

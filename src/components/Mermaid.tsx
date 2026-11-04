@@ -163,7 +163,6 @@ mermaid.initialize({
 interface MermaidProps {
   chart: string;
   className?: string;
-  onMermaidError?: (errorMessage: string, originalChart: string) => void;
   zoomingEnabled?: boolean;
 }
 
@@ -295,11 +294,10 @@ const FullScreenModal: React.FC<{
   );
 };
 
-const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError, zoomingEnabled = false }) => {
+const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled = false }) => {
   const [svg, setSvg] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isRenderingFallback, setIsRenderingFallback] = useState(false);
   const mermaidRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(`mermaid-${Math.random().toString(36).substring(2, 9)}`);
@@ -357,11 +355,9 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
       try {
         setError(null);
         setSvg('');
-        setIsRenderingFallback(false);
 
-        const processedChart = preprocessMermaidChart(chart);
-
-        const { svg: renderedSvg } = await mermaid.render(idRef.current, processedChart);
+        // Render the chart directly without preprocessing
+        const { svg: renderedSvg } = await mermaid.render(idRef.current, chart);
 
         if (!isMounted) return;
 
@@ -381,48 +377,14 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
 
         const errorMessage = err instanceof Error ? err.message : String(err);
 
-        if (isMounted && !isRenderingFallback) {
-          try {
-            // Only try fallback if error is not already from fallback rendering
-            const fallbackChart = createEmergencyFallbackChart(chart);
-            console.log('Attempting emergency fallback rendering with:', fallbackChart);
-            setIsRenderingFallback(true);
+        if (isMounted) {
+          setError(`Failed to render diagram: ${errorMessage}`);
 
-            const { svg: fallbackSvg } = await mermaid.render(`${idRef.current}-fallback`, fallbackChart);
-
-            if (isMounted) {
-              let processedSvg = fallbackSvg;
-              if (isDarkModeRef.current) {
-                processedSvg = processedSvg.replace('<svg ', '<svg data-theme="dark" ');
-              }
-
-              setSvg(processedSvg);
-              setError('Diagram had syntax errors and was simplified for display');
-            }
-          } catch (fallbackErr) {
-            console.error('Fallback rendering also failed:', fallbackErr);
-
-            if (isMounted) {
-              setError(`Failed to render diagram: ${errorMessage}`);
-
-              if (mermaidRef.current) {
-                mermaidRef.current.innerHTML = `
-                  <div class="text-red-500 dark:text-red-400 text-xs mb-1">Syntax error in diagram</div>
-                  <pre class="text-xs overflow-auto p-2 bg-gray-100 dark:bg-gray-800 rounded">${chart}</pre>
-                `;
-              }
-            }
-          }
-        } else {
-          if (isMounted) {
-            setError(`Failed to render diagram: ${errorMessage}`);
-            
-            if (mermaidRef.current) {
-              mermaidRef.current.innerHTML = `
-                <div class="text-red-500 dark:text-red-400 text-xs mb-1">Syntax error in diagram</div>
-                <pre class="text-xs overflow-auto p-2 bg-gray-100 dark:bg-gray-800 rounded">${chart}</pre>
-              `;
-            }
+          if (mermaidRef.current) {
+            mermaidRef.current.innerHTML = `
+              <div class="text-red-500 dark:text-red-400 text-xs mb-1">Syntax error in diagram</div>
+              <pre class="text-xs overflow-auto p-2 bg-gray-100 dark:bg-gray-800 rounded">${chart}</pre>
+            `;
           }
         }
       }
@@ -433,7 +395,7 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
     return () => {
       isMounted = false;
     };
-  }, [chart, isRenderingFallback]);
+  }, [chart]);
 
   const handleDiagramClick = () => {
     if (!error && svg) {
@@ -441,36 +403,20 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
     }
   };
 
-  const handleRepairClick = () => {
-    if (onMermaidError) {
-      onMermaidError("Manual repair requested", chart);
-    }
-  };
-
   if (error) {
     return (
       <div className={`border border-red-300 dark:border-red-800 rounded-md p-3 ${className}`}>
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center mb-2">
           <div className="text-red-500 dark:text-red-400 text-xs font-medium flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             Diagram rendering error
           </div>
-          {onMermaidError && (
-            <button
-              onClick={handleRepairClick}
-              className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800/30"
-            >
-              Repair diagram
-            </button>
-          )}
         </div>
         <div ref={mermaidRef} className="text-xs overflow-auto"></div>
         <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          {isRenderingFallback ?
-            "The diagram contains syntax errors. A simplified version is shown." :
-            "The diagram contains syntax errors. Click the repair button to attempt fixing it."}
+          The diagram contains syntax errors and cannot be rendered.
         </div>
       </div>
     );
@@ -526,117 +472,6 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
   );
 };
 
-const preprocessMermaidChart = (chartText: string): string => {
-    // Remove any mermaid version text that might be causing issues
-    let processedChart = chartText.replace(/mermaid version [0-9.]+/g, '');
 
-    // First, check if the chart has a valid type declaration at the beginning
-    const validTypes = ['graph', 'flowchart', 'sequenceDiagram', 'classDiagram', 'stateDiagram', 'gantt', 'pie', 'er'];
-    const firstLine = processedChart.trim().split('\n')[0].trim();
-    const hasValidType = validTypes.some(type => firstLine.startsWith(type));
-
-    if (!hasValidType) {
-      // If no valid type is found, default to graph TD
-      console.warn('No valid diagram type found, defaulting to graph TD');
-      processedChart = `graph TD\n${processedChart}`;
-    }
-
-    // Fix common syntax errors
-    return processedChart
-      // Fix labels in links that are missing quotes
-      .replace(/\|([^|"]+)\|>/g, '|"$1"|>')
-      .replace(/>\|([^|"]+)\|>/g, '>|"$1"|>')
-      .replace(/>\|([^|"]+)\|/g, '>|"$1"|')
-      .replace(/-->\|([^|"]+)\|/g, '-->|"$1"|')
-      .replace(/-->\|([^|"]+)\|>/g, '-->|"$1"|>')
-
-      // Fix missing quotes in node labels
-      .replace(/\[([^\]"]+)\]/g, (match, p1) => {
-        // Only add quotes if they're not already there
-        if (p1.includes('"')) return match;
-        return `["${p1}"]`;
-      })
-
-      // Fix common syntax errors in sequence diagrams
-      .replace(/([A-Za-z0-9_-]+)(-+>|-->>|-->)([A-Za-z0-9_-]+):/g, '$1$2$3: ')
-
-      // Fix missing spaces after colons in notes
-      .replace(/note (left|right|over) ([^:]+):([^\s])/g, 'note $1 $2: $3')
-
-      // Fix arrows with incorrect syntax
-      .replace(/([A-Za-z0-9_-]+)\s*--([A-Za-z0-9_-]+)/g, '$1-->$2')
-
-      // Remove any invalid characters that might cause parsing issues
-      .replace(/[\u2018\u2019\u201C\u201D]/g, '"'); // Replace smart quotes with straight quotes
-  };
-
-const createEmergencyFallbackChart = (originalChart: string): string => {
-  // Try to determine the chart type
-  const firstLine = originalChart.trim().split('\n')[0].trim();
-  const isSequenceDiagram = firstLine.includes('sequenceDiagram');
-  const isClassDiagram = firstLine.includes('classDiagram');
-
-  if (isSequenceDiagram) {
-    // Create a simple sequence diagram fallback
-    return `sequenceDiagram
-    participant A as System A
-    participant B as System B
-    Note over A,B: Diagram had syntax errors
-    A->>B: Request
-    B-->>A: Response`;
-  }
-
-  if (isClassDiagram) {
-    // Create a simple class diagram fallback
-    return `classDiagram
-    class Component {
-      +render()
-    }
-    class Error {
-      +message: string
-    }
-    Component <|-- Error
-    note for Error "Diagram had syntax errors"`;
-  }
-
-  // For flowcharts and other diagrams, extract nodes if possible
-  const nodeRegex = /([A-Za-z0-9_]+)(?:\[["']?(.*?)["']?\])?/g;
-  const nodes = new Set<string>();
-  let match;
-
-  while ((match = nodeRegex.exec(originalChart)) !== null) {
-    if (match[1] && !match[1].match(/^(graph|flowchart|subgraph|end|style|classDef|class|click|linkStyle|direction)$/)) {
-      nodes.add(match[1]);
-    }
-  }
-
-  const nodesList = Array.from(nodes).slice(0, 10);
-  if (nodesList.length === 0) {
-    // Create a generic error diagram
-    return `graph TD
-    A["Error: Could not render diagram"]
-    B["Please check syntax"]
-    A-->B
-    style A fill:#f9d0c4,stroke:#f44336
-    style B fill:#c4f9d0,stroke:#4caf50`;
-  }
-
-  // Create a simplified flowchart with the extracted nodes
-  let fallbackChart = 'graph TD\n';
-
-  nodesList.forEach(node => {
-    fallbackChart += `${node}["${node}"]\n`;
-  });
-
-  for (let i = 0; i < nodesList.length - 1; i++) {
-    fallbackChart += `${nodesList[i]}-->${nodesList[i + 1]}\n`;
-  }
-
-  // Add a note about the error
-  fallbackChart += `note["Diagram had syntax errors and was simplified"]\n`;
-  fallbackChart += `style note fill:#fff8e1,stroke:#ffc107\n`;
-
-  return fallbackChart;
-};
 
 export default Mermaid;

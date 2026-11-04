@@ -2,7 +2,7 @@
 
 ![DeepWiki Banner](screenshots/Deepwiki.png)
 
-**DeepWiki** is my own implementation attempt of DeepWiki, automatically creates beautiful, interactive wikis for any GitHub or GitLab repository! Just enter a repo name, and DeepWiki will:
+**DeepWiki** is my own implementation attempt of DeepWiki, automatically creates beautiful, interactive wikis for any GitHub, GitLab, or BitBucket repository! Just enter a repo name, and DeepWiki will:
 
 1. Analyze the code structure
 2. Generate comprehensive documentation
@@ -16,7 +16,7 @@
 
 ## ✨ Features
 
-- **Instant Documentation**: Turn any GitHub or GitLab repo into a wiki in seconds
+- **Instant Documentation**: Turn any GitHub, GitLab or BitBucket repo into a wiki in seconds
 - **Private Repository Support**: Securely access private repositories with personal access tokens
 - **Smart Analysis**: AI-powered understanding of code structure and relationships
 - **Beautiful Diagrams**: Automatic Mermaid diagrams to visualize architecture and data flow
@@ -26,7 +26,7 @@
 
 ## 🚀 Quick Start (Super Easy!)
 
-### Option 1: Using Docker (Recommended)
+### Option 1: Using Docker
 
 ```bash
 # Clone the repository
@@ -45,7 +45,7 @@ docker-compose up
 > - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 > - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
 
-### Option 2: Manual Setup
+### Option 2: Manual Setup (Recommended)
 
 #### Step 1: Set Up Your API Keys
 
@@ -80,10 +80,10 @@ npm run dev
 yarn dev
 ```
 
-### Step 4: Use DeepWiki!
+#### Step 4: Use DeepWiki!
 
 1. Open [http://localhost:3000](http://localhost:3000) in your browser
-2. Enter a GitHub or GitLab repository (like `https://github.com/openai/codex`, `https://github.com/microsoft/autogen`, or `https://gitlab.com/gitlab-org/gitlab`)
+2. Enter a GitHub, GitLab, or Bitbucket repository (like `https://github.com/openai/codex`, `https://github.com/microsoft/autogen`, `https://gitlab.com/gitlab-org/gitlab`, or `https://bitbucket.org/redradish/atlassian_app_versions`)
 3. For private repositories, click "+ Add access tokens" and enter your GitHub or GitLab personal access token
 4. Click "Generate Wiki" and watch the magic happen!
 
@@ -91,7 +91,7 @@ yarn dev
 
 DeepWiki uses AI to:
 
-1. Clone and analyze the GitHub or GitLab repository (including private repos with token authentication)
+1. Clone and analyze the GitHub, GitLab, or Bitbucket repository (including private repos with token authentication)
 2. Create embeddings of the code for smart retrieval
 3. Generate documentation with context-aware AI
 4. Create visual diagrams to explain code relationships
@@ -101,7 +101,7 @@ DeepWiki uses AI to:
 
 ```mermaid
 graph TD
-    A[User inputs GitHub/GitLab repo] --> AA{Private repo?}
+    A[User inputs GitHub/GitLab/Bitbucket repo] --> AA{Private repo?}
     AA -->|Yes| AB[Add access token]
     AA -->|No| B[Clone Repository]
     AB --> B
@@ -150,11 +150,12 @@ deepwiki/
 
 ### Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
+| Variable | Description | Required | Note |
+|----------|-------------|----------|------|
 | `GOOGLE_API_KEY` | Google Gemini API key for AI generation | Yes |
 | `OPENAI_API_KEY` | OpenAI API key for embeddings | Yes |
-| `PORT` | Port for the API server (default: 8001) | No |
+| `PORT` | Port for the API server (default: 8001) | No | If you host API and frontend on the same machine, make sure change port of `NEXT_PUBLIC_SERVER_BASE_URL` accordingly |
+| `NEXT_PUBLIC_SERVER_BASE_URL` | Base URL for the API server (default: http://localhost:8001) | No |
 
 ### Docker Setup
 
@@ -277,7 +278,7 @@ To use DeepResearch, simply toggle the "Deep Research" switch in the Ask interfa
 
 ### Generation Issues
 - **"Error generating wiki"**: For very large repositories, try a smaller one first
-- **"Invalid repository format"**: Make sure you're using a valid GitHub or GitLab URL format
+- **"Invalid repository format"**: Make sure you're using a valid GitHub, GitLab or Bitbucket URL format
 - **"Could not fetch repository structure"**: For private repositories, ensure you've entered a valid personal access token with appropriate permissions
 - **"Diagram rendering error"**: The app will automatically try to fix broken diagrams
 
@@ -296,3 +297,7 @@ Contributions are welcome! Feel free to:
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
