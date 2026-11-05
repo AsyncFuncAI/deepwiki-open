@@ -45,6 +45,7 @@
     "providerGoogle": "Google",
     "providerOpenAI": "OpenAI",
     "providerOpenRouter": "OpenRouter",
+    "providerRequesty": "Requesty",
     "providerOllama": "Ollama (Cục bộ)",
     "localOllama": "Mô hình Ollama cục bộ",
     "experimental": "Thử nghiệm",

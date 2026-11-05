@@ -11,6 +11,7 @@ from api.config import (
     LITELLM_API_KEY,
     OPENAI_API_KEY,
     OPENROUTER_API_KEY,
+    REQUESTY_API_KEY,
 )
 from api.logger import get_logger
 
@@ -226,6 +227,27 @@ class LiteLLMChatStreamer(_OpenAICompatStreamer):
         from api.clients import LiteLLMClient
 
         return LiteLLMClient()
+
+
+class RequestyChatStreamer(_OpenAICompatStreamer):
+    provider = "requesty"
+    error_hint = (
+        "Please check that you have set the REQUESTY_API_KEY "
+        "environment variable with a valid API key."
+    )
+
+    def __init__(self, *, model: str, model_config: MODEL_CFG):
+        if not REQUESTY_API_KEY:
+            logger.warning(
+                "REQUESTY_API_KEY not configured, but continuing with request"
+            )
+
+        super().__init__(model=model, model_config=model_config)
+
+    def _build_client(self):
+        from api.clients import RequestyClient
+
+        return RequestyClient()
 
 
 class BedrockChatStreamer(ChatStreamer):
