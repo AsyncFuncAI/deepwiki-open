@@ -6,6 +6,7 @@ This directory contains all tests for the DeepWiki project, organized by type an
 
 ```
 tests/
+├── test_config.py        # Repository file filters, including nested directory rules
 ├── unit/                 # Unit tests - test individual components in isolation
 │   ├── test_google_embedder.py          # Tests for Google AI embedder client
 │   └── test_google_embedder_fix.py      # Tests for embedding response parsing fix
