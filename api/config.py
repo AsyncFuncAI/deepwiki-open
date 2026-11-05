@@ -505,6 +505,11 @@ def iterate_files(
 
     results: list[str] = []
     for p in Path(root_dir).rglob("*"):
+        if p.is_symlink():
+            # A repository-controlled symlink can point outside the clone;
+            # following it would read/embed a host file the repository
+            # author does not own. Skip it rather than resolve+open it.
+            continue
         if not p.is_file():
             continue
         if extensions and p.suffix.lower() not in extensions:
