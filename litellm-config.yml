@@ -19,7 +19,10 @@ model_list:
 
 # This overrides the one in the docker-compose file
 general_settings:
-  database_url: postgres://litellm:litellm_password@db:5432/litellm
+  # Read from the DATABASE_URL env var set in docker-compose-litellm.yml,
+  # which is built from the required LITELLM_DB_PASSWORD secret. Do not
+  # hardcode a credential here.
+  database_url: os.environ/DATABASE_URL
   # Persists models added via the Admin UI/API into the database.
   store_model_in_db: true
   # Uncomment to make LiteLLM capture full prompts and responses in the
