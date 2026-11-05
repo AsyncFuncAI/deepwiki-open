@@ -6,8 +6,9 @@ from typing import Optional, Literal
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from api.config import WIKI_AUTH_CODE, WIKI_AUTH_MODE, configs
+from api.config import configs
 from api.logger import get_logger
+from api.routers.auth import check_wiki_auth_code
 from api.schemas import (
     ProcessedProjectEntry,
     WikiCacheData,
@@ -26,6 +27,7 @@ from api.services.wiki import (
     list_wiki_cache,
     read_wiki_cache,
     registry,
+    TaskQueueFullError,
     WikiTask,
 )
 
@@ -142,8 +144,10 @@ async def read_wiki(
     repo: str = Query(..., description="Repository name"),
     repo_type: str = Query(..., description="Repository type (e.g., github, gitlab)"),
     language: str = Query(..., description="Language of the wiki content"),
+    authorization_code: Optional[str] = Query(None, description="Authorization code"),
 ):
     """Retrieve cached wiki data (structure and generated pages) for a repository."""
+    check_wiki_auth_code(authorization_code)
     supported_langs = configs["lang_config"]["supported_languages"]
     if language not in supported_langs:
         language = configs["lang_config"]["default"]
@@ -172,15 +176,12 @@ async def delete_wiki(
     """
     Deletes a specific wiki cache from the file system.
     """
+    check_wiki_auth_code(authorization_code)
+
     # Language validation
     supported_langs = configs["lang_config"]["supported_languages"]
     if language not in supported_langs:
         raise HTTPException(status_code=400, detail="Language is not supported")
-
-    if WIKI_AUTH_MODE:
-        logger.info("check the authorization code")
-        if not authorization_code or WIKI_AUTH_CODE != authorization_code:
-            raise HTTPException(status_code=401, detail="Authorization code is invalid")
 
     logger.info(
         f"Attempting to delete wiki cache for {owner}/{repo} ({repo_type}), lang: {language}"
@@ -222,10 +223,14 @@ async def submit_wiki_task(request: WikiTaskRequest):
     Returns one of: created (new task), joined (an active task for the repo
     already exists), or from_cache (this variant is already generated).
     """
+    check_wiki_auth_code(request.authorization_code)
 
-    return await registry.submit(
-        WikiTask.from_wiki_request(request), async_func=generate_repo_wiki
-    )
+    try:
+        return await registry.submit(
+            WikiTask.from_wiki_request(request), async_func=generate_repo_wiki
+        )
+    except TaskQueueFullError as e:
+        raise HTTPException(status_code=429, detail=str(e))
 
 
 @router.get(

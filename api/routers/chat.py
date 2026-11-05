@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.websockets import WebSocketState
 
 from api.logger import get_logger
+from api.routers.auth import check_wiki_auth_code
 from api.schemas import ChatCompletionRequest
 from api.services.research import RepoNotIndexedError, research_chat
 
@@ -26,6 +27,11 @@ async def handle_websocket_chat(websocket: WebSocket):
     await websocket.accept()
     try:
         request = ChatCompletionRequest(**await websocket.receive_json())
+        try:
+            check_wiki_auth_code(request.authorization_code)
+        except HTTPException as e:
+            await websocket.send_text(f"Error: {e.detail}")
+            return
         if not request.messages or len(request.messages) == 0:
             await websocket.send_text("Error: No messages provided")
             return
@@ -69,6 +75,7 @@ async def handle_websocket_chat(websocket: WebSocket):
 @router.post("/chat/completions/stream")
 async def chat_completions_stream(request: ChatCompletionRequest):
     """Stream a chat completion response directly using Google Generative AI"""  # Validate request
+    check_wiki_auth_code(request.authorization_code)
     if not request.messages or len(request.messages) == 0:
         raise HTTPException(status_code=400, detail="No messages provided")
 
