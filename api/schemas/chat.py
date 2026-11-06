@@ -1,4 +1,5 @@
 from typing import Literal
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +19,14 @@ class ChatCompletionRequest(RepoRequestBase):
     """
 
     messages: list[ChatMessage] = Field(..., description="List of chat messages")
+    search_provider: Literal["parallel", "disabled"] | None = Field(
+        default=None,
+        description="Deep Research documentation provider; None uses the server default",
+    )
+    search_session_id: UUID = Field(
+        default_factory=uuid4,
+        description="Opaque conversation ID reused across Deep Research follow-ups; omit for a standalone run",
+    )
     research_iteration: int = Field(
         default=1,
         ge=1,
