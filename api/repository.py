@@ -178,9 +178,11 @@ class Repo:
                 # GitHub URL format: https://github.com/owner/repo
                 # GitLab URL format: https://gitlab.com/owner/repo or https://gitlab.com/group/subgroup/repo
                 # Bitbucket URL format: https://bitbucket.org/owner/repo
-                owner = url_parts[-2]
-                repo = url_parts[-1].replace(".git", "")
-                repo_name = f"{owner}_{repo}"
+                # Join every path component so GitLab subgroups (group/a/repo vs
+                # group/b/repo) do not collide on the same cache key.
+                path_parts = [part for part in urlparse(repo_url).path.split("/") if part]
+                path_parts[-1] = path_parts[-1].removesuffix(".git")
+                repo_name = "_".join(path_parts)
             else:
                 repo_name = url_parts[-1].replace(".git", "")
         else:
