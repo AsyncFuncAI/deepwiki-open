@@ -426,10 +426,13 @@ def _should_process_file(
     excluded_files: list[str],
 ) -> bool:
     """Decide if a file passes the include/exclude rules (moved from rag.pipeline
-    so the tree listing and the RAG indexer share one implementation)."""
+    so the tree listing and the RAG indexer share one implementation).
+
+    ``file_path`` must be relative to the repository root, so directories above
+    the root (for example a local repo under ``/tmp``) do not match the rules."""
     if isinstance(file_path, str):
         file_path = Path(file_path)
-    file_path_parts = file_path.resolve().parts
+    file_path_parts = file_path.parts
     file_name = file_path_parts[-1]
 
     if use_inclusion:
@@ -509,10 +512,11 @@ def iterate_files(
             continue
         if extensions and p.suffix.lower() not in extensions:
             continue
+        relative_path = p.relative_to(root_dir)
         if _should_process_file(
-            p, use_inclusion, inc_dirs, inc_files, exc_dirs, exc_files
+            relative_path, use_inclusion, inc_dirs, inc_files, exc_dirs, exc_files
         ):
-            results.append(os.path.relpath(p, root_dir).replace(os.sep, "/"))
+            results.append(relative_path.as_posix())
     return results
 
 

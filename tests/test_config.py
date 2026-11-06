@@ -60,3 +60,24 @@ def test_iterate_files_excluded_dirs(exclude_test_config, tmp_path, excluded_dir
     make_repo(tmp_path)
     files = set(iterate_files(root_dir=str(tmp_path), excluded_dirs=excluded_dirs))
     assert files == {"README.md", "CHANGELOG.md"}
+
+
+@pytest.mark.parametrize("parent", ["tmp", "build", "docs"])
+def test_iterate_files_ignores_directories_above_root(tmp_path, parent):
+    root = tmp_path / parent / "project"
+    root.mkdir(parents=True)
+    make_repo(root)
+
+    files = set(iterate_files(root_dir=str(root)))
+    assert files == {"README.md", "CHANGELOG.md", "folder/code.py"}
+
+
+def test_iterate_files_included_dirs_ignores_directories_above_root(tmp_path):
+    root = tmp_path / "folder" / "project"
+    root.mkdir(parents=True)
+    make_repo(root)
+    (root / "other").mkdir()
+    (root / "other" / "skip.py").write_text("")
+
+    files = set(iterate_files(root_dir=str(root), included_dirs=["folder"]))
+    assert files == {"folder/code.py"}
