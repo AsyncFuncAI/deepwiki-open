@@ -125,17 +125,14 @@ async def research_chat(
     if last_message.role != "user":
         raise ValueError("Last message must be from the user")
 
-    # Process previous messages to build conversation history
+    # Build history from this request only: the RAG object is shared across requests.
+    conversation_history = ""
     for i in range(0, len(request.messages) - 1, 2):
-        if i + 1 < len(request.messages):
-            user_msg = request.messages[i]
-            assistant_msg = request.messages[i + 1]
+        user_msg = request.messages[i]
+        assistant_msg = request.messages[i + 1]
 
-            if user_msg.role == "user" and assistant_msg.role == "assistant":
-                rag.memory.add_dialog_turn(
-                    user_query=user_msg.content,
-                    assistant_response=assistant_msg.content,
-                )
+        if user_msg.role == "user" and assistant_msg.role == "assistant":
+            conversation_history += f"<turn>\n<user>{user_msg.content}</user>\n<assistant>{assistant_msg.content}</assistant>\n</turn>\n"
 
     if is_deep_research:
         logger.info(
@@ -259,16 +256,6 @@ async def research_chat(
             repo_name=repo_name,
             language_name=language_name,
         )
-
-    # Format conversation history
-    conversation_history = ""
-    for turn_id, turn in rag.memory().items():
-        if (
-            not isinstance(turn_id, int)
-            and hasattr(turn, "user_query")
-            and hasattr(turn, "assistant_response")
-        ):
-            conversation_history += f"<turn>\n<user>{turn.user_query.query_str}</user>\n<assistant>{turn.assistant_response.response_str}</assistant>\n</turn>\n"
 
     async def stream_and_fallback(
         streamer: ChatStreamer,

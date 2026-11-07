@@ -2,17 +2,10 @@ import asyncio
 import os
 from collections import defaultdict
 from collections.abc import Sized
-from uuid import uuid4
 
 import adalflow as adal
 from adalflow.components.retriever.faiss_retriever import FAISSRetriever
-from adalflow.core.types import (
-    AssistantResponse,
-    DialogTurn,
-    Document,
-    RetrieverOutput,
-    UserQuery,
-)
+from adalflow.core.types import Document, RetrieverOutput
 
 from api.config import configs, get_embedder
 from api.logger import get_logger
@@ -72,50 +65,6 @@ def check_ollama_model_exists(model_name: str, ollama_host: str | None = None) -
         return False
 
 
-class CustomConversation(list[DialogTurn]):
-    """Custom implementation of Conversation to fix the list assignment index out of range error"""
-
-
-class Memory(adal.core.component.DataComponent):
-    """Simple conversation management with a list of dialog turns."""
-
-    def __init__(self):
-        super().__init__()
-        # Use our custom implementation instead of the original Conversation class
-        self.current_conversation = CustomConversation()
-
-    def call(self) -> dict:
-        """Return the conversation history as a dictionary."""
-        all_dialog_turns = {
-            dialog_turn.id: dialog_turn for dialog_turn in self.current_conversation
-        }
-        logger.info(f"Returning {len(all_dialog_turns)} dialog turns from memory")
-        return all_dialog_turns
-
-    def add_dialog_turn(self, user_query: str, assistant_response: str) -> None:
-        """
-        Add a dialog turn to the conversation history.
-
-        Args:
-            user_query: The user's query
-            assistant_response: The assistant's response
-
-        """
-        # Create a new dialog turn using our custom implementation
-        dialog_turn = DialogTurn(
-            id=str(uuid4()),
-            user_query=UserQuery(query_str=user_query),
-            assistant_response=AssistantResponse(response_str=assistant_response),
-        )
-
-        # Safely append the dialog turn
-        self.current_conversation.append(dialog_turn)
-        logger.info(
-            "Successfully added dialog turn, now have %d turns",
-            len(self.current_conversation),
-        )
-
-
 def _get_document_vector_size(document: Document) -> int | None:
     if hasattr(document.vector, "shape"):
         embedding_size = (
@@ -171,7 +120,6 @@ class RAG(adal.Component):
                     )
 
         # Initialize components
-        self.memory = Memory()
         self.embedder = get_embedder(embedder_type=self.embedder_type)
         self.initialize_db_manager()
 
