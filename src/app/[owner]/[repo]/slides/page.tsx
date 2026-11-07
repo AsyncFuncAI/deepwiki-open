@@ -8,6 +8,7 @@ import ThemeToggle from '@/components/theme-toggle';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { RepoInfo } from '@/types/repoinfo';
 import getRepoUrl from '@/utils/getRepoUrl';
+import { getWebSocketUrl } from '@/utils/websocketClient';
 
 // Helper function to add tokens and other parameters to request body
 const addTokensToRequestBody = (
@@ -264,10 +265,7 @@ Give me the numbered list with brief descriptions for each slide. Be creative bu
       let planContent = '';
 
       try {
-        // Create WebSocket URL from the server base URL
-        const serverBaseUrl = process.env.SERVER_BASE_URL || 'http://localhost:8001';
-        const wsBaseUrl = serverBaseUrl.replace(/^http/, 'ws')? serverBaseUrl.replace(/^https/, 'wss'): serverBaseUrl.replace(/^http/, 'ws');
-        const wsUrl = `${wsBaseUrl}/ws/chat`;
+        const wsUrl = getWebSocketUrl();
 
         // Create a new WebSocket connection
         const ws = new WebSocket(wsUrl);
@@ -540,10 +538,7 @@ Please return ONLY the HTML with no markdown formatting or code blocks. Just the
         let slideContent = '';
 
         try {
-          // Create WebSocket URL from the server base URL
-          const serverBaseUrl = process.env.SERVER_BASE_URL || 'http://localhost:8001';
-          const wsBaseUrl = serverBaseUrl.replace(/^http/, 'ws')? serverBaseUrl.replace(/^https/, 'wss'): serverBaseUrl.replace(/^http/, 'ws');
-          const wsUrl = `${wsBaseUrl}/ws/chat`;
+          const wsUrl = getWebSocketUrl();
 
           // Create a new WebSocket connection
           const ws = new WebSocket(wsUrl);
