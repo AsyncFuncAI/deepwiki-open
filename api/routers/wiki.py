@@ -1,7 +1,9 @@
 import asyncio
 import os
+import re
 from datetime import datetime
 from typing import Optional, Literal
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -32,6 +34,20 @@ from api.services.wiki import (
 logger = get_logger(__name__)
 
 router = APIRouter(tags=["wiki"])
+
+
+def _attachment_header(filename: str) -> str:
+    """Build a Content-Disposition value that is safe for any file name.
+
+    Header values are encoded as latin-1, so a non-ASCII name (for example a
+    local repository in a Chinese directory) cannot go in ``filename=``. Send
+    an ASCII fallback there and the real name in ``filename*`` (RFC 6266).
+    """
+    fallback = re.sub(r'[^A-Za-z0-9._-]', "_", filename)
+    return (
+        f'attachment; filename="{fallback}"; '
+        f"filename*=UTF-8''{quote(filename, safe='')}"
+    )
 
 
 @router.post("/export/wiki")
@@ -74,7 +90,7 @@ async def post_export_wiki(request: WikiExportRequest):
     return Response(
         content=content,
         media_type=media_type,
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
+        headers={"Content-Disposition": _attachment_header(filename)},
     )
 
 
