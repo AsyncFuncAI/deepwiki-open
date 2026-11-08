@@ -9,6 +9,7 @@ import ThemeToggle from '@/components/theme-toggle';
 import WikiTreeView from '@/components/WikiTreeView';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { RepoInfo } from '@/types/repoinfo';
+import { filenameFromContentDisposition } from '@/utils/contentDisposition';
 import getRepoUrl from '@/utils/getRepoUrl';
 import {
   submitWikiTask,
@@ -620,26 +621,10 @@ export default function RepoWikiPage() {
       }
 
       // Get the filename from the Content-Disposition header if available
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = `${effectiveRepoInfo.repo}_wiki.${format === 'markdown' ? 'md' : 'json'}`;
-
-      if (contentDisposition) {
-        const encodedMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-        const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-        let decoded: string | null = null;
-        if (encodedMatch && encodedMatch[1]) {
-          try {
-            decoded = decodeURIComponent(encodedMatch[1].trim());
-          } catch {
-            decoded = null;
-          }
-        }
-        if (decoded) {
-          filename = decoded;
-        } else if (plainMatch && plainMatch[1]) {
-          filename = plainMatch[1].trim();
-        }
-      }
+      const filename = filenameFromContentDisposition(
+        response.headers.get('Content-Disposition'),
+        `${effectiveRepoInfo.repo}_wiki.${format === 'markdown' ? 'md' : 'json'}`
+      );
 
       // Convert the response to a blob and download it
       const blob = await response.blob();

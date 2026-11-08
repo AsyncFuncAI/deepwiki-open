@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack --port 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --test \"tests/frontend/*.test.mjs\""
   },
   "dependencies": {
     "mermaid": "^11.17.2",
