@@ -1,0 +1,57 @@
+{
+  "embedder_ollama": {
+    "client_class": "OllamaClient",
+    "model_kwargs": {
+      "model": "nomic-embed-text"
+    }
+  },
+  "retriever": {
+    "top_k": 20
+  },
+  "text_splitter": {
+    "split_by": "ast",
+    "chunk_size": 2000,
+    "chunk_overlap": 100,
+    "min_chunk_size": 100,
+    "overlap_lines": 5,
+    "preserve_structure": true,
+    "fallback_to_text": true
+  },
+  "retrieval": {
+    "prefer_functions": true,
+    "prefer_classes": true,
+    "boost_code_chunks": 1.5
+  },
+  "language_support": {
+    "python": {
+      "enabled": true,
+      "max_function_size": 1500,
+      "max_class_size": 3000,
+      "preserve_docstrings": true
+    },
+    "javascript": {
+      "enabled": true,
+      "max_function_size": 1500,
+      "parse_jsx": true
+    },
+    "typescript": {
+      "enabled": true,
+      "max_function_size": 1500,
+      "parse_tsx": true
+    },
+    "markdown": {
+      "enabled": true,
+      "split_by_headers": true,
+      "max_section_size": 2000
+    },
+    "config_files": {
+      "enabled": true,
+      "treat_as_single_chunk": true
+    }
+  },
+  "fallback": {
+    "split_by": "word",
+    "chunk_size": 350,
+    "chunk_overlap": 100
+  }
+}
