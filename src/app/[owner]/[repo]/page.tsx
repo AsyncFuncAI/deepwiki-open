@@ -624,9 +624,20 @@ export default function RepoWikiPage() {
       let filename = `${effectiveRepoInfo.repo}_wiki.${format === 'markdown' ? 'md' : 'json'}`;
 
       if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename=(.+)/);
-        if (filenameMatch && filenameMatch[1]) {
-          filename = filenameMatch[1].replace(/"/g, '');
+        const encodedMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+        const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+        let decoded: string | null = null;
+        if (encodedMatch && encodedMatch[1]) {
+          try {
+            decoded = decodeURIComponent(encodedMatch[1].trim());
+          } catch {
+            decoded = null;
+          }
+        }
+        if (decoded) {
+          filename = decoded;
+        } else if (plainMatch && plainMatch[1]) {
+          filename = plainMatch[1].trim();
         }
       }
 
