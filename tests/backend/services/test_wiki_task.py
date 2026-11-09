@@ -255,6 +255,42 @@ async def test_run_task_end_to_end(monkeypatch):
     assert "[README.md:1](https://github.com/o/r/blob/main/README.md#L1)" in content
 
 
+async def test_determine_structure_passes_file_filters(monkeypatch):
+    monkeypatch.setattr(wt, "Repo", _FakeRepo)
+    monkeypatch.setattr(wt, "detect_default_branch", lambda p: "main")
+
+    seen: dict = {}
+
+    def fake_tree(path, **filters):
+        seen.update(filters)
+        return ["README.md"], "readme"
+
+    monkeypatch.setattr(wt, "read_repo_file_tree", fake_tree)
+
+    async def fake_research(request):
+        async def gen():
+            yield _STRUCT_XML
+
+        return gen()
+
+    monkeypatch.setattr(wt, "research_chat", fake_research)
+
+    task = _req(
+        excluded_dirs=["ex_dir"],
+        excluded_files=["ex_file"],
+        included_dirs=["in_dir"],
+        included_files=["in_file"],
+    )
+    await wt._determine_structure(task)
+
+    assert seen == {
+        "excluded_dirs": ["ex_dir"],
+        "excluded_files": ["ex_file"],
+        "included_dirs": ["in_dir"],
+        "included_files": ["in_file"],
+    }
+
+
 # --------------------------------------------------------------------------- #
 # serialization
 # --------------------------------------------------------------------------- #

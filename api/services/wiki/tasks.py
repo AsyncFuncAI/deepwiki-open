@@ -328,10 +328,10 @@ async def _determine_structure(task: WikiTask) -> WikiStructureModel:
     file_tree, readme = await asyncio.to_thread(
         read_repo_file_tree,
         repo.save_path,
-        r.excluded_dirs,
-        r.excluded_files,
-        r.included_dirs,
-        r.included_files,
+        excluded_dirs=r.excluded_dirs,
+        excluded_files=r.excluded_files,
+        included_dirs=r.included_dirs,
+        included_files=r.included_files,
     )
 
     prompt = build_structure_prompt(
