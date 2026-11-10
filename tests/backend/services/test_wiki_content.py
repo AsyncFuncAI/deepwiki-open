@@ -1,3 +1,5 @@
+import re
+
 from api.services.wiki.content import (
     RepoUrlContext,
     generate_file_url,
@@ -98,3 +100,57 @@ def test_single_line_citation():
 def test_whole_file_citation_no_lines():
     out = post_process_wiki_content("[README.md]()", ["README.md"], GITHUB)
     assert f"[README.md]({BASE}/README.md)" in out
+
+
+def _link_destinations(markdown: str) -> list[str]:
+    """CommonMark destinations in `](url)`. A raw space or `)` ends the URL."""
+    return re.findall(r"\]\(([^)\s]*)\)", markdown)
+
+
+def test_route_group_parentheses_stay_inside_the_link():
+    # Next.js route groups are directories named "(marketing)". A raw ")" ends
+    # the Markdown destination, so the link never reaches page.tsx.
+    path = "src/app/(marketing)/page.tsx"
+    out = post_process_wiki_content(f"[{path}:10]()", [path], GITHUB)
+    encoded = "src/app/%28marketing%29/page.tsx"
+    assert f"[{path}:10]({BASE}/{encoded}#L10)" in out
+    assert all("(" not in dest and ")" not in dest for dest in _link_destinations(out))
+    assert any(dest.endswith(f"/{encoded}#L10") for dest in _link_destinations(out))
+
+
+def test_space_in_file_name_is_percent_encoded():
+    path = "docs/My Notes.md"
+    out = post_process_wiki_content(f"See [{path}]().", [path], GITHUB)
+    encoded = "docs/My%20Notes.md"
+    assert f"[{path}]({BASE}/{encoded})" in out
+    assert all(" " not in dest for dest in _link_destinations(out))
+
+
+def test_web_hosts_encode_parentheses_without_changing_link_text():
+    path = "src/app/(marketing)/page.tsx"
+    encoded = "src/app/%28marketing%29/page.tsx"
+    contexts = (
+        RepoUrlContext("github", "https://github.com/o/r", "main"),
+        RepoUrlContext("gitlab", "https://gitlab.com/o/r", "main"),
+        RepoUrlContext("bitbucket", "https://bitbucket.org/o/r", "main"),
+    )
+
+    for ctx in contexts:
+        out = post_process_wiki_content(f"[{path}]()", [path], ctx)
+        assert f"[{path}](" in out
+        assert f"/{encoded})" in out
+
+
+def test_already_encoded_path_is_not_double_encoded():
+    path = "docs/My%20Notes%20%28draft%29.md"
+    assert generate_file_url(path, GITHUB) == f"{BASE}/{path}"
+
+
+def test_stray_percent_sign_is_encoded():
+    assert generate_file_url("docs/100%.md", GITHUB) == f"{BASE}/docs/100%25.md"
+
+
+def test_local_paths_are_not_percent_encoded():
+    ctx = RepoUrlContext("local", None, "main")
+    path = "src/app/(marketing)/page.tsx"
+    assert generate_file_url(path, ctx) == path

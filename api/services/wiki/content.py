@@ -9,6 +9,7 @@ into real repository links, and normalizes the "Relevant source files"
 
 import re
 from dataclasses import dataclass
+from urllib.parse import quote
 
 
 @dataclass
@@ -20,6 +21,19 @@ class RepoUrlContext:
     default_branch: str
 
 
+def _quote_git_ref(value: str) -> str:
+    """Percent-encode a branch or repo-relative path for a URL path.
+
+    A CommonMark link destination written as ``](url)`` ends at the first
+    space or ``)``. Those characters are normal in repository paths
+    (``docs/My Notes.md``, Next.js ``src/app/(marketing)/page.tsx``), so the
+    raw path cuts the link off before the file name. Preserve existing
+    percent escapes while encoding stray percent signs.
+    """
+    quoted = quote(value, safe="/%")
+    return re.sub(r"%(?![0-9A-Fa-f]{2})", "%25", quoted)
+
+
 def generate_file_url(file_path: str, ctx: RepoUrlContext) -> str:
     """Build a host-specific web URL for a repository-relative file path.
 
@@ -27,12 +41,14 @@ def generate_file_url(file_path: str, ctx: RepoUrlContext) -> str:
     """
     if ctx.type == "local" or not ctx.repo_url:
         return file_path
+    path = _quote_git_ref(file_path)
+    branch = _quote_git_ref(ctx.default_branch)
     if ctx.type == "github":
-        return f"{ctx.repo_url}/blob/{ctx.default_branch}/{file_path}"
+        return f"{ctx.repo_url}/blob/{branch}/{path}"
     if ctx.type == "gitlab":
-        return f"{ctx.repo_url}/-/blob/{ctx.default_branch}/{file_path}"
+        return f"{ctx.repo_url}/-/blob/{branch}/{path}"
     if ctx.type == "bitbucket":
-        return f"{ctx.repo_url}/src/{ctx.default_branch}/{file_path}"
+        return f"{ctx.repo_url}/src/{branch}/{path}"
     return file_path
 
 
