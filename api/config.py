@@ -128,15 +128,23 @@ def replace_env_placeholders(
         return config
 
 
+DEFAULT_CONFIG_DIR = Path(__file__).parent / "config"
+
+
 # Load JSON configuration file
 def load_json_config(filename):
     try:
-        # If environment variable is set, use the directory specified by it
+        config_path = DEFAULT_CONFIG_DIR / filename
+        # A file in DEEPWIKI_CONFIG_DIR overrides the bundled one. Files that are
+        # not there (e.g. only generator.json is customized) keep the defaults.
         if CONFIG_DIR:
-            config_path = Path(CONFIG_DIR) / filename
-        else:
-            # Otherwise use default directory
-            config_path = Path(__file__).parent / "config" / filename
+            custom_path = Path(CONFIG_DIR) / filename
+            if custom_path.exists():
+                config_path = custom_path
+            else:
+                logger.info(
+                    f"{filename} not found in DEEPWIKI_CONFIG_DIR ({CONFIG_DIR}), using the bundled default"
+                )
 
         logger.info(f"Loading configuration from {config_path}")
 

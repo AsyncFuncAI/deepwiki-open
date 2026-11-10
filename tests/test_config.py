@@ -81,3 +81,30 @@ def test_iterate_files_included_dirs_ignores_directories_above_root(tmp_path):
 
     files = set(iterate_files(root_dir=str(root), included_dirs=["folder"]))
     assert files == {"folder/code.py"}
+
+
+def test_load_json_config_prefers_file_in_config_dir(monkeypatch, tmp_path):
+    import json
+
+    import api.config as config
+
+    (tmp_path / "generator.json").write_text(
+        json.dumps({"default_provider": "ollama", "providers": {}})
+    )
+    monkeypatch.setattr(config, "CONFIG_DIR", str(tmp_path))
+
+    assert config.load_json_config("generator.json") == {
+        "default_provider": "ollama",
+        "providers": {},
+    }
+
+
+def test_load_json_config_falls_back_to_bundled_file(monkeypatch, tmp_path):
+    import api.config as config
+
+    (tmp_path / "generator.json").write_text("{}")
+    monkeypatch.setattr(config, "CONFIG_DIR", str(tmp_path))
+
+    embedder = config.load_json_config("embedder.json")
+    assert "embedder" in embedder
+    assert embedder["embedder"]["client_class"] == "OpenAIClient"
