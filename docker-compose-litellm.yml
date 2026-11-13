@@ -4,27 +4,28 @@ services:
     environment:
       POSTGRES_DB: litellm
       POSTGRES_USER: litellm
-      # Use env. variable LITELLM_DB_PASSWORD
-      # otherwise default to litellm_password
-      POSTGRES_PASSWORD: ${LITELLM_DB_PASSWORD:-litellm_password}
+      # Required: no fallback. A fixed, publicly-known default credential
+      # here would protect nothing once the port below is reachable.
+      POSTGRES_PASSWORD: ${LITELLM_DB_PASSWORD:?Set LITELLM_DB_PASSWORD to a strong, unique password before starting this profile}
     ports:
-      - "5432:5432"
+      # Bound to loopback only: this port is for an operator inspecting the
+      # DB locally, not for the litellm/deepwiki containers (which reach it
+      # over the compose network) or for the public internet.
+      - "127.0.0.1:5432:5432"
     volumes:
       - deepwiki_litellm_db:/var/lib/postgresql/data
 
   litellm:
     image: ghcr.io/berriai/litellm:v1.83.10-stable
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
     volumes:
       - ./litellm-config.yml:/app/config.yaml
     environment:
-      # Use env. variable LITELLM_MASTER_KEY
-      # otherwise default to sk-1234
-      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-sk-1234}
-    # Using from litellm-config.yml
-    #environment:
-    #  DATABASE_URL: postgres://litellm:litellm_password@db:5432/litellm
+      # Required: no fallback. A fixed, publicly-known default master key
+      # here would protect nothing once the port below is reachable.
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY to a strong, unique secret before starting this profile}
+      - DATABASE_URL=postgres://litellm:${LITELLM_DB_PASSWORD:?Set LITELLM_DB_PASSWORD to a strong, unique password before starting this profile}@db:5432/litellm
     command: [ "--config", "/app/config.yaml", "--port", "4000" ]
     extra_hosts:
       - "host.docker.internal:host-gateway"
