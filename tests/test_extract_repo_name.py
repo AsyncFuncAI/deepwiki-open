@@ -35,7 +35,9 @@ class TestExtractRepoNameFromUrl:
         "repo_url, name",
         [
             ("https://gitlab.com/owner/repo", "owner_repo"),
-            ("https://gitlab.com/group/subgroup/repo", "subgroup_repo"),
+            ("https://gitlab.com/group/subgroup/repo", "group_subgroup_repo"),
+            ("https://gitlab.com/group/subgroup/repo.git", "group_subgroup_repo"),
+            ("https://gitlab.com/group/other/repo", "group_other_repo"),
         ],
     )
     def test_extract_repo_name_gitlab_urls(self, repo_url, name):
