@@ -5,6 +5,7 @@ Ported from the frontend fetchRepositoryStructure + determineWikiStructure
 (clone-walk instead of provider REST APIs).
 """
 
+import html
 import os
 import re
 import subprocess
@@ -92,20 +93,12 @@ def _pages_via_regex(xml_text: str) -> list[WikiPage]:
         pid = re.search(r'<page\s+id="([^"]+)"', block)
         title = re.search(r"<title>([\s\S]*?)</title>", block)
         importance = re.search(r"<importance>([\s\S]*?)</importance>", block)
-        file_paths = [
-            m.strip()
-            for m in re.findall(r"<file_path>([\s\S]*?)</file_path>", block)
-            if m.strip()
-        ]
-        related = [
-            m.strip()
-            for m in re.findall(r"<related>([\s\S]*?)</related>", block)
-            if m.strip()
-        ]
+        file_paths = _texts(r"<file_path>([\s\S]*?)</file_path>", block)
+        related = _texts(r"<related>([\s\S]*?)</related>", block)
         pages.append(
             WikiPage(
                 id=pid.group(1) if pid else f"page-{i + 1}",
-                title=title.group(1).strip() if title else "",
+                title=_text(title.group(1)) if title else "",
                 content="",
                 filePaths=file_paths,
                 importance=_normalize_importance(
@@ -145,7 +138,18 @@ def _parse_sections(root: ET.Element) -> tuple[list[WikiSection], list[str]]:
 def _first_group(pattern: str, text: str) -> str:
     """First capture group of `pattern` in `text`, or '' if no match."""
     m = re.search(pattern, text)
-    return m.group(1).strip() if m else ""
+    return _text(m.group(1)) if m else ""
+
+
+def _text(raw: str) -> str:
+    """Text of an element found by regex, with its entities decoded as
+    ElementTree would (``&amp;`` -> ``&``, ``&lt;`` -> ``<``)."""
+    return html.unescape(raw.strip())
+
+
+def _texts(pattern: str, block: str) -> list[str]:
+    """Non-empty texts of every element `pattern` captures in `block`."""
+    return [t for t in (_text(m) for m in re.findall(pattern, block)) if t]
 
 
 def _sections_via_regex(xml_text: str) -> tuple[list[WikiSection], list[str]]:
@@ -156,20 +160,12 @@ def _sections_via_regex(xml_text: str) -> tuple[list[WikiSection], list[str]]:
     for i, block in enumerate(re.findall(r"<section\b[\s\S]*?</section>", xml_text)):
         sid = re.search(r'<section\s+id="([^"]+)"', block)
         title = re.search(r"<title>([\s\S]*?)</title>", block)
-        page_refs = [
-            m.strip()
-            for m in re.findall(r"<page_ref>([\s\S]*?)</page_ref>", block)
-            if m.strip()
-        ]
-        subs = [
-            m.strip()
-            for m in re.findall(r"<section_ref>([\s\S]*?)</section_ref>", block)
-            if m.strip()
-        ]
+        page_refs = _texts(r"<page_ref>([\s\S]*?)</page_ref>", block)
+        subs = _texts(r"<section_ref>([\s\S]*?)</section_ref>", block)
         sections.append(
             WikiSection(
                 id=sid.group(1) if sid else f"section-{i + 1}",
-                title=title.group(1).strip() if title else "",
+                title=_text(title.group(1)) if title else "",
                 pages=page_refs,
                 subsections=subs or None,
             )

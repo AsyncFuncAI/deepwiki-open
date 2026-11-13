@@ -167,3 +167,32 @@ def test_parse_truncated_without_opening_tag_still_raises():
     # No <wiki_structure> at all -> genuinely unusable -> hard error stands.
     with pytest.raises(ValueError):
         parse_wiki_structure("some prose, no xml here at all", comprehensive=True)
+
+
+def test_parse_truncated_response_decodes_entities():
+    # A bare '&' is escaped to '&amp;' before parsing; when the response is
+    # truncated and the regex fallback runs, the texts must still read '&'.
+    xml = """<wiki_structure>
+  <title>Build & Release Wiki</title>
+  <description>CI &amp; CD for the &lt;core&gt; package</description>
+  <sections>
+    <section id="section-1">
+      <title>Build & Test</title>
+      <pages><page_ref>page-1</page_ref></pages>
+    </section>
+  </sections>
+  <pages>
+    <page id="page-1">
+      <title>Q&A and Troubleshooting</title>
+      <importance>high</importance>
+      <relevant_files><file_path>docs/build&amp;test.md</file_path></relevant_files>
+    </page>
+    <page id="page-2">
+      <title>Cut off"""
+    s = parse_wiki_structure(xml, comprehensive=True)
+
+    assert s.title == "Build & Release Wiki"
+    assert s.description == "CI & CD for the <core> package"
+    assert [p.title for p in s.pages] == ["Q&A and Troubleshooting"]
+    assert s.pages[0].filePaths == ["docs/build&test.md"]
+    assert [sec.title for sec in s.sections] == ["Build & Test"]
