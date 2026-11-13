@@ -53,16 +53,19 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Update certificates if custom ones were provided and copied successfully
-RUN if [ -n "${CUSTOM_CERT_DIR}" ]; then \
-        mkdir -p /usr/local/share/ca-certificates && \
-        if [ -d "${CUSTOM_CERT_DIR}" ]; then \
-            cp -r ${CUSTOM_CERT_DIR}/* /usr/local/share/ca-certificates/ 2>/dev/null || true; \
-            update-ca-certificates; \
-            echo "Custom certificates installed successfully."; \
-        else \
-            echo "Warning: ${CUSTOM_CERT_DIR} not found. Skipping certificate installation."; \
-        fi \
+# Install custom CA certificates (.crt or .pem) from CUSTOM_CERT_DIR in the build context, if present
+ARG CUSTOM_CERT_DIR
+RUN --mount=type=bind,target=/tmp/build-context \
+    CERT_SRC="/tmp/build-context/${CUSTOM_CERT_DIR}"; \
+    if [ -n "${CUSTOM_CERT_DIR}" ] && [ -d "${CERT_SRC}" ]; then \
+        mkdir -p /usr/local/share/ca-certificates/custom && \
+        find "${CERT_SRC}" -type f \( -name '*.crt' -o -name '*.pem' \) | while read -r cert; do \
+            name=$(basename "${cert}"); \
+            cp "${cert}" "/usr/local/share/ca-certificates/custom/${name%.*}.crt"; \
+        done && \
+        update-ca-certificates; \
+    else \
+        echo "No custom certificates found in '${CUSTOM_CERT_DIR}', skipping."; \
     fi
 
 ENV PATH="/opt/venv/bin:$PATH"
