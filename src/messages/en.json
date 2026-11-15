@@ -10,6 +10,12 @@
     "close": "Close",
     "loading": "Loading..."
   },
+  "diagram": {
+    "view": "Diagram view",
+    "renderError": "Diagram rendering error",
+    "syntaxError": "The diagram has a syntax error and cannot be rendered.",
+    "rendering": "Rendering diagram..."
+  },
   "loading": {
     "initializing": "Initializing wiki generation...",
     "fetchingStructure": "Fetching repository structure...",

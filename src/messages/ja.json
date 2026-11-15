@@ -10,6 +10,12 @@
     "close": "閉じる",
     "loading": "読み込み中..."
   },
+  "diagram": {
+    "view": "図表表示",
+    "renderError": "図表レンダリングエラー",
+    "syntaxError": "図表に構文エラーがあり、レンダリングできません。",
+    "rendering": "図表を描画中..."
+  },
   "loading": {
     "initializing": "Wiki生成を初期化中...",
     "fetchingStructure": "リポジトリ構造を取得中...",
