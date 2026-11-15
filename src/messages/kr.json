@@ -45,6 +45,7 @@
       "providerGoogle": "구글",
       "providerOpenAI": "OpenAI",
       "providerOpenRouter": "OpenRouter",
+      "providerRequesty": "Requesty",
       "providerOllama": "Ollama (로컬)",
       "localOllama": "로컬 Ollama 모델",
       "experimental": "실험적",
