@@ -16,7 +16,6 @@ interface CodeViewerProps {
   isOpen: boolean;
   repoUrl: string;
   repoType: string;
-  token?: string;
   // Files available as tabs (the set of files cited by the codemap).
   files: string[];
   // Currently active file + the line range to highlight/scroll to.
@@ -39,7 +38,7 @@ const langOf = (filePath: string): string => {
 };
 
 const CodeViewer: React.FC<CodeViewerProps> = ({
-  isOpen, repoUrl, repoType, token, files, target, onSelectFile,
+  isOpen, repoUrl, repoType, files, target, onSelectFile,
 }) => {
   const [contentByFile, setContentByFile] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -54,12 +53,14 @@ const CodeViewer: React.FC<CodeViewerProps> = ({
     let cancelled = false;
     setLoading(true);
     setError(null);
+    // No access token here: /codemap/file reads the server's already-cloned
+    // local copy and never consumes a token parameter, so forwarding it
+    // would only leak the credential into proxy/access logs for no benefit.
     const params = new URLSearchParams({
       repo_url: repoUrl,
       file_path: activeFile,
       type: repoType || 'github',
     });
-    if (token) params.set('token', token);
     fetch(`${getApiBaseUrl()}/codemap/file?${params.toString()}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(`(${res.status}) ${await res.text()}`);
@@ -71,7 +72,7 @@ const CodeViewer: React.FC<CodeViewerProps> = ({
       .catch((e: Error) => { if (!cancelled) setError(e.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [isOpen, activeFile, repoUrl, repoType, token, contentByFile]);
+  }, [isOpen, activeFile, repoUrl, repoType, contentByFile]);
 
   // Scroll the highlighted range into view once content is available.
   useEffect(() => {
