@@ -13,6 +13,7 @@ from api.services.wiki.tasks import (
     WikiTask,
     registry,
     generate_repo_wiki,
+    TaskQueueFullError,
 )
 
 __all__ = [
@@ -27,4 +28,5 @@ __all__ = [
     "WikiTask",
     "registry",
     "generate_repo_wiki",
+    "TaskQueueFullError",
 ]

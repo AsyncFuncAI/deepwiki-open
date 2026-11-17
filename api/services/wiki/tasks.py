@@ -68,6 +68,19 @@ WIKI_PAGE_CONCURRENCY = _env_int("DEEPWIKI_WIKI_PAGE_CONCURRENCY", 1)
 WIKI_PAGE_RETRIES = _env_int("DEEPWIKI_WIKI_PAGE_RETRIES", 2)
 # How long a terminal (COMPLETED/FAILED) task lingers in the registry.
 WIKI_TASK_TTL_SECONDS = _env_int("DEEPWIKI_WIKI_TASK_TTL_SECONDS", 300)
+# Admission cap: distinct non-terminal tasks allowed in the registry at once.
+# Unlike MAX_CONCURRENT_WIKI_TASKS (the execution semaphore), this bounds how
+# many tasks can be WAITING for that semaphore, since each submitted repo_key
+# is admitted into the registry (and gets its own asyncio.Task) regardless of
+# whether a slot is free. Without this, a caller varying repo_url could queue
+# unlimited pending work.
+WIKI_MAX_PENDING_TASKS = _env_int(
+    "DEEPWIKI_WIKI_MAX_PENDING_TASKS", MAX_CONCURRENT_WIKI_TASKS * 10
+)
+
+
+class TaskQueueFullError(Exception):
+    """Raised when the registry already holds WIKI_MAX_PENDING_TASKS non-terminal tasks."""
 
 
 class WikiTask(BaseModel):
@@ -142,10 +155,15 @@ class TaskRegistry:
     _lock: asyncio.Lock
     _semaphore: asyncio.Semaphore
 
-    def __init__(self, max_concurrent: int = MAX_CONCURRENT_WIKI_TASKS):
+    def __init__(
+        self,
+        max_concurrent: int = MAX_CONCURRENT_WIKI_TASKS,
+        max_pending: int = WIKI_MAX_PENDING_TASKS,
+    ):
         self._tasks = {}
         self._lock = asyncio.Lock()
         self._semaphore = asyncio.Semaphore(max_concurrent)
+        self._max_pending = max_pending
 
     def get(self, id: str) -> WikiTask | None:
         return self._tasks.get(id)
@@ -171,6 +189,11 @@ class TaskRegistry:
                     task_id=key,
                     status=exist_task.status,
                     joined=True,
+                )
+
+            if len(self.active()) >= self._max_pending:
+                raise TaskQueueFullError(
+                    f"{self._max_pending} tasks are already pending; try again later"
                 )
 
             if wiki_cache_exists(
