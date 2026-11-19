@@ -30,6 +30,7 @@ OPENAI_API_KEY=your_openai_api_key        # Required for embeddings and OpenAI m
 
 # Optional API Keys
 OPENROUTER_API_KEY=your_openrouter_api_key  # Required only if using OpenRouter models
+ORCAROUTER_API_KEY=your_orcarouter_api_key  # Required only if using OrcaRouter models
 
 # AWS Bedrock Configuration
 AWS_ACCESS_KEY_ID=your_aws_access_key_id      # Required for AWS Bedrock models
@@ -53,6 +54,7 @@ If you're not using Ollama mode, you need to configure an OpenAI API key for emb
 > - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 > - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
 > - Get an OpenRouter API key from [OpenRouter](https://openrouter.ai/keys)
+> - Get an OrcaRouter API key from [OrcaRouter](https://www.orcarouter.ai)
 > - Get AWS credentials from [AWS IAM Console](https://console.aws.amazon.com/iam/)
 
 #### Advanced Environment Configuration
@@ -63,6 +65,7 @@ DeepWiki supports multiple LLM providers. The environment variables above are re
 - **Google Gemini**: Requires `GOOGLE_API_KEY`
 - **OpenAI**: Requires `OPENAI_API_KEY`
 - **OpenRouter**: Requires `OPENROUTER_API_KEY`
+- **OrcaRouter**: Requires `ORCAROUTER_API_KEY`
 - **AWS Bedrock**: Requires `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
 - **Ollama**: No API key required (runs locally)
 
@@ -83,7 +86,7 @@ DeepWiki now uses JSON configuration files to manage various system components i
 
 1. **`generator.json`**: Configuration for text generation models
    - Located in `api/config/` by default
-   - Defines available model providers (Google, OpenAI, OpenRouter, AWS Bedrock, Ollama)
+   - Defines available model providers (Google, OpenAI, OpenRouter, OrcaRouter, AWS Bedrock, Ollama)
    - Specifies default and available models for each provider
    - Contains model-specific parameters like temperature and top_p
 

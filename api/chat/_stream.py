@@ -11,6 +11,7 @@ from api.config import (
     LITELLM_API_KEY,
     OPENAI_API_KEY,
     OPENROUTER_API_KEY,
+    ORCAROUTER_API_KEY,
 )
 from api.logger import get_logger
 
@@ -226,6 +227,28 @@ class LiteLLMChatStreamer(_OpenAICompatStreamer):
         from api.clients import LiteLLMClient
 
         return LiteLLMClient()
+
+
+class OrcaRouterChatStreamer(_OpenAICompatStreamer):
+    provider = "orcarouter"
+    error_hint = (
+        "Please check that you have set the ORCAROUTER_API_KEY "
+        "environment variable with a valid API key."
+    )
+
+    def __init__(self, *, model: str, model_config: MODEL_CFG):
+        if not ORCAROUTER_API_KEY:
+            logger.warning(
+                "ORCAROUTER_API_KEY not configured, but continuing with request"
+            )
+            # We'll let the OrcaRouterClient handle this and return an error message
+
+        super().__init__(model=model, model_config=model_config)
+
+    def _build_client(self):
+        from api.clients import OrcaRouterClient
+
+        return OrcaRouterClient()
 
 
 class BedrockChatStreamer(ChatStreamer):

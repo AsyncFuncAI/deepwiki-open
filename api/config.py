@@ -15,6 +15,7 @@ from api.clients import (
     OllamaClient,
     OpenAIClient,
     OpenRouterClient,
+    OrcaRouterClient,
 )
 from api.logger import get_logger
 
@@ -30,6 +31,7 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+ORCAROUTER_API_KEY = os.environ.get("ORCAROUTER_API_KEY")
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
 AWS_SESSION_TOKEN = os.environ.get("AWS_SESSION_TOKEN")
@@ -45,6 +47,8 @@ if GOOGLE_API_KEY:
     os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
 if OPENROUTER_API_KEY:
     os.environ["OPENROUTER_API_KEY"] = OPENROUTER_API_KEY
+if ORCAROUTER_API_KEY:
+    os.environ["ORCAROUTER_API_KEY"] = ORCAROUTER_API_KEY
 if AWS_ACCESS_KEY_ID:
     os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY_ID
 if AWS_SECRET_ACCESS_KEY:
@@ -74,6 +78,7 @@ CLIENT_CLASSES = {
     OpenAIClient.__name__: OpenAIClient,
     LiteLLMClient.__name__: LiteLLMClient,
     OpenRouterClient.__name__: OpenRouterClient,
+    OrcaRouterClient.__name__: OrcaRouterClient,
     OllamaClient.__name__: OllamaClient,
     BedrockClient.__name__: BedrockClient,
     AzureAIClient.__name__: AzureAIClient,
@@ -87,6 +92,7 @@ _DEFAULT_PROVIDER_MAP = {
     "openai": OpenAIClient,
     "litellm": LiteLLMClient,
     "openrouter": OpenRouterClient,
+    "orcarouter": OrcaRouterClient,
     "ollama": OllamaClient,
     "bedrock": BedrockClient,
     "azure": AzureAIClient,
