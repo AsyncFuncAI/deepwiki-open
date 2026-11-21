@@ -8,7 +8,7 @@ import ThemeToggle from '@/components/theme-toggle';
 import Mermaid from '../components/Mermaid';
 import ConfigurationModal from '@/components/ConfigurationModal';
 import ProcessedProjects from '@/components/ProcessedProjects';
-import { extractUrlPath, extractUrlDomain } from '@/utils/urlDecoder';
+import { parseRepositoryInput } from '@/utils/parseRepositoryInput';
 import { useProcessedProjects } from '@/hooks/useProcessedProjects';
 
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -173,78 +173,6 @@ export default function Home() {
     fetchAuthStatus();
   }, []);
 
-  // Parse repository URL/input and extract owner and repo
-  const parseRepositoryInput = (input: string): {
-    owner: string,
-    repo: string,
-    type: string,
-    fullPath?: string,
-    localPath?: string
-  } | null => {
-    input = input.trim();
-
-    let owner = '', repo = '', type = 'github', fullPath;
-    let localPath: string | undefined;
-
-    // Handle Windows absolute paths (e.g., C:\path\to\folder)
-    const windowsPathRegex = /^[a-zA-Z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]*$/;
-    const customGitRegex = /^(?:https?:\/\/)?([^\/]+)\/(.+?)\/([^\/]+)(?:\.git)?\/?$/;
-
-    if (windowsPathRegex.test(input)) {
-      type = 'local';
-      localPath = input;
-      repo = input.split('\\').pop() || 'local-repo';
-      owner = 'local';
-    }
-    // Handle Unix/Linux absolute paths (e.g., /path/to/folder)
-    else if (input.startsWith('/')) {
-      type = 'local';
-      localPath = input;
-      repo = input.split('/').filter(Boolean).pop() || 'local-repo';
-      owner = 'local';
-    }
-    else if (customGitRegex.test(input)) {
-      // Detect repository type based on domain
-      const domain = extractUrlDomain(input);
-      if (domain?.includes('github.com')) {
-        type = 'github';
-      } else if (domain?.includes('gitlab.com') || domain?.includes('gitlab.')) {
-        type = 'gitlab';
-      } else if (domain?.includes('bitbucket.org') || domain?.includes('bitbucket.')) {
-        type = 'bitbucket';
-      } else {
-        type = 'web'; // fallback for other git hosting services
-      }
-
-      fullPath = extractUrlPath(input)?.replace(/\.git$/, '');
-      const parts = fullPath?.split('/') ?? [];
-      if (parts.length >= 2) {
-        repo = parts[parts.length - 1] || '';
-        owner = parts[parts.length - 2] || '';
-      }
-    }
-    // Unsupported URL formats
-    else {
-      console.error('Unsupported URL format:', input);
-      return null;
-    }
-
-    if (!owner || !repo) {
-      return null;
-    }
-
-    // Clean values
-    owner = owner.trim();
-    repo = repo.trim();
-
-    // Remove .git suffix if present
-    if (repo.endsWith('.git')) {
-      repo = repo.slice(0, -4);
-    }
-
-    return { owner, repo, type, fullPath, localPath };
-  };
-
   // State for configuration modal
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
@@ -341,7 +269,7 @@ export default function Home() {
       return;
     }
 
-    const { owner, repo, type, localPath } = parsedRepo;
+    const { owner, repo, type, localPath, repoUrl } = parsedRepo;
 
     // Store tokens in query params if they exist
     const params = new URLSearchParams();
@@ -354,7 +282,7 @@ export default function Home() {
     if (localPath) {
       params.append('local_path', encodeURIComponent(localPath));
     } else {
-      params.append('repo_url', encodeURIComponent(repositoryInput));
+      params.append('repo_url', encodeURIComponent(repoUrl || repositoryInput.trim()));
     }
     // Add model parameters
     params.append('provider', provider);
