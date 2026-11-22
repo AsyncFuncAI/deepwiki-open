@@ -77,7 +77,9 @@ async def get_model_config():
                     id="google",
                     name="Google",
                     supportsCustomModel=True,
-                    models=[Model(id="gemini-2.5-flash", name="Gemini 2.5 Flash")],
+                    models=[
+                        Model(id="gemini-3.5-flash-lite", name="Gemini 3.5 Flash-Lite")
+                    ],
                 )
             ],
             defaultProvider="google",
