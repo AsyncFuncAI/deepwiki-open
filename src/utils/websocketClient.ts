@@ -49,6 +49,8 @@ export interface ChatCompletionRequest {
   model?: string;
   language?: string;
   research_iteration?: number;
+  search_provider?: 'parallel' | 'disabled';
+  search_session_id?: string;
   excluded_dirs?: string;
   excluded_files?: string;
 }
