@@ -149,6 +149,17 @@ def _format_context(documents: list) -> str:
     return "\n\n" + ("-" * 10) + "\n\n".join(context_parts)
 
 
+def _read_source(path: str) -> str:
+    # Same fallback the indexer uses (api/rag/pipeline.py), so GBK files read here
+    # match the text the model was shown.
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except UnicodeDecodeError:
+        with open(path, "r", encoding="gbk", errors="replace") as f:
+            return f.read()
+
+
 def read_repo_file(repo_url: str, repo_type: str | None, file_path: str) -> str:
     """Read a file from the cloned/local repository, guarding against traversal."""
     repo_dir = os.path.realpath(Repo(repo_url=repo_url, repo_type=repo_type).save_path)
@@ -157,8 +168,7 @@ def read_repo_file(repo_url: str, repo_type: str | None, file_path: str) -> str:
         raise ValueError("Resolved path escapes the repository directory")
     if not os.path.isfile(target):
         raise FileNotFoundError(file_path)
-    with open(target, "r", encoding="utf-8", errors="replace") as f:
-        return f.read()
+    return _read_source(target)
 
 
 def _locate_snippet(text: str, snippet: str) -> tuple[int, int] | None:
@@ -196,9 +206,8 @@ def _ground_citations(codemap: CodeMap, repo_dir: str) -> None:
             if cit.file_path not in file_cache:
                 path = os.path.join(repo_dir, cit.file_path)
                 try:
-                    with open(path, "r", encoding="utf-8") as f:
-                        file_cache[cit.file_path] = f.read()
-                except (OSError, UnicodeDecodeError):
+                    file_cache[cit.file_path] = _read_source(path)
+                except OSError:
                     file_cache[cit.file_path] = None
             text = file_cache[cit.file_path]
             if not text:
