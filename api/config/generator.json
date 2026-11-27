@@ -114,6 +114,25 @@
         }
       }
     },
+    "llmtr": {
+      "client_class": "LLMTRClient",
+      "default_model": "qwen/qwen3.8-27b-free",
+      "supportsCustomModel": true,
+      "models": {
+        "qwen/qwen3.8-27b-free": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "minimax/minimax-m3.1-flash": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "lgai/k-exaone-2.5": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        }
+      }
+    },
     "ollama": {
       "default_model": "qwen3:1.7b",
       "supportsCustomModel": true,
@@ -197,4 +216,3 @@
     }
   }
 }
-
