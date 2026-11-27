@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Union
 
@@ -453,7 +454,11 @@ def _should_process_file(
                     break
         if not is_included and included_files:
             for included_file in included_files:
-                if file_name == included_file or file_name.endswith(included_file):
+                if (
+                    file_name == included_file
+                    or file_name.endswith(included_file)
+                    or fnmatchcase(file_name, included_file)
+                ):
                     is_included = True
                     break
         if not included_dirs and not included_files:
@@ -469,7 +474,8 @@ def _should_process_file(
                 break
     if not is_excluded and excluded_files:
         for excluded_file in excluded_files:
-            if file_name == excluded_file:
+            # Patterns such as "*.min.js" in repo.json are wildcards.
+            if file_name == excluded_file or fnmatchcase(file_name, excluded_file):
                 is_excluded = True
                 break
     return not is_excluded

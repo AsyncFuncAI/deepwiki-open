@@ -49,6 +49,33 @@ def test_iterate_files_included_files(exclude_test_config, tmp_path):
     assert files == {"README.md"}
 
 
+def make_assets(root):
+    static = root / "static"
+    static.mkdir()
+    for name in ("jquery.min.js", "app.bundle.js", "site.min.css", "site.css"):
+        (static / name).write_text("")
+
+
+def test_iterate_files_default_excluded_files_are_wildcards(exclude_test_config, tmp_path):
+    make_repo(tmp_path)
+    make_assets(tmp_path)
+    files = set(iterate_files(root_dir=str(tmp_path)))
+    assert files == {"README.md", "CHANGELOG.md", "folder/code.py", "static/site.css"}
+
+
+def test_iterate_files_excluded_files_wildcard(exclude_test_config, tmp_path):
+    make_repo(tmp_path)
+    files = set(iterate_files(root_dir=str(tmp_path), excluded_files=["*.md"]))
+    assert files == {"folder/code.py"}
+
+
+def test_iterate_files_included_files_wildcard(exclude_test_config, tmp_path):
+    make_repo(tmp_path)
+    make_assets(tmp_path)
+    files = set(iterate_files(root_dir=str(tmp_path), included_files=["*.css"]))
+    assert files == {"static/site.min.css", "static/site.css"}
+
+
 @pytest.mark.parametrize(
     "excluded_dirs",
     [
