@@ -8,6 +8,7 @@ from api.chat._stream import (
     DashScopeChatStreamer,
     GoogleGenerativeChatStreamer,
     LiteLLMChatStreamer,
+    LLMTRChatStreamer,
     OllamaChatStreamer,
     OpenAIChatStreamer,
     OpenRouterChatStreamer,
@@ -25,6 +26,7 @@ from api.chat._stream import (
         ("dashscope", DashScopeChatStreamer),
         ("google", GoogleGenerativeChatStreamer),
         ("litellm", LiteLLMChatStreamer),
+        ("llmtr", LLMTRChatStreamer),
         ("anthropic", AnthropicChatStreamer),
     ],
 )
@@ -43,6 +45,7 @@ def test_every_provider_is_registered(provider, expected):
         ("dashscope", DashScopeChatStreamer),
         ("google", GoogleGenerativeChatStreamer),
         ("litellm", LiteLLMChatStreamer),
+        ("llmtr", LLMTRChatStreamer),
         ("anthropic", AnthropicChatStreamer),
     ],
 )
