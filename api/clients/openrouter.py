@@ -120,12 +120,9 @@ class OpenRouterClient(ModelClient):
             error_msg = "OPENROUTER_API_KEY not configured. Please set this environment variable to use OpenRouter."
             log.error(error_msg)
 
-            # Instead of raising an exception, return a generator that yields the error message
-            # This allows the error to be displayed to the user in the streaming response
-            async def error_generator():
-                yield error_msg
-
-            return error_generator()
+            # Raise so callers that store the answer (wiki generation) do not
+            # save the message as content; research_chat shows it in the chat.
+            raise ValueError(error_msg)
 
         api_kwargs = api_kwargs or {}
 
@@ -161,12 +158,9 @@ class OpenRouterClient(ModelClient):
                                 log.error(
                                     f"OpenRouter API error ({response.status}): {error_text}"
                                 )
-
-                                # Return a generator that yields the error message
-                                async def error_response_generator():
-                                    yield f"OpenRouter API error ({response.status}): {error_text}"
-
-                                return error_response_generator()
+                                raise RuntimeError(
+                                    f"OpenRouter API error ({response.status}): {error_text}"
+                                )
 
                             # Get the full response
                             data = await response.json()
@@ -426,10 +420,14 @@ class OpenRouterClient(ModelClient):
                                             yield content
                                     else:
                                         log.error(f"Unexpected response format: {data}")
-                                        yield "Error: Unexpected response format from OpenRouter API"
+                                        raise ValueError(
+                                            "Unexpected response format from OpenRouter API"
+                                        )
                                 else:
                                     log.error(f"No choices in response: {data}")
-                                    yield "Error: No response content from OpenRouter API"
+                                    raise ValueError(
+                                        "No response content from OpenRouter API"
+                                    )
 
                             return content_generator()
                     except aiohttp.ClientError as e:
@@ -437,44 +435,28 @@ class OpenRouterClient(ModelClient):
                         log.error(
                             f"Connection error with OpenRouter API: {str(e_client)}"
                         )
-
-                        # Return a generator that yields the error message
-                        async def connection_error_generator():
-                            yield f"Connection error with OpenRouter API: {str(e_client)}. Please check your internet connection and that the OpenRouter API is accessible."
-
-                        return connection_error_generator()
+                        raise ConnectionError(
+                            f"Connection error with OpenRouter API: {str(e_client)}. Please check your internet connection and that the OpenRouter API is accessible."
+                        ) from e_client
 
             except RequestException as e:
                 e_req = e
                 log.error(f"Error calling OpenRouter API asynchronously: {str(e_req)}")
-
-                # Return a generator that yields the error message
-                async def request_error_generator():
-                    yield f"Error calling OpenRouter API: {str(e_req)}"
-
-                return request_error_generator()
+                raise RuntimeError(
+                    f"Error calling OpenRouter API: {str(e_req)}"
+                ) from e_req
 
             except Exception as e:
                 e_unexp = e
                 log.error(
                     f"Unexpected error calling OpenRouter API asynchronously: {str(e_unexp)}"
                 )
-
-                # Return a generator that yields the error message
-                async def unexpected_error_generator():
-                    yield f"Unexpected error calling OpenRouter API: {str(e_unexp)}"
-
-                return unexpected_error_generator()
+                raise
 
         else:
             error_msg = f"Unsupported model type: {model_type}"
             log.error(error_msg)
-
-            # Return a generator that yields the error message
-            async def model_type_error_generator():
-                yield error_msg
-
-            return model_type_error_generator()
+            raise ValueError(error_msg)
 
     def _process_completion_response(self, data: Dict) -> GeneratorOutput:
         """Process a non-streaming completion response from OpenRouter."""

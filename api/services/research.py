@@ -81,7 +81,16 @@ async def prepare_repo_index(
 
 async def research_chat(
     request: ChatCompletionRequest,
+    *,
+    raise_errors: bool = False,
 ) -> AsyncIterator[str]:
+    """Stream the answer to the last user message.
+
+    By default a provider error is streamed as text, which is what the chat UI
+    shows. Callers that store the answer (wiki generation) pass
+    ``raise_errors=True`` so an error is raised instead of being saved as if it
+    were the answer.
+    """
     input_too_large = False
     if request.messages and len(request.messages) > 0:
         last_message = request.messages[-1]
@@ -275,6 +284,8 @@ async def research_chat(
                         yield chunk
                 except Exception as e2:
                     logger.error("Error in fallback streaming response: %s", str(e2))
+                    if raise_errors:
+                        raise
                     yield (
                         "\nI apologize, but your request is too large for me to process. "
                         "Please try a shorter query or break it into smaller parts."
@@ -282,6 +293,8 @@ async def research_chat(
             else:
                 error_str = f"Error with {streamer.provider} API: {e}"
                 logger.error(error_str, exc_info=True)
+                if raise_errors:
+                    raise
                 if streamer.error_hint:
                     error_str += f"\n\n{streamer.error_hint}"
                 yield "\n" + error_str
