@@ -229,6 +229,11 @@ async def generate_repo_wiki(task: WikiTask) -> None:
 
         task.status = TaskStatus.GENERATING
         pages = await _generate_pages(task, structure)
+        if pages and all(
+            p.content.startswith(PAGE_ERROR_PREFIX) for p in pages.values()
+        ):
+            # Every page failed (bad key, provider down): do not cache that as a wiki.
+            raise RuntimeError(next(iter(pages.values())).content)
 
         await _save(task, pages)
         task.status = TaskStatus.COMPLETED
@@ -265,6 +270,9 @@ async def _save(
     )
 
 
+PAGE_ERROR_PREFIX = "Error generating content: "
+
+
 async def _generate_page_with_retry(task: WikiTask, page: WikiPage) -> WikiPage:
     last_error: Exception | None = None
     for attempt in range(WIKI_PAGE_RETRIES + 1):
@@ -280,9 +288,7 @@ async def _generate_page_with_retry(task: WikiTask, page: WikiPage) -> WikiPage:
                 e,
             )
     # Give up: return an error-placeholder page so the wiki still completes.
-    return page.model_copy(
-        update={"content": f"Error generating content: {last_error}"}
-    )
+    return page.model_copy(update={"content": f"{PAGE_ERROR_PREFIX}{last_error}"})
 
 
 async def _generate_pages(
@@ -352,7 +358,7 @@ async def _determine_structure(task: WikiTask) -> WikiStructureModel:
     )
 
     text = ""
-    async for chunk in await research_chat(chat_request):
+    async for chunk in await research_chat(chat_request, raise_errors=True):
         text += chunk
 
     return parse_wiki_structure(text, comprehensive=r.comprehensive)
@@ -396,7 +402,7 @@ async def _generate_page(task: WikiTask, page: WikiPage) -> WikiPage:
     )
 
     content = ""
-    async for chunk in await research_chat(chat_request):
+    async for chunk in await research_chat(chat_request, raise_errors=True):
         content += chunk
 
     content = _strip_markdown_fences(content)

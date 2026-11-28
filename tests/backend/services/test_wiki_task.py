@@ -129,9 +129,11 @@ async def test_page_failure_yields_placeholder_but_completes(monkeypatch):
     saved: dict = {}
 
     async def fake_determine(task):
-        return _structure(1)
+        return _structure(2)
 
     async def failing_generate(task, page):
+        if page.id == "page-2":
+            return page.model_copy(update={"content": "fine"})
         raise RuntimeError("boom")
 
     async def fake_save(task, pages):
@@ -167,7 +169,7 @@ async def test_determine_structure_failure_fails_task(monkeypatch):
 # generate_page (real implementation)
 # --------------------------------------------------------------------------- #
 async def test_generate_page_strips_fences_and_resolves_citations(monkeypatch):
-    async def fake_research_chat(request):
+    async def fake_research_chat(request, **kwargs):
         async def gen():
             yield "```markdown\n"
             yield "# P1\n\nExplained here [README.md:1-2]().\n"
@@ -225,7 +227,7 @@ async def test_run_task_end_to_end(monkeypatch):
         wt, "read_repo_file_tree", lambda p, *a, **k: ("README.md\nsrc/a.py", "readme")
     )
 
-    async def fake_research(request):
+    async def fake_research(request, **kwargs):
         # structure prompt contains "<file_tree>"; page prompt does not.
         is_structure = "<file_tree>" in request.messages[-1].content
         body = _STRUCT_XML if is_structure else "# P1\n\nExplained [README.md:1]()."
@@ -267,7 +269,7 @@ async def test_determine_structure_passes_file_filters(monkeypatch):
 
     monkeypatch.setattr(wt, "read_repo_file_tree", fake_tree)
 
-    async def fake_research(request):
+    async def fake_research(request, **kwargs):
         async def gen():
             yield _STRUCT_XML
 
@@ -300,3 +302,95 @@ async def test_public_dict_hides_token():
     assert "token" not in d
     assert "SECRET" not in str(d)
     assert d["name"] == "o/r" and d["status"] == "pending"
+
+
+# --------------------------------------------------------------------------- #
+# provider errors must reach the task, not become wiki text
+# --------------------------------------------------------------------------- #
+async def test_generate_page_asks_research_chat_to_raise(monkeypatch):
+    seen: dict = {}
+
+    async def fake_research_chat(request, **kwargs):
+        seen.update(kwargs)
+
+        async def gen():
+            yield "# ok"
+
+        return gen()
+
+    monkeypatch.setattr(wt, "research_chat", fake_research_chat)
+    page = WikiPage(
+        id="page-1",
+        title="P1",
+        content="",
+        filePaths=[],
+        importance="high",
+        relatedPages=[],
+    )
+
+    await wt._generate_page(_req(), page)
+
+    assert seen == {"raise_errors": True}
+
+
+async def test_page_is_retried_when_the_provider_errors_once(monkeypatch):
+    monkeypatch.setattr(wt, "WIKI_PAGE_RETRIES", 1)
+    calls = 0
+
+    async def flaky_research_chat(request, raise_errors=False):
+        nonlocal calls
+        calls += 1
+        first = calls == 1
+
+        async def gen():
+            if first:
+                if raise_errors:
+                    raise RuntimeError("429 rate limit")
+                yield "\nError with openai API: 429 rate limit"  # old behaviour
+                return
+            yield "# real page"
+
+        return gen()
+
+    monkeypatch.setattr(wt, "research_chat", flaky_research_chat)
+    page = WikiPage(
+        id="page-1",
+        title="P1",
+        content="",
+        filePaths=[],
+        importance="high",
+        relatedPages=[],
+    )
+
+    out = await wt._generate_page_with_retry(_req(), page)
+
+    assert calls == 2
+    assert "real page" in out.content
+    assert "429" not in out.content
+
+
+async def test_task_fails_and_nothing_is_cached_when_every_page_errors(monkeypatch):
+    monkeypatch.setattr(wt, "repo_index_exist", lambda repo: True)
+    monkeypatch.setattr(wt, "WIKI_PAGE_RETRIES", 1)
+    saved: list = []
+
+    async def fake_determine(task):
+        return _structure(2)
+
+    async def failing_generate(task, page):
+        raise RuntimeError("401 bad key")
+
+    async def fake_save(task, pages):
+        saved.append(pages)
+
+    monkeypatch.setattr(wt, "_determine_structure", fake_determine)
+    monkeypatch.setattr(wt, "_generate_page", failing_generate)
+    monkeypatch.setattr(wt, "_save", fake_save)
+
+    task = _req()
+    await generate_repo_wiki(task)
+
+    assert task.status == TaskStatus.FAILED
+    assert "401 bad key" in task.error
+    assert saved == []
+
